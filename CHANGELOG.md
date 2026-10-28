@@ -6,6 +6,43 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A refusal carries the names it quotes as names, not only as text** (ADR
+  0054 §8). `Quoted`, the sentence a refusal is built from, can now hold
+  `NameRef`s, a name and the kind a projection mints it under, among its
+  words, and needs no exception to quote: `Quoted.said(...)` is a sentence of
+  digline's alone. `str()` of a refusal reads as it did. A front end that
+  projects hands `refusal_text` a `mint=` and gets each name as its token.
+  The validations of a stored run that quote a case, a check, a group, an
+  artifact path or a foreign verdict's metadata key now raise this way, and so
+  do the refusals of loading a suite that quote a case, a check, a group, a
+  calibration's check or an aggregate (`run/suite.py`), and the declarative
+  loader's that quote the provider or the judge a suite names. A suite's own
+  name stays in clear. `split_coordinate` takes an optional `kind=`. New
+  in `digline.core`: `NameRef` and `Said`. **The next version is a minor**:
+  public names are added and `Quoted`'s fields widen.
+- **A band or a verdict refused in a stored run now names the file** (ADR 0054
+  §8). `CalibrationBand`'s refusal of its band and `UnidentifiedVerdictError`
+  passed through the reader unchanged, so the command line said what was wrong
+  without the path of the run or the baseline, and an agent got no `role`.
+  Both are now refused as the document's, `DocumentRefusedError`, with
+  "the run at … could not be read" before them, as every other fault of a
+  stored document is. A caller that caught `UnidentifiedVerdictError` from a
+  read finds it as the `__cause__`.
+- **A refusal keeps back what a projected document keeps back, and says what
+  it kept** (ADR 0054 §8). A value the projection lets through neither as a
+  token nor in clear is quoted in a `Quoted` as a `Withheld` of its kind: in
+  clear it reads as it did, and a front end that projects reads the word
+  `WITHHELD_WORDS` gives that kind instead, never the value. Two kinds: a
+  run's own metadata, which a projection drops as payload, and an identity
+  that is not a digest, which makes the projection refuse the document. That
+  refusal now names the check, as a token once projected, and keeps the
+  identity back: "the verdict 'levenshtein' … has the identity 'x', which is
+  not a digest", where it said "the verdict 'x' … has an identity that is not
+  a digest". New in `digline.core`: `Withheld`, `WithheldKind` and
+  `WITHHELD_WORDS`.
+
 ## 0.35.0 — 2026-10-27
 
 digline **0.35.0**.
@@ -851,6 +888,15 @@ digline **0.34.0**.
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
 
+## digline-mcp — unreleased
+
+- **Under `--names project` a refusal names its tokens, not its names** (ADR
+  0054 §8). A refusal digline composes from the names it quotes reaches the
+  agent with each one minted by the name table, as an answer names it. Where
+  the table answers a name wrongly while a refusal is rendered, the agent gets
+  the projection's own refusal, which names nothing. **Owed at the cut**: the
+  floor on digline rises to the core release that carries it.
+
 ## digline-mcp 0.7.0 — 2026-10-27
 
 Published by its own tag, `digline-mcp-v0.7.0`, after digline 0.35.0 was on
@@ -879,6 +925,23 @@ command-line option changed in meaning, as `--root` becoming required was in
   in a store is written nowhere in it. The Claude Code plugin's launcher
   passes `--names clear` to a server that takes it, and says in the script
   when that is wrong.
+- **`build_server` takes `names` and `table`, and a call with three arguments
+  breaks.** It was `build_server(root, tenant, environment)`, and it is now
+  `build_server(root, tenant, environment, *, names, table)`: two keyword
+  arguments, both required, `table` being `None` under `clear`. A caller that
+  builds the server itself has to be updated: with three arguments it raises
+  `TypeError`. Neither has a default for the reason `--names` has none (ADR
+  0054 §1): a default here would let a server built in code start with a
+  declaration nobody made, which is the gap the required option closes on the
+  command line. The function is in `digline_mcp.server.__all__` and no page
+  documents it, so under *Choosing the version* in `RELEASING.md` it is the
+  third level, internal, and the minor does not rest on it.
+
+  *Added 2026-10-28, by the delta-pass over digline-mcp 0.7.0.* This entry, as
+  published with the tag `digline-mcp-v0.7.0` (`CHANGELOG.md` at `9b3cde9d`),
+  did not name this change. The record is corrected here, in place; the tag's
+  text is not rewritten, and the package on PyPI carries no changelog of its
+  own, only a link to this one.
 - **`--names project` projects every answer** (#548, ADR 0054 §3, §7). Case
   ids, check names, group labels, calibration checks, configuration keys and
   values and artifact paths leave as tokens from the name table, named at
@@ -958,8 +1021,19 @@ in, which is a correction of a sentence and not a change to a tool.
   and it is in `AGENTS.md` rule 6 and in both copies of the skill, word for
   word.
 
-## pytest-digline — unreleased
+## pytest-digline 0.5.0 — 2026-10-28
 
+Published by its own tag, `pytest-digline-v0.5.0`, after digline 0.35.0 was on
+PyPI. **A minor, because the exit status a session ends with changed** (#642):
+*Choosing the version* names it among what this package's users rely on,
+whatever changed it.
+
+- **The dependency is `digline>=0.34.0,<0.36`.** The cap was raised to `<0.36`
+  with the core's 0.35.0, and this is the release that carries it to a user:
+  0.4.0 caps the core at `<0.35`, so a project that holds it stays on digline
+  0.34. The floor does not move: nothing the plugin calls or imports is new in
+  0.35.0. `Loaded`, which #702 annotates with, is imported only for the type
+  checker and is in `digline.host` at 0.34.0.
 - **A session ends `1` where a check could not be paired with its reference**
   (#642). With the core release that carries the cause `unpaired`, a
   comparison holding a `missing` and a `new` on the same case under the same
@@ -976,7 +1050,6 @@ in, which is a correction of a sentence and not a change to a tool.
   read `Any`** (#702). Only the annotation moves, and it is a string at
   runtime, so nothing the plugin does changes. A type checker now sees that it
   reads `Loaded.modules_unchecked`.
-
 - **The test module that drove a run is not counted in `modules_unchecked`**
   (#623; ADR 0052, amended). Under `--digline-run`, a test module beside the
   suite that imports the application was recorded as unchecked:
@@ -1023,7 +1096,13 @@ each package.
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
 
-## digline-anthropic — unreleased
+## digline-anthropic 0.7.0 — 2026-10-28
+
+Published by its own tag, `digline-anthropic-v0.7.0`, after digline 0.35.0 was
+on PyPI. **A minor, because an exit code changed**: a reply this plugin cannot
+price (#569) and a reply with no `usage` (#629) used to error their case, and
+are now judged. `temperature`, which an SDK older than 1.0.0 sent, is now
+refused.
 
 - **A reply this plugin cannot price is counted, not refused** (#569, ADR 0004
   §8). Two were refused, and their case or their judged check errored over a
@@ -1036,9 +1115,21 @@ each package.
   next reading of the price list, which `_WhereServed.why_unpriced` takes
   where the list itself cannot price the reply. **The next version is a
   minor**: an exit code changed. **It needs the core release that carries
-  `Completion.unpriced`**, and its floor rises to it (RELEASING.md, *Owed at
-  the cut*).
-
+  `Completion.unpriced`**, 0.35.0, which is its floor.
+- **A count the reply does not carry is *not recorded*, never `0`** (#629,
+  ADR 0004 §8.9). `input_tokens` and `output_tokens` are required in the SDK's
+  `Usage`, and one missing was read as `0`, which priced the call at nothing.
+  The call now hands over `Completion(usage=None)`: it is on the bill line,
+  its tokens and its cost are not, and `every_cost_known` reads `false`. The
+  counts that were read go with it, because the core cannot hold one count
+  apart. A reply with no `usage` at all raised `AttributeError`, and its case
+  errored over a call that answered; it is now judged the same way. The cache
+  counts, optional in the SDK, stay `0` where a reply omits them, and
+  `thinking_tokens` stays `None` for *not reported*. `usage_of` answers
+  `Usage | None`. An exit code changed, which the minor above already is.
+- **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)`, the
+  override of `Pricing.why_unpriced` and `Completion(usage=None)` are all new
+  in 0.35.0. It was `>=0.17.0`.
 - **`temperature` is refused, by name and with the reason.** `AnthropicTarget`,
   `AnthropicJudge` and `AnthropicClaimJudge` took it and sent it. The
   `anthropic` SDK has had no such argument since 1.0.0 (0.125.0 is the last
@@ -1062,7 +1153,12 @@ each package.
   `AnthropicJudge` and `AnthropicClaimJudge`, and that a TOML suite's judge by
   coordinates cannot be given another value, so it moves into a `suite.py`.
 
-## digline-bedrock — unreleased
+## digline-bedrock 0.7.0 — 2026-10-28
+
+Published by its own tag, `digline-bedrock-v0.7.0`, after digline 0.35.0 was
+on PyPI. **A minor, because an exit code changed**: a cache write at a TTL
+this plugin cannot price (#569) and a reply with no usage block (#629) used
+to error their case, and are now judged.
 
 - **A cache write at a TTL this list cannot price is counted, not refused**
   (#569, ADR 0004 §8). A reply whose `cacheDetails` reports a 1-hour write, or
@@ -1072,9 +1168,23 @@ each package.
   sentence quotes the model and is scrubbed like the refusal was: an
   application inference profile is an ARN carrying the account. `unpriced_of`
   is new. **The next version is a minor**: an exit code changed. **It needs
-  the core release that carries `Completion.unpriced`**, and its floor rises
-  to it (RELEASING.md, *Owed at the cut*).
-
+  the core release that carries `Completion.unpriced`**, 0.35.0, which is its
+  floor.
+- **A reply with no usage block is judged, and a count it does not carry is
+  *not recorded*, never `0`** (#629, ADR 0004 §8.9). The reply was refused
+  unless the model was declared `free()`, and its case errored over a call
+  that answered. It now hands over `Completion(usage=None)`: the call is on
+  the bill line, its tokens and its cost are not, and `every_cost_known` reads
+  `false`. `inputTokens` and `outputTokens` are required in `TokenUsage`, and
+  one missing was read as `0`; it is now the same *not recorded*, and the
+  counts that were read go with it. The optional cache members stay `0` where
+  the reply omits them. A model declared `free()` reads a missing usage block
+  as zero: `free()` is your declaration that there is nothing to count.
+  `usage_of` answers `Usage | None`. An exit code changed, which the minor
+  above already is. The refusals of a reply are still scrubbed, though none
+  quotes the model any more.
+- **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)` and
+  `Completion(usage=None)` are both new in 0.35.0. It was `>=0.15.0`.
 - **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It
   told a user to set `AWS_REGION`, which botocore does not read for the region:
   set on its own it gives none, and the same sentence came back. With no
@@ -1083,6 +1193,29 @@ each package.
   this plugin admits, and at 1.43.114. The sentence is still a `ValueError`
   raised when the target or the judge is built, and still names `region=` and
   `client=`; only the variable changed. Needs no core release.
+
+## digline-openai 0.6.0 — 2026-10-28
+
+Published by its own tag, `digline-openai-v0.6.0`, after digline 0.35.0 was on
+PyPI. **A minor, because an exit code changed**: a reply with no `usage`
+(#629), unless the model is declared `free()`, used to error its case, and is
+now judged.
+
+- **A reply with no `usage` is judged, and a count it does not carry is *not
+  recorded*, never `0`** (#629, ADR 0004 §8.9). The reply was refused unless
+  the model was declared `free()`, and its case errored over a call that
+  answered. It now hands over `Completion(usage=None)`: the call is on the
+  bill line, its tokens and its cost are not, and `every_cost_known` reads
+  `false`. `prompt_tokens` and `completion_tokens` are required in the SDK's
+  `CompletionUsage`, and one missing was read as `0`; it is now the same *not
+  recorded*, and the counts that were read go with it. `prompt_tokens_details`
+  is optional, and its counts stay `0` where a reply omits it. A model declared
+  `free()` reads a missing `usage` as zero: `free()` is your declaration that
+  there is nothing to count.
+  `usage_of` answers `Usage | None`. **The next version is a minor**: an exit
+  code changed.
+- **The dependency is `digline>=0.35.0`**, where `Completion(usage=None)` is
+  new. It was `>=0.17.0`.
 
 ## 0.33.0 — 2026-10-21
 

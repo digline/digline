@@ -17,6 +17,7 @@ these are the evidence, taken two ways:
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -195,8 +196,26 @@ print(json.dumps({
 """
 
 
+#: The examples whose committed baseline is a live run, so their suite is read
+#: the way that run read it, with `DIGLINE_LIVE=1`. Reading it keyless gives
+#: another `config_hash`, because the live path's judge is another instrument
+#: than the stand-in's, and the baseline would read as needing promotion when
+#: it does not. Loading the live path needs no key and makes no call: the
+#: clients are built at the first request. Declared, not guessed, as the
+#: example reports are (RELEASING.md, *After the tag*, step 5).
+LIVE_BASELINES: dict[str, str] = {
+    "prompt-first": "its baseline is a live run graded by AnthropicJudge (#651); "
+    "the keyless stand-in judge is a function, a different identity",
+}
+
+
 def test_every_example_ships_a_baseline() -> None:
     assert len(BASELINES) >= 10, BASELINES
+
+
+def test_every_live_baseline_is_an_example_with_a_baseline() -> None:
+    examples = {path.relative_to(ROOT).parts[1] for path in BASELINES}
+    assert set(LIVE_BASELINES) <= examples, set(LIVE_BASELINES) - examples
 
 
 @pytest.mark.parametrize(
@@ -205,9 +224,13 @@ def test_every_example_ships_a_baseline() -> None:
 def test_no_committed_baseline_needs_promoting_again(baseline: Path) -> None:
     example = baseline.parents[3]
     spec = "suite.toml" if (example / "suite.toml").is_file() else "suite.py"
+    env = {k: v for k, v in os.environ.items() if k != "DIGLINE_LIVE"}
+    if example.name in LIVE_BASELINES:
+        env["DIGLINE_LIVE"] = "1"
     read = subprocess.run(
         [sys.executable, "-c", _READ_SUITE, spec],
         cwd=example,
+        env=env,
         capture_output=True,
         text=True,
         check=False,

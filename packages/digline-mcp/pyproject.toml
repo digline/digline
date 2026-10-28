@@ -150,6 +150,12 @@ dependencies = [
     # renamed (#678), which 0.35.0 writes. Against 0.34.0 the imports raise
     # `ImportError`. It was owed at the cut and raised in this package's own
     # release, after the core was on PyPI. The cap stays `<0.36`. (ADR 0054)
+    #
+    # Owed at the cut: `errors.translated` passes `mint=` to `refusal_text`,
+    # which first takes it in the core release that carries the names a refusal
+    # quotes, so a refusal under `--names project` names its tokens. Against
+    # 0.35.0 the call raises `TypeError`. RELEASING.md's table names the floor
+    # and the cap. (ADR 0054 §8)
     "digline>=0.35.0,<0.36",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

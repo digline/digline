@@ -1,6 +1,6 @@
 [project]
 name = "digline-openai"
-version = "0.5.2"
+version = "0.6.0"
 description = "OpenAI target and judges for digline, at any OpenAI-compatible endpoint."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -39,11 +39,10 @@ dependencies = [
     # `tool` and writes `tool_absence`, is schema 13. (ADR 0018 §1, amended
     # 2026-09-17)
     #
-    # **Owed at the cut: raise to the core release that carries #629**, once
-    # the plugin's half of #629 is written: it hands over
-    # `Completion(usage=None)`, new in that release. RELEASING.md, *Owed at
-    # the cut*, holds the row.
-    "digline>=0.17.0",
+    # 0.35.0, by hand for the same reason: the plugin's half of #629 hands over
+    # `Completion(usage=None)`, a value new in 0.35.0, which is on PyPI.
+    # (ADR 0004 §8)
+    "digline>=0.35.0",
     # The SDK and nothing else. No LiteLLM, no gateway, no abstraction over the
     # abstraction: `base_url` is what makes one SDK cover every compatible
     # provider, and a layer on top would only add a second thing to be wrong.

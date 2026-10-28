@@ -129,7 +129,7 @@ class AnthropicTarget(ProviderTarget):
         # by a later reading of the list. (ADR 0004 §8.8)
         geo = geo_multiplier(raw)
         reply = completion_of(raw)
-        if reply.unpriced is None and geo is not None:
+        if reply.usage is not None and reply.unpriced is None and geo is not None:
             self._geo = geo
         if self.prefill is None:
             return reply

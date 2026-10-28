@@ -2,23 +2,40 @@
   "aggregate": [],
   "artifacts": {
     "prompts/system.txt": {
-      "sha": "9bb2bd77519e101f7ab7ed65506f468896426d4c8c76f7c32a8932260cee17cb",
-      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\n"
+      "sha": "06c2108bd85eb72888e9e5d1b85ac62688e3a3d179acc60293f40fe8b4c4a809",
+      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\nAlways remind the customer of the returns policy.\n"
     },
     "prompts/user.txt": {
       "sha": "96f7331433314f30ce6385279654a8c663906ca591561dd98283cd83ec63566a",
       "text": "Customer asks: {question}\n"
     }
   },
-  "config_hash": "0d99045c0f1639eb",
-  "created_at": "2026-09-25T08:24:08.967806+00:00",
-  "digline_version": "0.20.1",
+  "config_hash": "efe01136327fd179",
+  "created_at": "2026-10-28T12:25:33.365220+00:00",
+  "digline_version": "0.35.0",
   "environment": "dev",
-  "git_commit": "1e148b341fe5a4789a03e07e780a73175049b23b",
-  "judge_config": {},
+  "git_commit": "307d1064e373c083db1ac998ccc1fc52760ddfea",
+  "judge_config": {
+    "identities": [
+      "anthropic/claude-haiku-4-5"
+    ],
+    "named": [
+      "max_tokens",
+      "model",
+      "provider",
+      "resolved_model"
+    ],
+    "values": {
+      "max_tokens": 400,
+      "model": "claude-haiku-4-5",
+      "provider": "anthropic",
+      "resolved_model": "claude-haiku-4-5-20251001"
+    }
+  },
   "metadata": {},
+  "modules_unchecked": [],
   "projected": false,
-  "promoted_at": "2026-09-25T08:37:28.937125+00:00",
+  "promoted_at": "2026-10-28T12:28:00.539388+00:00",
   "redacted": false,
   "results": [
     {
@@ -30,56 +47,67 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 113.666667,
+            "distance": 187.4,
             "errored_samples": 0,
-            "length": 150.333333,
-            "samples": 3,
+            "length": 233.6,
+            "samples": 5,
             "scores": [
-              0.276423,
-              0.233918,
-              0.229299
+              0.185771,
+              0.191837,
+              0.19469,
+              0.212963,
+              0.20614
             ],
-            "spread": 0.047124
+            "spread": 0.027192
           },
-          "reason": "mean of 3 samples (0.276423, 0.233918, 0.229299)",
-          "sample_max": 0.276423,
-          "sample_min": 0.229299,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.185771, 0.191837, 0.194690, 0.212963, 0.206140)",
+          "sample_max": 0.212963,
+          "sample_min": 0.185771,
           "samples": [
-            0.276423,
-            0.233918,
-            0.229299
+            0.185771,
+            0.191837,
+            0.19469,
+            0.212963,
+            0.20614
           ],
-          "score": 0.246547,
+          "score": 0.19828,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.85,
-              0.883333,
-              0.866667
+              0.333333,
+              0.433333,
+              0.3,
+              0.333333,
+              0.3
             ],
-            "spread": 0.033333
+            "spread": 0.133333
           },
-          "reason": "mean of 3 samples (0.850000, 0.883333, 0.866667)",
-          "sample_max": 0.883333,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.333333, 0.433333, 0.300000, 0.333333, 0.300000)",
+          "sample_max": 0.433333,
           "sample_means": true,
-          "sample_min": 0.85,
+          "sample_min": 0.3,
           "samples": [
-            0.85,
-            0.883333,
-            0.866667
+            0.333333,
+            0.433333,
+            0.3,
+            0.333333,
+            0.3
           ],
-          "score": 0.866667,
-          "status": "pass",
+          "score": 0.34,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -94,56 +122,67 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 97.666667,
+            "distance": 159.0,
             "errored_samples": 0,
-            "length": 143.666667,
-            "samples": 3,
+            "length": 217.4,
+            "samples": 5,
             "scores": [
-              0.328571,
-              0.354839,
-              0.287425
+              0.292683,
+              0.276923,
+              0.263889,
+              0.266667,
+              0.246753
             ],
-            "spread": 0.067414
+            "spread": 0.04593
           },
-          "reason": "mean of 3 samples (0.328571, 0.354839, 0.287425)",
-          "sample_max": 0.354839,
-          "sample_min": 0.287425,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.292683, 0.276923, 0.263889, 0.266667, 0.246753)",
+          "sample_max": 0.292683,
+          "sample_min": 0.246753,
           "samples": [
-            0.328571,
-            0.354839,
-            0.287425
+            0.292683,
+            0.276923,
+            0.263889,
+            0.266667,
+            0.246753
           ],
-          "score": 0.323612,
+          "score": 0.269383,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              1.0,
-              0.966667,
-              0.9
+              0.6,
+              0.683333,
+              0.4,
+              0.4,
+              0.4
             ],
-            "spread": 0.1
+            "spread": 0.283333
           },
-          "reason": "mean of 3 samples (1.000000, 0.966667, 0.900000)",
-          "sample_max": 1.0,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.600000, 0.683333, 0.400000, 0.400000, 0.400000)",
+          "sample_max": 0.683333,
           "sample_means": true,
-          "sample_min": 0.9,
+          "sample_min": 0.4,
           "samples": [
-            1.0,
-            0.966667,
-            0.9
+            0.6,
+            0.683333,
+            0.4,
+            0.4,
+            0.4
           ],
-          "score": 0.955556,
-          "status": "pass",
+          "score": 0.496667,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -158,56 +197,67 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 54.0,
+            "distance": 191.6,
             "errored_samples": 0,
-            "length": 70.666667,
-            "samples": 3,
+            "length": 230.2,
+            "samples": 5,
             "scores": [
-              0.222222,
-              0.237288,
-              0.242424
+              0.130952,
+              0.182796,
+              0.175115,
+              0.206349,
+              0.170404
             ],
-            "spread": 0.020202
+            "spread": 0.075397
           },
-          "reason": "mean of 3 samples (0.222222, 0.237288, 0.242424)",
-          "sample_max": 0.242424,
-          "sample_min": 0.222222,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.130952, 0.182796, 0.175115, 0.206349, 0.170404)",
+          "sample_max": 0.206349,
+          "sample_min": 0.130952,
           "samples": [
-            0.222222,
-            0.237288,
-            0.242424
+            0.130952,
+            0.182796,
+            0.175115,
+            0.206349,
+            0.170404
           ],
-          "score": 0.233978,
+          "score": 0.173123,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.966667,
-              0.9,
-              0.966667
+              0.3,
+              0.5,
+              0.566667,
+              0.433333,
+              0.6
             ],
-            "spread": 0.066667
+            "spread": 0.3
           },
-          "reason": "mean of 3 samples (0.966667, 0.900000, 0.966667)",
-          "sample_max": 0.966667,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.300000, 0.500000, 0.566667, 0.433333, 0.600000)",
+          "sample_max": 0.6,
           "sample_means": true,
-          "sample_min": 0.9,
+          "sample_min": 0.3,
           "samples": [
-            0.966667,
-            0.9,
-            0.966667
+            0.3,
+            0.5,
+            0.566667,
+            0.433333,
+            0.6
           ],
-          "score": 0.944445,
-          "status": "pass",
+          "score": 0.48,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -222,56 +272,67 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 110.0,
+            "distance": 206.6,
             "errored_samples": 0,
-            "length": 145.0,
-            "samples": 3,
+            "length": 257.4,
+            "samples": 5,
             "scores": [
-              0.231293,
-              0.240876,
-              0.251656
+              0.196364,
+              0.195489,
+              0.2,
+              0.190299,
+              0.205882
             ],
-            "spread": 0.020363
+            "spread": 0.015583
           },
-          "reason": "mean of 3 samples (0.231293, 0.240876, 0.251656)",
-          "sample_max": 0.251656,
-          "sample_min": 0.231293,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.196364, 0.195489, 0.200000, 0.190299, 0.205882)",
+          "sample_max": 0.205882,
+          "sample_min": 0.190299,
           "samples": [
-            0.231293,
-            0.240876,
-            0.251656
+            0.196364,
+            0.195489,
+            0.2,
+            0.190299,
+            0.205882
           ],
-          "score": 0.241275,
+          "score": 0.197607,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.866667,
-              0.913333,
-              0.866667
+              0.466667,
+              0.433333,
+              0.416667,
+              0.533333,
+              0.366667
             ],
-            "spread": 0.046666
+            "spread": 0.166666
           },
-          "reason": "mean of 3 samples (0.866667, 0.913333, 0.866667)",
-          "sample_max": 0.913333,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.466667, 0.433333, 0.416667, 0.533333, 0.366667)",
+          "sample_max": 0.533333,
           "sample_means": true,
-          "sample_min": 0.866667,
+          "sample_min": 0.366667,
           "samples": [
-            0.866667,
-            0.913333,
-            0.866667
+            0.466667,
+            0.433333,
+            0.416667,
+            0.533333,
+            0.366667
           ],
-          "score": 0.882222,
-          "status": "pass",
+          "score": 0.443333,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -286,55 +347,66 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 97.333333,
+            "distance": 201.4,
             "errored_samples": 0,
-            "length": 136.666667,
-            "samples": 3,
+            "length": 249.4,
+            "samples": 5,
             "scores": [
-              0.338843,
-              0.300752,
-              0.237179
+              0.211982,
+              0.193798,
+              0.180451,
+              0.195122,
+              0.184615
             ],
-            "spread": 0.101664
+            "spread": 0.031531
           },
-          "reason": "mean of 3 samples (0.338843, 0.300752, 0.237179)",
-          "sample_max": 0.338843,
-          "sample_min": 0.237179,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.211982, 0.193798, 0.180451, 0.195122, 0.184615)",
+          "sample_max": 0.211982,
+          "sample_min": 0.180451,
           "samples": [
-            0.338843,
-            0.300752,
-            0.237179
+            0.211982,
+            0.193798,
+            0.180451,
+            0.195122,
+            0.184615
           ],
-          "score": 0.292258,
+          "score": 0.193194,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
-            "agreement": 0.666667,
+            "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.566667,
-              0.816667,
-              0.2
+              0.266667,
+              0.15,
+              0.233333,
+              0.233333,
+              0.3
             ],
-            "spread": 0.616667
+            "spread": 0.15
           },
-          "reason": "mean of 3 samples (0.566667, 0.816667, 0.200000)",
-          "sample_max": 0.816667,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.266667, 0.150000, 0.233333, 0.233333, 0.300000)",
+          "sample_max": 0.3,
           "sample_means": true,
-          "sample_min": 0.2,
+          "sample_min": 0.15,
           "samples": [
-            0.566667,
-            0.816667,
-            0.2
+            0.266667,
+            0.15,
+            0.233333,
+            0.233333,
+            0.3
           ],
-          "score": 0.527778,
+          "score": 0.236667,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -343,7 +415,7 @@
     },
     {
       "calibration": {
-        "assertion_id": "d0891fbb13f6509e",
+        "assertion_id": "ee25dfb48a823134",
         "check": "llm_rubric",
         "high": 0.95,
         "low": 0.7
@@ -353,29 +425,35 @@
       "verdicts": [
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.816667,
-              0.85,
-              0.816667
+              0.766667,
+              0.716667,
+              0.7,
+              0.716667,
+              0.7
             ],
-            "spread": 0.033333
+            "spread": 0.066667
           },
-          "reason": "mean of 3 samples (0.816667, 0.850000, 0.816667)",
-          "sample_max": 0.85,
+          "origin": "builtin",
+          "reason": "mean of 5 samples (0.766667, 0.716667, 0.700000, 0.716667, 0.700000)",
+          "sample_max": 0.766667,
           "sample_means": true,
-          "sample_min": 0.816667,
+          "sample_min": 0.7,
           "samples": [
-            0.816667,
-            0.85,
-            0.816667
+            0.766667,
+            0.716667,
+            0.7,
+            0.716667,
+            0.7
           ],
-          "score": 0.827778,
+          "score": 0.72,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -386,6 +464,12 @@
   "schema_version": 22,
   "suite": "replies",
   "target_config": {
+    "named": [
+      "max_tokens",
+      "model",
+      "provider",
+      "resolved_model"
+    ],
     "values": {
       "max_tokens": 200,
       "model": "claude-haiku-4-5",
@@ -396,17 +480,25 @@
   "tenant": "bookshop",
   "usage": {
     "judge": {
-      "calls": 0,
-      "counted": 0,
-      "spent_usd": 0.0
+      "calls": 90,
+      "counted": 90,
+      "every_call_seen": true,
+      "every_cost_known": false,
+      "spent_usd": 0.0,
+      "tokens": {
+        "input_tokens": 34986,
+        "output_tokens": 5328
+      }
     },
     "target": {
-      "calls": 15,
-      "counted": 15,
-      "spent_usd": 0.003448,
+      "calls": 25,
+      "counted": 25,
+      "every_call_seen": true,
+      "every_cost_known": false,
+      "spent_usd": 0.0,
       "tokens": {
-        "input_tokens": 873,
-        "output_tokens": 515
+        "input_tokens": 1705,
+        "output_tokens": 1457
       }
     }
   }

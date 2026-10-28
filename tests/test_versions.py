@@ -350,6 +350,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "0.36.0": (
+            "the core release that carries the names a refusal quotes (ADR "
+            "0054 §8), which digline-mcp's floor is owed in the table of "
+            "floors owed at the cut: the minor above 0.35.0, named before it "
+            "exists because the row has to say where the floor goes, and moved "
+            "by the cut if the release gets another number"
+        ),
         "0.6.3": (
             "not a digline version: digline-mcp's, the release PyPI served when "
             "v0.35.0 was cut, which its own cap excludes from that core, in "
@@ -1038,9 +1045,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.5.2": "digline-openai's version, pinned to its own pyproject by "
+        "0.6.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.6.1": "digline-anthropic's and digline-bedrock's version, each "
+        "0.7.0": "digline-anthropic's and digline-bedrock's version, each "
         "pinned to its own pyproject by tests/test_docker.py",
         "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
         "not a digline version",

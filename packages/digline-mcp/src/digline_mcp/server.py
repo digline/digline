@@ -90,6 +90,13 @@ from digline.wire import (
 from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
 
+# What the delta-pass reads, not a declaration of public API: the server's
+# public surface is its command line and its tools, and no page documents a
+# name here. So a name is not removed to tidy up. F-1 of the pass over the
+# release that made `--names` required is why: `build_server` gained two
+# required arguments, and the pass saw it only because it is listed here.
+# Under *Choosing the version* it could leave in a patch, and the next change
+# to its signature would be seen by nobody.
 __all__ = ["Names", "build_server", "main"]
 
 #: Whether the store's names may leave in clear. **No default**: whose cases are
@@ -192,6 +199,11 @@ def build_server(
         pair. `None` in clear. (ADR 0054 §7)"""
         return None if mint is None else one_table(mint, where="answer")
 
+    def answered[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
+        """`translated`, with this server's minter: a refusal crosses under
+        `project` as an answer does, its names as tokens. (ADR 0054 §8)"""
+        return translated(fn, minter=answering)
+
     def within_root(spec: str) -> tuple[str, Path]:
         """The spec to load, and the file it names — both inside this root.
 
@@ -287,7 +299,7 @@ def build_server(
         resolved = resolve_key(store, suite, key)
         return read_run(store, suite, resolved.key), resolved
 
-    @translated
+    @answered
     def list_runs(suite: str) -> dict[str, Any]:
         loaded_suite = loaded(suite)
         # A run the store refuses is left out and counted, rather than failing
@@ -317,7 +329,7 @@ def build_server(
             **counts,
         )
 
-    @translated
+    @answered
     def get_run(suite: str, run: str = "latest") -> dict[str, Any]:
         loaded_suite = loaded(suite)
         found, resolved = named(loaded_suite, run)
@@ -327,7 +339,7 @@ def build_server(
             "key": resolved.key,
         }
 
-    @translated
+    @answered
     def get_baseline(suite: str) -> dict[str, Any]:
         loaded_suite = loaded(suite)
         baseline = need_baseline(store, loaded_suite)
@@ -336,7 +348,7 @@ def build_server(
             "key": key_of(baseline.created_at, baseline.config_hash),
         }
 
-    @translated
+    @answered
     def compare(suite: str, run: str = "latest") -> dict[str, Any]:
         loaded_suite = loaded(suite)
         found, resolved = named(loaded_suite, run)
@@ -370,7 +382,7 @@ def build_server(
             run=found,
         )
 
-    @translated
+    @answered
     def diff(suite: str, run1: str, run2: str) -> dict[str, Any]:
         loaded_suite = loaded(suite)
         left, left_side = named(loaded_suite, run1)
@@ -401,7 +413,7 @@ def build_server(
             notes=(left_side.note, right_side.note),
         )
 
-    @translated
+    @answered
     def explain(suite: str, run: str = "latest") -> dict[str, Any]:
         # The CLI's composition, from the host, so the two cannot come to read
         # one run differently. No locale: the fact list ships no prose, so there
@@ -418,7 +430,7 @@ def build_server(
             baseline=read.baseline,
         )
 
-    @translated
+    @answered
     def log(
         suite: str, since: str | None = None, until: str | None = None
     ) -> dict[str, Any]:
@@ -437,7 +449,7 @@ def build_server(
             )
         )
 
-    @translated
+    @answered
     def run(
         suite: str,
         acknowledge_calls: int | None = None,

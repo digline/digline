@@ -2262,7 +2262,10 @@ COPIED = sorted({*STANDALONE, "quickstart"})
 
 #: What a checkout that has run an example holds beside it: a finished run and
 #: an unfinished one's journal under the store, a lint cache, an environment,
-#: compiled bytecode, and `classifier`'s run counter, which moves its answers.
+#: compiled bytecode, and `.wobble`. That was `classifier`'s run counter, which
+#: moved its answers; the example no longer reads it, and git no longer ignores
+#: it, but a checkout from before may still hold one, so it stays here as a
+#: leftover the copy must not take.
 _LEFTOVERS = (
     "{runs}/2026-01-01T00-00-00-000000-00-00-0000000000000000.json",
     "{runs}/.pending/2026-01-01T00-00-01-000000-00-00-0000000000000000.1.jsonl",

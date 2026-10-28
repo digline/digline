@@ -31,7 +31,7 @@ as got worse.
 
 ```console
 $ uv sync && DIGLINE_LIVE=1 uv run digline run --suite suite.py
-$ DIGLINE_LIVE=1 uv run digline promote --suite suite.py --run latest --replacing 2026-09-25T08-24-08-967806-00-00-0d99045c0f1639eb
+$ DIGLINE_LIVE=1 uv run digline promote --suite suite.py --run latest --replacing 2026-10-28T12-25-33-365220-00-00-efe01136327fd179
 # edit prompts/system.txt, then
 $ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 ```
@@ -40,13 +40,21 @@ $ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 baseline is live, so the cycle is too. Promoting a keyless run over it would
 replace a measurement with a stand-in's.
 
+**What a live run costs: about 0.07 USD**, at digline-anthropic's global
+rate for `claude-haiku-4-5`. That is 25 calls to the target and 90 to the
+judge: five samples of each of five cases, each answer judged three times,
+and the calibration case's judgings. Where your workspace is served in
+`"us"`, it is 1.1 times that. The figure is an estimate from two runs of
+2026-10-28, at the prices the plugin read on 2026-10-02, and the bill line
+of your own run is the measurement.
+
 **Where your workspace's replies report no geography Anthropic prices**, such
-as `inference_geo: "not_available"`, the target's cost is not known. The
-cases are still judged, the bill says *cost not known for every call*, and
-the line after it says why and what to pin. That arrives with the
-digline-anthropic release that carries ADR 0004 §8. The releases this example
-admits today, digline-anthropic below 0.7, error every case of such a run
-instead (#569).
+as `inference_geo: "not_available"`, digline cannot price the run: the
+target's and the judge's cost are not known. The cases are still judged, the
+bill says *cost not known for every call*, and the line after it says why and
+what to pin. The digline-anthropic this
+example installs carries ADR 0004 §8; the releases below it errored every case
+of such a run instead (#569).
 
 `--replacing` names the baseline this promotion replaces: here, the one
 this example ships, whose key `compare` prints under its verdict and
@@ -77,11 +85,31 @@ This example is also where the judge is watched rather than only used: under
 on the scale a judge that still has one has to land inside. It costs judge
 calls only — the target is never called for it.
 
-One thing to copy carefully: the judge here is a function, and nothing
-reports what it spent. `_live_judge` calls the SDK directly instead of going
-through `digline-anthropic`. Measured on the keyless path on 2026-10-27, with
-digline 0.34.0, the release this example installed that day: the run file records the judge's
-line as `calls: 0`, `spent_usd: 0.0` and neither completeness marker, which
-reads *not recorded*, and `digline run` prints no judge line at all. digline
-built from this repository at `bcef1603` prints `judge: not recorded`. Copy the
-target's shape, not the judge's.
+**What the calibration case does not tell you.** Its band, 0.10–0.90, catches
+a judge whose scale has collapsed onto 0 or 1, and nothing else. It is derived
+from fifteen judgings per run, five samples of three, and `suite.py` says how,
+so changing `samples` changes the band. A judge whose scale is compressed,
+giving everything 0.35, passes. So does one that ranks this answer under the
+real ones. A narrower band would catch more, and it would only hold for the
+judge it was measured on: the band before this one was written for an earlier
+judge and stopped separating anything when the judge changed, with nothing
+turning red.
+
+**What the rubric's noise floor does, and where it does nothing.** The rubric
+declares `floor_standard_errors=2`: a movement inside two standard errors of
+the baseline's own samples is noise, not a verdict. A declared floor speaks
+only where the measured noise is wider than the tolerance, because the
+tolerance is asked first. On the baseline committed here that is two checks of
+six, `gift-wrap` and `order-a-book`. On the other four the floor is narrower
+than the tolerance, 0.1, and never decides anything.
+
+On the live path the judge is `digline-anthropic`'s `AnthropicJudge`, in the
+form `examples/langchain` uses, so the run records which model graded and the
+bill has a judge line with its calls (#651). The keyless stand-in,
+`_fake_judge`, is a function: it names no instrument, so its run records none,
+and nothing reports what it spent. Measured on the keyless path on
+2026-10-27, with digline 0.34.0: the run file records the judge's line as
+`calls: 0`, `spent_usd: 0.0` and neither completeness marker, which reads *not
+recorded*, and `digline run` prints no judge line at all. digline built from
+this repository at `bcef1603` prints `judge: not recorded`. Copy the live
+judge's shape, not the stand-in's.

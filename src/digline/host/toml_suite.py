@@ -47,6 +47,7 @@ from digline.core import (
     LatencyBudget,
     Length,
     Levenshtein,
+    NameRef,
     NotContains,
     PiiAbsent,
     Precision,
@@ -54,6 +55,7 @@ from digline.core import (
     Recall,
     Regex,
     Repeated,
+    TokenKind,
     ToolCalledWith,
     ToolsCalled,
 )
@@ -448,7 +450,9 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
     if "/" not in value:
         raise not_a_coordinate(value, where=where, key=key)
     try:
-        provider_name, model = split_coordinate(value, field=f"{where}: `{key}`")
+        provider_name, model = split_coordinate(
+            value, field=f"{where}: `{key}`", kind="judge_identity"
+        )
     except ValueError as exc:
         raise UsageError(Quoted.of(exc, "", named=False)) from exc
     try:
@@ -616,7 +620,7 @@ def _provider(
         )
     try:
         provider_name, model = split_coordinate(
-            coordinate, field=f"{where}: `provider`"
+            coordinate, field=f"{where}: `provider`", kind="target_config_value"
         )
         provider = resolve(provider_name)
     except ValueError as exc:
@@ -627,9 +631,12 @@ def _provider(
     rest = {key: value for key, value in arguments.items() if key != "provider"}
     if "model" in rest:
         raise UsageError(
-            f"{where}: `model` is the second half of `provider`, so writing it "
-            "again would be two sources for one fact. It is "
-            f'"{provider_name}/<model>" and nothing else.'
+            Quoted.said(
+                f"{where}: `model` is the second half of `provider`, so writing it "
+                'again would be two sources for one fact. It is "',
+                NameRef("target_config_value", provider_name, quoted=False),
+                '/<model>" and nothing else.',
+            )
         )
     _refuse_credentials(rest, where)
     if "client" in rest:
@@ -656,6 +663,7 @@ def _provider(
         where,
         "parameter",
         provider_name,
+        owner_kind="target_config_value",
     )
     try:
         settled = _resolve_paths(rest, provider.target, base, root, where)
@@ -887,6 +895,8 @@ def _refuse_unknown(
     where: str,
     noun: str,
     token: str | None = None,
+    *,
+    owner_kind: TokenKind | None = None,
 ) -> None:
     """An unknown key is a load error, never a warning and never ignored.
 
@@ -897,5 +907,7 @@ def _refuse_unknown(
     The message is built in `toml_errors`; what is decided here is only that
     there is no third option beside "known" and "refused".
     """
-    if error := unknown_key(given, allowed, where=where, noun=noun, owner=token):
+    if error := unknown_key(
+        given, allowed, where=where, noun=noun, owner=token, owner_kind=owner_kind
+    ):
         raise error

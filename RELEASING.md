@@ -280,6 +280,10 @@ in any README that quotes it (`examples/langchain4j/README.md` does), then run
 each lock should move; the version it resolves stays the newest the index
 serves, because the new one is not served until the tag. Moving the locks to the
 new version is still *After the tag* work.
+**The `revision` line must not move either.** A `uv` that rewrites a lock writes
+its own format there, and nothing in this repository fixes which `uv` that is.
+`tests/test_lock_revision.py` holds each lock to the value declared for it, and
+names the file that moved.
 
 **This step became mandatory on 2026-09-28, and the gate changed the ritual
 without telling it.** On 0.21.0 the caps moved in the bump (`4785a9e`) and the
@@ -354,9 +358,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-anthropic` | it reads `usage.input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens`, `cache_creation.ephemeral_1h_input_tokens` and `inference_geo` through `getattr` with a default, so an absent field is priced at `0`; `Completion(usage=None)` is new in the core release that carries #629; and since #569 its `completion_of` hands over `Completion(unpriced=…)` and `_WhereServed` overrides `Pricing.why_unpriced`, both new in that same core release | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-anthropic |
-| `digline-openai` | it reads `usage.prompt_tokens`, `completion_tokens`, `prompt_tokens_details` and its `cached_tokens` through `getattr` with a default, so an absent field is priced at `0`; `Completion(usage=None)` is new in the core release that carries #629 | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-openai |
-| `digline-bedrock` | `_count` reads `inputTokens` and `outputTokens`, required in `TokenUsage`, with `usage.get(key, 0)`, so an absent one is priced at `0`; the optional cache members keep their `0`, as the service model declares; `Completion(usage=None)` is new in the core release that carries #629; and since #569 its `completion_of` hands over `Completion(unpriced=…)`, new in that same core release | `0.35.0` | write the plugin's half of #629: a `_count` that answers `None` where the field is absent and the count where it is present, zero included, and a `usage_of` that hands over `Completion(usage=None)` when a count it needs is `None`; raise the floor to the core release that carries `Completion.usage: Usage \| None`, once it is on PyPI, to the number it gets; this cut does not tag digline-bedrock |
+| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Quoted` with names); against 0.35.0 the call raises `TypeError` | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -380,6 +382,57 @@ is not, the reason stays, and the entry with it. The step above that says
 which decisions this release ships asks the same question from the records'
 side.
 
+**And what `SECURITY.md` says a release has not changed: read its two
+claims.** *Added 2026-10-28.* Three things a release can make false that no
+test reddens: a plugin's floor, which *Owed at the cut* keeps; a record's
+`- Shipped:` line, which `UNRELEASED_RECORDS` keeps; and `SECURITY.md`, which
+this file named six times before this step and kept in none of them. This is
+the third to take a keeper. `test_versions.py` already holds every version
+literal in that page to the current release or to `RECORDED`. What it cannot
+see is a sentence with no number in it. So read these two, by name, against the
+tree being tagged, and not the page as a whole:
+
+1. **The delta-pass sentence**, in *The delta-pass*: *"It has run on 0.7.1 and
+   on every minor release since, each recorded in the changelog — except the
+   newest minor while its own pass is still owed"*. At a minor's cut the minor
+   before it stops being the newest, so its pass has to be in the changelog
+   already:
+
+   ```sh
+   grep -n 'delta-pass over <the previous minor>' CHANGELOG.md
+   ```
+
+   No line, and the sentence turns false at this tag. Either the pass has not
+   run, or it ran, found nothing and left no line, and from outside the two
+   look the same. Run the pass or record it before the tag, or correct the
+   sentence. A patch does not move it.
+
+2. **What the image leaves out**, in *Advisories against a dependency*: *"the
+   Docker image does not contain it"*, said of nltk, and *"The Docker image does
+   not contain `digline-mcp`, and so has no PyJWT at all"*. Read
+   `docker/Dockerfile` in the tree being tagged: it installs `digline` and the
+   three provider plugins, and nothing else. Then read what those four depend
+   on in the lock:
+
+   ```sh
+   uv tree --frozen --no-dev --package digline --package digline-anthropic \
+     --package digline-openai --package digline-bedrock \
+     | grep -i -E '^[^a-z]*(nltk|pyjwt|digline-mcp)[[ ]'
+   ```
+
+   Nothing printed is the answer that keeps both sentences true. Run the
+   same pattern on `--package digline-mcp` as its control: it prints
+   `digline-mcp` and `pyjwt[crypto]`. A Dockerfile that installs more, or a
+   dependency that brings one of the three in, makes the sentences false on the
+   day the image is published.
+
+   **The lock is not what the image installs.** The image resolves its four
+   pins from PyPI, as that same section of `SECURITY.md` opens by saying.
+   What reads the image itself is `image-scan.yml`. It turns red on an image
+   whose listing names one of the three, which `.github/image_scan.py` holds in
+   `ABSENT`. But it reads the image already published, every Monday. So it
+   reads after the tag, and this step reads before it.
+
 **And the number each package owes: read *Owed to the next version*.** A pull
 request that changes what a package's number must be, a break that moves the
 minor or an output a user reads that changed, records it in that package's
@@ -395,9 +448,8 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline-anthropic | #569: a reply in an `inference_geo` with no rate, or with a write to the 1-hour cache, is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |
-| digline-bedrock | #569: a reply with a cache write at a TTL other than `5m` is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |
-| pytest-digline | #642: with the core release that carries `unpaired`, a session whose comparison holds such a pair ends `1` where it ended `0`, by `pytest_sessionfinish`'s rule for any code digline does not call green; its rows do not change, and its code does not change | a minor: *Choosing the version* names *the exit status a session ends with* among what its users rely on, whatever changed it. It reaches them through the pytest-digline release whose cap admits that core, so that release owes it: not 0.4.0, whose cap `<0.35` does not, and which settled #574's row and its floor without this one. No floor is owed: nothing the plugin calls is new |
+| digline | ADR 0054 §8: `NameRef`, `Said`, `Withheld`, `WithheldKind` and `WITHHELD_WORDS` in `digline.core`, `Quoted` that holds names and needs no cause, `refusal_text(mint=)`; a band's and an unidentified verdict's refusal in a stored run is `DocumentRefusedError` with the reader's prefix | a minor: public names are added and a refusal a user reads changed its type and its words |
+| digline-mcp | ADR 0054 §8: under `--names project` a refusal's names reach the agent as tokens | the sentence an agent reads changed; its floor is owed at the cut, in the table above |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
@@ -837,6 +889,9 @@ not match `pyproject.toml` instead of rewriting it. That split is deliberate:
 the version has just been bumped, so this is the one moment the lock is
 *supposed* to change, and making it a named command rather than a side effect of
 `uv sync` is what stops the change from happening somewhere nobody is looking.
+Only the versions should move, not the `revision` line at the top: it is the
+format of the `uv` that wrote the lock, and `tests/test_lock_revision.py` names
+a lock whose format moved, with the value declared for it and why.
 
 v0.15.1 is why. Its tag points at a lock still naming 0.15.0: `uv sync` had
 refreshed the lock while the home capture was regenerated, only the capture was
@@ -1400,6 +1455,13 @@ should cut and the shape a re-tag of an already-released version takes.
 This is the same move as the counts at the `[GATE]`: a number read out loud
 rather than a memory trusted. `tests/test_tag_names.py` covers it offline, with
 `v0.17.0`'s real message as the control that must fail.
+
+**Its answer depends on what PyPI serves, so read it after the previous
+package is served.** A reading taken while the release before it is still
+unpublished counts that release too. *Observed 2026-10-28:* run for
+digline-bedrock 0.7.0 while digline-anthropic 0.7.0 was not yet on the index,
+it said *"this run will publish 2 package(s)"* and named both. Read again once
+PyPI served anthropic, it named bedrock alone.
 
 ### Not built: a package whose text moved under a version the index serves
 

@@ -40,7 +40,8 @@ from digline_openai import (
     OpenAITarget,
     free,
 )
-from digline_openai.client import build_client, usage_of
+from digline_openai.client import build_client
+from digline_openai.client import usage_of as read_usage
 
 OLLAMA = "http://localhost:11434/v1"
 
@@ -236,12 +237,55 @@ def test_cached_tokens_are_subtracted_before_they_are_priced(
     assert response.cost_usd == pytest.approx(0.35)
 
 
-def test_a_reply_with_no_usage_is_refused(prompt: Path, client: FakeClient) -> None:
-    """A compatible server that reports nothing would otherwise price the run
-    at zero, and a zero passes every budget there is."""
+def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
+    """`usage_of` on a reply whose counts are all there, where `None` would be
+    the test's own mistake."""
+    usage = read_usage(reply, model, pricing)
+    assert usage is not None, "the counts this test reads were not read"
+    return usage
+
+
+def test_a_reply_with_no_usage_is_judged(prompt: Path, client: FakeClient) -> None:
+    """It was refused, and its case errored over a call that answered. Its
+    counts are now *not recorded*: no tokens and no cost, never a zero, which
+    would pass every budget there is. The output is there to judge (#629)."""
     client.completions.reply = FakeReply(usage=None)
-    with pytest.raises(ValueError, match="no usage"):
-        a_target(prompt, client)(a_case())
+    response = a_target(prompt, client)(a_case())
+    assert response.output
+    assert response.usage is None
+    assert response.cost_usd is None
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        types.SimpleNamespace(completion_tokens=5),
+        types.SimpleNamespace(prompt_tokens=10),
+        types.SimpleNamespace(prompt_tokens=None, completion_tokens=5),
+        types.SimpleNamespace(prompt_tokens=10, completion_tokens=None),
+    ],
+    ids=["prompt absent", "completion absent", "prompt None", "completion None"],
+)
+def test_a_required_count_absent_records_no_counts(usage: object) -> None:
+    """`prompt_tokens` and `completion_tokens` are required in the SDK's
+    `CompletionUsage`, so one missing is not a zero, and the counts that were
+    read go with it: the core cannot hold one count apart (#629)."""
+    reply = FakeReply(usage=cast("FakeUsage", usage))
+    assert read_usage(reply, "gpt-5", _priced()) is None
+
+
+def test_a_required_count_of_zero_is_a_measurement() -> None:
+    """The other side of the line: a `0` the reply carries was counted."""
+    reply = _reply(FakeUsage(prompt_tokens=0, completion_tokens=0))
+    assert usage_of(reply, "gpt-5", _priced()) == Usage(0, 0)
+
+
+def test_an_optional_count_omitted_is_zero() -> None:
+    """`prompt_tokens_details` is optional: omitted, there was nothing cached
+    to count."""
+    usage = types.SimpleNamespace(prompt_tokens=10, completion_tokens=5)
+    reply = FakeReply(usage=cast("FakeUsage", usage))
+    assert usage_of(reply, "gpt-5", _priced()) == Usage(10, 5)
 
 
 def test_a_reply_with_no_usage_is_fine_when_the_model_is_free(

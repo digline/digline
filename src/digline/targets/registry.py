@@ -29,7 +29,8 @@ from functools import cache
 from importlib.metadata import EntryPoint, entry_points
 from typing import TYPE_CHECKING
 
-from digline.core.refused import RefusedError
+from digline.core.refused import NameRef, Quoted, RefusedError
+from digline.core.tokens import TokenKind
 
 if TYPE_CHECKING:
     from digline.core import ClaimJudge, Judge
@@ -195,7 +196,9 @@ def _missing(name: str) -> str:
     )
 
 
-def split_coordinate(text: str, *, field: str) -> tuple[str, str]:
+def split_coordinate(
+    text: str, *, field: str, kind: TokenKind | None = None
+) -> tuple[str, str]:
     """`"anthropic/claude-haiku-4-5"` into provider and model.
 
     Split on the **first** separator only: a Bedrock inference profile is a
@@ -203,13 +206,19 @@ def split_coordinate(text: str, *, field: str) -> tuple[str, str]:
     refuse the provider whose identifiers most need naming.
 
     `field` is where the value came from, so the error can point at the line
-    rather than at the value.
+    rather than at the value. `kind`, where given, is what the value names, so
+    a front end that projects names its token (ADR 0054 §8); without it the
+    value is quoted as text, as it always was.
     """
     provider, sep, model = text.partition("/")
     if not sep or not provider or not model:
         raise RefusedError(
-            f"{field} is {text!r}, which is not a provider/model coordinate. "
-            "Write the provider, a slash, and the model — for example "
-            "'anthropic/claude-haiku-4-5'"
+            Quoted.said(
+                f"{field} is ",
+                repr(text) if kind is None else NameRef(kind, text),
+                ", which is not a provider/model coordinate. "
+                "Write the provider, a slash, and the model — for example "
+                "'anthropic/claude-haiku-4-5'",
+            )
         )
     return provider, model

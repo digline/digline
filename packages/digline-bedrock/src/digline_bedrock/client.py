@@ -363,14 +363,17 @@ def completion_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Com
     is the answer this returns.
     """
     finish, raw = finish_of(str(reply.get("stopReason") or "") or None, FINISH)
+    usage = usage_of(reply, model, pricing)
     return Completion(
         text=text_of(reply),
-        usage=usage_of(reply, model, pricing),
+        usage=usage,
         finish=finish,
         finish_raw=raw,
         tools=tools_of(reply),
         tool_calls=tool_calls_of(reply),
-        unpriced=unpriced_of(reply, model),
+        # Counts not read already say the cost is not known, and the core
+        # refuses the two together. (#629)
+        unpriced=None if usage is None else unpriced_of(reply, model),
     )
 
 
@@ -393,7 +396,7 @@ def unpriced_of(reply: Mapping[str, Any], model: str) -> str | None:
     return None if sentence is None else scrub(sentence)
 
 
-def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
+def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage | None:
     """Tokens out of a Converse reply.
 
     Cached reads are reported **outside** `inputTokens` — measured against the
@@ -406,9 +409,20 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     provider that changes its mind is a one-line change and not an archaeology
     exercise.
 
-    A reply with no usage block is refused, unless the model is priced at zero
-    anyway — which is to say unless you said, with `free()`, that this one is
-    billed by the hour rather than by the token.
+    **`None` where a count it needs was not reported** (#629): the call is on
+    the line, and its tokens and cost are not. A reply with no usage block used
+    to be refused, and its case errored over a call that answered; it is now
+    judged. `inputTokens` and `outputTokens` are required in the service
+    model's `TokenUsage`, so either one absent is a rename or a reply that does
+    not follow it, and reading it as `0` would price the call at nothing. The
+    core cannot hold one count apart, so the counts that were read go with it.
+    The cache members are optional, and one the reply omits is `0`: there was
+    nothing to count.
+
+    **A model declared `free()` reads a missing usage block as zero.** `free()`
+    is your declaration that the model is billed by the hour rather than by the
+    token, so it is the rule's second half: a count omitted by declaration
+    means there was nothing to count.
 
     **A 1-hour cache write is counted, and not priced.** `cacheDetails`
     splits the writes by TTL, and AWS bills the 1-hour write at 1.6x the
@@ -422,16 +436,14 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     if not isinstance(raw_usage, Mapping):
         if _is_free(model, pricing):
             return Usage(input_tokens=0, output_tokens=0)
-        raise ValueError(
-            f"the reply carries no usage for model {model!r}, so this call "
-            "cannot be priced. If it is billed by the hour rather than by the "
-            "token — an imported model, provisioned throughput — say so: "
-            "`pricing=free(...)`"
-        )
+        return None
     usage = cast("Mapping[str, Any]", raw_usage)
     # Read for its shape: a malformed `cacheDetails` is still refused.
     _unpriced_writes(usage, model)
-    reported_input = _count(usage, "inputTokens")
+    reported_input = _required(usage, "inputTokens")
+    output_tokens = _required(usage, "outputTokens")
+    if reported_input is None or output_tokens is None:
+        return None
     cache_read = _count(usage, "cacheReadInputTokens")
     cache_write = _count(usage, "cacheWriteInputTokens")
     input_tokens = (
@@ -441,7 +453,7 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
     )
     return Usage(
         input_tokens=input_tokens,
-        output_tokens=_count(usage, "outputTokens"),
+        output_tokens=output_tokens,
         cache_read_tokens=cache_read,
         cache_write_tokens=cache_write,
     )
@@ -467,6 +479,16 @@ def _unpriced_writes(usage: Mapping[str, Any], model: str) -> str | None:
             "the 5-minute cache: a 1-hour write has no rate in digline yet (#368)"
         )
     return None
+
+
+def _required(usage: Mapping[str, Any], key: str) -> int | None:
+    """A count the service model declares required, or `None` where the reply
+    lacks it: absent and `null` are the same answer, a `0` read is a
+    measurement, and a value that is not a count is refused, as `_count`
+    refuses it."""
+    if usage.get(key) is None:
+        return None
+    return _count(usage, key)
 
 
 def _count(usage: Mapping[str, Any], key: str) -> int:
