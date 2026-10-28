@@ -222,6 +222,10 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no held version of a suite and no pointer to the one in force exist "
         "behind `ResultStore`"
     ),
+    "0055-a-migration-step-that-renames": (
+        "no step in `_STEPS` renames a key, and the gate its §7 owes is in no "
+        "test: nothing reads `_STEPS` as a family"
+    ),
 }
 
 

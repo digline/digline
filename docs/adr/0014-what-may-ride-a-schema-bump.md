@@ -115,6 +115,14 @@ its tolerance, exactly as adding or removing a case does today. It is not a
 configuration change, and reporting it as one would be the report describing an
 edit to the case file as an edit to the rules.
 
+*Noted 2026-10-28 ([ADR 0055](0055-a-migration-step-that-renames.md)), and the
+section above kept as written.* This rule is written for passengers, which
+migrate by being added, and it says nothing of a step that **renames** a key
+already in the document. Every one of the 18 steps in `_STEPS` at `3e399566`
+adds or writes nothing. ADR 0055 is the rule for the first step that renames:
+the value carried unchanged, found by its position, absent left absent, both
+names refused, the old name removed, and a gate owed before the step lands.
+
 ### 2. Schema 10, and the step that invents nothing
 
 One entry joins `_STEPS`, `9 -> 10`, and it is called `_add_schema_ten` because
