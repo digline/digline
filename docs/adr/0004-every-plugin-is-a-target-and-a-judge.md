@@ -812,6 +812,13 @@ Three things, each found in the writing and ruled on by none of the seven.
 
    On both, the outcome still arrives as `every_cost_known: false`. The
    sentence does not, and where it should is not decided here.
+
+   *Added 2026-10-28; the item above is kept as written.* The enumeration is
+   incomplete, and `digline rejudge` is the third front end. It prints neither
+   the bill line nor the sentences on standard error. With `--json` it builds
+   its document without `usage`, so not even the markers arrive. And it calls
+   the judge, whose replies can be unpriced. Read in `src/digline/cli/main.py`
+   at `8ab47910`, without running it.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.
