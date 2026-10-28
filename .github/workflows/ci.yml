@@ -43,19 +43,27 @@ permissions:
 jobs:
   queue-tested:
     name: Did the merge queue already run this commit?
-    # On a push to `main` only. The queue tests `main` plus the pull request on
-    # its own ref and then moves `main` to that same commit, so the push run
-    # would test, a second time, a SHA the queue has just tested. Measured on
-    # the 30 pull requests merged up to #769: the merged commit was the queue's
-    # commit 30 times in 30, every job of the queue's run had finished before
-    # the push run was created, and the push run never turned a job red that
-    # the queue had not already turned red on the same commit.
+    # Two questions, one per event, both answered by `.github/queue_tested.py`
+    # from commits and runs read through the API, never from who pushed:
     #
-    # `.github/queue_tested.py` reads the answer from the commit — a
-    # `merge_group` run of `ci` on exactly this SHA, with every repeated job
-    # green — and never from who pushed. A commit that did not come through
-    # the queue has no such run and is tested in full. An error reading the
-    # API answers `false`, and so does a queue run with any of those jobs red.
+    # - **On a push to `main`.** The queue tests `main` plus the pull request
+    #   on its own ref and then moves `main` to that same commit, so the push
+    #   run would test, a second time, a SHA the queue has just tested.
+    #   Measured on the 30 pull requests merged up to #769: the merged commit
+    #   was the queue's commit 30 times in 30, every job of the queue's run had
+    #   finished before the push run was created, and the push run never
+    #   turned a job red that the queue had not already turned red on the same
+    #   commit. The answer is a `merge_group` run of `ci` on exactly this SHA
+    #   with every repeated job green. `gates`, `readers`, `glyphs` and
+    #   `image-touched` (and `image` with it) are then skipped.
+    # - **On a queue entry.** The queue's commit may carry exactly the tree the
+    #   four required checks already passed on, on the pull request's head. The
+    #   answer is that tree, compared: the script's docstring says why the
+    #   comparison is exact and not an approximation. Only the steps of the
+    #   `gates` legs are then skipped, for the reason given on that job.
+    #
+    # A commit that did not come through the queue, a tree that differs, and
+    # an error reading the API all answer `false`, and everything runs.
     #
     # The jobs below that wait for this one run when it is skipped (every
     # other event), and that is what `!cancelled()` in their `if:` is for: a
@@ -63,7 +71,7 @@ jobs:
     # otherwise. `docs` does not wait for it: on a push to `main` it runs a
     # different build from the queue's (its own comment says which), so it
     # is not a repetition.
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,6 +79,7 @@ jobs:
       actions: read
     outputs:
       tested: ${{ steps.read.outputs.tested }}
+      reason: ${{ steps.read.outputs.reason }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -82,7 +91,17 @@ jobs:
 
   gates:
     needs: queue-tested
-    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
+    # On a push the whole job is skipped when the queue ran this commit. On a
+    # queue entry whose tree already passed, the job runs and its steps are
+    # skipped instead: a matrix job skipped by its `if:` reports a single
+    # check named `gates`, without the version (measured: the skipped matrix
+    # job `examples-from-pypi` reports as one check with no suffix), and the
+    # required `gates (3.12)`, `(3.13)` and `(3.14)` would never arrive, so
+    # the queue would wait until its 60-minute timeout. Run, with nothing to
+    # do, each leg reports under its own name.
+    if: >-
+      ${{ !cancelled() && !(github.event_name == 'push' &&
+      needs.queue-tested.outputs.tested == 'true') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -95,13 +114,24 @@ jobs:
         # runs is a claim nothing checks.
         python: ["3.12", "3.13", "3.14"]
     steps:
+      - name: Already passed on this tree
+        if: needs.queue-tested.outputs.tested == 'true'
+        env:
+          REASON: ${{ needs.queue-tested.outputs.reason }}
+        run: |
+          echo "::notice::not run again: $REASON"
+          echo "Not run again: $REASON" >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.queue-tested.outputs.tested != 'true'
 
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        if: needs.queue-tested.outputs.tested != 'true'
         with:
           enable-cache: true
 
       - name: Install the workspace
+        if: needs.queue-tested.outputs.tested != 'true'
         # --all-packages: the plugin under packages/ is part of the build, and
         # the layering gate reads what is in packages/ to know what to forbid.
         #
@@ -117,6 +147,7 @@ jobs:
         run: uv sync --all-packages --locked --python ${{ matrix.python }}
 
       - name: Tests
+        if: needs.queue-tested.outputs.tested != 'true'
         # Never `live`. It needs a key and it spends money, and CI has neither
         # a reason nor a budget to talk to a provider.
         #
@@ -144,6 +175,7 @@ jobs:
         run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
 
       - name: Tests that write into the source tree, serially
+        if: needs.queue-tested.outputs.tested != 'true'
         # Its planted files are only safe when nothing else is reading `src/`,
         # and `_alone` in that file refuses a parallel run that includes others.
         # Anything else that writes inside the checkout joins it here: that
@@ -151,21 +183,26 @@ jobs:
         run: uv run --python ${{ matrix.python }} pytest -q -m "not live" tests/test_type_gate.py
 
       - name: Format
+        if: needs.queue-tested.outputs.tested != 'true'
         run: uv run --python ${{ matrix.python }} ruff format --check .
 
       - name: Lint
+        if: needs.queue-tested.outputs.tested != 'true'
         run: uv run --python ${{ matrix.python }} ruff check .
 
       - name: Types
+        if: needs.queue-tested.outputs.tested != 'true'
         run: uv run --python ${{ matrix.python }} pyright
 
       - name: Home capture is current
+        if: needs.queue-tested.outputs.tested != 'true'
         # docs/assets/home/home.json is what digline.dev's home shows, captured
         # by running digline. A version bump that did not regenerate it would
         # put another version's output on the site.
         run: uv run --python ${{ matrix.python }} python tools/home_capture.py --check
 
       - name: The example locks install as written
+        if: needs.queue-tested.outputs.tested != 'true'
         # `uv sync --locked` in every `examples/*/uv.lock`, found by the glob,
         # into a throwaway environment, on this leg's Python. Until this step no
         # pull request read those locks: the tests above import the examples
@@ -356,7 +393,9 @@ jobs:
     # below to every test that calls `tests/_tags.py`, so a twelfth cannot be
     # written that skips everywhere.
     needs: queue-tested
-    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
+    if: >-
+      ${{ !cancelled() && !(github.event_name == 'push' &&
+      needs.queue-tested.outputs.tested == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -459,7 +498,9 @@ jobs:
     # Not a required check, and deliberately: `CLAUDE.md`, beside the three
     # `gates`, says why — item 3 above is a red this repository did not cause.
     needs: queue-tested
-    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
+    if: >-
+      ${{ !cancelled() && !(github.event_name == 'push' &&
+      needs.queue-tested.outputs.tested == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -518,7 +559,9 @@ jobs:
     # Skipped with the others when the queue already ran this commit, and
     # `image` with it: a job whose `needs` was skipped is skipped.
     needs: queue-tested
-    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
+    if: >-
+      ${{ !cancelled() && !(github.event_name == 'push' &&
+      needs.queue-tested.outputs.tested == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.check.outputs.build }}
