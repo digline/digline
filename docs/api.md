@@ -562,7 +562,11 @@ the wire it is `null`. The terminal's line adds *not every call seen* or *cost
 not known for every call* where a marker is `False`. Where a marker is `None`
 the line ends *not recorded in full*, and a line with no call on it reads
 *not recorded*, with no figure: a judge written as a function made its calls,
-and `0.000000 USD` would say it cost nothing (#569).
+and `0.000000 USD` would say it cost nothing (#569). A line on which no call
+answered while digline knows calls were made, because every one raised, reads
+*no call answered, calls made and cost not recorded; not every call seen*,
+with no count and no figure. `calls` counts the calls that answered, how many
+were made is recorded nowhere, and a call that raised may have been billed.
 
 **`thinking_tokens` is a breakdown, not a fifth quantity.** A model that reasons
 before it answers is billed for tokens nobody reads, and since schema 15 `Usage`
