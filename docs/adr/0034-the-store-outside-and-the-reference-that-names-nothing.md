@@ -3,8 +3,7 @@
 - Status: accepted 2026-09-27, by Alessandro Prandini — the text first,
   checkpointed before any code, the way [ADR 0021](0021-the-register.md) and
   [ADR 0023](0023-capture.md) were. It landed on `main` as proposed earlier the
-  same day so that its number was a record and not a hole; nothing in it is
-  implemented. **Acceptance waited on two answers. One was ruled; the other is
+  same day so that its number was a record and not a hole; nothing in it was implemented then. *Corrected 2026-10-28:* the status said nothing in it was built, which was true when it was accepted (`6c74f030`) and stayed after the release that carries it: `Shipped:` below has named 0.25.0 since `0264edb2`, and the status was not moved with it. **Acceptance waited on two answers. One was ruled; the other is
   sidestepped by the design, not answered.**
   **Who the digests protect against** (§12) was ruled on 2026-09-27: *nobody in
   particular*. The committed reference and the suite live in one repository,

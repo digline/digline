@@ -8,8 +8,7 @@
   written.** The proposal recorded what reading found and the options the
   reading left open. The ruling came the next day and is written into §1 to §4.
   The findings under *Context* are kept as they were proposed, except where a
-  sentence said the question was unruled. Nothing in it is
-  implemented. **One ruling it rests on is older**, made in discussion on
+  sentence said the question was unruled. Nothing in it was implemented then. *Corrected 2026-10-28:* the status said nothing in it was built, which was true when it was accepted (`11e47208`) and stayed after the release that carries it: `Shipped:` below has named 0.25.2 since `f3961511`, and the status was not moved with it. **One ruling it rests on is older**, made in discussion on
   2026-09-30: pages served to the software house show **projected** documents
   by default, and seeing a case in clear is a disclosure that is asked for,
   seen and recorded. No other record in this repository carries that ruling

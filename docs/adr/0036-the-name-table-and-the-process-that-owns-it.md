@@ -4,7 +4,7 @@
   checkpointed before any code, the way
   [ADR 0034](0034-the-store-outside-and-the-reference-that-names-nothing.md)
   and [ADR 0035](0035-the-record-of-a-deletion.md) were. It landed on `main`
-  as proposed earlier the same day; nothing in it is implemented. **Most of
+  as proposed earlier the same day; nothing in it was implemented then. *Corrected 2026-10-28:* the status said nothing in it was built, which was true when it was accepted (`8df01bca`) and stayed after the release that carries it: `Shipped:` below has named 0.24.0 since `0e5d2b70`, and the status was not moved with it. **Most of
   what it states was settled before it was written**, in discussion, and is
   recorded here as settled. The rest are **decisions this record takes
   itself**, marked *decided here* where they are made so that acceptance could
