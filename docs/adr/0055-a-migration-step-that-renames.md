@@ -99,12 +99,18 @@ A renaming step addresses that position and no other.
 It may not change the value's **shape** or its **meaning** as well. If both the
 name and the shape change, they are two steps, and each is held to its own rule.
 
-*New.* The reason is that a rename can be checked by looking only at keys (§7),
-and a step that also reshapes cannot. A calibration band that stopped being
-`{check, low, high}`, under the same name or another, would not be a rename: it
-would be a passenger under ADR 0014 §1, and if its new value cannot be derived
-from the old one, a row in `_NON_ADDITIVE`. This record does not decide that
-case.
+*New.* The reason is that a rename can be checked on its declared paths alone
+(§7): the value there is the same before and after. A step that also reshapes
+cannot be checked that way.
+
+**What this record does not cover.** There is a third kind of step, besides one
+that adds and one that renames: one that **transforms**, computing a new shape
+from the old one. §1 forbids a renaming step to compute, and ADR 0014 §1 is
+written for a field that arrives, so no rule covers such a step today. This
+record does not write that rule. The first case is the calibration band,
+`{check, low, high}` in `results[].calibration`, if it becomes a relation
+between two answers instead of an absolute band, and **its rule is owed before
+its code**.
 
 ### 3. A document where the key is absent
 
@@ -133,9 +139,9 @@ and after it only the new one. So a document that holds both was not written as
 it stands, which is the condition the refusal in `16 -> 17` already names
 (*"the document was not written as it stands"*). The refusal goes where that one
 goes: a `NonAdditiveError` naming the document and the position, which
-`migrate_paths` counts as refused and moves past. Measured on schema 23 documents read by
-this tree and by digline 0.35.0, a refused document is left **byte-identical**
-on disk.
+`migrate_paths` counts as refused and moves past. Measured on schema 23
+documents read by this tree and by digline 0.35.0, a refused document is left
+**byte-identical** on disk.
 
 The refusal applies **at the position of §1**. Inside a metadata value that is
 not the stand-in, both names are payload and are not read.
@@ -187,19 +193,29 @@ the check is **owed before the first renaming step lands, in the same pull
 request at the latest**. *New.* Proposed form:
 
 - **Every entry of `_STEPS` declares its nature**: it *writes nothing*, it
-  *adds*, or it *renames*. A renaming step also declares each pair it renames:
-  the position, the old name and the new one.
+  *adds*, or it *renames*. A renaming step declares each pair it renames as
+  **two paths in the schema**, the old and the new, never as two names.
 - **One test reads `_STEPS` as a family.** Each step is applied to a document
-  of its from-version that carries every key the step can touch, and to one
+  of its from-version that carries every path the step can touch, and to one
   that carries none of them, and is held to its declared nature:
   - *writes nothing*: the document is identical but for `schema_version`;
-  - *adds*: every key path before is still there, with its value unchanged;
-  - *renames*: the key paths before and after differ **only** by the declared
-    pairs, the value at each new name equals the value at the old one, and
-    every other value is unchanged (§1, §2, §5). The document without the key
-    comes out identical but for `schema_version` (§3), and a document with both
-    names is refused and left as it was (§4).
+  - *adds*: every path before is still there, with its value unchanged;
+  - *renames*: the test compares the document before and after **on the
+    declared paths**. The value at each new path equals the value at its old
+    path (§1, §2). The old path is gone (§5). No other path changed. And every
+    position that carries the old name and was not declared still carries it
+    where it did.
+  - The document without the key comes out identical but for `schema_version`
+    (§3). A document with both names at a declared position is refused and
+    left as it was (§4).
 - **A step that declares no nature, or declares one it does not keep, is red.**
+
+**Why paths and not names.** A comparison of the sets of key names cannot hold
+§1. `withheld` is written at four positions in the stored document and three of
+them are to be renamed. A step that renamed the wrong one would still leave the
+name `withheld` in the document, because the configuration's list keeps it, and
+a comparison of names would pass. Declared paths, and the undeclared positions
+checked to be untouched, are what catch it.
 
 Today nothing reads `_STEPS` as a family. Each step is tested where its field is
 (`tests/test_calibration.py` for `16 -> 17`, `tests/test_noise_floor.py` for
@@ -210,8 +226,10 @@ Today nothing reads `_STEPS` as a family. Each step is tested where its field is
 - Schema 23's renaming step, when it is written, follows §1 to §6 and arrives
   with §7's gate. The three places in *Context* are the first instance.
 - A rename of a key in the stored document is no longer free to be read as
-  *additive*. It has its own family, and the family is checked on keys alone.
-- The calibration band, if its shape changes, is outside this record (§2).
+  *additive*. It has its own family, and the family is checked on its declared
+  paths.
+- A step that transforms is covered by no rule, this one included, and its rule
+  is owed before its code (§2). The calibration band is the first case.
 - What a rename costs a user is §6: one more step forward, and no road back
   with the version before.
 
@@ -236,4 +254,5 @@ Today nothing reads `_STEPS` as a family. Each step is tested where its field is
   not a document, so nothing migrates it"*, and the journal's reader refuses
   another `JOURNAL_VERSION`. A rename in either is a version of its own, and
   this record does not rule on it.
-- **The calibration band's change of shape** (§2).
+- **The rule for a step that transforms**, and so the calibration band's change
+  of shape (§2).
