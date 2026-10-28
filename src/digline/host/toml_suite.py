@@ -51,13 +51,13 @@ from digline.core import (
     NotContains,
     PiiAbsent,
     Precision,
-    Quoted,
     Recall,
     Regex,
     Repeated,
     TokenKind,
     ToolCalledWith,
     ToolsCalled,
+    Written,
 )
 from digline.core import (
     LlmRubric as LlmRubricAssertion,
@@ -251,12 +251,12 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             **cast("Any", declared),
         )
     except TypeError as exc:
-        raise UsageError(Quoted.of(exc, f"{where}, [suite]: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}, [suite]: ", named=False)) from exc
     except ValueError as exc:
         # The suite's own load-time refusals, unchanged and unduplicated: a
         # TOML suite that samples without min_agreement fails with the sentence
         # the Python form already fails with (ADR 0007 §6).
-        raise UsageError(Quoted.of(exc, f"{where}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 
     return suite, _target(document, path, perimeter)
 
@@ -270,7 +270,7 @@ def _parse(path: Path) -> Mapping[str, object]:
     try:
         raw = path.read_bytes()
     except OSError as exc:
-        raise UsageError(Quoted.of(exc, f"cannot read {path}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"cannot read {path}: ", named=False)) from exc
     # The byte offset and nothing more: `bytes.decode` is a builtin, so its
     # message would be attributed to digline by its frame, and it quotes the
     # byte it could not decode (ADR 0043 §6).
@@ -282,7 +282,7 @@ def _parse(path: Path) -> Mapping[str, object]:
         return tomllib.loads(text)
     except tomllib.TOMLDecodeError as exc:
         raise UsageError(
-            Quoted.of(exc, f"{path} is not valid TOML: ", named=False)
+            Written.of(exc, f"{path} is not valid TOML: ", named=False)
         ) from exc
 
 
@@ -379,7 +379,7 @@ def _construct(
     try:
         return cls(**prepared)
     except (TypeError, ValueError) as exc:
-        raise UsageError(Quoted.of(exc, f"{where}, `{token}`: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}, `{token}`: ", named=False)) from exc
 
 
 def _value(
@@ -454,11 +454,11 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
             value, field=f"{where}: `{key}`", kind="judge_identity"
         )
     except ValueError as exc:
-        raise UsageError(Quoted.of(exc, "", named=False)) from exc
+        raise UsageError(Written.of(exc, "", named=False)) from exc
     try:
         provider = resolve(provider_name)
     except ProviderNotFound as exc:
-        raise UsageError(Quoted.of(exc, f"{where}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
     build = getattr(provider, factory)
     try:
         # By keyword, always: a plugin's factory is a class whose positional
@@ -467,7 +467,7 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
         return build(model=model)
     except (TypeError, ValueError) as exc:
         raise UsageError(
-            Quoted.of(
+            Written.of(
                 exc,
                 f"{where}: {provider_name} could not be set up as a judge for "
                 f"{model!r}: ",
@@ -486,7 +486,7 @@ def _cases(path: Path, where: str) -> list[Case]:
         raw = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise UsageError(
-            Quoted.of(
+            Written.of(
                 exc,
                 f"{where}, [suite]: the cases file {path.name} could not be read "
                 f"at {path}: ",
@@ -502,7 +502,7 @@ def _cases(path: Path, where: str) -> list[Case]:
         payload = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise UsageError(
-            Quoted.of(
+            Written.of(
                 exc,
                 f"{path.name} is not valid JSON at line {exc.lineno}, column "
                 f"{exc.colno}: ",
@@ -531,7 +531,7 @@ def _cases(path: Path, where: str) -> list[Case]:
         try:
             built.append(Case(**cast("Any", arguments)))
         except (TypeError, ValueError) as exc:
-            raise UsageError(Quoted.of(exc, f"{spot}: ", named=False)) from exc
+            raise UsageError(Written.of(exc, f"{spot}: ", named=False)) from exc
     return built
 
 
@@ -553,7 +553,7 @@ def _calibration(raw: object, spot: str) -> Calibration:
     try:
         return Calibration(**cast("Any", given))
     except (TypeError, ValueError) as exc:
-        raise UsageError(Quoted.of(exc, f"{where}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 
 
 # --------------------------------------------------------------------------- #
@@ -606,7 +606,7 @@ def _http(
             **cast("Any", _resolve_paths(arguments, HttpTarget, base, root, where))
         )
     except (TypeError, ValueError) as exc:
-        raise UsageError(Quoted.of(exc, f"{where}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 
 
 def _provider(
@@ -624,14 +624,14 @@ def _provider(
         )
         provider = resolve(provider_name)
     except ValueError as exc:
-        raise UsageError(Quoted.of(exc, "", named=False)) from exc
+        raise UsageError(Written.of(exc, "", named=False)) from exc
     except ProviderNotFound as exc:
-        raise UsageError(Quoted.of(exc, f"{where}: ", named=False)) from exc
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 
     rest = {key: value for key, value in arguments.items() if key != "provider"}
     if "model" in rest:
         raise UsageError(
-            Quoted.said(
+            Written.said(
                 f"{where}: `model` is the second half of `provider`, so writing it "
                 'again would be two sources for one fact. It is "',
                 NameRef("target_config_value", provider_name, quoted=False),
@@ -675,7 +675,7 @@ def _provider(
         return provider.target(model=model, **cast("Any", settled))
     except (TypeError, ValueError) as exc:
         raise UsageError(
-            Quoted.of(
+            Written.of(
                 exc, f"{where}: {provider_name} refused this set-up: ", named=False
             )
         ) from exc

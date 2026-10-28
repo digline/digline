@@ -13,7 +13,7 @@ from collections.abc import Set as AbstractSet
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import Literal, cast
 
-from digline.core.refused import NameRef, Quoted
+from digline.core.refused import NameRef, Written
 
 __all__ = [
     "ALL_KINDS",
@@ -658,7 +658,7 @@ class Verdict:
     def __post_init__(self) -> None:
         if not self.assertion_id:
             raise UnidentifiedVerdictError(
-                Quoted.said(
+                Written.said(
                     "the verdict ",
                     NameRef("verdict_name", self.score.name),
                     " carries no assertion_id: "

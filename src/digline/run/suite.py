@@ -38,7 +38,7 @@ from digline.core import (
 from digline.core.aggregate import RUN_ASSERTION_MEMBERS
 from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
-from digline.core.refused import NameRef, Quoted, RefusedError
+from digline.core.refused import NameRef, RefusedError, Written
 from digline.core.tokens import TokenKind
 from digline.core.types import floor_width_refusal
 
@@ -117,7 +117,7 @@ class Calibration:
             # is not partially correct, it is nothing, and a band placed around
             # the score of nothing calibrates nothing.
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "the calibration of ",
                     NameRef("calibration_check", self.check),
                     " declares an empty output: a "
@@ -200,7 +200,7 @@ class Case:
             raise RefusedError("Case.id must not be empty")
         if self.suspended is not None and not self.suspended:
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " is suspended without a stated reason: "
@@ -216,7 +216,7 @@ class Case:
             # cannot fail. Refused here rather than in the assertions, because
             # it is the case that is malformed. (fixed decision 3)
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " declares an empty expected: an empty "
@@ -230,7 +230,7 @@ class Case:
             # with different consequences: the empty one names a group, so it
             # would expand into `precision[group=]`, a gate nobody can read.
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " declares an empty group: leave it unset to "
@@ -244,7 +244,7 @@ class Case:
             # an `error` gate nobody declared, appearing because a case was
             # flagged. (ADR 0016 §1)
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " is a canary and declares the group ",
@@ -255,7 +255,7 @@ class Case:
             )
         if self.calibration is not None and self.canary:
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " is both a canary and a calibration case: a "
@@ -266,7 +266,7 @@ class Case:
         if self.calibration is not None and self.group is not None:
             # The canary's refusal, for the canary's reason. (ADR 0024 §4.2)
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.id),
                     " is a calibration case and declares the group ",
@@ -394,7 +394,7 @@ class Suite:
             width: object = getattr(assertion, "floor_standard_errors", None)
             if (refusal := floor_width_refusal(width)) is not None:
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         f"suite {self.name!r}, check ",
                         NameRef("verdict_name", assertion.name),
                         f": {refusal}",
@@ -488,7 +488,7 @@ class Suite:
         for case in self.cases:
             if case.id in seen:
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         f"suite {self.name!r} declares case id ",
                         NameRef("case_id", case.id),
                         " twice: "
@@ -564,7 +564,7 @@ class Suite:
             if not matches:
                 available = sorted({a.name for a in self.assertions})
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         "case ",
                         NameRef("case_id", case.id),
                         " calibrates ",
@@ -576,7 +576,7 @@ class Suite:
                 )
             if len(matches) > 1:
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         "case ",
                         NameRef("case_id", case.id),
                         " calibrates ",
@@ -589,7 +589,7 @@ class Suite:
             check = _unwrapped(matches[0])
             if not judged(check):
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         "case ",
                         NameRef("case_id", case.id),
                         " calibrates ",
@@ -608,7 +608,7 @@ class Suite:
                 # it, the calibration would measure a different question. `""`
                 # declares that the real cases have none either.
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         "case ",
                         NameRef("case_id", case.id),
                         " calibrates ",
@@ -635,7 +635,7 @@ class Suite:
         for aggregate in self.run_assertions:
             if GROUP_MARKER in aggregate.name:
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         "aggregate ",
                         NameRef("verdict_name", aggregate.name),
                         f" writes {GROUP_MARKER!r} in "
@@ -650,7 +650,7 @@ class Suite:
             if not matches:
                 available = sorted({a.name for a in self.assertions})
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         NameRef("verdict_name", aggregate.name),
                         " aggregates over ",
                         NameRef("verdict_name", aggregate.over),
@@ -661,7 +661,7 @@ class Suite:
                 )
             if len(matches) > 1:
                 raise RefusedError(
-                    Quoted.said(
+                    Written.said(
                         NameRef("verdict_name", aggregate.name),
                         " aggregates over ",
                         NameRef("verdict_name", aggregate.over),
@@ -684,7 +684,7 @@ class Suite:
         )
         if unlabelled:
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     f"suite {self.name!r} declares an aggregate that counts a "
                     "confusion matrix, so every case needs a label. Missing on: ",
                     *_listed("case_id", unlabelled),

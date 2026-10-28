@@ -479,7 +479,7 @@ def test_the_install_check_leaves_out_what_testpypi_classified() -> None:
     every file this tag built, the excluded included."""
     install = pypi_step("dist_manifest.py /tmp/manifest --classification")
     assert install["env"] == {"EXCLUDED": "${{ needs.testpypi.outputs.excluded }}"}
-    # Quoted, so an empty output reaches the script as one empty argument and
+    # Written, so an empty output reaches the script as one empty argument and
     # is refused there, rather than vanishing from the command line.
     assert 'dist_manifest.py /tmp/manifest --classification "$EXCLUDED"' in str(
         install["run"]

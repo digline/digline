@@ -28,7 +28,7 @@ empty here is unclassified and unchecked. Numbers are not walked, as in the
 projection's gate.
 
 **A refusal is walked as prose, and as the names it carries.** ADR 0054 §8
-wants a refusal's names in fields, as `NameRef`s in its `Quoted`. Every refusal in
+wants a refusal's names in fields, as `NameRef`s in its `Written`. Every refusal in
 `PROVOCATIONS` is driven under `project`, and its sentence is held against the
 names the projection tokenises in this fixture, which are known. One that holds
 a name is red unless `NAMED_IN_PROSE` declares it, and that table may only
@@ -68,10 +68,10 @@ from digline.core import (
     NAMED_CONFIG_KEYS,
     WITHHELD_WORDS,
     NameRef,
-    Quoted,
     TokenKind,
     Withheld,
     WithheldKind,
+    Written,
     project_served,
     redact,
     run_from_json,
@@ -655,7 +655,7 @@ def _fields(refused: BaseException) -> list[tuple[str, str]]:
 # unless `NAMED_IN_PROSE` declares it. The table is the measure of what §8
 # still owes, and it may only shrink. (ADR 0054 §8)
 #
-# A refusal that carries its names, as `NameRef`s in its `Quoted`, is held by
+# A refusal that carries its names, as `NameRef`s in its `Written`, is held by
 # three checks more, from the first site repaired: each name is of a kind the
 # projection knows and was minted under it; each one's token is in the
 # sentence; and every name the sentence says in clear is still said under
@@ -1525,7 +1525,7 @@ def _kept(refused: BaseException) -> tuple[Withheld, ...]:
     """The values a refusal keeps back under projection, through every wrap."""
     error: BaseException | None = refused
     while error is not None:
-        if len(error.args) == 1 and isinstance(error.args[0], Quoted):
+        if len(error.args) == 1 and isinstance(error.args[0], Written):
             return error.args[0].withheld
         error = error.__cause__ or error.__context__
     return ()
@@ -1536,7 +1536,7 @@ def _refs(refused: BaseException) -> tuple[NameRef, ...]:
     agent's sentence was rendered from."""
     error: BaseException | None = refused
     while error is not None:
-        if len(error.args) == 1 and isinstance(error.args[0], Quoted):
+        if len(error.args) == 1 and isinstance(error.args[0], Written):
             return error.args[0].names
         error = error.__cause__ or error.__context__
     return ()

@@ -29,7 +29,7 @@ from functools import cache
 from importlib.metadata import EntryPoint, entry_points
 from typing import TYPE_CHECKING
 
-from digline.core.refused import NameRef, Quoted, RefusedError
+from digline.core.refused import NameRef, RefusedError, Written
 from digline.core.tokens import TokenKind
 
 if TYPE_CHECKING:
@@ -213,7 +213,7 @@ def split_coordinate(
     provider, sep, model = text.partition("/")
     if not sep or not provider or not model:
         raise RefusedError(
-            Quoted.said(
+            Written.said(
                 f"{field} is ",
                 repr(text) if kind is None else NameRef(kind, text),
                 ", which is not a provider/model coordinate. "

@@ -17,7 +17,7 @@ from typing import cast
 
 from digline.core.aggregate import grouped_name, split_grouped_name
 from digline.core.declared import Declared
-from digline.core.refused import Quoted
+from digline.core.refused import Written
 from digline.core.run import (
     NAMED_CONFIG_KEYS,
     WITHHELD_METADATA,
@@ -177,7 +177,7 @@ def project_served(run: Run, mint: Minter) -> Run:
         # 0.25.0, F-4)
         if type(exc) is not ValueError:
             raise
-        raise ProjectionRefusedError(Quoted.of(exc, "", named=False)) from exc
+        raise ProjectionRefusedError(Written.of(exc, "", named=False)) from exc
 
 
 #: What `rename` is handed: the new text for a name of a kind. `project` hands

@@ -358,7 +358,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Quoted` with names); against 0.35.0 the call raises `TypeError` | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
+| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError` | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -448,7 +448,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline | ADR 0054 §8: `NameRef`, `Said`, `Withheld`, `WithheldKind` and `WITHHELD_WORDS` in `digline.core`, `Quoted` that holds names and needs no cause, `refusal_text(mint=)`; a band's and an unidentified verdict's refusal in a stored run is `DocumentRefusedError` with the reader's prefix | a minor: public names are added and a refusal a user reads changed its type and its words |
+| digline | ADR 0054 §8: `NameRef`, `Said`, `Withheld`, `WithheldKind` and `WITHHELD_WORDS` in `digline.core`, `Written` that holds names and needs no cause, `refusal_text(mint=)`; a band's and an unidentified verdict's refusal in a stored run is `DocumentRefusedError` with the reader's prefix | a minor: public names are added and a refusal a user reads changed its type and its words |
 | digline-mcp | ADR 0054 §8: under `--names project` a refusal's names reach the agent as tokens | the sentence an agent reads changed; its floor is owed at the cut, in the table above |
 
 Empty is the normal state here too. A row left after its package's release is a

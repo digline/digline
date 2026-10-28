@@ -139,11 +139,11 @@ from digline.core.reconcile import (
 from digline.core.refused import (
     WITHHELD_WORDS,
     NameRef,
-    Quoted,
     RefusedError,
     Said,
     Withheld,
     WithheldKind,
+    Written,
 )
 from digline.core.register import (
     DISPOSITIONS,
@@ -293,7 +293,7 @@ __all__ = [
     "AssertionBase",
     "AssertionShapeError",
     "NameRef",
-    "Quoted",
+    "Written",
     "RefusedError",
     "Said",
     "WITHHELD_WORDS",
