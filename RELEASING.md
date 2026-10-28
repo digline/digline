@@ -1403,6 +1403,13 @@ This is the same move as the counts at the `[GATE]`: a number read out loud
 rather than a memory trusted. `tests/test_tag_names.py` covers it offline, with
 `v0.17.0`'s real message as the control that must fail.
 
+**Its answer depends on what PyPI serves, so read it after the previous
+package is served.** A reading taken while the release before it is still
+unpublished counts that release too. *Observed 2026-10-28:* run for
+digline-bedrock 0.7.0 while digline-anthropic 0.7.0 was not yet on the index,
+it said *"this run will publish 2 package(s)"* and named both. Read again once
+PyPI served anthropic, it named bedrock alone.
+
 ### Not built: a package whose text moved under a version the index serves
 
 **`tag_names.py` asks which *versions* the index lacks, so it cannot see a
