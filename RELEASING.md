@@ -280,6 +280,10 @@ in any README that quotes it (`examples/langchain4j/README.md` does), then run
 each lock should move; the version it resolves stays the newest the index
 serves, because the new one is not served until the tag. Moving the locks to the
 new version is still *After the tag* work.
+**The `revision` line must not move either.** A `uv` that rewrites a lock writes
+its own format there, and nothing in this repository fixes which `uv` that is.
+`tests/test_lock_revision.py` holds each lock to the value declared for it, and
+names the file that moved.
 
 **This step became mandatory on 2026-09-28, and the gate changed the ritual
 without telling it.** On 0.21.0 the caps moved in the bump (`4785a9e`) and the
@@ -836,6 +840,9 @@ not match `pyproject.toml` instead of rewriting it. That split is deliberate:
 the version has just been bumped, so this is the one moment the lock is
 *supposed* to change, and making it a named command rather than a side effect of
 `uv sync` is what stops the change from happening somewhere nobody is looking.
+Only the versions should move, not the `revision` line at the top: it is the
+format of the `uv` that wrote the lock, and `tests/test_lock_revision.py` names
+a lock whose format moved, with the value declared for it and why.
 
 v0.15.1 is why. Its tag points at a lock still naming 0.15.0: `uv sync` had
 refreshed the lock while the home capture was regenerated, only the capture was
