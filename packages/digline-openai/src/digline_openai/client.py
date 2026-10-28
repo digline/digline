@@ -144,8 +144,9 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage | None:
     `prompt_tokens_details` is optional, and a count it omits is `0`: there was
     nothing to count. `thinking_tokens` stays per field.
 
-    **A model declared `free()` still reads a missing `usage` as zero**: you
-    said it costs nothing, so the zero is its price and not an undercount.
+    **A model declared `free()` reads a missing `usage` as zero.** `free()` is
+    your declaration, so it is the rule's second half: a count omitted by
+    declaration means there was nothing to count.
     """
     usage = getattr(reply, "usage", None)
     if usage is None:

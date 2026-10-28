@@ -419,9 +419,10 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage | 
     The cache members are optional, and one the reply omits is `0`: there was
     nothing to count.
 
-    **A model declared `free()` still reads a missing usage block as zero**:
-    you said it is billed by the hour rather than by the token, so the zero is
-    its per-token price and not an undercount.
+    **A model declared `free()` reads a missing usage block as zero.** `free()`
+    is your declaration that the model is billed by the hour rather than by the
+    token, so it is the rule's second half: a count omitted by declaration
+    means there was nothing to count.
 
     **A 1-hour cache write is counted, and not priced.** `cacheDetails`
     splits the writes by TTL, and AWS bills the 1-hour write at 1.6x the

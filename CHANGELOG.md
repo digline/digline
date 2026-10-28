@@ -1105,8 +1105,8 @@ each package.
   `false`. `inputTokens` and `outputTokens` are required in `TokenUsage`, and
   one missing was read as `0`; it is now the same *not recorded*, and the
   counts that were read go with it. The optional cache members stay `0` where
-  the reply omits them. A model declared `free()` still reads a missing usage
-  block as zero: it is billed by the hour, so the zero is its price.
+  the reply omits them. A model declared `free()` reads a missing usage block
+  as zero: `free()` is your declaration that there is nothing to count.
   `usage_of` answers `Usage | None`. An exit code changed, which the minor
   above already is. The refusals of a reply are still scrubbed, though none
   quotes the model any more.
@@ -1133,7 +1133,8 @@ each package.
   `CompletionUsage`, and one missing was read as `0`; it is now the same *not
   recorded*, and the counts that were read go with it. `prompt_tokens_details`
   is optional, and its counts stay `0` where a reply omits it. A model declared
-  `free()` still reads a missing `usage` as zero, which is its price.
+  `free()` reads a missing `usage` as zero: `free()` is your declaration that
+  there is nothing to count.
   `usage_of` answers `Usage | None`. **The next version is a minor**: an exit
   code changed.
 - **The dependency is `digline>=0.35.0`**, where `Completion(usage=None)` is
