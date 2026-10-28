@@ -3,17 +3,26 @@
 - Status: accepted 2026-10-27, by Alessandro Prandini, after its code landed
   and because it ships. Proposed 2026-10-26. Implemented 2026-10-27 for
   digline-mcp 0.7.0, which is not released, **except §8 for the core's
-  refusals**, which a strict `xfail` holds: *Consequences* says what the
-  acceptance measured and what §8 reaches. The decisions below were ruled by
+  refusals**, which is **not complete**. Since 2026-10-28 it is held by the
+  names gate's walk of the refusals, in `tests/test_names_gate.py`, and no
+  longer by an `xfail`: of the refusals that gate drives, **none** names what
+  the projection tokenises. The perimeter is the gate's provocations, written
+  beside `NAMED_IN_PROSE_COUNT`, and the refusals no provocation reaches stay
+  outside the count: the checks' own constructors, `PiiPattern`,
+  `host/loader.py`, the declarative loader's sentences about a key or a
+  table, and the store's refusals of a register, of a directory it cannot
+  read, of a run with no key and of a baseline that is a projection.
+  *Consequences* says what the acceptance measured and what §8 reaches. The
+  decisions below were ruled by
   Alessandro Prandini on 2026-10-26, on #548 (where the ruling is a comment)
   and on the reading of this record's draft, and this record is written before
   the code
 - Shipped: 0.35.0 — the core's half: `load_name_table`, `NameTable`,
   `one_table`, `project_check_name`, `project_declared` and `mint=`. Not §8 for
-  the core's refusals, **which is owed**: the core's error classes do not carry
-  the names a refusal quotes in fields, §8's note of 2026-10-27 says so, and
-  `test_the_gate_classifies_the_names_of_a_refusal` holds it as an
-  `xfail(strict=True)`. The server's half ships in digline-mcp 0.7.0
+  the core's refusals, **which is in no release yet**: the refusals carry the
+  names they quote as `NameRef`s in their `Quoted` in this tree (#782, #783,
+  #786), and digline-mcp passes its minter on a floor owed at the cut. The
+  server's half ships in digline-mcp 0.7.0
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:
   0.7.0. The order is ruled and is not overtaken: `OUTPUT_VERSION` 4 in the
@@ -279,3 +288,17 @@ measurements are not a perimeter, so §8 is **not complete**: what is missing is
 the core's error classes carrying the names in fields, and
 `test_the_gate_classifies_the_names_of_a_refusal` holds it as an
 `xfail(strict=True)` that turns red the day they do.
+
+*Noted 2026-10-28, the `xfail` taken out, the paragraph above kept as it was.*
+**That `xfail` did not prove §8, and it was taken out rather than made
+green.** None of the five refusals it provoked quotes a name the projection
+mints; it read only that a field's path was classified as something other
+than prose, and never ran the check that path names; and it never asked
+whether the sentence was composed from the fields. Made green, it would have
+closed §8 with an empty proof. What holds §8 now is the names gate's walk of
+the refusals: each one it drives is held to `NAMED_IN_PROSE` (0 at this
+date), `REPAIRED`, `WITHHELD` and `COINCIDENCES`, and a refusal that carries
+names to three checks: each name of a kind and minted under it, each token in
+the sentence, and every name said in clear still said under `project`. **§8
+is not complete**: the zero holds for the refusals the gate drives, and the
+ones no provocation reaches are named in the status line above.

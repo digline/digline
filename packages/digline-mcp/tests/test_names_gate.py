@@ -25,11 +25,10 @@ classified. The tool list is read from the server, not written into the test.
 **What it does not cover.** A path that does not occur in this fixture is not
 seen: the walk is of answers, not of the model behind them, so a field that is
 empty here is unclassified and unchecked. Numbers are not walked, as in the
-projection's gate. ADR 0054 §8 wants a refusal's names in fields, which the
-core's classes do not carry, and a test here holds that as an
-`xfail(strict=True)`.
+projection's gate.
 
-**Until they do, a refusal is walked as prose.** Every refusal in
+**A refusal is walked as prose, and as the names it carries.** ADR 0054 §8
+wants a refusal's names in fields, as `NameRef`s in its `Quoted`. Every refusal in
 `PROVOCATIONS` is driven under `project`, and its sentence is held against the
 names the projection tokenises in this fixture, which are known. One that holds
 a name is red unless `NAMED_IN_PROSE` declares it, and that table may only
@@ -633,40 +632,17 @@ def _fields(refused: BaseException) -> list[tuple[str, str]]:
     return found
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "ADR 0054 §8 wants the names a refusal quotes carried in fields, and "
-        "this gate classifies fields, not prose. The five refusals measured "
-        "under project (an unknown run, a run diffed with itself, a corrupted "
-        "run document, a suite outside the root, no baseline) quote no name "
-        "the table minted, and five measurements are not a perimeter. What is "
-        "missing is the core's error classes carrying those fields (#548). "
-        "The refusals that do name, in their sentence, are NAMED_IN_PROSE."
-    ),
-)
-def test_the_gate_classifies_the_names_of_a_refusal(
-    fixture_repo: tuple[Path, str, str],
-    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
-) -> None:
-    """Every refusal a tool meets carries its names in fields, and each field
-    sits at a path the gate classifies as something other than prose."""
-    repo, first, _ = fixture_repo
-    _, table = projected
-    classified = strings(Gate(table))
-    bare = sorted(
-        why
-        for why, refused in _provoke(repo, first, table).items()
-        if not _fields(refused)
-    )
-    assert not bare, f"these refusals carry their names in a sentence alone: {bare}"
-    unclassified = sorted(
-        f"{why}: {path}"
-        for why, refused in _provoke(repo, first, table).items()
-        for path, _ in _fields(refused)
-        if classified.get(path, ("p",))[0] == "p"
-    )
-    assert not unclassified, unclassified
+# `test_the_gate_classifies_the_names_of_a_refusal` stood here, as an
+# `xfail(strict=True)`, from 2026-10-27 (#754) to 2026-10-28. **It did not
+# prove ADR 0054 §8, and it was taken out rather than made green.** None of
+# the five refusals it provoked quotes a name the projection mints; it read
+# only that a field's path was classified as something other than prose, and
+# never ran the check that path names; and it never asked whether the sentence
+# was composed from the fields. Made green, it would have closed §8 with an
+# empty proof. What holds §8 is the walk of the refusals below: every
+# provocation driven under `project`, held to `NAMED_IN_PROSE`, `REPAIRED`,
+# `WITHHELD` and `COINCIDENCES`, and to the three checks on the names a refusal
+# carries.
 
 
 # -- The refusals, walked as the answers are -----------------------------------
