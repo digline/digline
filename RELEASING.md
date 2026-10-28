@@ -397,7 +397,6 @@ it and deletes it.
 |---|---|---|
 | digline-anthropic | #569: a reply in an `inference_geo` with no rate, or with a write to the 1-hour cache, is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |
 | digline-bedrock | #569: a reply with a cache write at a TTL other than `5m` is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced`, held by its row in *Owed at the cut* |
-| pytest-digline | #642: with the core release that carries `unpaired`, a session whose comparison holds such a pair ends `1` where it ended `0`, by `pytest_sessionfinish`'s rule for any code digline does not call green; its rows do not change, and its code does not change | a minor: *Choosing the version* names *the exit status a session ends with* among what its users rely on, whatever changed it. It reaches them through the pytest-digline release whose cap admits that core, so that release owes it: not 0.4.0, whose cap `<0.35` does not, and which settled #574's row and its floor without this one. No floor is owed: nothing the plugin calls is new |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
