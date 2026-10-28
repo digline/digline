@@ -171,6 +171,21 @@ is a path, and a path is what §7's gate classifies.
 carried by a field, where it used to be said only by the message. This takes
 the same step for the names.
 
+*Noted 2026-10-28, the criterion.* The list above is the one
+`digline_mcp/errors.py` gives, and it is not the criterion. It is wider than
+§9, which keeps tenants and suite names in clear as class (b). It is narrower
+than what a refusal quotes: measured under `project`, a refusal of a stored
+document quotes case ids, artifact paths, groups and metadata keys, which it
+does not name. **The criterion is what the projection tokenises**: every
+string of ADR 0034 §4's class (c) that a refusal quotes travels in a field and
+leaves as a token, whatever its source. The names gate holds a refusal's
+sentence against the names the projection tokenises in its fixture, and
+`NAMED_IN_PROSE` declares the refusals that do not pass yet. **The criterion
+applies at the boundary, as this section's rule does** (§7): to a refusal
+that leaves the server under `project`, not to every refusal digline raises.
+A refusal that never reaches a response, as a promotion's does not, is not
+asked for fields by it.
+
 ### 9. The tenant and the suite stay in clear
 
 Under `project`, `tenant` and `suite` leave in clear. **They are class (b)** of
