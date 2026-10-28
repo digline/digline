@@ -226,6 +226,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no step in `_STEPS` renames a key, and the gate its §7 owes is in no "
         "test: nothing reads `_STEPS` as a family"
     ),
+    "0056-a-migration-step-that-transforms": (
+        "no step in `_STEPS` transforms a shape, and the gate its §6 owes is in no test"
+    ),
 }
 
 
