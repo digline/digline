@@ -879,6 +879,23 @@ command-line option changed in meaning, as `--root` becoming required was in
   in a store is written nowhere in it. The Claude Code plugin's launcher
   passes `--names clear` to a server that takes it, and says in the script
   when that is wrong.
+- **`build_server` takes `names` and `table`, and a call with three arguments
+  breaks.** It was `build_server(root, tenant, environment)`, and it is now
+  `build_server(root, tenant, environment, *, names, table)`: two keyword
+  arguments, both required, `table` being `None` under `clear`. A caller that
+  builds the server itself has to be updated: with three arguments it raises
+  `TypeError`. Neither has a default for the reason `--names` has none (ADR
+  0054 §1): a default here would let a server built in code start with a
+  declaration nobody made, which is the gap the required option closes on the
+  command line. The function is in `digline_mcp.server.__all__` and no page
+  documents it, so under *Choosing the version* in `RELEASING.md` it is the
+  third level, internal, and the minor does not rest on it.
+
+  *Added 2026-10-28, by the delta-pass over digline-mcp 0.7.0.* This entry, as
+  published with the tag `digline-mcp-v0.7.0` (`CHANGELOG.md` at `9b3cde9d`),
+  did not name this change. The record is corrected here, in place; the tag's
+  text is not rewritten, and the package on PyPI carries no changelog of its
+  own, only a link to this one.
 - **`--names project` projects every answer** (#548, ADR 0054 §3, §7). Case
   ids, check names, group labels, calibration checks, configuration keys and
   values and artifact paths leave as tokens from the name table, named at

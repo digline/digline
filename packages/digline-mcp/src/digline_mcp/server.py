@@ -90,6 +90,13 @@ from digline.wire import (
 from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
 
+# What the delta-pass reads, not a declaration of public API: the server's
+# public surface is its command line and its tools, and no page documents a
+# name here. So a name is not removed to tidy up. F-1 of the pass over the
+# release that made `--names` required is why: `build_server` gained two
+# required arguments, and the pass saw it only because it is listed here.
+# Under *Choosing the version* it could leave in a patch, and the next change
+# to its signature would be seen by nobody.
 __all__ = ["Names", "build_server", "main"]
 
 #: Whether the store's names may leave in clear. **No default**: whose cases are
