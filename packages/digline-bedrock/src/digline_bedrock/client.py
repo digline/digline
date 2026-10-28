@@ -419,9 +419,9 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage | 
     The cache members are optional, and one the reply omits is `0`: there was
     nothing to count.
 
-    **A model declared `free()` still reads a missing usage block as zero**:
-    you said it is billed by the hour rather than by the token, so the zero is
-    its per-token price and not an undercount.
+    **A model declared `free()` is no exception.** Its per-token price is
+    zero, and its tokens were still not counted: a `Usage` of zeros would say
+    they were.
 
     **A 1-hour cache write is counted, and not priced.** `cacheDetails`
     splits the writes by TTL, and AWS bills the 1-hour write at 1.6x the
@@ -433,8 +433,6 @@ def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage | 
     """
     raw_usage = reply.get("usage")
     if not isinstance(raw_usage, Mapping):
-        if _is_free(model, pricing):
-            return Usage(input_tokens=0, output_tokens=0)
         return None
     usage = cast("Mapping[str, Any]", raw_usage)
     # Read for its shape: a malformed `cacheDetails` is still refused.
@@ -495,18 +493,6 @@ def _count(usage: Mapping[str, Any], key: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"usage.{key} is {value!r}, which is not a token count")
     return int(value)
-
-
-def _is_free(model: str, pricing: Pricing) -> bool:
-    price = pricing.per_model.get(model)
-    return price is not None and not any(
-        (
-            price.input_per_mtok,
-            price.output_per_mtok,
-            price.cache_read_per_mtok,
-            price.cache_write_per_mtok,
-        )
-    )
 
 
 class BedrockChat:

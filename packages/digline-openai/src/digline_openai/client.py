@@ -144,13 +144,11 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage | None:
     `prompt_tokens_details` is optional, and a count it omits is `0`: there was
     nothing to count. `thinking_tokens` stays per field.
 
-    **A model declared `free()` still reads a missing `usage` as zero**: you
-    said it costs nothing, so the zero is its price and not an undercount.
+    **A model declared `free()` is no exception.** Its price is zero, and its
+    tokens were still not counted: a `Usage` of zeros would say they were.
     """
     usage = getattr(reply, "usage", None)
     if usage is None:
-        if _is_free(model, pricing):
-            return Usage(input_tokens=0, output_tokens=0)
         return None
     prompt_tokens = _required(usage, "prompt_tokens")
     completion_tokens = _required(usage, "completion_tokens")
@@ -212,18 +210,6 @@ def _cache_writes(details: Any) -> int:
         # baseline — see `CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS`.
         return 0
     return int(getattr(details, "cache_write_tokens", 0) or 0)
-
-
-def _is_free(model: str, pricing: Pricing) -> bool:
-    price = pricing.per_model.get(model)
-    return price is not None and not any(
-        (
-            price.input_per_mtok,
-            price.output_per_mtok,
-            price.cache_read_per_mtok,
-            price.cache_write_per_mtok,
-        )
-    )
 
 
 class OpenAIChat:

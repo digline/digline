@@ -268,11 +268,12 @@ def test_counts_not_read_carry_no_unpriced_sentence() -> None:
     assert completion.unpriced is None
 
 
-def test_a_reply_with_no_usage_is_fine_when_the_model_has_no_token_price(
+def test_a_model_with_no_token_price_and_no_usage_is_not_recorded_either(
     prompt: Path, client: FakeClient
 ) -> None:
-    """Provisioned throughput and imported models are billed by the hour: zero
-    is not an undercount there, it is the per-token price."""
+    """Provisioned throughput and imported models are billed by the hour, so
+    the per-token price is zero, and the tokens were still not counted: the
+    same *not recorded* as any other model (#629, ruled 2026-10-28)."""
     client.reply = converse_reply(usage=False)
     target = BedrockTarget(
         prompt,
@@ -281,7 +282,9 @@ def test_a_reply_with_no_usage_is_fine_when_the_model_has_no_token_price(
         client=client,
         pricing=free("my-imported-model"),
     )
-    assert target(a_case()).cost_usd == 0.0
+    response = target(a_case())
+    assert response.usage is None
+    assert response.cost_usd is None
 
 
 def test_a_reply_with_no_output_is_an_error(prompt: Path, client: FakeClient) -> None:
