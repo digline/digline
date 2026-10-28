@@ -1045,7 +1045,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.5.2": "digline-openai's version, pinned to its own pyproject by "
+        "0.6.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "0.7.0": "digline-anthropic's and digline-bedrock's version, each "
         "pinned to its own pyproject by tests/test_docker.py",

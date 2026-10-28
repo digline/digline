@@ -399,7 +399,6 @@ it and deletes it.
 |---|---|---|
 | digline | ADR 0054 §8: `NameRef` and `Said` in `digline.core`, `Quoted` that holds names and needs no cause, `refusal_text(mint=)`; a band's and an unidentified verdict's refusal in a stored run is `DocumentRefusedError` with the reader's prefix | a minor: public names are added and a refusal a user reads changed its type and its words |
 | digline-mcp | ADR 0054 §8: under `--names project` a refusal's names reach the agent as tokens | the sentence an agent reads changed; its floor is owed at the cut, in the table above |
-| digline-openai | #629: a reply with no `usage`, refused unless the model is `free()`, is judged with its counts not recorded, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). Its floor is `0.35.0`, raised with the code that needs it |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.

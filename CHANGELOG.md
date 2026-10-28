@@ -1178,7 +1178,12 @@ to error their case, and are now judged.
   raised when the target or the judge is built, and still names `region=` and
   `client=`; only the variable changed. Needs no core release.
 
-## digline-openai — unreleased
+## digline-openai 0.6.0 — 2026-10-28
+
+Published by its own tag, `digline-openai-v0.6.0`, after digline 0.35.0 was on
+PyPI. **A minor, because an exit code changed**: a reply with no `usage`
+(#629), unless the model is declared `free()`, used to error its case, and is
+now judged.
 
 - **A reply with no `usage` is judged, and a count it does not carry is *not
   recorded*, never `0`** (#629, ADR 0004 §8.9). The reply was refused unless
