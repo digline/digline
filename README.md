@@ -6,9 +6,11 @@
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/digline/digline/actions/workflows/ci.yml)
+[![CI](https://github.com/digline/digline/actions/workflows/ci.yml/badge.svg?event=merge_group)](https://github.com/digline/digline/actions/workflows/ci.yml?query=event%3Amerge_group)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14570/badge)](https://www.bestpractices.dev/projects/14570)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/digline/digline/badge)](https://scorecard.dev/viewer/?uri=github.com/digline/digline)
+
+<sub>CI is the merge queue's latest run — the gate a change passes on its way to `main`; a red can mean the queue turned a pull request away while `main` did not move.</sub>
 
 ---
 
