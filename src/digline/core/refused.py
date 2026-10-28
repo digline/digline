@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from typing import Literal
 
 from digline.core.tokens import Minter, TokenKind
 
-__all__ = ["NameRef", "Quoted", "RefusedError", "Said"]
+__all__ = [
+    "WITHHELD_WORDS",
+    "NameRef",
+    "Quoted",
+    "RefusedError",
+    "Said",
+    "Withheld",
+    "WithheldKind",
+]
 
 
 class RefusedError(ValueError):
@@ -60,12 +69,47 @@ class NameRef:
         return repr(said) if self.quoted else said
 
 
+#: What a refusal may keep back from an agent: a value the projection lets
+#: through neither as a token nor in clear, by what it is. A run's own
+#: metadata is payload, which a projection drops (decision 9); an identity
+#: that is not a digest makes the projection refuse the whole document.
+type WithheldKind = Literal["run_metadata", "identity"]
+
+#: What an agent reads in place of each kind: which thing was kept back, never
+#: the thing. One per kind, because "something was withheld" and "an identity
+#: was withheld" tell a reader different things.
+WITHHELD_WORDS: Mapping[WithheldKind, str] = {
+    "run_metadata": "keys withheld: a run's own metadata does not cross",
+    "identity": "an identity withheld",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class Withheld:
+    """A value a refusal quotes in clear and keeps back under projection, as a
+    document does: the projection lets it through neither as a token nor in
+    clear, so a refusal does not either. **A refusal treats a name as a
+    document treats it.** In clear it reads as its text, as `repr` writes it
+    when `quoted`; a front end that projects reads `WITHHELD_WORDS` for its
+    kind instead. (ADR 0054 §8)
+    """
+
+    kind: WithheldKind
+    text: str
+    quoted: bool = True
+
+    def rendered(self, mint: Minter | None) -> str:
+        if mint is not None:
+            return WITHHELD_WORDS[self.kind]
+        return repr(self.text) if self.quoted else self.text
+
+
 #: Words of a sentence: digline's own text, or a sequence of digline's text and
-#: the names it quotes.
-type Said = str | Sequence[str | NameRef]
+#: the names it quotes, or keeps back.
+type Said = str | Sequence[str | NameRef | Withheld]
 
 
-def _parts(said: Said) -> tuple[str | NameRef, ...]:
+def _parts(said: Said) -> tuple[str | NameRef | Withheld, ...]:
     return (said,) if isinstance(said, str) else tuple(said)
 
 
@@ -126,7 +170,7 @@ class Quoted:
     named: bool = True
 
     @classmethod
-    def said(cls, *parts: str | NameRef) -> Quoted:
+    def said(cls, *parts: str | NameRef | Withheld) -> Quoted:
         """A sentence of digline's that quotes no exception, its names kept
         apart from its words."""
         return cls(before=parts, kind="", message="", cause=None, named=False)
@@ -196,6 +240,16 @@ class Quoted:
             if isinstance(part, NameRef)
         )
 
+    @property
+    def withheld(self) -> tuple[Withheld, ...]:
+        """Every value the sentence keeps back under projection, in order."""
+        return tuple(
+            part
+            for said in (self.before, self.message, self.after)
+            for part in _parts(said)
+            if isinstance(part, Withheld)
+        )
+
     def around(self, before: Said, after: Said) -> Quoted:
         """The same sentence with `before` in front of it and `after` behind,
         the names in all three kept."""
@@ -205,7 +259,7 @@ class Quoted:
             after=(*_parts(self.after), *_parts(after)),
         )
 
-    def parts(self) -> tuple[str | NameRef, ...]:
+    def parts(self) -> tuple[str | NameRef | Withheld, ...]:
         """The whole sentence, message included, as words and names: what
         `str()` reads, before any name is rendered."""
         said = self._parts(hidden=False)
@@ -230,10 +284,10 @@ class Quoted:
             text += f" For the full traceback, run: {self.reproduce}"
         return text
 
-    def _parts(self, *, hidden: bool) -> tuple[str | NameRef, ...]:
+    def _parts(self, *, hidden: bool) -> tuple[str | NameRef | Withheld, ...]:
         return (*_parts(self.before), *self._described(hidden=hidden), *self._tail())
 
-    def _described(self, *, hidden: bool) -> tuple[str | NameRef, ...]:
+    def _described(self, *, hidden: bool) -> tuple[str | NameRef | Withheld, ...]:
         message = _parts(self.message)
         if self.kind == "SystemExit":
             if self.exit_code is not None:
@@ -245,7 +299,7 @@ class Quoted:
             return (f"{self.kind}: ", *message) if self.named else message
         return (self.kind,)
 
-    def _tail(self) -> tuple[str | NameRef, ...]:
+    def _tail(self) -> tuple[str | NameRef | Withheld, ...]:
         return (_at(self.locations), *_parts(self.after))
 
 

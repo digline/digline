@@ -67,9 +67,12 @@ from tests._helpers import baseline_in, cli, copy_tracked, git
 
 from digline.core import (
     NAMED_CONFIG_KEYS,
+    WITHHELD_WORDS,
     NameRef,
     Quoted,
     TokenKind,
+    Withheld,
+    WithheldKind,
     project_served,
     redact,
     run_from_json,
@@ -669,6 +672,15 @@ def test_the_gate_classifies_the_names_of_a_refusal(
 # `project`. The third catches a rendering that drops what the clear sentence
 # keeps; a name dropped from both, by the same code, it cannot see, and
 # `REPAIRED` holds the names each repaired refusal said before its repair.
+#
+# **A refusal treats a name as a document treats it.** No treatment is
+# invented for refusals that the projection does not give documents: a name
+# the projection mints, a refusal names by its token; a value the projection
+# lets through neither as a token nor in clear, a refusal keeps back as a
+# `Withheld` of its kind, and says which kind. `WITHHELD` declares every
+# refusal that keeps something back, because a `Withheld` is otherwise the
+# way out of this gate: a name that leaks turned into one passes the prose
+# check while the agent gets no token.
 
 
 def named_in(text: str, names: set[str]) -> frozenset[str]:
@@ -1092,11 +1104,11 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
     ),
     "a projected run with metadata": (
         _document("projected", lambda d: d.update(metadata={"opening-hours": 1})),
-        "the run carries metadata (opening-hours)",
+        "Run.projected is set but the run carries metadata (",
     ),
     "a projected identity that is a name": (
         _document("projected", _first_verdict(assertion_id="levenshtein")),
-        "has an identity that is not a digest",
+        "which is not a digest, so a projection would carry it in clear",
     ),
     "a projected verdict with metadata in clear": (
         _document(
@@ -1241,6 +1253,13 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
         _toml(_TOML_CHECK, _toml_judge("anthropic/")),
         "which is not a provider/model coordinate",
     ),
+    # A run read in clear whose verdict's identity holds a name. The server
+    # projects it to answer, and the projection refuses it, quoting the
+    # identity: a path no provocation above reached. (P-933)
+    "an identity that is a name, read in clear": (
+        _document("stored", _first_verdict(assertion_id="levenshtein")),
+        "which is not a digest, so a projection would carry it in clear",
+    ),
     # The store's other refusals on reading.
     "a run filed under another tenant": (
         _document("stored", lambda d: d.update(tenant="elsewhere")),
@@ -1277,18 +1296,6 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
 #: below says so; one that starts to name is red until it is declared here,
 #: and the count beside it says the table grew. (ADR 0054 §8)
 NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
-    # The two of a stored document read in clear that stay, because no kind
-    # of the projection's fits what they quote: a run's own metadata, which a
-    # projection drops rather than mints, and an identity, which is digline's
-    # digest and here holds a name. Which kind they take is not decided.
-    "a projected run with metadata": (
-        "core/run.py, _check_projected, the run's metadata",
-        frozenset({"opening-hours"}),
-    ),
-    "a projected identity that is a name": (
-        "core/run.py, _check_projected, identity",
-        frozenset({"levenshtein"}),
-    ),
     "a case suspended with no reason": (
         "run/suite.py, Case.__post_init__",
         frozenset({"opening-hours"}),
@@ -1410,19 +1417,49 @@ REPAIRED: dict[str, frozenset[str]] = {
 }
 
 
+#: The refusals that keep a value back under projection, each with the site,
+#: the kind it keeps back and the fixture's names that value holds. **The way
+#: out of this gate, declared**: a name that leaks, turned into a `Withheld`,
+#: would pass the prose check while the agent got no token, so every refusal
+#: that keeps something back is here, and the count is held like the other
+#: tables'. A refusal treats a name as a document treats it: these are the
+#: values a projected document does not carry at all.
+WITHHELD: dict[str, tuple[str, WithheldKind, frozenset[str]]] = {
+    "a projected run with metadata": (
+        "core/run.py, _check_projected, the run's metadata",
+        "run_metadata",
+        frozenset({"opening-hours"}),
+    ),
+    "a projected identity that is a name": (
+        "core/run.py, _check_projected, identity",
+        "identity",
+        frozenset({"levenshtein"}),
+    ),
+    "an identity that is a name, read in clear": (
+        "core/run.py, _check_projected, identity, through project_served",
+        "identity",
+        frozenset({"levenshtein"}),
+    ),
+}
+
+#: How many refusals `WITHHELD` declares.
+WITHHELD_COUNT = 3
+
 #: How many refusals `NAMED_IN_PROSE` declares. Lowered when one is repaired;
 #: raising it is what a pull request that adds a refusal naming a name has to
 #: show.
 #:
 #: **What this number covers and what it does not**, so it is not read as
 #: more than it is. It counts the refusals `PROVOCATIONS` drives, which are:
-#: reading a stored run, a redacted one and a projected one; `diff` over two
-#: suites and over two judges; a table that answers with the name; loading a
-#: suite, where a sentence of `run/suite.py` quotes a case, a check, a group or
-#: an aggregate, and where the declarative loader quotes a provider, a judge or
-#: a price; and four of the store's refusals on reading. Three more name the
-#: fixture's provider or model only because digline's own words do, and are
-#: in `COINCIDENCES`, not here. Not driven, and so not counted:
+#: reading a stored run, a redacted one and a projected one, and a run read in
+#: clear that the projection refuses; `diff` over two suites and over two
+#: judges; a table that answers with the name; loading a suite, where a
+#: sentence of `run/suite.py` quotes a case, a check, a group or an aggregate,
+#: and where the declarative loader quotes a provider, a judge or a price; and
+#: four of the store's refusals on reading. Three more name the fixture's
+#: provider or model only because digline's own words do, and are in
+#: `COINCIDENCES`; three keep a value back, as a projected document does, and
+#: are in `WITHHELD`; neither is here. Not driven, and so not counted:
 #:
 #: - the other refusals of loading a suite: the checks' own constructors in
 #:   `core/assertions.py`, `PiiPattern`, `host/loader.py`, and the
@@ -1430,7 +1467,7 @@ REPAIRED: dict[str, frozenset[str]] = {
 #: - the store's refusals of a register, a directory it cannot read, a run
 #:   with no key and a baseline that is a projection;
 #: - any refusal added later.
-NAMED_IN_PROSE_COUNT = 23
+NAMED_IN_PROSE_COUNT = 21
 
 #: The refusals whose sentence holds a name of this fixture only because
 #: digline's own words do, each with its site, the names and why. **Not
@@ -1491,6 +1528,7 @@ class Walked:
     names: frozenset[str]
     fields: list[tuple[str, str]]
     refs: tuple[NameRef, ...]
+    kept: tuple[Withheld, ...]
     clear: frozenset[str] | None
 
 
@@ -1517,9 +1555,24 @@ def walked(
             finally:
                 _DECLARED.reset(declared)
         said[why] = Walked(
-            text, named_in(text, names), _fields(refused), _refs(refused), clear
+            text,
+            named_in(text, names),
+            _fields(refused),
+            _refs(refused),
+            _kept(refused),
+            clear,
         )
     return said
+
+
+def _kept(refused: BaseException) -> tuple[Withheld, ...]:
+    """The values a refusal keeps back under projection, through every wrap."""
+    error: BaseException | None = refused
+    while error is not None:
+        if len(error.args) == 1 and isinstance(error.args[0], Quoted):
+            return error.args[0].withheld
+        error = error.__cause__ or error.__context__
+    return ()
 
 
 def _refs(refused: BaseException) -> tuple[NameRef, ...]:
@@ -1536,6 +1589,10 @@ def _refs(refused: BaseException) -> tuple[NameRef, ...]:
 #: The provocations not driven again in clear, each with why: what they
 #: provoke does not exist there, or says its name otherwise.
 NOT_DRIVEN_IN_CLEAR: dict[str, str] = {
+    "an identity that is a name, read in clear": (
+        "in clear the run is answered as it was read: nothing projects it, so "
+        "nothing refuses"
+    ),
     "a table that answers with the name": (
         "a table is used only under project, so in clear nothing refuses"
     ),
@@ -1605,6 +1662,15 @@ def test_the_table_of_refusals_that_name_only_shrinks() -> None:
     )
     assert not set(NAMED_IN_PROSE) & set(COINCIDENCES), sorted(
         set(NAMED_IN_PROSE) & set(COINCIDENCES)
+    )
+    assert set(WITHHELD) <= set(PROVOCATIONS), sorted(set(WITHHELD) - set(PROVOCATIONS))
+    assert not set(WITHHELD) & (set(NAMED_IN_PROSE) | set(COINCIDENCES)), sorted(
+        set(WITHHELD) & (set(NAMED_IN_PROSE) | set(COINCIDENCES))
+    )
+    assert len(WITHHELD) == WITHHELD_COUNT, (
+        f"WITHHELD holds {len(WITHHELD)} refusals and WITHHELD_COUNT says "
+        f"{WITHHELD_COUNT}: a value kept back is a name the agent is not told, "
+        "so a new one is a number raised in the same diff"
     )
     assert len(COINCIDENCES) == COINCIDENCES_COUNT, (
         f"COINCIDENCES holds {len(COINCIDENCES)} refusals and COINCIDENCES_COUNT "
@@ -1727,6 +1793,7 @@ def test_a_name_said_in_clear_is_still_said_under_project(
         for name in seen.clear or ()
         if name not in seen.names
         and not any(token in seen.text for token in tokens.get(name, ()))
+        and not any(named_in(kept.text, {name}) for kept in seen.kept)
     )
     assert not lost, f"these names are said in clear and not under project: {lost}"
 
@@ -1752,3 +1819,49 @@ def test_a_repaired_refusal_still_says_the_names_it_let_out(
         if not any(token in walked[why].text for token in tokens.get(name, ()))
     )
     assert not unsaid, f"repaired, and no longer saying these names: {unsaid}"
+
+
+def test_a_refusal_keeps_back_only_what_is_declared(
+    walked: dict[str, Walked],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """Every refusal that keeps a value back is in `WITHHELD`, with the kind
+    it keeps back and the names that value holds; one declared that keeps
+    nothing back any more is red too. (ADR 0054 §8)"""
+    _, table = projected
+    names = table.texts()
+    kept = {
+        why: (
+            frozenset(k.kind for k in seen.kept),
+            frozenset(n for k in seen.kept for n in named_in(k.text, names)),
+        )
+        for why, seen in walked.items()
+        if seen.kept
+    }
+    undeclared = sorted(set(kept) - set(WITHHELD))
+    assert not undeclared, (
+        f"these refusals keep a value back and WITHHELD does not declare them: "
+        f"{undeclared}. A Withheld is a way out of this gate; declare it, with "
+        "the kind and the names, and raise WITHHELD_COUNT"
+    )
+    stale = sorted(set(WITHHELD) - set(kept))
+    assert not stale, f"WITHHELD declares {stale}, which keep nothing back now"
+    moved = {
+        why: (kind, sorted(declared), sorted(kept[why][0]), sorted(kept[why][1]))
+        for why, (_, kind, declared) in WITHHELD.items()
+        if kept[why] != (frozenset({kind}), declared)
+    }
+    assert not moved, f"declared, then measured: {moved}"
+
+
+def test_the_word_for_each_value_kept_back_is_in_the_sentence(
+    walked: dict[str, Walked],
+) -> None:
+    """An agent reads which kind of thing it was not told, never the thing."""
+    missing = sorted(
+        f"{why}: {k.kind}"
+        for why, seen in walked.items()
+        for k in seen.kept
+        if WITHHELD_WORDS[k.kind] not in seen.text
+    )
+    assert not missing, missing

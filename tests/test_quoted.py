@@ -13,7 +13,14 @@ from pathlib import Path
 
 import pytest
 
-from digline.core import CalibrationBand, NameRef, Quoted, RefusedError
+from digline.core import (
+    WITHHELD_WORDS,
+    CalibrationBand,
+    NameRef,
+    Quoted,
+    RefusedError,
+    Withheld,
+)
 from digline.host import UsageError, load_suite, to_withhold, written_by_digline
 from digline.host.authorship import quoted_in
 from digline.host.loader import refused_exit
@@ -273,3 +280,24 @@ def test_a_sentence_that_quotes_no_exception_is_digline_s() -> None:
     assert quoted_in(refused.value) is not None
     assert written_by_digline(refused.value)
     assert to_withhold(refused.value) is None
+
+
+def test_a_withheld_value_reads_in_clear_and_says_what_it_withholds_minted() -> None:
+    """A value the projection lets through neither as a token nor in clear:
+    the command line reads it, and an agent reads which kind of thing was
+    kept back, one word per kind, never the value. (ADR 0054 §8)"""
+    identity = Quoted.said("the identity ", Withheld("identity", "lev"), " is wrong")
+    keys = Quoted.said(
+        "metadata (", Withheld("run_metadata", "a, b", quoted=False), ")"
+    )
+    assert str(identity) == "the identity 'lev' is wrong"
+    assert str(keys) == "metadata (a, b)"
+    minted = identity.rendered(withheld=None, mint=_mint)
+    assert "lev" not in minted
+    assert minted == f"the identity {WITHHELD_WORDS['identity']} is wrong"
+    assert keys.rendered(withheld=None, mint=_mint) == (
+        f"metadata ({WITHHELD_WORDS['run_metadata']})"
+    )
+    assert WITHHELD_WORDS["identity"] != WITHHELD_WORDS["run_metadata"]
+    assert identity.withheld == (Withheld("identity", "lev"),)
+    assert identity.names == ()

@@ -26,6 +26,18 @@ notes under them are this file, verbatim.
   "the run at … could not be read" before them, as every other fault of a
   stored document is. A caller that caught `UnidentifiedVerdictError` from a
   read finds it as the `__cause__`.
+- **A refusal keeps back what a projected document keeps back, and says what
+  it kept** (ADR 0054 §8). A value the projection lets through neither as a
+  token nor in clear is quoted in a `Quoted` as a `Withheld` of its kind: in
+  clear it reads as it did, and a front end that projects reads the word
+  `WITHHELD_WORDS` gives that kind instead, never the value. Two kinds: a
+  run's own metadata, which a projection drops as payload, and an identity
+  that is not a digest, which makes the projection refuse the document. That
+  refusal now names the check, as a token once projected, and keeps the
+  identity back: "the verdict 'levenshtein' … has the identity 'x', which is
+  not a digest", where it said "the verdict 'x' … has an identity that is not
+  a digest". New in `digline.core`: `Withheld`, `WithheldKind` and
+  `WITHHELD_WORDS`.
 
 ## 0.35.0 — 2026-10-27
 
