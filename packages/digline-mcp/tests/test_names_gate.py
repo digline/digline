@@ -1348,6 +1348,9 @@ REPAIRED: dict[str, frozenset[str]] = {
     "a declarative target handed a client": frozenset({"anthropic"}),
     "a declarative target that names its model twice": frozenset({"anthropic"}),
     "a declarative target with a misspelt parameter": frozenset({"anthropic"}),
+    # A coincidence as well, for the example digline writes: what is held here
+    # is the coordinate the suite wrote, which a coincidence would mask.
+    "a declarative judge with no model": frozenset({"anthropic/"}),
 }
 
 
