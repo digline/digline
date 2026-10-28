@@ -818,7 +818,11 @@ Three things, each found in the writing and ruled on by none of the seven.
    the bill line nor the sentences on standard error. With `--json` it builds
    its document without `usage`, so not even the markers arrive. And it calls
    the judge, whose replies can be unpriced. Read in `src/digline/cli/main.py`
-   at `8ab47910`, without running it.
+   at `8ab47910`, without running it. The change that adds this note also
+   closes that part: `rejudge` prints the judge's line and its sentences as
+   `run` does, and its `--json` carries `usage`. Where the sentences go under
+   `--json`, for both commands, and in `digline-mcp`, is still not decided
+   here.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.

@@ -541,6 +541,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     for note in notes:
         say(f"digline: {note}", err=True)
 
+    unpriced: list[str] = []
     try:
         run = rejudge(
             suite,
@@ -551,6 +552,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             run_metadata=_meta(args.meta),
             pricing=_pricing(args, loaded),
             judge_samples=judge_samples,
+            on_unpriced=unpriced.append,
         )
     except ReplayError as exc:
         raise UsageError(Quoted.of(exc, "", named=False)) from exc
@@ -561,6 +563,15 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     # says, after the write for the same reason. (#523)
     for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
         say(f"digline: {note}", err=True)
+    # A re-judge pays the judge, so it says what it spent as `run` does: the
+    # bill on stderr, then each sentence that says why a cost is not known.
+    # Until this it said neither, and its `--json` carried no `usage` either.
+    # (ADR 0025 §9; ADR 0004 §8.3 and the note under §8.0, item 2)
+    if not args.json:
+        for line in usage_lines(run.usage):
+            say(f"digline: {line}", err=True)
+        for sentence in unpriced:
+            say(f"digline: cost not computable: {sentence}", err=True)
     # The measurement is reported by the command that took it, beside the line
     # that announced its cost — never on its own and never without the
     # calibration result. (ADR 0024 §5.4)
@@ -575,6 +586,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
                     plan,
                     judge_reading=reading,
                     replayed=True,
+                    usage=run.usage,
                     notes=notes,
                     errored_checks=len(errored_verdicts(run)),
                 )

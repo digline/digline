@@ -42,6 +42,15 @@ notes under them are this file, verbatim.
   not a digest", where it said "the verdict 'x' … has an identity that is not
   a digest". New in `digline.core`: `Withheld`, `WithheldKind` and
   `WITHHELD_WORDS`.
+- **`digline rejudge` says what it spent** (ADR 0004 §8.0, item 2, and its
+  note). A re-judge calls the judge, so it spends, and it said nothing of it:
+  no bill line on standard error, no sentence for a cost that is not known,
+  and a `--json` document with no `usage`, so not even the markers. It now
+  prints the judge's line and each sentence after it, as `digline run` does
+  (§8.3), and its `--json` carries `usage` as `run --json` does (ADR 0025 §9).
+  The sentences are not in `--json` for either command: where they go there is
+  not decided. `rejudge` in `digline.run` takes an optional `on_unpriced`,
+  which `execute` already takes. Nothing a script parses moves: an added key.
 
 ## 0.35.0 — 2026-10-27
 
