@@ -854,6 +854,18 @@ jobs:
             exit 1
           fi
 
+      # The cycle above runs digline on the command line, and nothing in it
+      # starts the server `.mcp.json` names: a digline-mcp that could not answer
+      # `compare` beside the digline resolved here left this leg green (#719).
+      # This starts it as `.mcp.json` does, from the index's packages, and holds
+      # it to the tools `docs/mcp.md` lists: each one registered and answering,
+      # and none registered that the page does not list. No model and no
+      # credential: the example answers and judges with `fake.py`. (P-950)
+      - name: The published server answers every tool
+        if: matrix.example == 'operator'
+        working-directory: examples/operator
+        run: uv run python ../../.github/mcp_tools.py --root .
+
       - name: Its own gates
         working-directory: examples/${{ matrix.example }}
         run: |
