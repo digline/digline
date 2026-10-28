@@ -40,10 +40,19 @@ $ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 baseline is live, so the cycle is too. Promoting a keyless run over it would
 replace a measurement with a stand-in's.
 
+**What a live run costs: about 0.07 USD**, at digline-anthropic's global
+rate for `claude-haiku-4-5`. That is 25 calls to the target and 90 to the
+judge: five samples of each of five cases, each answer judged three times,
+and the calibration case's judgings. Where your workspace is served in
+`"us"`, it is 1.1 times that. The figure is an estimate from two runs of
+2026-10-28, at the prices the plugin read on 2026-10-02, and the bill line
+of your own run is the measurement.
+
 **Where your workspace's replies report no geography Anthropic prices**, such
-as `inference_geo: "not_available"`, the target's cost is not known. The
-cases are still judged, the bill says *cost not known for every call*, and
-the line after it says why and what to pin. The digline-anthropic this
+as `inference_geo: "not_available"`, digline cannot price the run: the
+target's and the judge's cost are not known. The cases are still judged, the
+bill says *cost not known for every call*, and the line after it says why and
+what to pin. The digline-anthropic this
 example installs carries ADR 0004 §8; the releases below it errored every case
 of such a run instead (#569).
 

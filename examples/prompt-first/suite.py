@@ -147,26 +147,35 @@ suite = Suite(
                 judge=JUDGE,
                 threshold=0.7,
                 tolerance=0.1,
+                # A movement inside two standard errors of the baseline's own
+                # samples is noise, not a verdict: two live runs of one tree
+                # moved this rubric by 0.133 on one case and 0.106 on another,
+                # each inside the other run's spread. (#651)
+                floor_standard_errors=2,
             ),
             samples=3,
             min_agreement="2/3",
         ),
     ],
-    # Three, and the number matters more than the constraint that forced it.
+    # Five, and the number matters more than the constraint that forced it.
     # A calibration case requires at least two — one judgement of a known
     # answer is one draw of a noisy instrument — but **two is a value that
     # cannot work against a real judge**: two samples are unanimous or split,
     # and there is no majority to take. Against a judge that legitimately
     # returns 0.33 and 0.95 on the same answer, `min_agreement="2/2"` errors
-    # the case and `promote` then refuses the run. So the real floor a
-    # calibration case imposes is three. Declared for both modes rather than
+    # the case and `promote` then refuses the run. So the floor a calibration
+    # case imposes is three. Five is what the rubric's noise floor asks: it is
+    # measured from the baseline's samples, and with three a check's samples
+    # came back all equal in one set of twelve, which leaves it no floor at
+    # all. With five that is about one baseline in two hundred. A majority of
+    # five is three. Declared for both modes rather than
     # only the live one, so that the sampling is not what tells them apart.
     # The judge is: the live path grades with `AnthropicJudge` and the keyless
     # one with a function, two identities, so `config_hash` differs on the two
     # sides of the door. The committed baseline is a live run, and
     # `tests/test_check_kind.py` reads it live, in `LIVE_BASELINES`. (#651)
-    samples=3,
-    min_agreement="2/3",
+    samples=5,
+    min_agreement="3/5",
     cases=[
         Case(id=c["id"], vars=c["vars"], expected=c["expected"])
         for c in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
