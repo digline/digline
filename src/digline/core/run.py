@@ -18,7 +18,7 @@ from typing import Any, cast, get_args
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
-from digline.core.refused import NameRef, Quoted, RefusedError, Said
+from digline.core.refused import NameRef, Quoted, RefusedError, Said, Withheld
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
@@ -1832,13 +1832,20 @@ def _check_projected(run: Run) -> None:
             )
 
     def identity(v: Verdict, where: str) -> None:
+        # The check is named as the run names it, a token once projected; the
+        # identity is kept back, as a projected document keeps it back: the
+        # projection refuses it whole. (ADR 0054 §8)
         if not _DIGEST.fullmatch(v.assertion_id):
             raise ValueError(
-                f"Run.projected is set but the verdict {v.assertion_id!r} "
-                f"{where} has an identity that is not a digest, so a "
-                "projection would carry it in clear. An assertion that "
-                "overrides `identity` must return a digest to be projected: "
-                "derive it with `dataclass_identity`, as `AssertionBase` does"
+                Quoted.said(
+                    f"Run.projected is set but the verdict {v.score.name!r} "
+                    f"{where} has the identity ",
+                    Withheld("identity", v.assertion_id),
+                    ", which is not a digest, so a "
+                    "projection would carry it in clear. An assertion that "
+                    "overrides `identity` must return a digest to be projected: "
+                    "derive it with `dataclass_identity`, as `AssertionBase` does",
+                )
             )
 
     formed(
@@ -1935,9 +1942,14 @@ def _check_projected(run: Run) -> None:
         # already removed every entry, whatever its type: the instance is
         # closed by the redaction the projection starts from, not by ADR 0034
         # §4, which still leaves numbers undecided everywhere else.
+        # Payload, which a projection drops (decision 9): kept back here as
+        # it is there. (ADR 0054 §8)
         raise ValueError(
-            f"Run.projected is set but the run carries metadata "
-            f"({', '.join(sorted(run.metadata))}): a projection keeps none"
+            Quoted.said(
+                "Run.projected is set but the run carries metadata (",
+                Withheld("run_metadata", ", ".join(sorted(run.metadata)), quoted=False),
+                "): a projection keeps none",
+            )
         )
     for path, artifact in run.artifacts.items():
         token("artifact_path", "an artifact path", path)
