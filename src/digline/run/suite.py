@@ -38,7 +38,8 @@ from digline.core import (
 from digline.core.aggregate import RUN_ASSERTION_MEMBERS
 from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
-from digline.core.refused import RefusedError
+from digline.core.refused import NameRef, Quoted, RefusedError
+from digline.core.tokens import TokenKind
 from digline.core.types import floor_width_refusal
 
 __all__ = [
@@ -52,6 +53,17 @@ __all__ = [
     "suite_notes",
     "undeclared_kinds",
 ]
+
+
+def _listed(kind: TokenKind, names: Iterable[str]) -> tuple[str | NameRef, ...]:
+    """Names in a sentence, comma-separated and unquoted as `", ".join` wrote
+    them, each one a name a front end that projects can mint. (ADR 0054 §8)"""
+    parts: list[str | NameRef] = []
+    for name in names:
+        if parts:
+            parts.append(", ")
+        parts.append(NameRef(kind, name, quoted=False))
+    return tuple(parts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,9 +117,13 @@ class Calibration:
             # is not partially correct, it is nothing, and a band placed around
             # the score of nothing calibrates nothing.
             raise RefusedError(
-                f"the calibration of {self.check!r} declares an empty output: a "
-                "calibration answer is one known to be partially correct, and "
-                "an empty one is not an answer at all"
+                Quoted.said(
+                    "the calibration of ",
+                    NameRef("calibration_check", self.check),
+                    " declares an empty output: a "
+                    "calibration answer is one known to be partially correct, and "
+                    "an empty one is not an answer at all",
+                )
             )
         # Checked here so a malformed band is refused at declaration, with the
         # core's own sentence, and not first at the end of a paid run. The band
@@ -184,8 +200,12 @@ class Case:
             raise RefusedError("Case.id must not be empty")
         if self.suspended is not None and not self.suspended:
             raise RefusedError(
-                f"case {self.id!r} is suspended without a stated reason: "
-                "a suspension nobody can justify is a case quietly dropped"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " is suspended without a stated reason: "
+                    "a suspension nobody can justify is a case quietly dropped",
+                )
             )
         if self.expected is not None and not self.expected:
             # `None` says "this case has no expected value"; `""` claims there
@@ -196,18 +216,26 @@ class Case:
             # cannot fail. Refused here rather than in the assertions, because
             # it is the case that is malformed. (fixed decision 3)
             raise RefusedError(
-                f"case {self.id!r} declares an empty expected: an empty "
-                "expectation is a perfect match against an empty output. "
-                "Leave it unset if the case has nothing to compare against — "
-                "absence is not emptiness"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " declares an empty expected: an empty "
+                    "expectation is a perfect match against an empty output. "
+                    "Leave it unset if the case has nothing to compare against — "
+                    "absence is not emptiness",
+                )
             )
         if self.group is not None and not self.group:
             # `None` and `""` would otherwise be two spellings of "no group"
             # with different consequences: the empty one names a group, so it
             # would expand into `precision[group=]`, a gate nobody can read.
             raise RefusedError(
-                f"case {self.id!r} declares an empty group: leave it unset to "
-                "put the case in no group"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " declares an empty group: leave it unset to "
+                    "put the case in no group",
+                )
             )
         if self.canary and self.group is not None:
             # A canary is excluded from every aggregate, so a group it named
@@ -216,23 +244,37 @@ class Case:
             # an `error` gate nobody declared, appearing because a case was
             # flagged. (ADR 0016 §1)
             raise RefusedError(
-                f"case {self.id!r} is a canary and declares the group "
-                f"{self.group!r}: a canary is counted in no aggregate, so the "
-                "group would be a gate with nothing in it. Leave the group unset"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " is a canary and declares the group ",
+                    NameRef("group", self.group),
+                    ": a canary is counted in no aggregate, so the "
+                    "group would be a gate with nothing in it. Leave the group unset",
+                )
             )
         if self.calibration is not None and self.canary:
             raise RefusedError(
-                f"case {self.id!r} is both a canary and a calibration case: a "
-                "canary asks the target and a calibration case bypasses it, so "
-                "one case cannot be both. Declare two cases"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " is both a canary and a calibration case: a "
+                    "canary asks the target and a calibration case bypasses it, so "
+                    "one case cannot be both. Declare two cases",
+                )
             )
         if self.calibration is not None and self.group is not None:
             # The canary's refusal, for the canary's reason. (ADR 0024 §4.2)
             raise RefusedError(
-                f"case {self.id!r} is a calibration case and declares the group "
-                f"{self.group!r}: a calibration case is counted in no aggregate, "
-                "so the group would be a gate with nothing in it. Leave the "
-                "group unset"
+                Quoted.said(
+                    "case ",
+                    NameRef("case_id", self.id),
+                    " is a calibration case and declares the group ",
+                    NameRef("group", self.group),
+                    ": a calibration case is counted in no aggregate, "
+                    "so the group would be a gate with nothing in it. Leave the "
+                    "group unset",
+                )
             )
 
 
@@ -352,7 +394,11 @@ class Suite:
             width: object = getattr(assertion, "floor_standard_errors", None)
             if (refusal := floor_width_refusal(width)) is not None:
                 raise RefusedError(
-                    f"suite {self.name!r}, check {assertion.name!r}: {refusal}"
+                    Quoted.said(
+                        f"suite {self.name!r}, check ",
+                        NameRef("verdict_name", assertion.name),
+                        f": {refusal}",
+                    )
                 )
         for aggregate in self.run_assertions:
             check_shape(aggregate, RUN_ASSERTION_MEMBERS, "a run assertion")
@@ -442,8 +488,12 @@ class Suite:
         for case in self.cases:
             if case.id in seen:
                 raise RefusedError(
-                    f"suite {self.name!r} declares case id {case.id!r} twice: "
-                    "ids are how a result finds its counterpart in the baseline"
+                    Quoted.said(
+                        f"suite {self.name!r} declares case id ",
+                        NameRef("case_id", case.id),
+                        " twice: "
+                        "ids are how a result finds its counterpart in the baseline",
+                    )
                 )
             seen.add(case.id)
 
@@ -512,25 +562,42 @@ class Suite:
                 continue
             matches = [a for a in self.assertions if a.name == calibration.check]
             if not matches:
-                available = ", ".join(sorted({a.name for a in self.assertions}))
+                available = sorted({a.name for a in self.assertions})
                 raise RefusedError(
-                    f"case {case.id!r} calibrates {calibration.check!r}, which "
-                    f"no assertion in suite {self.name!r} is called. Declared: "
-                    f"{available}"
+                    Quoted.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " calibrates ",
+                        NameRef("calibration_check", calibration.check),
+                        f", which no assertion in suite {self.name!r} is called. "
+                        "Declared: ",
+                        *_listed("verdict_name", available),
+                    )
                 )
             if len(matches) > 1:
                 raise RefusedError(
-                    f"case {case.id!r} calibrates {calibration.check!r}, which "
-                    f"{len(matches)} assertions in suite {self.name!r} share. "
-                    "Give the one you mean a distinct `name`: a band read against "
-                    "whichever came first is a band nobody placed"
+                    Quoted.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " calibrates ",
+                        NameRef("calibration_check", calibration.check),
+                        f", which {len(matches)} assertions in suite {self.name!r} "
+                        "share. Give the one you mean a distinct `name`: a band "
+                        "read against whichever came first is a band nobody placed",
+                    )
                 )
             check = _unwrapped(matches[0])
             if not judged(check):
                 raise RefusedError(
-                    f"case {case.id!r} calibrates {calibration.check!r}, which is "
-                    "not a judged check: nothing places its score on a scale, so "
-                    "there is no scale for a calibration case to watch"
+                    Quoted.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " calibrates ",
+                        NameRef("calibration_check", calibration.check),
+                        ", which is "
+                        "not a judged check: nothing places its score on a scale, so "
+                        "there is no scale for a calibration case to watch",
+                    )
                 )
             if calibration.input is None and isinstance(
                 check, LlmRubric | Faithfulness
@@ -541,12 +608,18 @@ class Suite:
                 # it, the calibration would measure a different question. `""`
                 # declares that the real cases have none either.
                 raise RefusedError(
-                    f"case {case.id!r} calibrates {calibration.check!r} and "
-                    "declares no input. That check shows the judge the question "
-                    "beside the answer, and the target that would render it is "
-                    "not called for a calibration case, so the judge would grade "
-                    "the known answer blind. Declare `input` — the question the "
-                    'answer replies to, or "" if the real cases have none'
+                    Quoted.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " calibrates ",
+                        NameRef("calibration_check", calibration.check),
+                        " and "
+                        "declares no input. That check shows the judge the question "
+                        "beside the answer, and the target that would render it is "
+                        "not called for a calibration case, so the judge would grade "
+                        "the known answer blind. Declare `input` — the question the "
+                        'answer replies to, or "" if the real cases have none',
+                    )
                 )
 
     def _check_aggregates(self) -> None:
@@ -562,28 +635,41 @@ class Suite:
         for aggregate in self.run_assertions:
             if GROUP_MARKER in aggregate.name:
                 raise RefusedError(
-                    f"aggregate {aggregate.name!r} writes {GROUP_MARKER!r} in "
-                    "its own name, which is the form an expanded aggregate "
-                    "takes. Two checks could then arrive under one name, which "
-                    "is what identity exists to prevent and what the run grid "
-                    "would silently merge. Set by_group=True and let the "
-                    "expansion name them"
+                    Quoted.said(
+                        "aggregate ",
+                        NameRef("verdict_name", aggregate.name),
+                        f" writes {GROUP_MARKER!r} in "
+                        "its own name, which is the form an expanded aggregate "
+                        "takes. Two checks could then arrive under one name, which "
+                        "is what identity exists to prevent and what the run grid "
+                        "would silently merge. Set by_group=True and let the "
+                        "expansion name them",
+                    )
                 )
             matches = [a for a in self.assertions if a.name == aggregate.over]
             if not matches:
-                available = ", ".join(sorted({a.name for a in self.assertions}))
+                available = sorted({a.name for a in self.assertions})
                 raise RefusedError(
-                    f"{aggregate.name!r} aggregates over {aggregate.over!r}, "
-                    f"which no assertion in suite {self.name!r} is called. "
-                    f"Declared: {available}"
+                    Quoted.said(
+                        NameRef("verdict_name", aggregate.name),
+                        " aggregates over ",
+                        NameRef("verdict_name", aggregate.over),
+                        f", which no assertion in suite {self.name!r} is called. "
+                        "Declared: ",
+                        *_listed("verdict_name", available),
+                    )
                 )
             if len(matches) > 1:
                 raise RefusedError(
-                    f"{aggregate.name!r} aggregates over {aggregate.over!r}, "
-                    f"which {len(matches)} assertions in suite {self.name!r} "
-                    "share. Give the one you mean a distinct `name`: an "
-                    "aggregate cannot choose between them, and picking the "
-                    "first would be a number that looks like an answer"
+                    Quoted.said(
+                        NameRef("verdict_name", aggregate.name),
+                        " aggregates over ",
+                        NameRef("verdict_name", aggregate.over),
+                        f", which {len(matches)} assertions in suite {self.name!r} "
+                        "share. Give the one you mean a distinct `name`: an "
+                        "aggregate cannot choose between them, and picking the "
+                        "first would be a number that looks like an answer",
+                    )
                 )
 
         if not any(a.requires_label for a in self.run_assertions):
@@ -598,9 +684,11 @@ class Suite:
         )
         if unlabelled:
             raise RefusedError(
-                f"suite {self.name!r} declares an aggregate that counts a "
-                f"confusion matrix, so every case needs a label. Missing on: "
-                f"{', '.join(unlabelled)}"
+                Quoted.said(
+                    f"suite {self.name!r} declares an aggregate that counts a "
+                    "confusion matrix, so every case needs a label. Missing on: ",
+                    *_listed("case_id", unlabelled),
+                )
             )
 
     def declared(self) -> Declared:

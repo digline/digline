@@ -15,7 +15,11 @@ notes under them are this file, verbatim.
   digline's alone. `str()` of a refusal reads as it did. A front end that
   projects hands `refusal_text` a `mint=` and gets each name as its token.
   The validations of a stored run that quote a case, a check, a group, an
-  artifact path or a foreign verdict's metadata key now raise this way. New
+  artifact path or a foreign verdict's metadata key now raise this way, and so
+  do the refusals of loading a suite that quote a case, a check, a group, a
+  calibration's check or an aggregate (`run/suite.py`), and the declarative
+  loader's that quote the provider or the judge a suite names. A suite's own
+  name stays in clear. `split_coordinate` takes an optional `kind=`. New
   in `digline.core`: `NameRef` and `Said`. **The next version is a minor**:
   public names are added and `Quoted`'s fields widen.
 - **A band or a verdict refused in a stored run now names the file** (ADR 0054
