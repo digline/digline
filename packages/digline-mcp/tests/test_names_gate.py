@@ -325,9 +325,9 @@ _WIDENED = (
         'label="positive", group="till" if "price" in c["id"] else "shelf")',
     ),
     (
-        "    samples=3,\n    min_agreement=",
+        "    samples=5,\n    min_agreement=",
         '    run_assertions=[Accuracy(over="levenshtein", threshold=0.5, '
-        "tolerance=0.05, by_group=True)],\n    samples=3,\n    min_agreement=",
+        "tolerance=0.05, by_group=True)],\n    samples=5,\n    min_agreement=",
     ),
 )
 
