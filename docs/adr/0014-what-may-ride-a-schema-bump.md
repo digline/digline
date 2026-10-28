@@ -286,6 +286,26 @@ plugin release: `pytest-digline`'s `digline>=0.9.0` and `digline-mcp`'s
 forces no plugin release — and the caps those specifiers also carry are a separate
 step, written in `RELEASING.md`.
 
+*Noted 2026-10-28, three times; the steps above are kept as this record decided
+them in its time. What the project does now is `RELEASING.md`, and it differs from
+them in three places.*
+
+- **The plugins.** *"A bump forces no plugin release"* holds for the floors and is
+  contradicted by the caps. A minor that moves the plugins' caps owes a release of
+  each plugin that holds one (`RELEASING.md`, *The plugins, after this release*).
+  Measured on 0.35.0, which carried schema 22: digline-mcp 0.7.0 (#769) and
+  pytest-digline 0.5.0 (#770) were released after it, and `release-followup`
+  reported both as owed until they were.
+- **The reports.** Step 5 above re-renders the examples' reports inside the bump.
+  They are re-rendered **after the tag**, against the released package
+  (`RELEASING.md`, *After the tag*, step 5). Measured on 0.35.0: the reports were
+  re-rendered in #766, after `v0.35.0` was tagged.
+- **The locks.** This record predates the examples' locks. Step 4 raises the caps;
+  `RELEASING.md`'s step 5 raises them **and** relocks every example that carries a
+  `uv.lock`, in the same pull request, with the lock's `revision` line held,
+  because `gates` runs `uv sync --locked` and refuses a lock that does not match
+  its pyproject (since #196).
+
 ## Consequences
 
 **The next bump has a checklist and a rule, and both are citable.** The question

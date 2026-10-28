@@ -337,3 +337,92 @@ def test_a_header_one_field_from_valid_is_refused(
 ) -> None:
     problems = shipped_problems(header(text), {"0.13.0"})
     assert any(needle in problem for problem in problems), (label, problems)
+
+
+# -- A status a release made stale -------------------------------------------
+#
+# Three records said *nothing in it is implemented* in their status long after
+# their `Shipped:` line named the release that carries them: the sentence was
+# true at acceptance, the release came, `Shipped:` was updated and the status
+# was not (0034, 0036, 0038; found 2026-10-28). Nothing read the two lines
+# against each other.
+
+#: How a status says that nothing of its record is built. **Two forms were
+#: measured on 2026-10-28, and this holds one of them**: a status saying
+#: nothing is implemented beside a `Shipped:` that names a release. The other,
+#: a version said to be *not released* whose tag exists, was measured once by
+#: hand and is not held here, because it needs the repository's tags. Other
+#: ways a status goes stale, such as *is owed* or *waits for*, were not
+#: searched for at all.
+_NOT_BUILT = re.compile(
+    r"nothing (?:in it|of it|here|in this record) is implemented|"
+    r"is not implemented|not yet implemented|nothing is implemented|"
+    r"unimplemented|no code exists|has no implementation",
+    re.I,
+)
+
+#: The words a status puts after a block it keeps from its proposed phase,
+#: which speaks from that phase and not from now. A "nothing is implemented"
+#: inside such a block is history, not a claim.
+PROPOSED_PHASE = "speaks from that phase"
+
+#: The records whose status keeps a "nothing is implemented" inside a block
+#: marked as the proposed phase's, each with why. **The exception, declared**:
+#: the marker is what lets a stale sentence through, so a record that starts
+#: to lean on it is red until it is named here, and the count is held.
+_KEPT = "the proposed phase's block, kept as written, before what is true now"
+KEPT_AS_PROPOSED: dict[str, str] = {
+    "0050-the-noise-floor-compares-a-range-with-means": _KEPT,
+    "0051-a-pinned-path-the-run-no-longer-records": _KEPT,
+    "0052-a-suite-loaded-again-reads-its-application-again": _KEPT,
+}
+
+#: How many records `KEPT_AS_PROPOSED` declares.
+KEPT_AS_PROPOSED_COUNT = 3
+
+
+def _status_block(head: str) -> str:
+    """The text of a record's `- Status:` field, its lines folded, up to the
+    next field."""
+    found = re.search(r"^- Status:(.*?)(?=^- [A-Z][A-Za-z ,]*:|\Z)", head, re.M | re.S)
+    return " ".join(found.group(1).split()) if found else ""
+
+
+def test_a_record_a_release_carries_does_not_say_none_of_it_is_built() -> None:
+    """A record whose `Shipped:` names a release does not say in its status
+    that nothing of it is implemented, unless the sentence sits in a block
+    its status marks as the proposed phase's and the record is declared."""
+    released = 0
+    stale: list[str] = []
+    leaning: set[str] = set()
+    for name in adr_records():
+        head = header(
+            (ROOT / "docs" / "adr" / f"{name}.md").read_text(encoding="utf-8")
+        )
+        shipped = _SHIPPED.findall(head)
+        if not shipped or not re.match(r"\d+\.\d+\.\d+", shipped[0]):
+            continue
+        released += 1
+        status = _status_block(head)
+        said = _NOT_BUILT.search(status)
+        if said is None:
+            continue
+        if PROPOSED_PHASE in status:
+            leaning.add(name)
+        else:
+            version = shipped[0].split()[0]
+            stale.append(f"{name}: Shipped {version}, status says {said.group(0)!r}")
+    assert released > 40, f"the control: only {released} records name a release"
+    assert not stale, "\n".join(stale)
+    undeclared = sorted(leaning - set(KEPT_AS_PROPOSED))
+    assert not undeclared, (
+        "these records keep a 'nothing is implemented' inside a block marked as "
+        "the proposed phase's, and KEPT_AS_PROPOSED does not declare them: "
+        f"{undeclared}"
+    )
+    gone = sorted(set(KEPT_AS_PROPOSED) - leaning)
+    assert not gone, f"KEPT_AS_PROPOSED declares {gone}, which no longer lean on it"
+    assert len(KEPT_AS_PROPOSED) == KEPT_AS_PROPOSED_COUNT, (
+        f"KEPT_AS_PROPOSED holds {len(KEPT_AS_PROPOSED)} and its count says "
+        f"{KEPT_AS_PROPOSED_COUNT}: raise the number in the same diff that adds one"
+    )
