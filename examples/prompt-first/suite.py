@@ -68,22 +68,21 @@ target = AnthropicTarget(
 #: extremes scores it 0 or 1 and is caught, which no amount of repetition would
 #: catch: a collapsed judge is *more* repeatable, not less.
 #:
-#: **The first answer written here was disqualifying, not partial**, and that
-#: is the correction worth keeping rather than hiding. It invented a price,
-#: which the rubric forbids outright, and the live judge scored it 0.000 twice
-#: — a hard, repeatable refusal. The band then read that as a lost scale, which
-#: it was not: in the same run the judge graded the five real answers across
-#: 0.266 to 0.650. ADR 0024 §4 says whether an answer makes a good calibration
-#: is the author's craft and nothing here checks it. This is that sentence
-#: arriving: the band had been authored against a judge nobody had ever
-#: watched, and the first thing watching it revealed was the author's error,
-#: not the instrument's.
+#: ADR 0024 §4 says whether an answer makes a good calibration is the author's
+#: craft and nothing here checks it, and a band is authored against a judge
+#: that has been **watched on a live baseline**, the only order in which it can
+#: be done honestly. **The band 0.70–0.95 was authored against the judge this
+#: example used before, a function that called the SDK itself (#651)**, and it
+#: has not been authored again for `AnthropicJudge`.
 #:
-#: The band is authored against a judge that has been **watched on a live
-#: baseline**, which is the only order in which it can be done honestly. This
-#: judge places this answer at 0.850, 0.850 and 0.817 — repeatably, and well
-#: above the 0.54–0.65 it gives the real answers. 0.70–0.95 contains that and
-#: excludes both extremes, so a collapse onto 0 or 1 still fails it.
+#: What `AnthropicJudge` does with it, read from four live runs on 2026-10-28
+#: (16 recorded samples, each the mean of three judgings): this answer between
+#: 0.700 and 0.800, a mean of 0.725, run means 0.715 to 0.744. The five real
+#: answers have run means between 0.237 and 0.597 and single samples up to
+#: 0.767. So the band still excludes both extremes, and its lower edge sits
+#: 0.015 under the lowest run mean. Measured on the means the band reads, a
+#: lower edge can sit between the real answers and this one by about 0.02 at
+#: two standard errors; on single samples the two overlap.
 #:
 #: That the deficient answer outscores every real one is not a fault in the
 #: band. It is what this rubric does, and it is recorded as its own finding:
