@@ -1185,7 +1185,7 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
                 'expected="y", label="positive")]',
             )
         ),
-        "declares case id 'opening-hours' twice",
+        "twice: ids are how a result finds its counterpart",
     ),
     "an aggregate named as an expanded one": (
         _suite(
@@ -1198,11 +1198,11 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
     ),
     "an aggregate over a check nobody declared": (
         _suite(('Accuracy(over="levenshtein", ', 'Accuracy(over="nope", ')),
-        "aggregates over 'nope'",
+        "' aggregates over '",
     ),
     "an aggregate over a check two share": (
         _suite(_TWO_DISTANCES),
-        "aggregates over 'levenshtein', which 2 assertions",
+        "an aggregate cannot choose between them",
     ),
     "cases with no label under a confusion matrix": (
         _suite(('label="positive", ', "")),
@@ -1247,7 +1247,7 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
     ),
     "a declarative judge with a dot for a slash": (
         _toml(_TOML_CHECK, _toml_judge("anthropic.claude")),
-        "`judge` is 'anthropic.claude', which is an import",
+        "which is an import written as a string. A judge",
     ),
     "a declarative judge with no model": (
         _toml(_TOML_CHECK, _toml_judge("anthropic/")),
@@ -1295,101 +1295,7 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
 #: leave. **It may only shrink.** A refusal repaired leaves it, and the test
 #: below says so; one that starts to name is red until it is declared here,
 #: and the count beside it says the table grew. (ADR 0054 §8)
-NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
-    "a case suspended with no reason": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours"}),
-    ),
-    "a case with an empty expected": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours"}),
-    ),
-    "a case with an empty group": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours"}),
-    ),
-    "a canary in a group": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours", "shelf"}),
-    ),
-    "a canary that calibrates": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours"}),
-    ),
-    "a calibration case in a group": (
-        "run/suite.py, Case.__post_init__",
-        frozenset({"opening-hours", "shelf"}),
-    ),
-    "a calibration with an empty answer": (
-        "run/suite.py, Calibration.__post_init__",
-        frozenset({"llm_rubric"}),
-    ),
-    "a calibration of a check nobody declared": (
-        "run/suite.py, Suite._check_calibrations",
-        frozenset({"levenshtein", "llm_rubric", "opening-hours"}),
-    ),
-    "a calibration of a check two share": (
-        "run/suite.py, Suite._check_calibrations",
-        frozenset({"levenshtein", "opening-hours"}),
-    ),
-    "a calibration of a check nobody judges": (
-        "run/suite.py, Suite._check_calibrations",
-        frozenset({"levenshtein", "opening-hours"}),
-    ),
-    "a calibration with no question": (
-        "run/suite.py, Suite._check_calibrations",
-        frozenset({"llm_rubric", "opening-hours"}),
-    ),
-    "a case id declared twice": (
-        "run/suite.py, Suite.__post_init__",
-        frozenset({"opening-hours"}),
-    ),
-    "an aggregate named as an expanded one": (
-        "run/suite.py, Suite._check_aggregates",
-        frozenset({"accuracy", "till"}),
-    ),
-    "an aggregate over a check nobody declared": (
-        "run/suite.py, Suite._check_aggregates",
-        frozenset({"accuracy", "levenshtein", "llm_rubric"}),
-    ),
-    "an aggregate over a check two share": (
-        "run/suite.py, Suite._check_aggregates",
-        frozenset({"accuracy", "levenshtein"}),
-    ),
-    "cases with no label under a confusion matrix": (
-        "run/suite.py, Suite._check_aggregates",
-        frozenset(
-            {
-                "gift-wrap",
-                "opening-hours",
-                "order-a-book",
-                "price-check",
-                "signed-copies",
-            }
-        ),
-    ),
-    "a check with a floor that is not a number": (
-        "run/suite.py, Suite.__post_init__",
-        frozenset({"levenshtein"}),
-    ),
-    "a declarative target that names its model twice": (
-        "host/toml_suite.py, _provider",
-        frozenset({"anthropic"}),
-    ),
-    "a declarative target handed a client": (
-        "host/toml_errors.py, object_parameter",
-        frozenset({"anthropic"}),
-    ),
-    "a declarative target with a misspelt parameter": (
-        "host/toml_errors.py, unknown_key",
-        frozenset({"anthropic"}),
-    ),
-    "a declarative judge with no model": (
-        "host/toml_errors.py, not_a_coordinate "
-        "(the suite's provider, and the example it writes)",
-        frozenset({"anthropic", "claude-haiku-4-5"}),
-    ),
-}
+NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {}
 
 #: The refusals that left `NAMED_IN_PROSE` because they were repaired, each
 #: with the names it let out. **What the third check cannot see, this holds**:
@@ -1414,6 +1320,34 @@ REPAIRED: dict[str, frozenset[str]] = {
     "a suspension with no reason": frozenset({"opening-hours"}),
     "a verdict with no identity": frozenset({"levenshtein"}),
     "an artifact's flag of the wrong type": frozenset({"prompts/system.txt"}),
+    "a calibration case in a group": frozenset({"opening-hours", "shelf"}),
+    "a calibration of a check nobody declared": frozenset(
+        {"levenshtein", "llm_rubric", "opening-hours"}
+    ),
+    "a calibration of a check nobody judges": frozenset(
+        {"levenshtein", "opening-hours"}
+    ),
+    "a calibration of a check two share": frozenset({"levenshtein", "opening-hours"}),
+    "a calibration with an empty answer": frozenset({"llm_rubric"}),
+    "a calibration with no question": frozenset({"llm_rubric", "opening-hours"}),
+    "a canary in a group": frozenset({"opening-hours", "shelf"}),
+    "a canary that calibrates": frozenset({"opening-hours"}),
+    "a case id declared twice": frozenset({"opening-hours"}),
+    "a case suspended with no reason": frozenset({"opening-hours"}),
+    "a case with an empty expected": frozenset({"opening-hours"}),
+    "a case with an empty group": frozenset({"opening-hours"}),
+    "a check with a floor that is not a number": frozenset({"levenshtein"}),
+    "an aggregate named as an expanded one": frozenset({"accuracy", "till"}),
+    "an aggregate over a check nobody declared": frozenset(
+        {"accuracy", "levenshtein", "llm_rubric"}
+    ),
+    "an aggregate over a check two share": frozenset({"accuracy", "levenshtein"}),
+    "cases with no label under a confusion matrix": frozenset(
+        {"gift-wrap", "opening-hours", "order-a-book", "price-check", "signed-copies"}
+    ),
+    "a declarative target handed a client": frozenset({"anthropic"}),
+    "a declarative target that names its model twice": frozenset({"anthropic"}),
+    "a declarative target with a misspelt parameter": frozenset({"anthropic"}),
 }
 
 
@@ -1456,7 +1390,7 @@ WITHHELD_COUNT = 3
 #: judges; a table that answers with the name; loading a suite, where a
 #: sentence of `run/suite.py` quotes a case, a check, a group or an aggregate,
 #: and where the declarative loader quotes a provider, a judge or a price; and
-#: four of the store's refusals on reading. Three more name the fixture's
+#: four of the store's refusals on reading. Four more name the fixture's
 #: provider or model only because digline's own words do, and are in
 #: `COINCIDENCES`; three keep a value back, as a projected document does, and
 #: are in `WITHHELD`; neither is here. Not driven, and so not counted:
@@ -1467,7 +1401,7 @@ WITHHELD_COUNT = 3
 #: - the store's refusals of a register, a directory it cannot read, a run
 #:   with no key and a baseline that is a projection;
 #: - any refusal added later.
-NAMED_IN_PROSE_COUNT = 21
+NAMED_IN_PROSE_COUNT = 0
 
 #: The refusals whose sentence holds a name of this fixture only because
 #: digline's own words do, each with its site, the names and why. **Not
@@ -1475,8 +1409,8 @@ NAMED_IN_PROSE_COUNT = 21
 #: `claude-haiku-4-5`, are also the example coordinate digline writes and the
 #: name an installed plugin registers. Repairing one would mean changing
 #: digline's text, so they are not counted in `NAMED_IN_PROSE`, and the width
-#: measured is read as 38 plus these. The fixture keeps that provider because
-#: it is `examples/prompt-first`, whose target is `AnthropicTarget`, and a
+#: measured is read as its count plus these. The fixture keeps that provider
+#: because it is `examples/prompt-first`, whose target is `AnthropicTarget`, and a
 #: model digline does not price is refused before it runs. Held like the
 #: other table: one added is a number raised in the same diff.
 COINCIDENCES: dict[str, tuple[str, frozenset[str], str]] = {
@@ -1495,10 +1429,16 @@ COINCIDENCES: dict[str, tuple[str, frozenset[str], str]] = {
         frozenset({"anthropic", "claude-haiku-4-5"}),
         "it gives 'anthropic/claude-haiku-4-5' as an example",
     ),
+    "a declarative judge with no model": (
+        "targets/registry.py, split_coordinate",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+        "it gives 'anthropic/claude-haiku-4-5' as an example; the coordinate "
+        "the suite wrote leaves as its token",
+    ),
 }
 
 #: How many refusals `COINCIDENCES` declares.
-COINCIDENCES_COUNT = 3
+COINCIDENCES_COUNT = 4
 
 
 @pytest.fixture(scope="module")

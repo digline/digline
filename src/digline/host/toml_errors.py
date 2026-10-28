@@ -27,6 +27,7 @@ from __future__ import annotations
 import difflib
 from collections.abc import Iterable, Sequence
 
+from digline.core import NameRef, Quoted, TokenKind
 from digline.host.errors import UsageError
 
 __all__ = [
@@ -77,6 +78,7 @@ def unknown_key(
     where: str,
     noun: str,
     owner: str | None = None,
+    owner_kind: TokenKind | None = None,
 ) -> UsageError | None:
     """The refusal for keys nothing accepts, or `None` when they are all known.
 
@@ -86,32 +88,43 @@ def unknown_key(
     A near miss replaces the full list rather than joining it: when the answer
     is one word away, twelve alternatives are noise. With no near miss the list
     is the only help there is, so it is printed in full.
+
+    `owner_kind`, where `owner` is a name a projection mints rather than a word
+    of digline's, carries it as a name, so a front end that projects says its
+    token (ADR 0054 §8).
     """
     known = list(allowed)
     unknown = [key for key in given if key not in known]
     if not unknown:
         return None
 
-    subject = f"`{owner}` has no" if owner else "no such"
+    subject: tuple[str | NameRef, ...] = (
+        ("`", NameRef(owner_kind, owner, quoted=False), "` has no")
+        if owner and owner_kind is not None
+        else (f"`{owner}` has no",)
+        if owner
+        else ("no such",)
+    )
     if len(unknown) == 1:
-        head = f"{where}: {subject} {noun} `{unknown[0]}`."
+        head = (f"{where}: ", *subject, f" {noun} `{unknown[0]}`.")
         if hint := did_you_mean(unknown[0], known):
-            return UsageError(head + hint)
+            return UsageError(Quoted.said(*head, hint))
         if not known:
-            return UsageError(f"{head} It names no {noun} at all.")
-        return UsageError(f"{head} Known {noun}s: {listing(known)}")
+            return UsageError(Quoted.said(*head, f" It names no {noun} at all."))
+        return UsageError(Quoted.said(*head, f" Known {noun}s: {listing(known)}"))
 
-    lines = [f"{where}: {subject} {noun} {listing(unknown)}."]
+    first = (f"{where}: ", *subject, f" {noun} {listing(unknown)}.")
+    lines: list[str] = []
     for key in unknown:
         if hint := did_you_mean(key, known):
             lines.append(f"  `{key}`:{hint.replace(' Did you mean', ' did you mean')}")
-    if len(lines) == 1:
+    if not lines:
         lines.append(
             f"Known {noun}s: {listing(known)}"
             if known
             else f"It names no {noun} at all."
         )
-    return UsageError("\n".join(lines))
+    return UsageError(Quoted.said(*first, *("\n" + line for line in lines)))
 
 
 def unknown_type(
@@ -158,27 +171,40 @@ def not_a_coordinate(value: str, *, where: str, key: str) -> UsageError:
     """
     if ":" in value or (value.count(".") and "/" not in value):
         return UsageError(
-            f"{where}: `{key}` is {value!r}, which is an import written as a "
-            "string. A judge is named by coordinates instead — provider/model, "
-            'as in "anthropic/claude-haiku-4-5" — because a data file that '
-            "could name a Python object could run any of them, and because the "
-            "coordinate is already what a run records as the instrument that "
-            f"graded it. A judge with rules of its own has no coordinates: {WAY_OUT}"
+            Quoted.said(
+                f"{where}: `{key}` is ",
+                NameRef("judge_identity", value),
+                ", which is an import written as a "
+                "string. A judge is named by coordinates instead — provider/model, "
+                'as in "anthropic/claude-haiku-4-5" — because a data file that '
+                "could name a Python object could run any of them, and because the "
+                "coordinate is already what a run records as the instrument that "
+                "graded it. A judge with rules of its own has no coordinates: "
+                f"{WAY_OUT}",
+            )
         )
     return UsageError(
-        f"{where}: `{key}` is {value!r}, which is not a provider/model "
-        "coordinate. Write the provider, a slash, and the model — for example "
-        '"anthropic/claude-haiku-4-5".'
+        Quoted.said(
+            f"{where}: `{key}` is ",
+            NameRef("judge_identity", value),
+            ", which is not a provider/model "
+            "coordinate. Write the provider, a slash, and the model — for example "
+            '"anthropic/claude-haiku-4-5".',
+        )
     )
 
 
 def object_parameter(key: str, *, where: str, provider: str) -> UsageError:
     """`client` or `pricing` in a `[target]`: injection points, not settings."""
     return UsageError(
-        f"{where}: `{key}` is a Python object, not configuration — it is where "
-        f"a test injects a stand-in for {provider}, and a data file has "
-        f"nothing to put there. Drop it; a suite that needs to inject one is a "
-        f"suite.py. See {CUSTOM_DOCS}."
+        Quoted.said(
+            f"{where}: `{key}` is a Python object, not configuration — it is where "
+            "a test injects a stand-in for ",
+            NameRef("target_config_value", provider, quoted=False),
+            ", and a data file has "
+            "nothing to put there. Drop it; a suite that needs to inject one is a "
+            f"suite.py. See {CUSTOM_DOCS}.",
+        )
     )
 
 
