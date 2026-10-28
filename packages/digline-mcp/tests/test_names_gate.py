@@ -46,6 +46,7 @@ from mcp.types import CallToolResult
 from tests._helpers import baseline_in, cli, copy_tracked, git
 
 from digline.core import NAMED_CONFIG_KEYS, split_grouped_name
+from digline.report import diff as diff_report
 from digline_mcp.server import build_server
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -58,20 +59,18 @@ _DIGEST = re.compile(r"[0-9a-f]{16}")
 _TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+(?:Z|[+-][0-9:]+)")
 _RUN_KEY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+-[0-9a-f]{16}")
 _VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+\S*")
-#: A run's label is its time to the second, or its key when two runs share
-#: the second, which is how `run_labels` keeps them apart.
-_LABEL_OR_KEY = re.compile(
-    r"[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8}"
-    r"|[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+-[0-9a-f]{16}"
-)
 _WORD = re.compile(r"[a-z][a-z_]*")
 
 
 class Gate:
-    """The checks, bound to the table that minted this fixture's tokens."""
+    """The checks, bound to the table that minted this fixture's tokens and to
+    the labels `run_labels` gives the runs the answers name."""
 
-    def __init__(self, table: RecordingTable) -> None:
+    def __init__(
+        self, table: RecordingTable, *, labels: frozenset[str] = frozenset()
+    ) -> None:
         self.table = table
+        self.labels = labels
 
     def form(self, pattern: re.Pattern[str], *, empty: bool = False) -> Check:
         return lambda text: (empty and text == "") or bool(pattern.fullmatch(text))
@@ -82,6 +81,12 @@ class Gate:
             (empty and text == "")
             or (bool(_WORD.fullmatch(text)) and text not in self.table.texts())
         )
+
+    def label(self, text: str) -> bool:
+        """(a): a run's label, one of those `run_labels` gives for the two runs
+        an answer names. Read from the function and not written here as forms,
+        because it has three resolutions and a list of them can hold fewer."""
+        return text in self.labels
 
     def token(self, text: str) -> bool:
         """(c): a token this table minted."""
@@ -150,8 +155,8 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.reference.promoted_at": ("a", time),
         "$.spans[].first_seen": ("a", time),
         "$.spans[].last_seen": ("a", time),
-        "$.runs.left.label": ("a", gate.form(_LABEL_OR_KEY)),
-        "$.runs.right.label": ("a", gate.form(_LABEL_OR_KEY)),
+        "$.runs.left.label": ("a", gate.label),
+        "$.runs.right.label": ("a", gate.label),
         "$.results[].verdicts[].assertion_id": ("a", digest),
         "$.aggregate[].assertion_id": ("a", digest),
         "$.runs[].aggregate[].assertion_id": ("a", digest),
@@ -228,6 +233,27 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
 #: key. A map not listed here has its keys read as field names, so a data key
 #: in it shows up as a path nobody classified.
 KEYED: dict[str, str] = {"$.target_config.values": "$.target_config.values{}"}
+
+
+def labels_in(answers: dict[str, list[tuple[str, str]]]) -> frozenset[str]:
+    """The labels `run_labels` gives each pair of runs an answer names, from
+    the instants and keys the answer carries for them."""
+    labels: set[str] = set()
+    for found in answers.values():
+        at = dict(found)
+        sides = [
+            f"$.runs.{side}.{field}"
+            for side in ("left", "right")
+            for field in ("created_at", "key")
+        ]
+        if all(path in at for path in sides):
+            left_at, left_key, right_at, right_key = (at[path] for path in sides)
+            labels.update(
+                diff_report.run_labels(
+                    left_at, right_at, left_key=left_key, right_key=right_key
+                )
+            )
+    return frozenset(labels)
 
 
 def walk(value: Any, path: str = "$") -> list[tuple[str, str]]:
@@ -374,7 +400,7 @@ def test_every_string_of_every_answer_is_classified_and_holds(
     projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
 ) -> None:
     answers, table = projected
-    classified = strings(Gate(table))
+    classified = strings(Gate(table, labels=labels_in(answers)))
     unclassified = sorted(
         {
             f"{tool}: {path}"
@@ -406,6 +432,37 @@ def test_the_table_was_asked_for_the_names_this_fixture_holds(
     assert {"gift-wrap", "llm_rubric", "prompts/system.txt", "anthropic"} <= (
         table.texts()
     )
+
+
+def _answer(left: str, right: str) -> list[tuple[str, str]]:
+    """The strings of a `diff` answer about two runs, as the walk finds them."""
+    return [
+        ("$.runs.left.created_at", left),
+        ("$.runs.left.key", "k1"),
+        ("$.runs.right.created_at", right),
+        ("$.runs.right.key", "k2"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ("2026-09-04T09:12:33+00:00", "2026-09-04T09:13:02+00:00"),
+        ("2026-09-04T09:12:33+00:00", "2026-09-04T09:12:51+00:00"),
+        ("2026-09-04T09:12:33.1+00:00", "2026-09-04T09:12:33.9+00:00"),
+    ],
+    ids=["minutes differ", "one minute", "one second"],
+)
+def test_a_label_is_held_to_what_run_labels_gives(left: str, right: str) -> None:
+    """A run's label is checked against `run_labels` on the runs the answer
+    names, so the gate accepts each of its resolutions and cannot list fewer.
+    A list of forms written here accepted two of the three, and went red
+    whenever the minute turned between the fixture's two runs."""
+    labels = labels_in({"diff": _answer(left, right)})
+    check = strings(Gate(RecordingTable(), labels=labels))["$.runs.left.label"][1]
+    expected = diff_report.run_labels(left, right, left_key="k1", right_key="k2")
+    assert all(check(label) for label in expected), expected
+    assert not check(diff_report.when(left) + "x")
 
 
 def test_in_clear_the_same_answers_carry_the_names(
