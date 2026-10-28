@@ -666,9 +666,9 @@ def test_the_gate_classifies_the_names_of_a_refusal(
 # three checks more, from the first site repaired: each name is of a kind the
 # projection knows and was minted under it; each one's token is in the
 # sentence; and every name the sentence says in clear is still said under
-# `project`. The third is the one that keeps the other two honest: a refusal
-# that dropped a name from its sentence and from its fields alike would pass
-# them, and be useless to its reader.
+# `project`. The third catches a rendering that drops what the clear sentence
+# keeps; a name dropped from both, by the same code, it cannot see, and
+# `REPAIRED` holds the names each repaired refusal said before its repair.
 
 
 def named_in(text: str, names: set[str]) -> frozenset[str]:
@@ -1384,6 +1384,32 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
     ),
 }
 
+#: The refusals that left `NAMED_IN_PROSE` because they were repaired, each
+#: with the names it let out. **What the third check cannot see, this holds**:
+#: the third compares a sentence in clear with the same code's sentence under
+#: `project`, so a repair that dropped a name from both reads as clean there.
+#: Here the names a refusal said before its repair are still said after it, as
+#: the tokens the table minted for them. An entry leaves only with the
+#: provocation it names.
+REPAIRED: dict[str, frozenset[str]] = {
+    "a band outside (0, 1)": frozenset({"levenshtein"}),
+    "a band that binds no verdict": frozenset({"levenshtein", "opening-hours"}),
+    "a band with no identity": frozenset({"levenshtein"}),
+    "a canary that is a calibration case": frozenset({"opening-hours"}),
+    "a projected artifact path in clear": frozenset({"prompts/system.txt"}),
+    "a projected calibration check in clear": frozenset({"levenshtein"}),
+    "a projected case id in clear": frozenset({"opening-hours"}),
+    "a projected check name in clear": frozenset({"levenshtein"}),
+    "a projected group in clear": frozenset({"shelf"}),
+    "a projected verdict with metadata in clear": frozenset({"gift-wrap"}),
+    "a suspended case with answers": frozenset({"opening-hours"}),
+    "a suspended case with verdicts": frozenset({"opening-hours"}),
+    "a suspension with no reason": frozenset({"opening-hours"}),
+    "a verdict with no identity": frozenset({"levenshtein"}),
+    "an artifact's flag of the wrong type": frozenset({"prompts/system.txt"}),
+}
+
+
 #: How many refusals `NAMED_IN_PROSE` declares. Lowered when one is repaired;
 #: raising it is what a pull request that adds a refusal naming a name has to
 #: show.
@@ -1671,12 +1697,11 @@ def test_a_name_said_in_clear_is_still_said_under_project(
     walked: dict[str, Walked],
     projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
 ) -> None:
-    """The third, and the one that holds the other two to the reader: every
-    name the sentence says in clear is still said under `project`, as a token
-    the table minted for it or, where it is not repaired yet, as itself, which
-    `NAMED_IN_PROSE` counts. A refusal that dropped a name from the sentence
-    and from its fields alike passes the first two checks and fails this
-    one."""
+    """The third: every name the sentence says in clear is still said under
+    `project`, as a token the table minted for it or, where it is not repaired
+    yet, as itself, which `NAMED_IN_PROSE` counts. It catches a rendering that
+    drops a name the clear sentence keeps. It cannot catch a name dropped from
+    both, because both are the same code: `REPAIRED` holds that."""
     _, table = projected
     tokens: dict[str, set[str]] = {}
     for token, row in table.rows.items():
@@ -1693,3 +1718,26 @@ def test_a_name_said_in_clear_is_still_said_under_project(
         and not any(token in seen.text for token in tokens.get(name, ()))
     )
     assert not lost, f"these names are said in clear and not under project: {lost}"
+
+
+def test_a_repaired_refusal_still_says_the_names_it_let_out(
+    walked: dict[str, Walked],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """A refusal repaired names its token where it named the name: the repair
+    did not make it useless to its reader by saying less. (ADR 0054 §8)"""
+    _, table = projected
+    tokens: dict[str, set[str]] = {}
+    for token, row in table.rows.items():
+        tokens.setdefault(row.text, set()).add(token)
+    assert set(REPAIRED) <= set(PROVOCATIONS), sorted(set(REPAIRED) - set(PROVOCATIONS))
+    assert not set(REPAIRED) & set(NAMED_IN_PROSE), sorted(
+        set(REPAIRED) & set(NAMED_IN_PROSE)
+    )
+    unsaid = sorted(
+        f"{why}: {name!r}"
+        for why, names in REPAIRED.items()
+        for name in names
+        if not any(token in walked[why].text for token in tokens.get(name, ()))
+    )
+    assert not unsaid, f"repaired, and no longer saying these names: {unsaid}"
