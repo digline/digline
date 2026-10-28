@@ -15,7 +15,7 @@ import json
 import os
 from pathlib import Path
 
-from digline.core import Judge, JudgeReply, Levenshtein, LlmRubric, Repeated
+from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated
 from digline.run import Calibration, Case, Suite
 from digline_anthropic import AnthropicJudge, AnthropicTarget
 
@@ -44,7 +44,7 @@ def _fake_judge(prompt: str) -> JudgeReply:
 
 #: A plugin is a target *and* a judge (ADR 0004): on the live path the twenty
 #: lines of SDK-and-JSON leave this file, and the run records which model graded.
-JUDGE: Judge = AnthropicJudge(model=MODEL) if LIVE else _fake_judge
+JUDGE = AnthropicJudge(model=MODEL) if LIVE else _fake_judge
 
 
 target = AnthropicTarget(

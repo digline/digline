@@ -43,10 +43,9 @@ replace a measurement with a stand-in's.
 **Where your workspace's replies report no geography Anthropic prices**, such
 as `inference_geo: "not_available"`, the target's cost is not known. The
 cases are still judged, the bill says *cost not known for every call*, and
-the line after it says why and what to pin. That arrives with the
-digline-anthropic release that carries ADR 0004 §8. The releases this example
-admits today, digline-anthropic below 0.7, error every case of such a run
-instead (#569).
+the line after it says why and what to pin. The digline-anthropic this
+example installs carries ADR 0004 §8; the releases below it errored every case
+of such a run instead (#569).
 
 `--replacing` names the baseline this promotion replaces: here, the one
 this example ships, whose key `compare` prints under its verdict and
@@ -77,11 +76,13 @@ This example is also where the judge is watched rather than only used: under
 on the scale a judge that still has one has to land inside. It costs judge
 calls only — the target is never called for it.
 
-One thing to copy carefully: the judge here is a function, and nothing
-reports what it spent. `_live_judge` calls the SDK directly instead of going
-through `digline-anthropic`. Measured on the keyless path on 2026-10-27, with
-digline 0.34.0, the release this example installed that day: the run file records the judge's
-line as `calls: 0`, `spent_usd: 0.0` and neither completeness marker, which
-reads *not recorded*, and `digline run` prints no judge line at all. digline
-built from this repository at `bcef1603` prints `judge: not recorded`. Copy the
-target's shape, not the judge's.
+On the live path the judge is `digline-anthropic`'s `AnthropicJudge`, in the
+form `examples/langchain` uses, so the run records which model graded and the
+bill has a judge line with its calls (#651). The keyless stand-in,
+`_fake_judge`, is a function: it names no instrument, so its run records none,
+and nothing reports what it spent. Measured on the keyless path on
+2026-10-27, with digline 0.34.0: the run file records the judge's line as
+`calls: 0`, `spent_usd: 0.0` and neither completeness marker, which reads *not
+recorded*, and `digline run` prints no judge line at all. digline built from
+this repository at `bcef1603` prints `judge: not recorded`. Copy the live
+judge's shape, not the stand-in's.
