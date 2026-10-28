@@ -55,7 +55,10 @@ jobs:
     #   turned a job red that the queue had not already turned red on the same
     #   commit. The answer is a `merge_group` run of `ci` on exactly this SHA
     #   with every repeated job green. `gates`, `readers`, `glyphs` and
-    #   `image-touched` (and `image` with it) are then skipped.
+    #   `image-touched` (and `image` with it) are then skipped. **The
+    #   finished-before-the-push part no longer holds once the queue-side skip
+    #   below fires**, and then this answers false: `verdict` in the script
+    #   says why, with the runs it was measured on.
     # - **On a queue entry.** The queue's commit may carry exactly the tree the
     #   four required checks already passed on, on the pull request's head. The
     #   answer is that tree, compared: the script's docstring says why the
