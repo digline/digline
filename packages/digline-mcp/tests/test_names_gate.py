@@ -434,13 +434,20 @@ def test_the_table_was_asked_for_the_names_this_fixture_holds(
     )
 
 
+#: Two run keys of the form digline writes, for answers made up here.
+_KEYS = (
+    "2026-09-04T09-12-33-100000-00-00-5af8d8dd1e55f5c5",
+    "2026-09-04T09-12-33-900000-00-00-5af8d8dd1e55f5c5",
+)
+
+
 def _answer(left: str, right: str) -> list[tuple[str, str]]:
     """The strings of a `diff` answer about two runs, as the walk finds them."""
     return [
         ("$.runs.left.created_at", left),
-        ("$.runs.left.key", "k1"),
+        ("$.runs.left.key", _KEYS[0]),
         ("$.runs.right.created_at", right),
-        ("$.runs.right.key", "k2"),
+        ("$.runs.right.key", _KEYS[1]),
     ]
 
 
@@ -460,7 +467,9 @@ def test_a_label_is_held_to_what_run_labels_gives(left: str, right: str) -> None
     whenever the minute turned between the fixture's two runs."""
     labels = labels_in({"diff": _answer(left, right)})
     check = strings(Gate(RecordingTable(), labels=labels))["$.runs.left.label"][1]
-    expected = diff_report.run_labels(left, right, left_key="k1", right_key="k2")
+    expected = diff_report.run_labels(
+        left, right, left_key=_KEYS[0], right_key=_KEYS[1]
+    )
     assert all(check(label) for label in expected), expected
     assert not check(diff_report.when(left) + "x")
 
