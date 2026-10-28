@@ -494,6 +494,32 @@ def test_the_tenant_verifies_and_never_overrides(repo: Path) -> None:
     assert "The suite decides" in message
 
 
+#: The keys `digline run --json` carries and this server's `run` does not yet,
+#: each with why. A declared exception with a known end, and counted, so a
+#: second key cannot join it in silence: whoever adds one raises
+#: `CLI_ONLY_COUNT` in the same diff and writes the reason here.
+#:
+#: **The end.** `unpriced` leaves when this server's half of ADR 0004 §8.0,
+#: item 2, lands with ADR 0054 §8's server half. The table is then empty, and
+#: an empty table is removed, with its count, its test and the subtraction in
+#: `test_run_matches_the_cli_field_for_field`, not left standing.
+CLI_ONLY: dict[str, str] = {
+    "unpriced": "the sentences for a cost not known quote a model, which "
+    "`--names project` would have to mint; absent here says the tool did not "
+    "look (ADR 0004 §8.0, item 2)",
+}
+CLI_ONLY_COUNT = 1
+
+
+def test_the_keys_only_the_cli_carries_are_counted() -> None:
+    assert len(CLI_ONLY) == CLI_ONLY_COUNT, (
+        f"CLI_ONLY holds {len(CLI_ONLY)} keys, {sorted(CLI_ONLY)}, and "
+        f"CLI_ONLY_COUNT says {CLI_ONLY_COUNT}. A key the command line carries "
+        "and this server does not is an answer an agent is not given: a new "
+        "one is a number raised in the same diff, with its reason"
+    )
+
+
 def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
     """The third of the three reused shapes, and the one that is easiest to
     forget: it is four keys, so it looks too small to drift."""
@@ -503,7 +529,12 @@ def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
     through_the_cli = json.loads(done.stdout)
     # The keys are the contract; the run key itself differs because these are
     # two different runs, which is the only honest way to compare two writes.
-    assert set(through_the_tool) == set(through_the_cli)
+    # One declared difference: `unpriced`, the sentences for a cost not known,
+    # is on the command line's envelope and not yet on the tool's. Where they
+    # go here waits on this server's half of ADR 0004 §8.0, item 2, with ADR
+    # 0054 §8: a sentence quotes a model, which `--names project` would mint.
+    # Absent on the tool says it did not look, which is true.
+    assert set(through_the_tool) == set(through_the_cli) - set(CLI_ONLY)
     assert through_the_tool["tenant"] == through_the_cli["tenant"]
     assert through_the_tool["suite"] == through_the_cli["suite"]
     assert through_the_tool["sentence"] == through_the_cli["sentence"]

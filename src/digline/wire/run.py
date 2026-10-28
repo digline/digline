@@ -107,6 +107,7 @@ def run_json(
     replayed: bool = False,
     notes: Sequence[str] = (),
     errored_checks: int,
+    unpriced: Sequence[str] | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -162,6 +163,14 @@ def run_json(
     # recorded none, which is never a run that consumed nothing. (ADR 0025 §9)
     if usage is not None:
         payload["usage"] = _usage_document(usage)
+    # Why a cost is not known, the sentences `digline run` prints on stderr
+    # after the bill, once each: in this envelope and never in the stored run
+    # document, which §8.3 keeps them out of. Present and empty where there was
+    # none, because the caller looked. Absent only where a caller passes
+    # nothing, which is `digline-mcp`'s `run` until its half is decided: absent
+    # there says it did not look. (ADR 0004 §8.0, item 2, and §8.3)
+    if unpriced is not None:
+        payload["unpriced"] = list(unpriced)
     return neutralised(payload)
 
 

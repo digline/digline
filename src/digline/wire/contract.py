@@ -1303,7 +1303,16 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
 #: changing an entry's types is a change a consumer can see, and the rule for
 #: that is a bump. The keys added under 2 and under 3 are in `_BASE`, each
 #: beside the provenance its entry carried (#669, #678).
-_ADDED: tuple[_AddedKey, ...] = ()
+_ADDED: tuple[_AddedKey, ...] = (
+    # Why a cost is not known, each sentence once: what `digline run` and
+    # `digline rejudge` print on stderr after the bill. Present on both
+    # commands' `--json`, and empty where there was none. Absent from MCP's
+    # `run` until its half is decided, so absent says *not looked*. In this
+    # envelope, never in the stored run document (ADR 0004 §8.3).
+    _AddedKey(
+        "run", "unpriced", _k(_arr("string"), optional=True), "ADR 0004 §8.0, item 2"
+    ),
+)
 
 
 def _derive(

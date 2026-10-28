@@ -18,7 +18,7 @@ declared suite's name. (ADR 0015 §6)
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 
 from digline.core import (
@@ -238,6 +238,7 @@ def rejudge(
     run_metadata: Mapping[str, object] | None = None,
     pricing: str = "",
     judge_samples: int = 0,
+    on_unpriced: Callable[[str], None] | None = None,
 ) -> Run:
     """Judge `source`'s recorded answers with `suite`, and say so in the run.
 
@@ -274,6 +275,9 @@ def rejudge(
         run_metadata=run_metadata,
         pricing=pricing,
         judge_samples=judge_samples,
+        # A re-judge pays the judge, so the judge's sentences reach the front
+        # end as `run`'s do, once each, after the run. (ADR 0004 §8.3)
+        on_unpriced=on_unpriced,
     )
     return replace(
         produced,

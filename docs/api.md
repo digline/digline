@@ -543,9 +543,15 @@ The totals cross a boundary; the per-call counts on a recorded response do not
   is **`None`** for a `Billable` judge that keeps neither count, or keeps one
   at zero and not the other: `true` is read off two zeros, never assumed.
 - **Why a cost is not known is said once, after the bill.** `digline run`
-  prints each distinct sentence a plugin or a price list gave, on standard
-  error after the bill line, as *cost not computable: …*. `execute()` hands
-  them to `on_unpriced`; they are never in the run document.
+  and `digline rejudge` print each distinct sentence a plugin or a price list
+  gave, on standard error after the bill line, as *cost not computable: …*.
+  With `--json` they are `unpriced`, a list in the envelope both commands
+  print, empty where there was none. `execute()` and `rejudge()` hand them to
+  `on_unpriced`. They are never in the run document. A list with a sentence
+  means some line's `every_cost_known` is `false`; the other way round does
+  not hold, because a cost can be not known with no one saying why: a reply
+  whose counts were not read, or a target that states no cost and no reason.
+  The MCP `run` tool does not carry `unpriced` yet.
 
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written

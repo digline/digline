@@ -651,3 +651,168 @@ def test_counts_not_recorded_read_as_not_recorded_and_say_no_sentence(
         assert line.every_cost_known is False
     assert judge.unpriced_calls == 0
     assert said == []
+
+
+# --------------------------------------------------------------------------- #
+# `rejudge` calls the judge, so it spends, and says so as `run` does (§8.3)
+# --------------------------------------------------------------------------- #
+
+
+#: A suite whose judge's replies report a geography with no rate, or none. The
+#: answers are recorded, so `rejudge` can judge them again; the judge is the
+#: only thing a re-judge calls.
+REJUDGE_SUITE = """\
+import json
+
+from digline.core import LlmRubric
+from digline.run import Case, Response, Suite
+from digline.targets import Completion, ModelPrice, Pricing, Usage
+from digline.targets.judge import ScoreJudge
+
+
+class Judge(ScoreJudge):
+    provider = "fake"
+    system = "unused"
+
+    def __init__(self):
+        super().__init__(
+            model="j-1",
+            max_tokens=16,
+            pricing=Pricing(per_model={"j-1": ModelPrice(1.0, 2.0)}),
+        )
+
+    def _complete(self, system, prompt):
+        return Completion(
+            text=json.dumps({"score": 1.0, "reason": "fine"}),
+            usage=Usage(input_tokens=100, output_tokens=10),
+            unpriced=%(unpriced)r,
+        )
+
+
+suite = Suite(
+    tenant="acme",
+    environment="staging",
+    name="qa",
+    assertions=[
+        LlmRubric(rubric="Is it polite?", judge=Judge(), threshold=0.5, tolerance=0.0)
+    ],
+    cases=[Case(id="c1"), Case(id="c2")],
+    record_responses=True,
+)
+
+
+def target(case):
+    return Response(output="yes", cost_usd=0.0, usage=Usage(0, 0))
+"""
+
+
+def _rejudge_cli(
+    tmp_path: Path, *extra: str, unpriced: str | None
+) -> tuple[int, str, str]:
+    (tmp_path / "suite_qa.py").write_text(
+        REJUDGE_SUITE % {"unpriced": unpriced}, encoding="utf-8"
+    )
+    first = cli(tmp_path, "run", "--suite", "suite_qa.py")
+    assert first.returncode == EXIT_OK, first.stderr
+    done = cli(tmp_path, "rejudge", "--suite", "suite_qa.py", "--run", "latest", *extra)
+    return done.returncode, done.stdout, done.stderr
+
+
+def test_rejudge_prints_the_bill_and_the_sentence_once_after_it(
+    tmp_path: Path,
+) -> None:
+    """It judged twice and was silent about it: no bill line, no sentence."""
+    code, _, stderr = _rejudge_cli(tmp_path, unpriced=GEO)
+    assert code == EXIT_OK, stderr
+    lines = stderr.splitlines()
+    bill = next(i for i, line in enumerate(lines) if line.startswith("digline: judge:"))
+    assert lines[bill].startswith("digline: judge: 2 calls"), lines[bill]
+    assert "cost not known for every call" in lines[bill]
+    sentence = f"digline: cost not computable: {GEO}"
+    assert lines.count(sentence) == 1
+    assert lines.index(sentence) > bill
+
+
+def test_a_priced_rejudge_prints_the_bill_and_no_sentence(tmp_path: Path) -> None:
+    """The control: the bill is printed, the sentences only where their fact
+    holds."""
+    code, _, stderr = _rejudge_cli(tmp_path, unpriced=None)
+    assert code == EXIT_OK, stderr
+    assert "digline: judge: 2 calls" in stderr
+    assert "cost not known for every call" not in stderr
+    assert "cost not computable" not in stderr
+
+
+def test_rejudge_json_carries_the_usage_and_the_sentences(tmp_path: Path) -> None:
+    """The markers, as `run --json` carries them (ADR 0025 §9), and the
+    sentences in the envelope, once each (ADR 0004 §8.0, item 2, decided
+    for `--json`)."""
+    code, stdout, stderr = _rejudge_cli(tmp_path, "--json", unpriced=GEO)
+    assert code == EXIT_OK, stderr
+    payload = json.loads(stdout)
+    judge = payload["usage"]["judge"]
+    assert judge["calls"] == 2
+    assert judge["every_cost_known"] is False
+    assert payload["unpriced"] == [GEO]
+
+
+def test_a_priced_rejudge_json_says_it_looked(tmp_path: Path) -> None:
+    """Present and empty, never absent: an empty list says the sentences were
+    read and there were none."""
+    code, stdout, stderr = _rejudge_cli(tmp_path, "--json", unpriced=None)
+    assert code == EXIT_OK, stderr
+    assert json.loads(stdout)["unpriced"] == []
+
+
+def _run_json_cli(
+    tmp_path: Path, *, cost: str, unpriced: str | None
+) -> dict[str, object]:
+    (tmp_path / "suite_qa.py").write_text(
+        CLI_SUITE % {"cost": cost, "unpriced": unpriced}, encoding="utf-8"
+    )
+    done = cli(tmp_path, "run", "--suite", "suite_qa.py", "--json")
+    assert done.returncode == EXIT_OK, done.stderr
+    return json.loads(done.stdout)
+
+
+def test_run_json_carries_the_sentence_once(tmp_path: Path) -> None:
+    payload = _run_json_cli(tmp_path, cost="None", unpriced=GEO)
+    assert payload["unpriced"] == [GEO]
+
+
+def test_a_priced_run_json_says_it_looked(tmp_path: Path) -> None:
+    payload = _run_json_cli(tmp_path, cost="0.001", unpriced=None)
+    assert payload["unpriced"] == []
+
+
+def _cost_known(payload: dict[str, object]) -> list[object]:
+    usage = payload["usage"]
+    assert isinstance(usage, dict)
+    return [usage[side]["every_cost_known"] for side in ("target", "judge")]  # pyright: ignore[reportUnknownVariableType]
+
+
+@pytest.mark.parametrize(
+    ("cost", "unpriced"),
+    [("None", GEO), ("0.001", None), ("None", None)],
+    ids=["unpriced", "priced", "cost not stated"],
+)
+def test_a_sentence_means_a_cost_not_known(
+    tmp_path: Path, cost: str, unpriced: str | None
+) -> None:
+    """The invariant, in the direction that holds: a sentence is only ever
+    written for a call whose cost is not known, so a non-empty list beside
+    every line's `every_cost_known` true is a contradiction."""
+    payload = _run_json_cli(tmp_path, cost=cost, unpriced=unpriced)
+    if payload["unpriced"]:
+        assert False in _cost_known(payload)
+
+
+def test_a_cost_not_known_can_have_no_sentence(tmp_path: Path) -> None:
+    """The other direction does not hold, and this pins why. A cost can be not
+    known with nobody saying why: a reply whose `cost_usd` is `None` and that
+    states no reason, a reply whose counts were not read (#629), a price that
+    raises. Then `every_cost_known` is false and the list is empty, which is
+    true of the run: no sentence was written."""
+    payload = _run_json_cli(tmp_path, cost="None", unpriced=None)
+    assert False in _cost_known(payload)
+    assert payload["unpriced"] == []
