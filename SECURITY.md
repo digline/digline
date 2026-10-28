@@ -381,6 +381,64 @@ the version can read it today.
     assigned when this line was written. Read it from the advisory, not from
     here.
 
+## Choices a scanner reads as gaps
+
+**These are choices that were made, not gaps waiting to be closed.** Each
+paragraph says what was chosen, what holds the risk in its place, and what a
+scanner reads instead.
+
+**Dependencies are pinned by the lock, the actions by commit and the image by
+digest; pip's hash pinning is not added on top.** `uv.lock` pins every package
+the project resolves, and every package that comes from the index carries a
+SHA-256 for each of its files. Every GitHub Action a workflow uses is pinned by
+its commit SHA, and the image's base by its digest. Hash pinning in pip would
+be a second mechanism for what the lock already fixes, the versions and the
+resolution, and two would have to be kept in step. Scorecard reads the missing
+pip hashes as unpinned dependencies, and its findings on them are dismissed for
+that reason.
+
+**The image pins pip itself to an exact version.** `docker/Dockerfile` upgrades
+pip to that version before it installs digline, because a pip nobody pinned
+changes what the build resolves. `tests/test_docker.py` holds the pin to an
+exact version, and requires the comment beside it to name what watches it. What
+watches it is the weekly scan of the published image, `image-scan.yml`, which
+scans the whole image and so reads that pip too. It uploads to Code scanning
+with `--ignore-unfixed`. An advisory against that pip therefore appears there by
+name only once a version fixes it, and until then it is a number in the scan's
+counts. The comment in the Dockerfile says the same. Scorecard reads the shape
+of this pin as an unpinned dependency, and that is the declared cost of the
+choice.
+
+**No fuzzing harness runs.** Three of digline's inputs come from nobody it
+trusts: what a target answers, since everything digline judges is a model's
+output; the arguments an agent passes to the tools of `digline-mcp`'s server;
+and the requests a browser sends to `digline view`. What holds them today is
+refusal. The readers refuse what they cannot read rather than accept it, and a
+test provokes **37 of the 43 places** where a reader raises its refusal. That
+was measured with line coverage over the whole suite on 2026-10-28, at
+`0168df79`; the other six are reached by no test. The delta-pass asks of every
+new entry point who wrote the value and what a hostile value does there.
+Fuzzing would cover the input space of the parsers that those tests do not
+walk, and it does not run: that is a declared limit, not a closed choice.
+
+**Nothing reaches `main` except through the merge queue, and nobody can bypass
+the ruleset that says so.** Its bypass list is empty, and asked for the
+maintainer's own account, the API answers `never`. No review is required. There is one
+maintainer, and an approval of their own change would record a review that did
+not happen. In its place are four required checks, the three `gates` and *The
+old readers, built from their tags, where they may not skip*, which every pull
+request has to pass on its way in.
+
+**Every change is checked against the gates, not by a second person.** Two
+things stand in for review, and both are enforced: the four required checks,
+and the merge queue, which tests the combination before it lands. A third is a
+discipline and not a gate: a test is not believed until a mutation makes it
+fail. It is a rule in `CONTRIBUTING.md`, carried out by whoever writes the test,
+and no check verifies that a change arrived with its mutation.
+
+**One more reads low for a reason of its own**, and not by choice: Maintained,
+in the section below.
+
 ## Scorecard checks that read low by construction
 
 **Maintained reads 0 until 2026-11-24, whatever the activity.** OpenSSF
