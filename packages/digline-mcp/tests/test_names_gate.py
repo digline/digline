@@ -25,16 +25,33 @@ classified. The tool list is read from the server, not written into the test.
 **What it does not cover.** A path that does not occur in this fixture is not
 seen: the walk is of answers, not of the model behind them, so a field that is
 empty here is unclassified and unchecked. Numbers are not walked, as in the
-projection's gate. And a refusal is checked as prose: `run`'s count, and five
-refusals of the core this fixture provokes. ADR 0054 §8 wants a refusal's
-names in fields, which the core's classes do not carry, and the last test here
-holds that as an `xfail(strict=True)`.
+projection's gate. ADR 0054 §8 wants a refusal's names in fields, which the
+core's classes do not carry, and a test here holds that as an
+`xfail(strict=True)`.
+
+**Until they do, a refusal is walked as prose.** Every refusal in
+`PROVOCATIONS` is driven under `project`, and its sentence is held against the
+names the projection tokenises in this fixture, which are known. One that holds
+a name is red unless `NAMED_IN_PROSE` declares it, and that table may only
+shrink. What this walk does not cover:
+
+- **A refusal nobody provokes here is not seen.** The walk is of the
+  provocations, not of the code. Not provoked: the refusals of loading a
+  suite, which every tool does first and which quote the suite's own names;
+  the store's other refusals on reading; and any refusal added later.
+- **A refusal is provoked through one tool.** A stored document is read
+  through `get_run`; the other tools read it through the same `read_run`.
+- **Only this fixture's names are looked for**, and a name that is also a
+  word digline writes could not be told from it. A name is matched where it
+  stands as a name, so the group `till` is not found in "still".
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -45,7 +62,15 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult
 from tests._helpers import baseline_in, cli, copy_tracked, git
 
-from digline.core import NAMED_CONFIG_KEYS, split_grouped_name
+from digline.core import (
+    NAMED_CONFIG_KEYS,
+    TokenKind,
+    project_served,
+    redact,
+    run_from_json,
+    run_to_json,
+    split_grouped_name,
+)
 from digline.report import diff as diff_report
 from digline_mcp.server import build_server
 
@@ -226,6 +251,9 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.runs.left.note": ("p", gate.prose),
         "$.runs.right.note": ("p", gate.prose),
         "!refusal": ("p", gate.prose),
+        # A refusal's fields. `role` is digline's word for the document a
+        # refusal could not read. (ADR 0054 §8; #742)
+        "!refusal.role": ("a", gate.word()),
     }
 
 
@@ -581,7 +609,8 @@ def _fields(refused: BaseException) -> list[tuple[str, str]]:
         "under project (an unknown run, a run diffed with itself, a corrupted "
         "run document, a suite outside the root, no baseline) quote no name "
         "the table minted, and five measurements are not a perimeter. What is "
-        "missing is the core's error classes carrying those fields (#548)."
+        "missing is the core's error classes carrying those fields (#548). "
+        "The refusals that do name, in their sentence, are NAMED_IN_PROSE."
     ),
 )
 def test_the_gate_classifies_the_names_of_a_refusal(
@@ -606,3 +635,525 @@ def test_the_gate_classifies_the_names_of_a_refusal(
         if classified.get(path, ("p",))[0] == "p"
     )
     assert not unclassified, unclassified
+
+
+# -- The refusals, walked as the answers are -----------------------------------
+#
+# ADR 0054 §8 says a refusal carries the names it quotes in fields and a gate
+# classifies the fields, never the prose. Until the core's refusals do, the
+# prose is what crosses, and this measures it the only way a sentence can be
+# measured mechanically: against the names the projection tokenises in this
+# fixture, which are known. A refusal whose sentence holds one of them is red,
+# unless `NAMED_IN_PROSE` declares it. The table is the measure of what §8
+# still owes, and it may only shrink. (ADR 0054 §8)
+
+
+def named_in(text: str, names: set[str]) -> frozenset[str]:
+    """The names that stand in `text` as names, not as part of a longer word:
+    the group `till` stands in "group 'till'" and not in "still". A character
+    a name can hold may not touch it on either side, and a full stop after it
+    ends a sentence unless a name character follows."""
+    return frozenset(
+        name
+        for name in names
+        if re.search(
+            rf"(?<![A-Za-z0-9_./-]){re.escape(name)}(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])",
+            text,
+        )
+    )
+
+
+def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
+    """The control for the matcher: a name quoted, at the end of a sentence or
+    inside a check's group is found; the same letters inside a word are not."""
+    names = {"till", "prompts/system.txt", "opening-hours"}
+    assert named_in("case 'opening-hours' is suspended", names) == {"opening-hours"}
+    assert named_in("an artifact path is prompts/system.txt.", names) == {
+        "prompts/system.txt"
+    }
+    assert named_in("accuracy[group=till] moved", names) == {"till"}
+    assert named_in("it still carries what redaction removes", names) == set()
+    assert named_in("opening-hours-2 and prompts/system.txt.bak", names) == set()
+
+
+@dataclass(frozen=True, slots=True)
+class Scene:
+    """What a provocation works on: the fixture's repository, its two runs, the
+    table that projected it, and a second repository whose last run was made
+    under a changed suite."""
+
+    repo: Path
+    first: str
+    second: str
+    table: RecordingTable
+    changed: tuple[Path, str, str]
+
+
+#: A provocation drives one tool into one refusal and returns it, leaving the
+#: repository as it found it.
+Provoke = Callable[[Scene], ToolError]
+
+
+@dataclass(frozen=True, slots=True)
+class EchoTable:
+    """A name table that answers a name with the name itself: what a table
+    the owning process got wrong hands the projection."""
+
+    def mint(self, kind: TokenKind, text: str) -> str:
+        return text
+
+    def lookup(self, token: str) -> None:
+        return None
+
+
+def _document(base: str, edit: Callable[[dict[str, Any]], object]) -> Provoke:
+    """`get_run` on the second run, its stored document replaced by `base`
+    (`stored`, or a valid `redacted` or `projected` copy of it) with `edit`
+    applied."""
+
+    def provoke(scene: Scene) -> ToolError:
+        stored = next((scene.repo / ".digline").glob(f"*/runs/*/{scene.second}.json"))
+        kept = stored.read_bytes()
+        run = run_from_json(kept.decode("utf-8"))
+        if base == "redacted":
+            run = redact(run)
+        elif base == "projected":
+            run = project_served(run, scene.table.mint)
+        document: dict[str, Any] = json.loads(run_to_json(run))
+        edit(document)
+        try:
+            stored.write_text(json.dumps(document), encoding="utf-8")
+            return _refusal(
+                scene.repo,
+                "get_run",
+                {"suite": SPEC, "run": scene.second},
+                table=scene.table,
+            )
+        finally:
+            stored.write_bytes(kept)
+
+    return provoke
+
+
+def _first_case(**fields: object) -> Callable[[dict[str, Any]], object]:
+    return lambda document: document["results"][0].update(fields)
+
+
+def _first_verdict(**fields: object) -> Callable[[dict[str, Any]], object]:
+    return lambda document: document["results"][0]["verdicts"][0].update(fields)
+
+
+def _band(document: dict[str, Any], **fields: object) -> dict[str, Any]:
+    """A calibration band on the first case's first check, inside (0, 1)."""
+    verdict = document["results"][0]["verdicts"][0]
+    return {
+        "check": verdict["assertion"],
+        "assertion_id": verdict["assertion_id"],
+        "low": 0.1,
+        "high": 0.9,
+        **fields,
+    }
+
+
+def _with_band(**fields: object) -> Callable[[dict[str, Any]], object]:
+    return lambda document: document["results"][0].update(
+        calibration=_band(document, **fields)
+    )
+
+
+def _in_turn(
+    *edits: Callable[[dict[str, Any]], object],
+) -> Callable[[dict[str, Any]], object]:
+    """Several edits of one document, applied in order."""
+
+    def edit(document: dict[str, Any]) -> None:
+        for each in edits:
+            each(document)
+
+    return edit
+
+
+def _unknown_run(scene: Scene) -> ToolError:
+    return _refusal(
+        scene.repo,
+        "get_run",
+        {"suite": SPEC, "run": "2020-01-01T00-00-00-000000-00-00-0000000000000000"},
+        table=scene.table,
+    )
+
+
+def _itself(scene: Scene) -> ToolError:
+    return _refusal(
+        scene.repo,
+        "diff",
+        {"suite": SPEC, "run1": scene.first, "run2": scene.first},
+        table=scene.table,
+    )
+
+
+def _outside(scene: Scene) -> ToolError:
+    return _refusal(
+        scene.repo, "get_run", {"suite": "../elsewhere.py"}, table=scene.table
+    )
+
+
+def _no_baseline(scene: Scene) -> ToolError:
+    baselines = next((scene.repo / ".digline").glob("*/baselines"))
+    moved = baselines.with_name("baselines-away")
+    baselines.rename(moved)
+    try:
+        return _refusal(scene.repo, "get_baseline", {"suite": SPEC}, table=scene.table)
+    finally:
+        moved.rename(baselines)
+
+
+def _different_suites(scene: Scene) -> ToolError:
+    repo, before, after = scene.changed
+    return _refusal(
+        repo,
+        "diff",
+        {"suite": SPEC, "run1": before, "run2": after},
+        table=RecordingTable(),
+    )
+
+
+def _echoing_table(scene: Scene) -> ToolError:
+    return _refusal(
+        scene.repo, "get_run", {"suite": SPEC, "run": scene.second}, table=EchoTable()
+    )
+
+
+#: Every refusal this gate walks: the tool driven into it, and words of its
+#: sentence that pin the site it comes from, so a provocation that drifts to
+#: another refusal is red rather than measuring the wrong one. Measured at
+#: `5cae1855`. **What it does not cover** is in the module's docstring.
+PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
+    # The five the fixture provoked before this gate: none names anything.
+    "unknown run": (_unknown_run, "run not found"),
+    "a run diffed with itself": (_itself, "a run diffed with itself"),
+    "a suite outside the root": (_outside, "which is outside"),
+    "a corrupted document": (
+        _document("stored", lambda d: d.update(schema_version="x")),
+        "'schema_version' is a JSON string, not an integer",
+    ),
+    "no baseline": (_no_baseline, "has no baseline for tenant"),
+    # Family A: a stored document read in clear, before any projection. The
+    # validations behind `run_from_dict` raise `ValueError`, quoted whole.
+    "a canary that is a calibration case": (
+        _document("stored", _in_turn(_with_band(), _first_case(canary=True))),
+        "is both a canary and a calibration case",
+    ),
+    "a suspension with no reason": (
+        _document("stored", _first_case(suspended=True, suspended_reason="")),
+        "is suspended without a stated reason",
+    ),
+    "a suspended case with verdicts": (
+        _document("stored", _first_case(suspended=True, suspended_reason="paused")),
+        "is suspended but carries verdicts",
+    ),
+    "a suspended case with answers": (
+        _document(
+            "stored",
+            _first_case(suspended=True, suspended_reason="paused", verdicts=[]),
+        ),
+        "is suspended but carries recorded answers",
+    ),
+    "a band that binds no verdict": (
+        _document("stored", _with_band(assertion_id="0000000000000000")),
+        "and none of its verdicts is that check's",
+    ),
+    "a band outside (0, 1)": (
+        _document("stored", _with_band(low=0.9, high=0.1)),
+        "declares the band 0.900000–0.100000",
+    ),
+    "a band with no identity": (
+        _document("stored", _with_band(assertion_id="")),
+        "carries no assertion_id: a band binds",
+    ),
+    "a verdict with no identity": (
+        _document("stored", _first_verdict(assertion_id="")),
+        "carries no assertion_id: compare() pairs on it",
+    ),
+    "an artifact's flag of the wrong type": (
+        _document(
+            "stored",
+            lambda d: d["artifacts"]["prompts/system.txt"].update(withheld="yes"),
+        ),
+        "'withheld' is a JSON string, not a boolean",
+    ),
+    "a redacted verdict with its reason": (
+        _document("redacted", _first_verdict(reason="kept")),
+        "verdict carries 'reason', but the run declares itself redacted",
+    ),
+    "a redacted answer with its text": (
+        _document(
+            "redacted",
+            lambda d: d["results"][0]["responses"][0].update(output="kept"),
+        ),
+        "declares itself withheld but still carries what redaction removes",
+    ),
+    "a projected case id in clear": (
+        _document("projected", _first_case(case_id="opening-hours")),
+        "a case id is 'opening-hours', which is not a token",
+    ),
+    "a projected check name in clear": (
+        _document("projected", _first_verdict(assertion="levenshtein")),
+        "is 'levenshtein', which is not a token",
+    ),
+    "a projected group in clear": (
+        _document(
+            "projected",
+            lambda d: d["aggregate"][1].update(
+                assertion=d["aggregate"][1]["assertion"].split("[")[0] + "[group=shelf]"
+            ),
+        ),
+        "the group of a verdict in the aggregate is 'shelf'",
+    ),
+    "a projected artifact path in clear": (
+        _document(
+            "projected",
+            lambda d: d.update(
+                artifacts={"prompts/system.txt": next(iter(d["artifacts"].values()))}
+            ),
+        ),
+        "an artifact path is 'prompts/system.txt'",
+    ),
+    "a projected calibration check in clear": (
+        _document("projected", _with_band(check="levenshtein")),
+        "the calibration check of a case",
+    ),
+    "a projected run with metadata": (
+        _document("projected", lambda d: d.update(metadata={"opening-hours": 1})),
+        "the run carries metadata (opening-hours)",
+    ),
+    "a projected identity that is a name": (
+        _document("projected", _first_verdict(assertion_id="levenshtein")),
+        "has an identity that is not a digest",
+    ),
+    "a projected verdict with metadata in clear": (
+        _document(
+            "projected",
+            _first_verdict(origin="foreign", metadata={"gift-wrap": "x"}),
+        ),
+        "carries the string metadata 'gift-wrap'",
+    ),
+    # Family B: `diff` refuses two runs made under different suites, and names
+    # the rules that moved. The server projects both runs first.
+    "two runs under different suites": (
+        _different_suites,
+        "were produced under different suites",
+    ),
+    # Family C: the projection refuses a table that answers a name with itself.
+    "a table that answers with the name": (
+        _echoing_table,
+        "with something that does not have a token's form",
+    ),
+}
+
+#: The refusals whose sentence names, today, what the projection tokenises:
+#: each with the site the name enters the sentence at and the names that
+#: leave. **It may only shrink.** A refusal repaired leaves it, and the test
+#: below says so; one that starts to name is red until it is declared here,
+#: and the count beside it says the table grew. (ADR 0054 §8)
+NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
+    "a canary that is a calibration case": (
+        "core/run.py, CaseResult.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a suspension with no reason": (
+        "core/run.py, CaseResult.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a suspended case with verdicts": (
+        "core/run.py, CaseResult.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a suspended case with answers": (
+        "core/run.py, CaseResult.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a band that binds no verdict": (
+        "core/run.py, _check_band_binds",
+        frozenset({"levenshtein", "opening-hours"}),
+    ),
+    "a band outside (0, 1)": (
+        "core/calibration.py, CalibrationBand.bounds",
+        frozenset({"levenshtein"}),
+    ),
+    "a band with no identity": (
+        "core/calibration.py, CalibrationBand.__post_init__",
+        frozenset({"levenshtein"}),
+    ),
+    "a verdict with no identity": (
+        "core/types.py, Verdict.__post_init__",
+        frozenset({"levenshtein"}),
+    ),
+    "an artifact's flag of the wrong type": (
+        "core/run.py, _artifact_from_dict (its `where`)",
+        frozenset({"prompts/system.txt"}),
+    ),
+    "a projected case id in clear": (
+        "core/run.py, _check_projected, token",
+        frozenset({"opening-hours"}),
+    ),
+    "a projected check name in clear": (
+        "core/run.py, _check_projected, token",
+        frozenset({"levenshtein"}),
+    ),
+    "a projected group in clear": (
+        "core/run.py, _check_projected, token",
+        frozenset({"shelf"}),
+    ),
+    "a projected artifact path in clear": (
+        "core/run.py, _check_projected, token",
+        frozenset({"prompts/system.txt"}),
+    ),
+    "a projected calibration check in clear": (
+        "core/run.py, _check_projected, token",
+        frozenset({"levenshtein"}),
+    ),
+    "a projected run with metadata": (
+        "core/run.py, _check_projected, the run's metadata",
+        frozenset({"opening-hours"}),
+    ),
+    "a projected identity that is a name": (
+        "core/run.py, _check_projected, identity",
+        frozenset({"levenshtein"}),
+    ),
+    "a projected verdict with metadata in clear": (
+        "core/run.py, _check_projected, verdict",
+        frozenset({"gift-wrap"}),
+    ),
+}
+
+#: How many refusals `NAMED_IN_PROSE` declares. Lowered when one is repaired;
+#: raising it is what a pull request that adds a refusal naming a name has to
+#: show.
+NAMED_IN_PROSE_COUNT = 17
+
+
+@pytest.fixture(scope="module")
+def changed_suite(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, str, str]:
+    """A repository whose last run was made under a suite with one threshold
+    moved: two runs `diff` refuses to compare."""
+    repo, _, before = build_repository(tmp_path_factory.mktemp("changed"))
+    suite = repo / SPEC
+    source = suite.read_text(encoding="utf-8")
+    moved = source.replace("threshold=0.5,", "threshold=0.4,")
+    assert moved != source, "the control: the suite has a threshold to move"
+    suite.write_text(moved, encoding="utf-8")
+    git(repo, "commit", "-qam", "move a threshold")
+    done = cli(repo, "run", "--suite", SPEC)
+    assert done.stdout.strip(), done.stderr
+    return repo, before, done.stdout.strip().splitlines()[-1]
+
+
+@dataclass(frozen=True, slots=True)
+class Walked:
+    """One provocation's refusal: its sentence, the names that stand in it, and
+    the strings it carries in fields."""
+
+    text: str
+    names: frozenset[str]
+    fields: list[tuple[str, str]]
+
+
+@pytest.fixture(scope="module")
+def walked(
+    fixture_repo: tuple[Path, str, str],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+    changed_suite: tuple[Path, str, str],
+) -> dict[str, Walked]:
+    """Each provocation's refusal, walked."""
+    repo, first, second = fixture_repo
+    _, table = projected
+    scene = Scene(repo, first, second, table, changed_suite)
+    names = table.texts()
+    said: dict[str, Walked] = {}
+    for why, (provoke, _) in PROVOCATIONS.items():
+        refused = provoke(scene)
+        text = str(refused)
+        said[why] = Walked(text, named_in(text, names), _fields(refused))
+    return said
+
+
+def test_every_provocation_reaches_the_refusal_it_names(
+    walked: dict[str, Walked],
+) -> None:
+    """A provocation measures one site, so it has to land there."""
+    missed = {
+        why: seen.text
+        for why, seen in walked.items()
+        if PROVOCATIONS[why][1] not in seen.text
+    }
+    assert not missed, missed
+
+
+def test_no_refusal_names_in_its_sentence_what_the_projection_tokenises(
+    walked: dict[str, Walked],
+) -> None:
+    """A refusal that crosses the boundary under `project` names nothing the
+    table was asked to mint, or it is declared in `NAMED_IN_PROSE` with the
+    names it lets out. One declared that names nothing any more, or other
+    names than declared, is red too, so the table says what is true."""
+    undeclared = {
+        why: sorted(seen.names)
+        for why, seen in walked.items()
+        if seen.names and why not in NAMED_IN_PROSE
+    }
+    assert not undeclared, (
+        "these refusals name in their sentence what the projection tokenises, "
+        f"and NAMED_IN_PROSE does not declare them: {undeclared}"
+    )
+    stale = sorted(why for why in NAMED_IN_PROSE if not walked[why].names)
+    assert not stale, (
+        f"NAMED_IN_PROSE declares {stale}, whose sentences no longer name "
+        "anything the projection tokenises: take them out and lower "
+        "NAMED_IN_PROSE_COUNT"
+    )
+    moved = {
+        why: (sorted(names), sorted(walked[why].names))
+        for why, (_, names) in NAMED_IN_PROSE.items()
+        if walked[why].names and walked[why].names != names
+    }
+    assert not moved, f"declared names, then measured: {moved}"
+
+
+def test_the_table_of_refusals_that_name_only_shrinks() -> None:
+    """Every entry is a provocation this gate walks, and the count is held,
+    so an entry added is a number raised in the same diff."""
+    assert set(NAMED_IN_PROSE) <= set(PROVOCATIONS), sorted(
+        set(NAMED_IN_PROSE) - set(PROVOCATIONS)
+    )
+    assert len(NAMED_IN_PROSE) == NAMED_IN_PROSE_COUNT, (
+        f"NAMED_IN_PROSE holds {len(NAMED_IN_PROSE)} refusals and "
+        f"NAMED_IN_PROSE_COUNT says {NAMED_IN_PROSE_COUNT}. Lowered, a refusal "
+        "was repaired: lower the count. Raised, a refusal began to name what "
+        "the projection tokenises: that is the regression this table exists to "
+        "show"
+    )
+
+
+def test_a_field_a_refusal_already_carries_is_classified_and_holds(
+    walked: dict[str, Walked],
+    projected: tuple[dict[str, list[tuple[str, str]]], RecordingTable],
+) -> None:
+    """The half of ADR 0054 §8 that exists: where a refusal carries a field,
+    the field sits at a path the gate classifies, and holds. `role` is the one
+    today (#742)."""
+    _, table = projected
+    classified = strings(Gate(table))
+    found = [
+        (why, path, value)
+        for why, seen in walked.items()
+        for path, value in seen.fields
+    ]
+    assert any(path == "!refusal.role" for _, path, _ in found), (
+        "the control: no refusal walked here carries `role`, so this reads nothing"
+    )
+    failed = sorted(
+        f"{why}: {path} = {value!r}"
+        for why, path, value in found
+        if classified.get(path, ("p",))[0] == "p" or not classified[path][1](value)
+    )
+    assert not failed, failed
