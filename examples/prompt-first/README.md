@@ -85,6 +85,24 @@ This example is also where the judge is watched rather than only used: under
 on the scale a judge that still has one has to land inside. It costs judge
 calls only — the target is never called for it.
 
+**What the calibration case does not tell you.** Its band, 0.10–0.90, catches
+a judge whose scale has collapsed onto 0 or 1, and nothing else. It is derived
+from fifteen judgings per run, five samples of three, and `suite.py` says how,
+so changing `samples` changes the band. A judge whose scale is compressed,
+giving everything 0.35, passes. So does one that ranks this answer under the
+real ones. A narrower band would catch more, and it would only hold for the
+judge it was measured on: the band before this one was written for an earlier
+judge and stopped separating anything when the judge changed, with nothing
+turning red.
+
+**What the rubric's noise floor does, and where it does nothing.** The rubric
+declares `floor_standard_errors=2`: a movement inside two standard errors of
+the baseline's own samples is noise, not a verdict. A declared floor speaks
+only where the measured noise is wider than the tolerance, because the
+tolerance is asked first. On the baseline committed here that is two checks of
+six, `gift-wrap` and `order-a-book`. On the other four the floor is narrower
+than the tolerance, 0.1, and never decides anything.
+
 On the live path the judge is `digline-anthropic`'s `AnthropicJudge`, in the
 form `examples/langchain` uses, so the run records which model graded and the
 bill has a judge line with its calls (#651). The keyless stand-in,

@@ -68,29 +68,35 @@ target = AnthropicTarget(
 #: extremes scores it 0 or 1 and is caught, which no amount of repetition would
 #: catch: a collapsed judge is *more* repeatable, not less.
 #:
-#: ADR 0024 §4 says whether an answer makes a good calibration is the author's
-#: craft and nothing here checks it, and a band is authored against a judge
-#: that has been **watched on a live baseline**, the only order in which it can
-#: be done honestly. **The band 0.70–0.95 was authored against the judge this
-#: example used before, a function that called the SDK itself (#651)**, and it
-#: has not been authored again for `AnthropicJudge`.
+#: **The band is derived from the purpose, not from a judge.** What it has to
+#: catch is a lost scale: a judge collapsed onto an extreme gives this answer 0,
+#: or 1, at every judging. The score the band reads is the folded mean of
+#: **fifteen judgings**, `samples=5` times the three judgings of each sample, so
+#: a collapse reads exactly 0.0 or 1.0, and one stray judging at the other
+#: extreme moves that by 1/15, 0.067. **0.10–0.90** catches a collapse even with
+#: one stray judging, and admits any judge that uses the inside of its scale.
 #:
-#: What `AnthropicJudge` does with it, read from four live runs on 2026-10-28
-#: (16 recorded samples, each the mean of three judgings): this answer between
-#: 0.700 and 0.800, a mean of 0.725, run means 0.715 to 0.744. The five real
-#: answers have run means between 0.237 and 0.597 and single samples up to
-#: 0.767. So the band still excludes both extremes, and its lower edge sits
-#: 0.015 under the lowest run mean. Measured on the means the band reads, a
-#: lower edge can sit between the real answers and this one by about 0.02 at
-#: two standard errors; on single samples the two overlap.
+#: **The derivation depends on the configuration.** With `samples=3`, nine
+#: judgings, one stray judging moves the mean by 0.111, which is beyond 0.10,
+#: and a collapse with one stray judging would pass. Whoever changes `samples`,
+#: the judgings per sample in `Repeated` below, or `min_agreement` changes this
+#: derivation, and has to redo it here. It is a number derived from a
+#: configuration, not an absolute.
+#:
+#: **What this control does not tell you.** It catches a collapse onto the
+#: extremes and nothing else. It passes a compressed scale: a judge that gives
+#: everything 0.35 or 0.5. It passes a judge that ranks this answer under the
+#: real ones, and one that gives every answer the same score. On 2026-10-28 the
+#: real answers' run means, 0.237 to 0.597, sat inside the band too. A narrower
+#: band would catch more, and it would be bound to the judge it was measured on.
+#: The band before this one, 0.70–0.95, was authored on the function judge this
+#: example used until #651. On `AnthropicJudge` it held this answer by 0.015
+#: over four live runs (samples 0.700 to 0.800, mean 0.725), and no longer
+#: separated it from the real answers, whose samples reached 0.767.
 #:
 #: That the deficient answer outscores every real one is not a fault in the
 #: band. It is what this rubric does, and it is recorded as its own finding:
 #: the dominant clause forbids inventing, and silence invents nothing.
-#:
-#: The band is wide on purpose. It is a control on the instrument, not a second
-#: threshold on the prompt, and a narrow one would fail on the judge's ordinary
-#: noise.
 #:
 #: **On its first outing it caught a judge with no scale, and the judge was
 #: ours.** The stand-in below scores this answer 1.0 — it checks sentence count
@@ -120,8 +126,8 @@ CALIBRATION = (
                     "Signed copies. Sometimes there are some. You could ask "
                     "at the counter I suppose."
                 ),
-                low=0.70,
-                high=0.95,
+                low=0.10,
+                high=0.90,
             ),
         )
     ]
