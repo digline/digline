@@ -109,6 +109,20 @@ def verdict(
             False,
             f"no merge_group run of ci on {sha}: not a commit the queue tested",
         )
+    # **Why this rarely answers true once the queue-side skip below has fired.**
+    # The queue merges as soon as the four required checks are green, not
+    # when the whole run is. With the `gates` legs skipping their steps that
+    # takes about forty seconds, so `glyphs` and `image`, which are not
+    # required, are usually still running when `main` moves and this run is
+    # read. Their conclusion is then `None`, which is not green, and the
+    # answer is false: the push is tested in full. Measured on #772's own
+    # entry on 2026-10-28: its queue run (40698232620) began at 13:38:06, the
+    # four were green at 13:38:44, the queue merged at 13:38:55, and the push
+    # run (40698365639) read `None` for both jobs and answered false. The
+    # 30-in-30 measurement this cut was justified by, every job of the queue's
+    # run finished before the push, held only because the `gates` legs were
+    # the slowest jobs, and the queue-side skip removed exactly that. It fails
+    # towards testing, so nothing goes untested; it only cuts less.
     reasons = []
     for run in queued:
         by_name = {
