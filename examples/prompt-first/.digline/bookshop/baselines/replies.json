@@ -2,23 +2,40 @@
   "aggregate": [],
   "artifacts": {
     "prompts/system.txt": {
-      "sha": "9bb2bd77519e101f7ab7ed65506f468896426d4c8c76f7c32a8932260cee17cb",
-      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\n"
+      "sha": "06c2108bd85eb72888e9e5d1b85ac62688e3a3d179acc60293f40fe8b4c4a809",
+      "text": "You are the assistant of a small bookshop.\nAnswer the customer in one sentence, warm and specific.\nNever invent a price, a date or a stock level you were not given.\nAlways remind the customer of the returns policy.\n"
     },
     "prompts/user.txt": {
       "sha": "96f7331433314f30ce6385279654a8c663906ca591561dd98283cd83ec63566a",
       "text": "Customer asks: {question}\n"
     }
   },
-  "config_hash": "0d99045c0f1639eb",
-  "created_at": "2026-09-25T08:24:08.967806+00:00",
-  "digline_version": "0.20.1",
+  "config_hash": "927bb4b0e0fa82a5",
+  "created_at": "2026-10-28T10:42:33.181829+00:00",
+  "digline_version": "0.35.0",
   "environment": "dev",
-  "git_commit": "1e148b341fe5a4789a03e07e780a73175049b23b",
-  "judge_config": {},
+  "git_commit": "1579a489483aa8f3c29bf4e3a4421501371e5b38",
+  "judge_config": {
+    "identities": [
+      "anthropic/claude-haiku-4-5"
+    ],
+    "named": [
+      "max_tokens",
+      "model",
+      "provider",
+      "resolved_model"
+    ],
+    "values": {
+      "max_tokens": 400,
+      "model": "claude-haiku-4-5",
+      "provider": "anthropic",
+      "resolved_model": "claude-haiku-4-5-20251001"
+    }
+  },
   "metadata": {},
+  "modules_unchecked": [],
   "projected": false,
-  "promoted_at": "2026-09-25T08:37:28.937125+00:00",
+  "promoted_at": "2026-10-28T10:44:23.144556+00:00",
   "redacted": false,
   "results": [
     {
@@ -30,56 +47,58 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 113.666667,
+            "distance": 194.0,
             "errored_samples": 0,
-            "length": 150.333333,
+            "length": 242.666667,
             "samples": 3,
             "scores": [
-              0.276423,
-              0.233918,
-              0.229299
+              0.198413,
+              0.213333,
+              0.191235
             ],
-            "spread": 0.047124
+            "spread": 0.022098
           },
-          "reason": "mean of 3 samples (0.276423, 0.233918, 0.229299)",
-          "sample_max": 0.276423,
-          "sample_min": 0.229299,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.198413, 0.213333, 0.191235)",
+          "sample_max": 0.213333,
+          "sample_min": 0.191235,
           "samples": [
-            0.276423,
-            0.233918,
-            0.229299
+            0.198413,
+            0.213333,
+            0.191235
           ],
-          "score": 0.246547,
+          "score": 0.200994,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.85,
-              0.883333,
-              0.866667
+              0.333333,
+              0.333333,
+              0.366667
             ],
-            "spread": 0.033333
+            "spread": 0.033334
           },
-          "reason": "mean of 3 samples (0.850000, 0.883333, 0.866667)",
-          "sample_max": 0.883333,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.333333, 0.333333, 0.366667)",
+          "sample_max": 0.366667,
           "sample_means": true,
-          "sample_min": 0.85,
+          "sample_min": 0.333333,
           "samples": [
-            0.85,
-            0.883333,
-            0.866667
+            0.333333,
+            0.333333,
+            0.366667
           ],
-          "score": 0.866667,
-          "status": "pass",
+          "score": 0.344444,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -94,56 +113,58 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 97.666667,
+            "distance": 184.666667,
             "errored_samples": 0,
-            "length": 143.666667,
+            "length": 245.666667,
             "samples": 3,
             "scores": [
-              0.328571,
-              0.354839,
-              0.287425
+              0.23221,
+              0.261062,
+              0.254098
             ],
-            "spread": 0.067414
+            "spread": 0.028852
           },
-          "reason": "mean of 3 samples (0.328571, 0.354839, 0.287425)",
-          "sample_max": 0.354839,
-          "sample_min": 0.287425,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.232210, 0.261062, 0.254098)",
+          "sample_max": 0.261062,
+          "sample_min": 0.23221,
           "samples": [
-            0.328571,
-            0.354839,
-            0.287425
+            0.23221,
+            0.261062,
+            0.254098
           ],
-          "score": 0.323612,
+          "score": 0.249123,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
-            "agreement": 1.0,
+            "agreement": 0.666667,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              1.0,
-              0.966667,
-              0.9
+              0.75,
+              0.633333,
+              0.366667
             ],
-            "spread": 0.1
+            "spread": 0.383333
           },
-          "reason": "mean of 3 samples (1.000000, 0.966667, 0.900000)",
-          "sample_max": 1.0,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.750000, 0.633333, 0.366667)",
+          "sample_max": 0.75,
           "sample_means": true,
-          "sample_min": 0.9,
+          "sample_min": 0.366667,
           "samples": [
-            1.0,
-            0.966667,
-            0.9
+            0.75,
+            0.633333,
+            0.366667
           ],
-          "score": 0.955556,
-          "status": "pass",
+          "score": 0.583333,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -158,56 +179,58 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 54.0,
+            "distance": 177.0,
             "errored_samples": 0,
-            "length": 70.666667,
+            "length": 213.333333,
             "samples": 3,
             "scores": [
-              0.222222,
-              0.237288,
-              0.242424
+              0.161826,
+              0.183333,
+              0.16895
             ],
-            "spread": 0.020202
+            "spread": 0.021507
           },
-          "reason": "mean of 3 samples (0.222222, 0.237288, 0.242424)",
-          "sample_max": 0.242424,
-          "sample_min": 0.222222,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.161826, 0.183333, 0.168950)",
+          "sample_max": 0.183333,
+          "sample_min": 0.161826,
           "samples": [
-            0.222222,
-            0.237288,
-            0.242424
+            0.161826,
+            0.183333,
+            0.16895
           ],
-          "score": 0.233978,
+          "score": 0.17137,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.966667,
-              0.9,
-              0.966667
+              0.333333,
+              0.6,
+              0.566667
             ],
-            "spread": 0.066667
+            "spread": 0.266667
           },
-          "reason": "mean of 3 samples (0.966667, 0.900000, 0.966667)",
-          "sample_max": 0.966667,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.333333, 0.600000, 0.566667)",
+          "sample_max": 0.6,
           "sample_means": true,
-          "sample_min": 0.9,
+          "sample_min": 0.333333,
           "samples": [
-            0.966667,
-            0.9,
-            0.966667
+            0.333333,
+            0.6,
+            0.566667
           ],
-          "score": 0.944445,
-          "status": "pass",
+          "score": 0.5,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -222,56 +245,58 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 110.0,
+            "distance": 203.666667,
             "errored_samples": 0,
-            "length": 145.0,
+            "length": 255.333333,
             "samples": 3,
             "scores": [
-              0.231293,
-              0.240876,
-              0.251656
+              0.203774,
+              0.2,
+              0.20339
             ],
-            "spread": 0.020363
+            "spread": 0.003774
           },
-          "reason": "mean of 3 samples (0.231293, 0.240876, 0.251656)",
-          "sample_max": 0.251656,
-          "sample_min": 0.231293,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.203774, 0.200000, 0.203390)",
+          "sample_max": 0.203774,
+          "sample_min": 0.2,
           "samples": [
-            0.231293,
-            0.240876,
-            0.251656
+            0.203774,
+            0.2,
+            0.20339
           ],
-          "score": 0.241275,
+          "score": 0.202388,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.866667,
-              0.913333,
-              0.866667
+              0.4,
+              0.333333,
+              0.633333
             ],
-            "spread": 0.046666
+            "spread": 0.3
           },
-          "reason": "mean of 3 samples (0.866667, 0.913333, 0.866667)",
-          "sample_max": 0.913333,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.400000, 0.333333, 0.633333)",
+          "sample_max": 0.633333,
           "sample_means": true,
-          "sample_min": 0.866667,
+          "sample_min": 0.333333,
           "samples": [
-            0.866667,
-            0.913333,
-            0.866667
+            0.4,
+            0.333333,
+            0.633333
           ],
-          "score": 0.882222,
-          "status": "pass",
+          "score": 0.455555,
+          "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
         }
@@ -286,55 +311,57 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 97.333333,
+            "distance": 214.666667,
             "errored_samples": 0,
-            "length": 136.666667,
+            "length": 264.666667,
             "samples": 3,
             "scores": [
-              0.338843,
-              0.300752,
-              0.237179
+              0.184615,
+              0.2,
+              0.182482
             ],
-            "spread": 0.101664
+            "spread": 0.017518
           },
-          "reason": "mean of 3 samples (0.338843, 0.300752, 0.237179)",
-          "sample_max": 0.338843,
-          "sample_min": 0.237179,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.184615, 0.200000, 0.182482)",
+          "sample_max": 0.2,
+          "sample_min": 0.182482,
           "samples": [
-            0.338843,
-            0.300752,
-            0.237179
+            0.184615,
+            0.2,
+            0.182482
           ],
-          "score": 0.292258,
+          "score": 0.189032,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
         },
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
-            "agreement": 0.666667,
+            "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.566667,
-              0.816667,
+              0.3,
+              0.3,
               0.2
             ],
-            "spread": 0.616667
+            "spread": 0.1
           },
-          "reason": "mean of 3 samples (0.566667, 0.816667, 0.200000)",
-          "sample_max": 0.816667,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.300000, 0.300000, 0.200000)",
+          "sample_max": 0.3,
           "sample_means": true,
           "sample_min": 0.2,
           "samples": [
-            0.566667,
-            0.816667,
+            0.3,
+            0.3,
             0.2
           ],
-          "score": 0.527778,
+          "score": 0.266667,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -343,7 +370,7 @@
     },
     {
       "calibration": {
-        "assertion_id": "d0891fbb13f6509e",
+        "assertion_id": "ee25dfb48a823134",
         "check": "llm_rubric",
         "high": 0.95,
         "low": 0.7
@@ -353,29 +380,30 @@
       "verdicts": [
         {
           "assertion": "llm_rubric",
-          "assertion_id": "d0891fbb13f6509e",
+          "assertion_id": "ee25dfb48a823134",
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
             "samples": 3,
             "scores": [
-              0.816667,
-              0.85,
-              0.816667
+              0.716667,
+              0.8,
+              0.716667
             ],
-            "spread": 0.033333
+            "spread": 0.083333
           },
-          "reason": "mean of 3 samples (0.816667, 0.850000, 0.816667)",
-          "sample_max": 0.85,
+          "origin": "builtin",
+          "reason": "mean of 3 samples (0.716667, 0.800000, 0.716667)",
+          "sample_max": 0.8,
           "sample_means": true,
-          "sample_min": 0.816667,
+          "sample_min": 0.716667,
           "samples": [
-            0.816667,
-            0.85,
-            0.816667
+            0.716667,
+            0.8,
+            0.716667
           ],
-          "score": 0.827778,
+          "score": 0.744445,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -386,6 +414,12 @@
   "schema_version": 22,
   "suite": "replies",
   "target_config": {
+    "named": [
+      "max_tokens",
+      "model",
+      "provider",
+      "resolved_model"
+    ],
     "values": {
       "max_tokens": 200,
       "model": "claude-haiku-4-5",
@@ -396,17 +430,25 @@
   "tenant": "bookshop",
   "usage": {
     "judge": {
-      "calls": 0,
-      "counted": 0,
-      "spent_usd": 0.0
+      "calls": 54,
+      "counted": 54,
+      "every_call_seen": true,
+      "every_cost_known": false,
+      "spent_usd": 0.0,
+      "tokens": {
+        "input_tokens": 21042,
+        "output_tokens": 3129
+      }
     },
     "target": {
       "calls": 15,
       "counted": 15,
-      "spent_usd": 0.003448,
+      "every_call_seen": true,
+      "every_cost_known": false,
+      "spent_usd": 0.0,
       "tokens": {
-        "input_tokens": 873,
-        "output_tokens": 515
+        "input_tokens": 1023,
+        "output_tokens": 891
       }
     }
   }
