@@ -265,7 +265,7 @@ def _read_as(role: str, path: Path) -> Run:
             )
         said = exc.args[0] if exc.args else ""
         argument: object = (
-            replace(said, before=before + said.before, after=said.after + after)
+            said.around(before, after)
             if isinstance(said, Quoted)
             else f"{before}{said}{after}"
         )
