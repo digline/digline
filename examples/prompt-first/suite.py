@@ -159,11 +159,12 @@ suite = Suite(
     # and there is no majority to take. Against a judge that legitimately
     # returns 0.33 and 0.95 on the same answer, `min_agreement="2/2"` errors
     # the case and `promote` then refuses the run. So the real floor a
-    # calibration case imposes is three. Declared for both modes
-    # rather than only the live one, so that `config_hash` is the same
-    # question on both sides of the door — a suite that fingerprinted
-    # differently depending on an environment variable would report
-    # `config_changed` against its own baseline.
+    # calibration case imposes is three. Declared for both modes rather than
+    # only the live one, so that the sampling is not what tells them apart.
+    # The judge is: the live path grades with `AnthropicJudge` and the keyless
+    # one with a function, two identities, so `config_hash` differs on the two
+    # sides of the door. The committed baseline is a live run, and
+    # `tests/test_check_kind.py` reads it live, in `LIVE_BASELINES`. (#651)
     samples=3,
     min_agreement="2/3",
     cases=[
