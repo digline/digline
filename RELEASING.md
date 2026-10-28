@@ -382,6 +382,57 @@ is not, the reason stays, and the entry with it. The step above that says
 which decisions this release ships asks the same question from the records'
 side.
 
+**And what `SECURITY.md` says a release has not changed: read its two
+claims.** *Added 2026-10-28.* Three things a release can make false that no
+test reddens: a plugin's floor, which *Owed at the cut* keeps; a record's
+`- Shipped:` line, which `UNRELEASED_RECORDS` keeps; and `SECURITY.md`, which
+this file named six times before this step and kept in none of them. This is
+the third to take a keeper. `test_versions.py` already holds every version
+literal in that page to the current release or to `RECORDED`. What it cannot
+see is a sentence with no number in it. So read these two, by name, against the
+tree being tagged, and not the page as a whole:
+
+1. **The delta-pass sentence**, in *The delta-pass*: *"It has run on 0.7.1 and
+   on every minor release since, each recorded in the changelog — except the
+   newest minor while its own pass is still owed"*. At a minor's cut the minor
+   before it stops being the newest, so its pass has to be in the changelog
+   already:
+
+   ```sh
+   grep -n 'delta-pass over <the previous minor>' CHANGELOG.md
+   ```
+
+   No line, and the sentence turns false at this tag. Either the pass has not
+   run, or it ran, found nothing and left no line, and from outside the two
+   look the same. Run the pass or record it before the tag, or correct the
+   sentence. A patch does not move it.
+
+2. **What the image leaves out**, in *Advisories against a dependency*: *"the
+   Docker image does not contain it"*, said of nltk, and *"The Docker image does
+   not contain `digline-mcp`, and so has no PyJWT at all"*. Read
+   `docker/Dockerfile` in the tree being tagged: it installs `digline` and the
+   three provider plugins, and nothing else. Then read what those four depend
+   on in the lock:
+
+   ```sh
+   uv tree --frozen --no-dev --package digline --package digline-anthropic \
+     --package digline-openai --package digline-bedrock \
+     | grep -i -E '^[^a-z]*(nltk|pyjwt|digline-mcp)[[ ]'
+   ```
+
+   Nothing printed is the answer that keeps both sentences true. Run the
+   same pattern on `--package digline-mcp` as its control: it prints
+   `digline-mcp` and `pyjwt[crypto]`. A Dockerfile that installs more, or a
+   dependency that brings one of the three in, makes the sentences false on the
+   day the image is published.
+
+   **The lock is not what the image installs.** The image resolves its four
+   pins from PyPI, as that same section of `SECURITY.md` opens by saying.
+   What reads the image itself is `image-scan.yml`. It turns red on an image
+   whose listing names one of the three, which `.github/image_scan.py` holds in
+   `ABSENT`. But it reads the image already published, every Monday. So it
+   reads after the tag, and this step reads before it.
+
 **And the number each package owes: read *Owed to the next version*.** A pull
 request that changes what a package's number must be, a break that moves the
 minor or an output a user reads that changed, records it in that package's
