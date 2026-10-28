@@ -21,6 +21,7 @@ The 20 -> 21 step writes nothing, and absent is `None`.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -543,9 +544,47 @@ def test_migrating_a_schema_20_line_writes_no_marker() -> None:
     assert usage.target.every_cost_known is None
 
 
+NO_CALL_ANSWERED = "no call answered, calls made and cost not recorded"
+
+
 def test_the_terminal_says_it_when_every_call_raised() -> None:
-    """Nothing is on the line, and that is when the clause matters most."""
+    """Nothing is on the line, and that is when the clause matters most. The
+    line no longer says `0 calls` or `0.000000 USD`: how many calls were made
+    is recorded nowhere, and a call that raised may have been billed. It keeps
+    the marker, which is what tells a reader calls were made."""
     run = execute(suite(), RaisingOn("c1", "c2"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert line.startswith("target: 0 calls")
+    assert line == f"target: {NO_CALL_ANSWERED}; not every call seen"
+
+
+@pytest.mark.parametrize("side", ["target", "judge"])
+@pytest.mark.parametrize("cost_known", [True, False, None])
+def test_a_line_no_call_answered_states_no_count_and_no_figure(
+    side: str, cost_known: bool | None
+) -> None:
+    """The invariant: where no call is on the line and digline knows one was
+    made, the line states neither a number of calls nor a sum. `calls` counts
+    the calls that answered, so its zero is not the number made, and the cost
+    of a call that raised is not known: it may have been billed."""
+    nothing = CallTotals(calls=0, every_call_seen=False, every_cost_known=cost_known)
+    other = CallTotals(every_call_seen=True, every_cost_known=True)
+    usage = (
+        RunUsage(target=nothing, judge=other)
+        if side == "target"
+        else RunUsage(target=other, judge=nothing)
+    )
+    (line,) = [line for line in usage_lines(usage) if line.startswith(f"{side}:")]
+    assert "USD" not in line, line
+    assert re.search(r"[0-9]+ calls?\b", line) is None, line
+    assert line.startswith(f"{side}: {NO_CALL_ANSWERED}")
     assert "not every call seen" in line
+
+
+def test_a_line_with_answered_calls_keeps_its_count_and_figure() -> None:
+    """The control: one call answered and one raised keeps the count and the
+    sum of the call that answered, with the marker beside them."""
+    run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
+    (line,) = usage_lines(run.usage)
+    assert line.startswith("target: 1 call, ")
+    assert "USD" in line
+    assert line.endswith("; not every call seen")

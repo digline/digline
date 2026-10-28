@@ -57,6 +57,14 @@ notes under them are this file, verbatim.
   command looked. It is in the envelope, not the stored run document. An
   added key, so `OUTPUT_VERSION` does not move. The MCP `run` tool does not
   carry it yet: its half waits with the server's half of ADR 0054 §8.
+- **A bill line where every call raised no longer says `0 calls` and
+  `0.000000 USD`.** It read `target: 0 calls, no counts reported, 0.000000
+  USD; not every call seen`. `calls` counts the calls that answered, so its
+  zero was not how many were made, which digline records nowhere. And a call
+  that raised may have been billed, so the zero was not a sum it knew. It now
+  reads `target: no call answered, calls made and cost not recorded; not every
+  call seen`, on standard error only: `--json` and the run document are
+  unchanged.
 
 ## 0.35.0 — 2026-10-27
 

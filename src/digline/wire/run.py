@@ -58,6 +58,13 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
     say the judging cost nothing; a line with calls ends *not recorded in
     full*, because its figure is only what digline could read. A line built
     by hand claims nothing, so it reads the same. (#569)
+
+    **A line where no call answered and digline knows calls were made states
+    no count and no sum.** Every call raised: `calls` is zero because it
+    counts the calls that answered, how many were made is recorded nowhere,
+    and a call that raised may have been billed. So it reads *no call
+    answered, calls made and cost not recorded*, with *not every call seen*
+    beside it. It used to say `0 calls` and `0.000000 USD`.
     """
     if usage is None:
         return []
@@ -72,6 +79,17 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
             continue
         if not line.calls and line.every_call_seen is None:
             lines.append(f"{side}: not recorded")
+            continue
+        # No call answered and digline knows calls were made: every one
+        # raised. `calls` counts the calls that answered, so its zero is not
+        # how many were made, which is recorded nowhere, and a call that
+        # raised may have been billed, so neither a count nor a sum is said.
+        # The marker stays: it is what tells a reader calls were made.
+        if not line.calls and line.every_call_seen is False:
+            lines.append(
+                f"{side}: no call answered, calls made and cost not recorded; "
+                "not every call seen"
+            )
             continue
         counts = (
             f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
