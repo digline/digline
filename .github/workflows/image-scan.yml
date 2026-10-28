@@ -45,7 +45,15 @@ on:
     # Monday, 08:20 UTC: after `ci.yml` at 07:00, `scorecard.yml` at 07:20,
     # `codeql.yml` at 07:40 and `dependency-audit.yml` at 08:00.
     - cron: "20 8 * * 1"
+  # By hand, and by `docker-publish.yml` once it has pushed a release: that
+  # dispatch passes the commit it built as `revision`, and the step after the
+  # resolve refuses a `latest` that is not that image.
   workflow_dispatch:
+    inputs:
+      revision:
+        description: "The commit latest must have been built from. Empty: read the label, check nothing."
+        required: false
+        default: ""
 
 concurrency:
   group: image-scan
@@ -98,6 +106,22 @@ jobs:
             --format '{{json .Manifest}}' | python3 .github/image_scan.py resolve)"
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
           echo "### ghcr.io/digline/digline:latest is $digest" >> "$GITHUB_STEP_SUMMARY"
+
+      # Before anything is scanned: the image this digest names is the release
+      # that was expected, read from the `org.opencontainers.image.revision`
+      # label of both platforms. After a release, `docker-publish.yml` passes
+      # the commit it built; how long GHCR takes to serve the new `latest` was
+      # not measured, so a mismatch is a red here rather than a scan of the
+      # previous image, which would close nothing and say nothing. On the
+      # schedule nothing is expected, and the label is written to the summary.
+      - name: The image is the release it should be
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+          EXPECTED: ${{ inputs.revision }}
+        run: |
+          docker buildx imagetools inspect "ghcr.io/digline/digline@${DIGEST}" \
+            --format '{{json .Image}}' \
+            | python3 .github/image_scan.py revision --expected "$EXPECTED"
 
       - name: Count everything in linux/amd64
         env:

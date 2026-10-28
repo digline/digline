@@ -3,8 +3,19 @@
 `.github/workflows/image-scan.yml` scans `ghcr.io/digline/digline:latest`
 with trivy every Monday, for each platform it is published for, and uploads
 the SARIF to Code scanning, where *Before the tag: the alert list* reads it. A
-base image ages between releases, which is why it is a schedule and not a step
-of `docker-publish.yml`.
+base image ages between releases, which is why it is a schedule. And a release
+publishes a new `latest`, so `docker-publish.yml` dispatches this same scan on
+`main` once it has pushed: on `main`, because an upload counts for the ref the
+scan runs on, and the alerts are `main`'s.
+
+**The image read is the release expected, or nothing is read.** A dispatch
+names the commit the image was built from (`revision`), and `revision` refuses
+a `latest` whose `org.opencontainers.image.revision` label, on either platform,
+is another commit or no commit. How long GHCR takes to serve a new `latest` was
+not measured, so certainty is bought by this check and not by a wait: a scan
+of the previous image would otherwise close nothing and say nothing. With no
+commit expected, the weekly schedule, the label is written to the summary and
+not checked.
 
 `latest` moves. So the tag is resolved to a digest once, at the start of the
 run, every scan is of that digest, and every result says which image it was
@@ -32,13 +43,16 @@ read as published and not through an emulator.
         --out named.sarif --image IMAGE --digest sha256:... --platform linux/amd64
     python3 .github/image_scan.py left-out --json trivy.json \\
         --image IMAGE --digest sha256:... --platform linux/amd64
+    docker buildx imagetools inspect IMAGE@sha256:... --format '{{json .Image}}' \\
+        | python3 .github/image_scan.py revision --expected <commit>
 
 `resolve` prints the digest, or refuses with exit 1. `name` writes the SARIF
 with the image named by digest and platform in every result's message and in
 the run's properties, refuses a SARIF or a JSON report of another image, and
 writes the counts to `$GITHUB_STEP_SUMMARY` when it is set. `left-out` writes
-one line there too, or refuses with exit 1 and names what was found. Standard library
-only: this runs under the runner's bare `python3`.
+one line there too, or refuses with exit 1 and names what was found. `revision`
+does the same with the label of each platform. Standard library only: this runs
+under the runner's bare `python3`.
 """
 
 from __future__ import annotations
@@ -64,6 +78,13 @@ ABSENT = ("nltk", "pyjwt", "digline-mcp")
 #: The positive control: an image whose listing does not show digline installed
 #: was not read, and its silence about `ABSENT` says nothing.
 CONTROL = "digline"
+
+#: The label docker-publish.yml writes from the commit it built (`VCS_REF` in
+#: docker/Dockerfile), and the platforms it publishes: both are scanned, so both
+#: are read.
+REVISION = "org.opencontainers.image.revision"
+PLATFORMS = ("linux/amd64", "linux/arm64")
+COMMIT = re.compile(r"\A[0-9a-f]{40}\Z")
 
 #: trivy's severities, in the order the summary says them. Each is said, zero
 #: included, so two weeks' summaries read line against line.
@@ -193,6 +214,64 @@ def left_out(
     )
 
 
+def revisions(image: Mapping[str, Any]) -> dict[str, str]:
+    """The revision label of each published platform, from `imagetools
+    inspect --format '{{json .Image}}'`. A platform missing, or a label missing
+    or empty, is refused: an image that names no commit names none."""
+    found: dict[str, str] = {}
+    for platform in PLATFORMS:
+        config = image.get(platform)
+        if not isinstance(config, Mapping):
+            raise ValueError(f"the image has no {platform}")
+        labels = (config.get("config") or {}).get("Labels") or {}
+        label = labels.get(REVISION)
+        if not isinstance(label, str) or not label:
+            raise ValueError(f"{platform} carries no {REVISION} label")
+        found[platform] = label
+    return found
+
+
+def released(image: Mapping[str, Any], *, expected: str) -> str:
+    """The summary line when every platform's label is `expected`; otherwise
+    refused, naming the platform and the commit it carries."""
+    if not COMMIT.match(expected):
+        raise ValueError(f"the expected commit is not a full sha: {expected!r}")
+    found = revisions(image)
+    wrong = [
+        f"{platform} is {label}"
+        for platform, label in found.items()
+        if label != expected
+    ]
+    if wrong:
+        raise ValueError(
+            f"latest is not the image built from {expected}: " + "; ".join(wrong)
+        )
+    return f"- built from `{expected}`, on {' and '.join(found)}\n"
+
+
+def _revision_command(args: argparse.Namespace) -> int:
+    image = json.loads(sys.stdin.read())
+    try:
+        if args.expected:
+            line = released(image, expected=args.expected)
+        else:
+            found = revisions(image)
+            line = (
+                "- not checked, no commit was expected: "
+                + ", ".join(f"{platform} {label}" for platform, label in found.items())
+                + "\n"
+            )
+    except ValueError as exc:
+        print(f"image_scan: {exc}", file=sys.stderr)
+        return 1
+    print(line, end="")
+    where = os.environ.get("GITHUB_STEP_SUMMARY")
+    if where:
+        with open(where, "a", encoding="utf-8") as handle:
+            handle.write(line)
+    return 0
+
+
 def _left_out_command(args: argparse.Namespace) -> int:
     report = json.loads(Path(args.json).read_text(encoding="utf-8"))
     try:
@@ -255,7 +334,11 @@ def main(argv: list[str]) -> int:
     left.add_argument("--image", required=True)
     left.add_argument("--digest", required=True)
     left.add_argument("--platform", required=True)
+    revision = commands.add_parser("revision")
+    revision.add_argument("--expected", default="")
     args = parser.parse_args(argv)
+    if args.command == "revision":
+        return _revision_command(args)
     if args.command == "resolve":
         return _resolve_command()
     if args.command == "left-out":

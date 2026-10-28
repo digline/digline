@@ -44,9 +44,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / ".github" / "image_scan.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "image-scan.yml"
+PUBLISH = ROOT / ".github" / "workflows" / "docker-publish.yml"
 
 sys.path.insert(0, str(ROOT / ".github"))
-from image_scan import ABSENT, counts, left_out, named, resolved, summary  # noqa: E402
+from image_scan import (  # noqa: E402
+    ABSENT,
+    PLATFORMS,
+    REVISION,
+    counts,
+    left_out,
+    named,
+    released,
+    resolved,
+    revisions,
+    summary,
+)
 
 IMAGE = "ghcr.io/digline/digline"
 DIGEST = "sha256:555e97f892d68c0ddc9ea6b0d3e170e30fb10cebb909895656dd6fb1361a9795"
@@ -558,3 +570,116 @@ def test_the_reports_list_every_package_and_what_is_left_out_is_read_last() -> N
         run = steps[check]["run"]
         assert f"trivy-{platform}.json" in run and f"--platform linux/{platform}" in run
         assert '"$DIGEST"' in run or "${DIGEST}" in run
+
+
+# --- the image read is the release expected ---------------------------------
+#
+# `imagetools inspect --format '{{json .Image}}'` as it answered on 2026-10-28
+# for `latest` (`sha256:a2d39ec9…`), cut down to the label that is read: both
+# platforms built from v0.35.0's commit.
+
+BUILT = "20df5ddc9d617ce51baf64986d93e5633f348e0b"
+
+
+def _image(**labels: str | None) -> Any:
+    image: dict[str, Any] = {}
+    for platform in PLATFORMS:
+        label = labels.get(platform.replace("/", "_"), BUILT)
+        config: dict[str, Any] = {"Labels": {} if label is None else {REVISION: label}}
+        image[platform] = {"architecture": platform.split("/")[1], "config": config}
+    return image
+
+
+def test_the_release_expected_is_read_on_both_platforms() -> None:
+    assert revisions(_image()) == dict.fromkeys(PLATFORMS, BUILT)
+    line = released(_image(), expected=BUILT)
+    assert BUILT in line and "linux/amd64" in line and "linux/arm64" in line
+
+
+@pytest.mark.parametrize("platform", ["linux_amd64", "linux_arm64"])
+def test_another_commit_on_either_platform_is_refused(platform: str) -> None:
+    with pytest.raises(ValueError, match=f"{platform.replace('_', '/')} is {'1' * 40}"):
+        released(_image(**{platform: "1" * 40}), expected=BUILT)
+
+
+def test_an_image_built_from_another_commit_is_refused() -> None:
+    """The mutation, as a test: the label answers a different commit."""
+    with pytest.raises(ValueError, match="is not the image built from"):
+        released(_image(), expected="2" * 40)
+
+
+@pytest.mark.parametrize("label", [None, ""])
+def test_an_image_that_names_no_commit_is_refused(label: str | None) -> None:
+    with pytest.raises(ValueError, match="carries no"):
+        released(_image(linux_arm64=label), expected=BUILT)
+
+
+def test_an_image_without_a_platform_is_refused() -> None:
+    image = _image()
+    del image["linux/arm64"]
+    with pytest.raises(ValueError, match="has no linux/arm64"):
+        revisions(image)
+
+
+@pytest.mark.parametrize("expected", ["", "20df5ddc", "v0.35.0"])
+def test_an_expected_commit_that_is_not_a_full_sha_is_refused(expected: str) -> None:
+    with pytest.raises(ValueError, match="not a full sha"):
+        released(_image(), expected=expected)
+
+
+def _revision_cli(image: Any, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "revision", *args],
+        input=json.dumps(image),
+        capture_output=True,
+        text=True,
+        env={k: v for k, v in os.environ.items() if k != "GITHUB_STEP_SUMMARY"},
+    )
+
+
+def test_the_command_line_turns_red_on_another_commit_and_checks_nothing_unasked() -> (
+    None
+):
+    assert _revision_cli(_image(), "--expected", BUILT).returncode == 0
+    red = _revision_cli(_image(), "--expected", "3" * 40)
+    assert red.returncode == 1 and "not the image built from" in red.stderr
+    unasked = _revision_cli(_image(), "--expected", "")
+    assert unasked.returncode == 0 and "not checked" in unasked.stdout
+    assert _revision_cli(_image(linux_amd64=None)).returncode == 1
+
+
+def test_the_revision_is_read_by_digest_before_anything_is_scanned() -> None:
+    steps = _steps()
+    (resolve,) = _at("image_scan.py resolve")
+    (check,) = _at("image_scan.py revision")
+    assert resolve < check < min(_at("trivy image"))
+    run = steps[check]["run"]
+    assert "@${DIGEST}" in run and "{{json .Image}}" in run and "--expected" in run
+    assert steps[check]["env"]["EXPECTED"] == "${{ inputs.revision }}"
+    assert _workflow()[True]["workflow_dispatch"]["inputs"]["revision"]["default"] == ""
+
+
+def _publish() -> Any:
+    return yaml.safe_load(PUBLISH.read_text(encoding="utf-8"))
+
+
+def test_a_release_dispatches_the_scan_on_main_expecting_its_commit() -> None:
+    """On `main`, because an upload counts for the ref the scan runs on, and
+    `docker-publish.yml` runs on the tag."""
+    job = _publish()["jobs"]["scan"]
+    assert set(job["needs"]) == {"on-main", "smoke", "publish"}
+    assert job["permissions"] == {"actions": "write"}
+    (step,) = job["steps"]
+    assert "gh workflow run image-scan.yml" in step["run"]
+    assert "--ref main" in step["run"]
+    assert '-f revision="$REVISION"' in step["run"]
+    assert step["env"]["REVISION"] == "${{ needs.smoke.outputs.revision }}"
+    # Only when `latest` moved.
+    assert "github.event_name == 'push'" in job["if"] and "inputs.latest" in job["if"]
+
+
+def test_the_widened_permission_says_why_beside_it() -> None:
+    text = PUBLISH.read_text(encoding="utf-8")
+    job = text[text.index("\n  scan:\n") :]
+    above = job[: job.index("actions: write")].rsplit("permissions:", 1)[1]
+    assert "Widened on this job alone" in above and "dispatches" in above
