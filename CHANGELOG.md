@@ -1050,7 +1050,13 @@ each package.
   and a session's exit status does not change. The three sentences are
   digline's, so this needs the core release that carries them.
 
-## digline-anthropic — unreleased
+## digline-anthropic 0.7.0 — 2026-10-28
+
+Published by its own tag, `digline-anthropic-v0.7.0`, after digline 0.35.0 was
+on PyPI. **A minor, because an exit code changed**: a reply this plugin cannot
+price (#569) and a reply with no `usage` (#629) used to error their case, and
+are now judged. `temperature`, which an SDK older than 1.0.0 sent, is now
+refused.
 
 - **A reply this plugin cannot price is counted, not refused** (#569, ADR 0004
   §8). Two were refused, and their case or their judged check errored over a
@@ -1078,7 +1084,6 @@ each package.
 - **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)`, the
   override of `Pricing.why_unpriced` and `Completion(usage=None)` are all new
   in 0.35.0. It was `>=0.17.0`.
-
 - **`temperature` is refused, by name and with the reason.** `AnthropicTarget`,
   `AnthropicJudge` and `AnthropicClaimJudge` took it and sent it. The
   `anthropic` SDK has had no such argument since 1.0.0 (0.125.0 is the last
