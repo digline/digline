@@ -1685,12 +1685,23 @@ def test_the_token_of_each_name_a_refusal_carries_is_in_its_sentence(
     the sentence would pass the first check, and be useless to its reader."""
     _, table = projected
     missing = sorted(
-        f"{why}: {ref.kind} {ref.text!r} as {ref.rendered(table.mint)}"
+        f"{why}: {ref.kind} {ref.text!r} as {_token_of(table, ref)}"
         for why, seen in walked.items()
         for ref in seen.refs
-        if ref.rendered(table.mint) not in seen.text
+        if _token_of(table, ref) not in seen.text
     )
     assert not missing, missing
+
+
+def _token_of(table: RecordingTable, ref: NameRef) -> str:
+    """The token the table holds for `ref`, read from its rows and not through
+    `NameRef.rendered`, which is what is being checked."""
+    by = {(row.kind, row.text): token for token, row in table.rows.items()}
+    if ref.kind != "verdict_name":
+        return by[(ref.kind, ref.text)]
+    family, group = split_grouped_name(ref.text)
+    token = by[("verdict_name", family)]
+    return token if group is None else f"{token}[group={by[('group', group)]}]"
 
 
 def test_a_name_said_in_clear_is_still_said_under_project(
