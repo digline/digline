@@ -958,8 +958,19 @@ in, which is a correction of a sentence and not a change to a tool.
   and it is in `AGENTS.md` rule 6 and in both copies of the skill, word for
   word.
 
-## pytest-digline — unreleased
+## pytest-digline 0.5.0 — 2026-10-28
 
+Published by its own tag, `pytest-digline-v0.5.0`, after digline 0.35.0 was on
+PyPI. **A minor, because the exit status a session ends with changed** (#642):
+*Choosing the version* names it among what this package's users rely on,
+whatever changed it.
+
+- **The dependency is `digline>=0.34.0,<0.36`.** The cap was raised to `<0.36`
+  with the core's 0.35.0, and this is the release that carries it to a user:
+  0.4.0 caps the core at `<0.35`, so a project that holds it stays on digline
+  0.34. The floor does not move: nothing the plugin calls or imports is new in
+  0.35.0. `Loaded`, which #702 annotates with, is imported only for the type
+  checker and is in `digline.host` at 0.34.0.
 - **A session ends `1` where a check could not be paired with its reference**
   (#642). With the core release that carries the cause `unpaired`, a
   comparison holding a `missing` and a `new` on the same case under the same
@@ -976,7 +987,6 @@ in, which is a correction of a sentence and not a change to a tool.
   read `Any`** (#702). Only the annotation moves, and it is a string at
   runtime, so nothing the plugin does changes. A type checker now sees that it
   reads `Loaded.modules_unchecked`.
-
 - **The test module that drove a run is not counted in `modules_unchecked`**
   (#623; ADR 0052, amended). Under `--digline-run`, a test module beside the
   suite that imports the application was recorded as unchecked:
