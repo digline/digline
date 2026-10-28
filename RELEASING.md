@@ -396,7 +396,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline-openai | #629: a reply with no `usage`, refused unless the model is `free()`, is judged with its counts not recorded, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). Its floor is `0.35.0`, raised with the code that needs it |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
