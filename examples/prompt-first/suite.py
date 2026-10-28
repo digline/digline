@@ -17,7 +17,7 @@ from pathlib import Path
 
 from digline.core import JudgeReply, Levenshtein, LlmRubric, Repeated
 from digline.run import Calibration, Case, Suite
-from digline_anthropic import AnthropicTarget
+from digline_anthropic import AnthropicJudge, AnthropicTarget
 
 import fake
 
@@ -26,15 +26,13 @@ LIVE = os.environ.get("DIGLINE_LIVE") == "1"
 MODEL = "claude-haiku-4-5"
 
 
-def judge(prompt: str) -> JudgeReply:
-    """The rubric's judge.
+def _fake_judge(prompt: str) -> JudgeReply:
+    """The rubric's judge on the keyless path.
 
     Faked by default, for the same reason the provider is: an example that needs
     a key is an example nobody runs. Deterministic, and it reads the answer
     rather than pretending to — a fake that always says 1.0 measures nothing.
     """
-    if LIVE:  # pragma: no cover - exercised only with a key present
-        return _live_judge(prompt)
     answer = prompt.split("Output to judge:", 1)[-1].strip()
     one_sentence = answer.count(".") <= 1
     warm = any(word in answer.lower() for word in ("welcome", "we ", "you", "happy"))
@@ -44,27 +42,9 @@ def judge(prompt: str) -> JudgeReply:
     )
 
 
-def _live_judge(prompt: str) -> JudgeReply:  # pragma: no cover - needs a key
-    import anthropic
-
-    reply = anthropic.Anthropic().messages.create(
-        model=MODEL,
-        max_tokens=200,
-        system=(
-            "Score the output against the rubric from 0 to 1. Reply with only "
-            'a JSON object: {"score": <float>, "reason": "<one sentence>"}'
-        ),
-        messages=[
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": "{"},
-        ],
-    )
-    # Only the text blocks: the SDK's `content` is a union, and a thinking or
-    # tool block has no `.text` at all — which a type checker says before a
-    # traceback does.
-    said = "".join(b.text for b in reply.content if b.type == "text")
-    data = json.loads("{" + said)
-    return JudgeReply(score=float(data["score"]), reason=str(data["reason"]))
+#: A plugin is a target *and* a judge (ADR 0004): on the live path the twenty
+#: lines of SDK-and-JSON leave this file, and the run records which model graded.
+JUDGE = AnthropicJudge(model=MODEL) if LIVE else _fake_judge
 
 
 target = AnthropicTarget(
@@ -88,30 +68,35 @@ target = AnthropicTarget(
 #: extremes scores it 0 or 1 and is caught, which no amount of repetition would
 #: catch: a collapsed judge is *more* repeatable, not less.
 #:
-#: **The first answer written here was disqualifying, not partial**, and that
-#: is the correction worth keeping rather than hiding. It invented a price,
-#: which the rubric forbids outright, and the live judge scored it 0.000 twice
-#: — a hard, repeatable refusal. The band then read that as a lost scale, which
-#: it was not: in the same run the judge graded the five real answers across
-#: 0.266 to 0.650. ADR 0024 §4 says whether an answer makes a good calibration
-#: is the author's craft and nothing here checks it. This is that sentence
-#: arriving: the band had been authored against a judge nobody had ever
-#: watched, and the first thing watching it revealed was the author's error,
-#: not the instrument's.
+#: **The band is derived from the purpose, not from a judge.** What it has to
+#: catch is a lost scale: a judge collapsed onto an extreme gives this answer 0,
+#: or 1, at every judging. The score the band reads is the folded mean of
+#: **fifteen judgings**, `samples=5` times the three judgings of each sample, so
+#: a collapse reads exactly 0.0 or 1.0, and one stray judging at the other
+#: extreme moves that by 1/15, 0.067. **0.10–0.90** catches a collapse even with
+#: one stray judging, and admits any judge that uses the inside of its scale.
 #:
-#: The band is authored against a judge that has been **watched on a live
-#: baseline**, which is the only order in which it can be done honestly. This
-#: judge places this answer at 0.850, 0.850 and 0.817 — repeatably, and well
-#: above the 0.54–0.65 it gives the real answers. 0.70–0.95 contains that and
-#: excludes both extremes, so a collapse onto 0 or 1 still fails it.
+#: **The derivation depends on the configuration.** With `samples=3`, nine
+#: judgings, one stray judging moves the mean by 0.111, which is beyond 0.10,
+#: and a collapse with one stray judging would pass. Whoever changes `samples`,
+#: the judgings per sample in `Repeated` below, or `min_agreement` changes this
+#: derivation, and has to redo it here. It is a number derived from a
+#: configuration, not an absolute.
+#:
+#: **What this control does not tell you.** It catches a collapse onto the
+#: extremes and nothing else. It passes a compressed scale: a judge that gives
+#: everything 0.35 or 0.5. It passes a judge that ranks this answer under the
+#: real ones, and one that gives every answer the same score. On 2026-10-28 the
+#: real answers' run means, 0.237 to 0.597, sat inside the band too. A narrower
+#: band would catch more, and it would be bound to the judge it was measured on.
+#: The band before this one, 0.70–0.95, was authored on the function judge this
+#: example used until #651. On `AnthropicJudge` it held this answer by 0.015
+#: over four live runs (samples 0.700 to 0.800, mean 0.725), and no longer
+#: separated it from the real answers, whose samples reached 0.767.
 #:
 #: That the deficient answer outscores every real one is not a fault in the
 #: band. It is what this rubric does, and it is recorded as its own finding:
 #: the dominant clause forbids inventing, and silence invents nothing.
-#:
-#: The band is wide on purpose. It is a control on the instrument, not a second
-#: threshold on the prompt, and a narrow one would fail on the judge's ordinary
-#: noise.
 #:
 #: **On its first outing it caught a judge with no scale, and the judge was
 #: ours.** The stand-in below scores this answer 1.0 — it checks sentence count
@@ -141,8 +126,8 @@ CALIBRATION = (
                     "Signed copies. Sometimes there are some. You could ask "
                     "at the counter I suppose."
                 ),
-                low=0.70,
-                high=0.95,
+                low=0.10,
+                high=0.90,
             ),
         )
     ]
@@ -164,28 +149,38 @@ suite = Suite(
         Repeated(
             inner=LlmRubric(
                 rubric="One sentence, warm, and invents no price or date.",
-                judge=judge,
+                judge=JUDGE,
                 threshold=0.7,
                 tolerance=0.1,
+                # A movement inside two standard errors of the baseline's own
+                # samples is noise, not a verdict: two live runs of one tree
+                # moved this rubric by 0.133 on one case and 0.106 on another,
+                # each inside the other run's spread. (#651)
+                floor_standard_errors=2,
             ),
             samples=3,
             min_agreement="2/3",
         ),
     ],
-    # Three, and the number matters more than the constraint that forced it.
+    # Five, and the number matters more than the constraint that forced it.
     # A calibration case requires at least two — one judgement of a known
     # answer is one draw of a noisy instrument — but **two is a value that
     # cannot work against a real judge**: two samples are unanimous or split,
     # and there is no majority to take. Against a judge that legitimately
     # returns 0.33 and 0.95 on the same answer, `min_agreement="2/2"` errors
-    # the case and `promote` then refuses the run. So the real floor a
-    # calibration case imposes is three. Declared for both modes
-    # rather than only the live one, so that `config_hash` is the same
-    # question on both sides of the door — a suite that fingerprinted
-    # differently depending on an environment variable would report
-    # `config_changed` against its own baseline.
-    samples=3,
-    min_agreement="2/3",
+    # the case and `promote` then refuses the run. So the floor a calibration
+    # case imposes is three. Five is what the rubric's noise floor asks: it is
+    # measured from the baseline's samples, and with three a check's samples
+    # came back all equal in one set of twelve, which leaves it no floor at
+    # all. With five that is about one baseline in two hundred. A majority of
+    # five is three. Declared for both modes rather than
+    # only the live one, so that the sampling is not what tells them apart.
+    # The judge is: the live path grades with `AnthropicJudge` and the keyless
+    # one with a function, two identities, so `config_hash` differs on the two
+    # sides of the door. The committed baseline is a live run, and
+    # `tests/test_check_kind.py` reads it live, in `LIVE_BASELINES`. (#651)
+    samples=5,
+    min_agreement="3/5",
     cases=[
         Case(id=c["id"], vars=c["vars"], expected=c["expected"])
         for c in json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
