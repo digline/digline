@@ -652,19 +652,27 @@ def test_the_gate_classifies_the_names_of_a_refusal(
 
 def named_in(text: str, names: set[str]) -> frozenset[str]:
     """The names that stand in `text` as names, not as part of a longer word:
-    the group `till` stands in "group 'till'" and not in "still". A letter, a
-    digit, `_`, `-` or `.` may not touch a name on either side, and a full stop
-    after it ends a sentence unless a name character follows. A slash may: it
-    joins two names, as `provider/model` does, and a name beside one is still
-    a name."""
-    return frozenset(
-        name
-        for name in names
-        if re.search(
-            rf"(?<![A-Za-z0-9_.-]){re.escape(name)}(?![A-Za-z0-9_-]|\.[A-Za-z0-9])",
-            text,
-        )
-    )
+    the group `till` stands in "group 'till'" and not in "still".
+
+    A name is continued only by a letter or a digit touching it, as Python's
+    `str.isalnum` reads them, and bounded by anything else. **No list of what
+    may bound a name is written here**: two such lists, one after the other,
+    each missed a character (a space, then a slash). So a slash bounds a name,
+    and a provider is found in `provider/model`; and a name with more after a
+    hyphen or a full stop is found too. That errs towards counting, which is
+    the side a gate has to err on."""
+    found: set[str] = set()
+    for name in names:
+        start = text.find(name)
+        while start != -1:
+            end = start + len(name)
+            before = text[start - 1] if start > 0 else ""
+            after = text[end] if end < len(text) else ""
+            if not before.isalnum() and not after.isalnum():
+                found.add(name)
+                break
+            start = text.find(name, start + 1)
+    return frozenset(found)
 
 
 def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
@@ -677,12 +685,18 @@ def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
     }
     assert named_in("accuracy[group=till] moved", names) == {"till"}
     assert named_in("it still carries what redaction removes", names) == set()
-    assert named_in("opening-hours-2 and prompts/system.txt.bak", names) == set()
-    # A slash joins two names, as a judge's identity joins a provider and a
-    # model, so each half is found.
+    assert named_in("tillage, until, Till2", names) == set()
+    # Whatever is not a letter or a digit bounds a name, so a provider is found
+    # in `provider/model`, and a name with more after a punctuation mark is
+    # found too: the matcher errs towards counting.
     coordinates = {"anthropic", "claude-haiku-4-5"}
     assert named_in("judged by anthropic/claude-haiku-4-5", coordinates) == coordinates
     assert named_in('it is "anthropic/<model>"', coordinates) == {"anthropic"}
+    assert named_in("opening-hours-2 and prompts/system.txt.bak", names) == {
+        "opening-hours",
+        "prompts/system.txt",
+    }
+    assert named_in("anthropic\u00e9 and \u00e9anthropic", coordinates) == set()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1398,21 +1412,6 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
         "host/toml_errors.py, unknown_key",
         frozenset({"anthropic"}),
     ),
-    "a declarative target from a provider not installed": (
-        "targets/registry.py, _missing "
-        "(the providers installed here, not the suite's name)",
-        frozenset({"anthropic"}),
-    ),
-    "a declarative judge written as an import": (
-        "host/toml_errors.py, not_a_coordinate "
-        "(the example it writes, 'anthropic/claude-haiku-4-5', not the suite's name)",
-        frozenset({"anthropic", "claude-haiku-4-5"}),
-    ),
-    "a declarative judge with a dot for a slash": (
-        "host/toml_errors.py, not_a_coordinate "
-        "(the example it writes, 'anthropic/claude-haiku-4-5', not the suite's name)",
-        frozenset({"anthropic", "claude-haiku-4-5"}),
-    ),
     "a declarative judge with no model": (
         "host/toml_errors.py, not_a_coordinate "
         "(the suite's provider, and the example it writes)",
@@ -1430,10 +1429,9 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
 #: suites and over two judges; a table that answers with the name; loading a
 #: suite, where a sentence of `run/suite.py` quotes a case, a check, a group or
 #: an aggregate, and where the declarative loader quotes a provider, a judge or
-#: a price; and four of the store's refusals on reading. Three of the 41 name
-#: the fixture's provider or model only because digline's own words do: the
-#: example coordinate the declarative loader writes, and the providers
-#: installed here. Their site says so. Not driven, and so not counted:
+#: a price; and four of the store's refusals on reading. Three more name the
+#: fixture's provider or model only because digline's own words do, and are
+#: in `COINCIDENCES`, not here. Not driven, and so not counted:
 #:
 #: - the other refusals of loading a suite: the checks' own constructors in
 #:   `core/assertions.py`, `PiiPattern`, `host/loader.py`, and the
@@ -1441,7 +1439,38 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
 #: - the store's refusals of a register, a directory it cannot read, a run
 #:   with no key and a baseline that is a projection;
 #: - any refusal added later.
-NAMED_IN_PROSE_COUNT = 41
+NAMED_IN_PROSE_COUNT = 38
+
+#: The refusals whose sentence holds a name of this fixture only because
+#: digline's own words do, each with its site, the names and why. **Not
+#: leaks**: the fixture's provider and model, `anthropic` and
+#: `claude-haiku-4-5`, are also the example coordinate digline writes and the
+#: name an installed plugin registers. Repairing one would mean changing
+#: digline's text, so they are not counted in `NAMED_IN_PROSE`, and the width
+#: measured is read as 38 plus these. The fixture keeps that provider because
+#: it is `examples/prompt-first`, whose target is `AnthropicTarget`, and a
+#: model digline does not price is refused before it runs. Held like the
+#: other table: one added is a number raised in the same diff.
+COINCIDENCES: dict[str, tuple[str, frozenset[str], str]] = {
+    "a declarative target from a provider not installed": (
+        "targets/registry.py, _missing",
+        frozenset({"anthropic"}),
+        "it lists the providers installed here, and one is the fixture's",
+    ),
+    "a declarative judge written as an import": (
+        "host/toml_errors.py, not_a_coordinate",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+        "it gives 'anthropic/claude-haiku-4-5' as an example",
+    ),
+    "a declarative judge with a dot for a slash": (
+        "host/toml_errors.py, not_a_coordinate",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+        "it gives 'anthropic/claude-haiku-4-5' as an example",
+    ),
+}
+
+#: How many refusals `COINCIDENCES` declares.
+COINCIDENCES_COUNT = 3
 
 
 @pytest.fixture(scope="module")
@@ -1506,36 +1535,52 @@ def test_no_refusal_names_in_its_sentence_what_the_projection_tokenises(
 ) -> None:
     """A refusal that crosses the boundary under `project` names nothing the
     table was asked to mint, or it is declared in `NAMED_IN_PROSE` with the
-    names it lets out. One declared that names nothing any more, or other
-    names than declared, is red too, so the table says what is true."""
+    names it lets out, or in `COINCIDENCES` with why it is not a leak. One
+    declared that names nothing any more, or other names than declared, is red
+    too, so each table says what is true."""
+    declared = {why: names for why, (_, names) in NAMED_IN_PROSE.items()} | {
+        why: names for why, (_, names, _) in COINCIDENCES.items()
+    }
     undeclared = {
         why: sorted(seen.names)
         for why, seen in walked.items()
-        if seen.names and why not in NAMED_IN_PROSE
+        if seen.names and why not in declared
     }
     assert not undeclared, (
         "these refusals name in their sentence what the projection tokenises, "
         f"and NAMED_IN_PROSE does not declare them: {undeclared}"
     )
-    stale = sorted(why for why in NAMED_IN_PROSE if not walked[why].names)
+    stale = sorted(why for why in declared if not walked[why].names)
     assert not stale, (
-        f"NAMED_IN_PROSE declares {stale}, whose sentences no longer name "
-        "anything the projection tokenises: take them out and lower "
-        "NAMED_IN_PROSE_COUNT"
+        f"{stale} are declared and their sentences no longer name anything the "
+        "projection tokenises: take them out of their table and lower its count"
     )
     moved = {
         why: (sorted(names), sorted(walked[why].names))
-        for why, (_, names) in NAMED_IN_PROSE.items()
+        for why, names in declared.items()
         if walked[why].names and walked[why].names != names
     }
     assert not moved, f"declared names, then measured: {moved}"
 
 
 def test_the_table_of_refusals_that_name_only_shrinks() -> None:
-    """Every entry is a provocation this gate walks, and the count is held,
-    so an entry added is a number raised in the same diff."""
+    """Every entry is a provocation this gate walks, in one table only, and
+    each table's count is held, so an entry added is a number raised in the
+    same diff. A coincidence added in silence would hide a leak as well as a
+    leak added would."""
     assert set(NAMED_IN_PROSE) <= set(PROVOCATIONS), sorted(
         set(NAMED_IN_PROSE) - set(PROVOCATIONS)
+    )
+    assert set(COINCIDENCES) <= set(PROVOCATIONS), sorted(
+        set(COINCIDENCES) - set(PROVOCATIONS)
+    )
+    assert not set(NAMED_IN_PROSE) & set(COINCIDENCES), sorted(
+        set(NAMED_IN_PROSE) & set(COINCIDENCES)
+    )
+    assert len(COINCIDENCES) == COINCIDENCES_COUNT, (
+        f"COINCIDENCES holds {len(COINCIDENCES)} refusals and COINCIDENCES_COUNT "
+        f"says {COINCIDENCES_COUNT}: a refusal declared a coincidence is one the "
+        "count of NAMED_IN_PROSE no longer shows, so say so in the number"
     )
     assert len(NAMED_IN_PROSE) == NAMED_IN_PROSE_COUNT, (
         f"NAMED_IN_PROSE holds {len(NAMED_IN_PROSE)} refusals and "
