@@ -685,7 +685,7 @@ def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
     }
     assert named_in("accuracy[group=till] moved", names) == {"till"}
     assert named_in("it still carries what redaction removes", names) == set()
-    assert named_in("tillage, until, Till2", names) == set()
+    assert named_in("tillage, until, till2", names) == set()
     # Whatever is not a letter or a digit bounds a name, so a provider is found
     # in `provider/model`, and a name with more after a punctuation mark is
     # found too: the matcher errs towards counting.
