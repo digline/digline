@@ -21,7 +21,7 @@
 - Shipped: 0.35.0 — the core's half: `load_name_table`, `NameTable`,
   `one_table`, `project_check_name`, `project_declared` and `mint=`. Not §8 for
   the core's refusals, **which is in no release yet**: the refusals carry the
-  names they quote as `NameRef`s in their `Quoted` in this tree (#782, #783,
+  names they quote as `NameRef`s in their `Written` in this tree (#782, #783,
   #786), and digline-mcp passes its minter on a floor owed at the cut. The
   server's half ships in digline-mcp 0.7.0
 - Date: 2026-10-26

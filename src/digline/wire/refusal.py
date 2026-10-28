@@ -14,7 +14,7 @@ fields, and this renders them.
 
 from __future__ import annotations
 
-from digline.core import Minter, Quoted
+from digline.core import Minter, Written
 
 __all__ = ["WITHHELD", "refusal_text"]
 
@@ -29,7 +29,7 @@ WITHHELD = (
 
 
 def refusal_text(
-    refusal: BaseException, withheld: Quoted | None, *, mint: Minter | None = None
+    refusal: BaseException, withheld: Written | None, *, mint: Minter | None = None
 ) -> str:
     """The refusal's sentence for an agent: whole when `withheld` is `None`,
     and without the quoted message otherwise. Given `mint`, each name the
@@ -38,6 +38,6 @@ def refusal_text(
     if withheld is not None:
         return withheld.rendered(withheld=WITHHELD, mint=mint)
     said = refusal.args[0] if len(refusal.args) == 1 else None
-    if mint is not None and isinstance(said, Quoted):
+    if mint is not None and isinstance(said, Written):
         return said.rendered(withheld=None, mint=mint)
     return str(refusal)

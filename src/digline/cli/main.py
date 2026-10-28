@@ -39,8 +39,8 @@ from digline.cli.output import emit, own_stdout, say
 from digline.cli.view import serve
 from digline.core import (
     DISPOSITIONS,
-    Quoted,
     Run,
+    Written,
     compare,
     diff,
     key_of,
@@ -314,7 +314,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     except JournalRefusedError as exc:
         # A refused resume is a usage error and never a verdict: nothing was
         # measured, so 1 and 2 would both be lies about a suite. (ADR 0017 §11)
-        raise UsageError(Quoted.of(exc, "", named=False)) from exc
+        raise UsageError(Written.of(exc, "", named=False)) from exc
 
     # Announced before the first call, on stderr so a shell capturing the key
     # still captures only the key. Arithmetic over the declared suite: no
@@ -556,7 +556,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             on_unpriced=unpriced.append,
         )
     except ReplayError as exc:
-        raise UsageError(Quoted.of(exc, "", named=False)) from exc
+        raise UsageError(Written.of(exc, "", named=False)) from exc
 
     ref = store.write_run(run)
     _say_accepted_schema(args.accepting_baseline_schema)
@@ -1158,7 +1158,9 @@ def cmd_report(args: argparse.Namespace) -> int:
             Path(args.out).write_text(result.document, encoding="utf-8")
         except OSError as exc:
             raise UsageError(
-                Quoted.of(exc, f"--out {args.out}: could not be written: ", named=False)
+                Written.of(
+                    exc, f"--out {args.out}: could not be written: ", named=False
+                )
             ) from exc
     else:
         emit(result.document)

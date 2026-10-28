@@ -27,7 +27,7 @@ from __future__ import annotations
 import difflib
 from collections.abc import Iterable, Sequence
 
-from digline.core import NameRef, Quoted, TokenKind
+from digline.core import NameRef, TokenKind, Written
 from digline.host.errors import UsageError
 
 __all__ = [
@@ -108,10 +108,10 @@ def unknown_key(
     if len(unknown) == 1:
         head = (f"{where}: ", *subject, f" {noun} `{unknown[0]}`.")
         if hint := did_you_mean(unknown[0], known):
-            return UsageError(Quoted.said(*head, hint))
+            return UsageError(Written.said(*head, hint))
         if not known:
-            return UsageError(Quoted.said(*head, f" It names no {noun} at all."))
-        return UsageError(Quoted.said(*head, f" Known {noun}s: {listing(known)}"))
+            return UsageError(Written.said(*head, f" It names no {noun} at all."))
+        return UsageError(Written.said(*head, f" Known {noun}s: {listing(known)}"))
 
     first = (f"{where}: ", *subject, f" {noun} {listing(unknown)}.")
     lines: list[str] = []
@@ -124,7 +124,7 @@ def unknown_key(
             if known
             else f"It names no {noun} at all."
         )
-    return UsageError(Quoted.said(*first, *("\n" + line for line in lines)))
+    return UsageError(Written.said(*first, *("\n" + line for line in lines)))
 
 
 def unknown_type(
@@ -171,7 +171,7 @@ def not_a_coordinate(value: str, *, where: str, key: str) -> UsageError:
     """
     if ":" in value or (value.count(".") and "/" not in value):
         return UsageError(
-            Quoted.said(
+            Written.said(
                 f"{where}: `{key}` is ",
                 NameRef("judge_identity", value),
                 ", which is an import written as a "
@@ -184,7 +184,7 @@ def not_a_coordinate(value: str, *, where: str, key: str) -> UsageError:
             )
         )
     return UsageError(
-        Quoted.said(
+        Written.said(
             f"{where}: `{key}` is ",
             NameRef("judge_identity", value),
             ", which is not a provider/model "
@@ -197,7 +197,7 @@ def not_a_coordinate(value: str, *, where: str, key: str) -> UsageError:
 def object_parameter(key: str, *, where: str, provider: str) -> UsageError:
     """`client` or `pricing` in a `[target]`: injection points, not settings."""
     return UsageError(
-        Quoted.said(
+        Written.said(
             f"{where}: `{key}` is a Python object, not configuration — it is where "
             "a test injects a stand-in for ",
             NameRef("target_config_value", provider, quoted=False),

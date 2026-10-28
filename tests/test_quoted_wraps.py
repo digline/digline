@@ -3,14 +3,14 @@
 ADR 0043 *Consequences*: the class of #445 is every site that wraps an
 exception digline did not write in a refusal of its own, and a new wrap
 reopens it. A site that wraps hands the exception to the refusal as a
-`Quoted`, and the refusal keeps it apart from what digline wrote (§2). What
+`Written`, and the refusal keeps it apart from what digline wrote (§2). What
 digline wants from the exception, a line, a column, an `errno`, a byte offset,
 it reads off the attributes, and that text is digline's.
 
 So this refuses, inside the arguments of a constructor of a type in
 `REFUSALS`, any use of a name bound by `except … as` other than an attribute
 of it: `{exc}`, `str(exc)`, `repr(exc)`, and `exc` handed to a helper that
-could stringify it. Inside `Quoted.of(...)` or `Quoted(...)` it is allowed,
+could stringify it. Inside `Written.of(...)` or `Written(...)` it is allowed,
 because that is the carrier.
 
 **What it cannot see**, said here rather than found: a sentence built from the
@@ -33,7 +33,7 @@ SOURCES = sorted(
     [*(ROOT / "src" / "digline").rglob("*.py"), *ROOT.glob("packages/*/src/**/*.py")]
 )
 REFUSAL_NAMES = frozenset(kind.__name__ for kind in REFUSALS)
-CARRIER = "Quoted"
+CARRIER = "Written"
 
 
 def _called(node: ast.Call) -> str | None:
@@ -122,7 +122,7 @@ def test_no_refusal_quotes_an_exception_outside_the_carrier() -> None:
     ]
     assert not found, (
         "These refusals put another exception's text into digline's own "
-        "sentence. Hand it over as `Quoted.of(exc, ...)`, and read what digline "
+        "sentence. Hand it over as `Written.of(exc, ...)`, and read what digline "
         "needs off the exception's attributes (ADR 0043 §2):\n" + "\n".join(found)
     )
 
@@ -145,6 +145,6 @@ def test_the_gate_catches_a_planted_wrap(planted: str) -> None:
 def test_the_carrier_and_an_attribute_pass() -> None:
     source = (
         "try:\n    pass\nexcept OSError as exc:\n"
-        '    raise UsageError(Quoted.of(exc, f"at byte {exc.start}: ")) from exc\n'
+        '    raise UsageError(Written.of(exc, f"at byte {exc.start}: ")) from exc\n'
     )
     assert offenders(source, "fine.py") == []

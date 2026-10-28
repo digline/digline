@@ -44,7 +44,7 @@ from pathlib import Path
 from types import CodeType, ModuleType
 from typing import TYPE_CHECKING, Protocol, cast
 
-from digline.core import Lookup, Minter, Quoted
+from digline.core import Lookup, Minter, Written
 from digline.host.authorship import (
     frames_outside,
     raised_inside_digline,
@@ -270,7 +270,7 @@ def _import(module_part: str, spec: str) -> ModuleType:
         # line and column are read off the exception. (ADR 0043 §6, amended)
         except SyntaxError as exc:
             raise UsageError(
-                Quoted.of(
+                Written.of(
                     exc,
                     f"{path} does not parse{_line_and_column(exc)}: ",
                     builtin=True,
@@ -393,7 +393,7 @@ def _could_not_import(
         return UsageError(f"{subject(repr(exc.name))}: {written}{after}")
     # Nor is `name` read when the message is not the import system's: it is an
     # attribute whoever raised it set, like the message.
-    return UsageError(Quoted.of(exc, f"{subject('a module')}: ", after))
+    return UsageError(Written.of(exc, f"{subject('a module')}: ", after))
 
 
 def _import_system_said(exc: ImportError) -> str | None:
@@ -429,7 +429,7 @@ def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> Usa
     traceback would hide where the suite failed. The location answers that, and
     so does the command that prints the full traceback. **The refusal is the
     same on every front end, and its rendering is not:** the message is
-    `Quoted`'s, the command line prints it, and the MCP server does not. It is
+    `Written`'s, the command line prints it, and the MCP server does not. It is
     passed through `visible`, because an exception's message is not digline's
     to vouch for. (ADR 0041 §4, ADR 0043 §3)
 
@@ -444,7 +444,7 @@ def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> Usa
         else ""
     )
     return UsageError(
-        Quoted.of(
+        Written.of(
             exc,
             f"{visible(where)} raised ",
             ", while it was being loaded. That is the suite's own code, or code "
@@ -457,7 +457,7 @@ def _raised_while_loading(where: str, exc: BaseException, reproduce: str) -> Usa
 
 
 def _message(exc: BaseException) -> str:
-    """What `Quoted.of` would read, so it can be passed through `visible`."""
+    """What `Written.of` would read, so it can be passed through `visible`."""
     if isinstance(exc, SystemExit):
         code = exc.code
         return "" if code is None or isinstance(code, int) else repr(code)
@@ -485,7 +485,7 @@ def refused_exit(
     if raised_inside_digline(exc):
         return None
     return UsageError(
-        Quoted.of(
+        Written.of(
             exc,
             "code digline ran raised ",
             ". digline stopped, as asked, but the code it runs does not choose "

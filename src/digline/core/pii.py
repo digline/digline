@@ -27,7 +27,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from digline.core.refused import Quoted, RefusedError
+from digline.core.refused import RefusedError, Written
 
 __all__ = [
     "ITALIAN_PII",
@@ -65,7 +65,7 @@ class PiiPattern:
         except re.error as exc:
             at = "" if exc.pos is None else f" at position {exc.pos}"
             raise RefusedError(
-                Quoted.of(
+                Written.of(
                     exc, f"PiiPattern {self.name!r} does not compile{at}: ", named=False
                 )
             ) from exc

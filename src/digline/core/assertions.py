@@ -25,7 +25,7 @@ from digline.core.protocols import (
     JudgeAbstained,
     JudgePriceRaised,
 )
-from digline.core.refused import Quoted, RefusedError
+from digline.core.refused import RefusedError, Written
 from digline.core.types import (
     ALL_KINDS,
     STORAGE_STEP,
@@ -808,7 +808,7 @@ class Regex(AssertionBase):
             re.compile(self.pattern)
         except re.error as exc:
             raise RefusedError(
-                Quoted.of(
+                Written.of(
                     exc, f"Regex.pattern does not compile{_at(exc)}: ", named=False
                 )
             ) from exc

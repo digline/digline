@@ -22,7 +22,7 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 
 from digline.core import ConfigValue, Output, Usage
-from digline.core.refused import Quoted, RefusedError
+from digline.core.refused import RefusedError, Written
 from digline.run import Case, Response
 from digline.targets.completion import ToolCall
 from digline.targets.config import (
@@ -379,7 +379,7 @@ class HttpTarget:
             # an `errno`, and that is read off the exception.
             described = _described(exc)
             raise RefusedError(
-                Quoted.of(
+                Written.of(
                     exc,
                     f"nothing answered at {self._spoken}{described}: ",
                     f". The suite declares {len(cases)} case(s) and every one of "

@@ -6,7 +6,7 @@ The type of an exception says *on purpose*, and only that (ADR 0041 §4.2).
 case. The innermost frame says who raised it. So **a message is digline's when
 the innermost frame of the exception that carries it is in digline's code**,
 and that holds through every wrap. A refusal that quotes another exception
-carries it as a `Quoted`, and the author of what it quotes is the author of
+carries it as a `Written`, and the author of what it quotes is the author of
 that exception, by its own frame.
 
 **An `OSError` is read the same way, from one frame further out.** Its message
@@ -42,7 +42,7 @@ from types import FrameType
 from typing import TypeGuard
 
 import digline
-from digline.core import Quoted
+from digline.core import Written
 from digline.host.refusals import REFUSALS
 
 __all__ = [
@@ -150,7 +150,7 @@ def written_by_digline(exc: BaseException) -> bool:
     return not quoted.builtin and written_by_digline(quoted.cause)
 
 
-def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Quoted | None:
+def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Written | None:
     """The refusal in fields, when part of what it says is not digline's to
     ship; `None` when all of it is. (ADR 0043 §3)
 
@@ -164,7 +164,7 @@ def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Quoted 
     quoted = quoted_in(exc)
     if quoted is not None:
         return quoted
-    return Quoted.of(
+    return Written.of(
         exc,
         "code digline ran raised ",
         ".",
@@ -172,10 +172,10 @@ def to_withhold(exc: BaseException, *, front_end: Path | None = None) -> Quoted 
     )
 
 
-def quoted_in(exc: BaseException) -> Quoted | None:
-    """The `Quoted` a refusal was built from, or `None` for a sentence that is
+def quoted_in(exc: BaseException) -> Written | None:
+    """The `Written` a refusal was built from, or `None` for a sentence that is
     a plain string."""
-    if len(exc.args) == 1 and isinstance(exc.args[0], Quoted):
+    if len(exc.args) == 1 and isinstance(exc.args[0], Written):
         return exc.args[0]
     return None
 

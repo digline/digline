@@ -44,7 +44,7 @@ from pathlib import Path
 from typing import cast
 
 from digline.core.declared import Declared
-from digline.core.refused import Quoted
+from digline.core.refused import Written
 from digline.core.register import (
     DISPOSITIONS,
     RecordedOutcome,
@@ -266,7 +266,7 @@ def _read_as(role: str, path: Path) -> Run:
         said = exc.args[0] if exc.args else ""
         argument: object = (
             said.around(before, after)
-            if isinstance(said, Quoted)
+            if isinstance(said, Written)
             else f"{before}{said}{after}"
         )
         raise DocumentRefusedError(
@@ -1076,7 +1076,7 @@ class FileResultStore:
                 raw = _parse_register_line(line)
             except _MalformedLine as exc:
                 raise RegisterRefusedError(
-                    Quoted.of(exc, *_malformed(path, number), named=False)
+                    Written.of(exc, *_malformed(path, number), named=False)
                 ) from None
             except ValueError:
                 if index == len(lines) - 1:
@@ -1111,7 +1111,7 @@ class FileResultStore:
                 entries.append(_entry_from_dict(document))
             except _MalformedLine as exc:
                 raise RegisterRefusedError(
-                    Quoted.of(exc, *_malformed(path, number), named=False)
+                    Written.of(exc, *_malformed(path, number), named=False)
                 ) from None
         entries.sort(key=lambda entry: entry.recorded_at)
         return Register(entries=tuple(entries), torn=torn)

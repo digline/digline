@@ -11,7 +11,7 @@ from digline.core.tokens import Minter, TokenKind
 __all__ = [
     "WITHHELD_WORDS",
     "NameRef",
-    "Quoted",
+    "Written",
     "RefusedError",
     "Said",
     "Withheld",
@@ -126,12 +126,12 @@ def _text(said: Said, mint: Minter | None) -> str:
 # `eq=False`: two refusals are never compared, and `cause` is an exception,
 # which compares by identity anyway. `slots=True` is the house style for values.
 @dataclass(frozen=True, slots=True, eq=False)
-class Quoted:
+class Written:
     """A sentence digline wrote, kept in fields: its own words, the names it
     quotes, and what it quotes of another exception, if it quotes one.
 
     A site hands this to the refusal as its one argument,
-    `UsageError(Quoted.of(exc, ...))` or `ValueError(Quoted.said(...))`. So
+    `UsageError(Written.of(exc, ...))` or `ValueError(Written.said(...))`. So
     `str()` of the refusal is still the whole sentence, for the person who ran
     the command. A front end that must not ship a message renders the same
     refusal without it (ADR 0043 §2), and one that projects renders each name
@@ -148,9 +148,10 @@ class Quoted:
     digline's (§6). A sentence that quotes no exception has no `cause`, no
     `kind` and no `message`.
 
-    *The name says half of it since ADR 0054 §8*, which made a sentence that
-    quotes nothing one of these too. Renaming a public name waits for a
-    major release.
+    *Renamed at the first major release, with no alias.* ADR 0054 §8 made a
+    sentence that quotes nothing one of these too, and from then the old name
+    said half of it. The name is the verb of the first line: a sentence
+    digline wrote.
     """
 
     before: Said
@@ -170,7 +171,7 @@ class Quoted:
     named: bool = True
 
     @classmethod
-    def said(cls, *parts: str | NameRef | Withheld) -> Quoted:
+    def said(cls, *parts: str | NameRef | Withheld) -> Written:
         """A sentence of digline's that quotes no exception, its names kept
         apart from its words."""
         return cls(before=parts, kind="", message="", cause=None, named=False)
@@ -187,7 +188,7 @@ class Quoted:
         message: str | None = None,
         builtin: bool = False,
         named: bool = True,
-    ) -> Quoted:
+    ) -> Written:
         """The fields of `exc`. A `SystemExit` follows ADR 0043 §5: an `int`
         code is the code that was asked for, and anything else is a message.
 
@@ -204,8 +205,8 @@ class Quoted:
             else:
                 # `sys.exit()` asks for nothing, and quotes nothing either.
                 said = "" if code is None else repr(code)
-        elif len(exc.args) == 1 and isinstance(exc.args[0], Quoted):
-            # A refusal of digline's built from a `Quoted`: its words and its
+        elif len(exc.args) == 1 and isinstance(exc.args[0], Written):
+            # A refusal of digline's built from a `Written`: its words and its
             # names are taken as they are, so a name it quotes is still a name
             # here, and a front end that projects renders its token.
             said = exc.args[0].parts()
@@ -250,7 +251,7 @@ class Quoted:
             if isinstance(part, Withheld)
         )
 
-    def around(self, before: Said, after: Said) -> Quoted:
+    def around(self, before: Said, after: Said) -> Written:
         """The same sentence with `before` in front of it and `after` behind,
         the names in all three kept."""
         return replace(

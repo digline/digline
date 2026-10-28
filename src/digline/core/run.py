@@ -18,7 +18,7 @@ from typing import Any, cast, get_args
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
-from digline.core.refused import NameRef, Quoted, RefusedError, Said, Withheld
+from digline.core.refused import NameRef, RefusedError, Said, Withheld, Written
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
@@ -1214,7 +1214,7 @@ class CaseResult:
             raise ValueError("CaseResult.case_id must not be empty")
         if self.canary and self.calibration is not None:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.case_id),
                     " is both a canary and a calibration case: "
@@ -1225,7 +1225,7 @@ class CaseResult:
             return
         if not self.suspended:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.case_id),
                     " is suspended without a stated reason: "
@@ -1235,7 +1235,7 @@ class CaseResult:
             )
         if self.verdicts:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.case_id),
                     " is suspended but carries verdicts: "
@@ -1244,7 +1244,7 @@ class CaseResult:
             )
         if self.responses:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "case ",
                     NameRef("case_id", self.case_id),
                     " is suspended but carries recorded "
@@ -1813,7 +1813,7 @@ def _check_projected(run: Run) -> None:
         # target's identity has none: the projection refuses one.
         if not is_token(text):
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     f"Run.projected is set but {what} is ",
                     repr(text) if kind is None else NameRef(kind, text),
                     ", which is not a "
@@ -1837,7 +1837,7 @@ def _check_projected(run: Run) -> None:
         # projection refuses it whole. (ADR 0054 §8)
         if not _DIGEST.fullmatch(v.assertion_id):
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     f"Run.projected is set but the verdict {v.score.name!r} "
                     f"{where} has the identity ",
                     Withheld("identity", v.assertion_id),
@@ -1891,7 +1891,7 @@ def _check_projected(run: Run) -> None:
                 # projection mints them. (ADR 0034 §17.3)
                 named = v.origin == "builtin" or key in DRIVER_METADATA_KEYS
                 raise ValueError(
-                    Quoted.said(
+                    Written.said(
                         f"Run.projected is set but the verdict {v.assertion_id!r} "
                         f"{where} carries the string metadata ",
                         repr(key) if named else NameRef("metadata_key", key),
@@ -1945,7 +1945,7 @@ def _check_projected(run: Run) -> None:
         # Payload, which a projection drops (decision 9): kept back here as
         # it is there. (ADR 0054 §8)
         raise ValueError(
-            Quoted.said(
+            Written.said(
                 "Run.projected is set but the run carries metadata (",
                 Withheld("run_metadata", ", ".join(sorted(run.metadata)), quoted=False),
                 "): a projection keeps none",
@@ -1955,7 +1955,7 @@ def _check_projected(run: Run) -> None:
         token("artifact_path", "an artifact path", path)
         if not artifact.withheld:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "Run.projected is set but the artifact ",
                     NameRef("artifact_path", path),
                     " is not "
@@ -2018,7 +2018,7 @@ def _check_band_binds(case: CaseResult) -> None:
     if any(v.assertion_id == band.assertion_id for v in case.verdicts):
         return
     raise ValueError(
-        Quoted.said(
+        Written.said(
             "case ",
             NameRef("case_id", case.case_id),
             " carries the calibration band of ",
@@ -3326,7 +3326,7 @@ def run_from_dict(raw: object) -> Run:
         return _run_from_mapping(cast(Mapping[str, Any], raw))
     except (TypeError, AttributeError) as exc:
         raise DocumentRefusedError(
-            Quoted.of(exc, "the run document does not have the shape of a run (", ")")
+            Written.of(exc, "the run document does not have the shape of a run (", ")")
         ) from exc
     except ValueError as exc:
         # **A bare `ValueError` is a refusal nobody classified** (0.21.0
@@ -3351,10 +3351,10 @@ def run_from_dict(raw: object) -> Run:
         # (`CalibrationBand.bounds`) and a verdict's
         # (`UnidentifiedVerdictError`) reached a person without the document's
         # path and an agent without `role`: the store adds both to a
-        # `DocumentRefusedError` only. Quoted, its names are still names.
+        # `DocumentRefusedError` only. Written, its names are still names.
         if isinstance(exc, DocumentRefusedError):
             raise
-        raise DocumentRefusedError(Quoted.of(exc, "", named=False)) from exc
+        raise DocumentRefusedError(Written.of(exc, "", named=False)) from exc
 
 
 def declared_integer(
@@ -3485,10 +3485,10 @@ def declared_boolean(raw: Mapping[str, Any], field: str, where: Said) -> bool:
     return value
 
 
-def _at_where(where: Said, rest: str) -> Quoted:
+def _at_where(where: Said, rest: str) -> Written:
     """A sentence that begins with `where`, which may quote a name, as an
     artifact's path does. (ADR 0054 §8)"""
-    return Quoted.said(*((where,) if isinstance(where, str) else where), rest)
+    return Written.said(*((where,) if isinstance(where, str) else where), rest)
 
 
 def declared_version(raw: Mapping[str, Any]) -> int:
@@ -3643,6 +3643,6 @@ def run_from_json(payload: str) -> Run:
         raw = json.loads(payload)
     except json.JSONDecodeError as exc:
         raise DocumentRefusedError(
-            Quoted.of(exc, "the run document is not JSON (", ")", named=False)
+            Written.of(exc, "the run document is not JSON (", ")", named=False)
         ) from exc
     return run_from_dict(raw)

@@ -3,7 +3,7 @@
 `tests/test_quoted_wraps.py` holds that every wrap goes through the carrier,
 and `packages/digline-mcp/tests/test_boundary.py` that no member of the class
 carries a case to an agent. This holds the pieces in between: what a
-`Quoted` renders, and how its author is read.
+`Written` renders, and how its author is read.
 """
 
 from __future__ import annotations
@@ -17,9 +17,9 @@ from digline.core import (
     WITHHELD_WORDS,
     CalibrationBand,
     NameRef,
-    Quoted,
     RefusedError,
     Withheld,
+    Written,
 )
 from digline.host import UsageError, load_suite, to_withhold, written_by_digline
 from digline.host.authorship import quoted_in
@@ -50,7 +50,7 @@ def test_the_whole_sentence_is_str_and_the_withheld_one_keeps_the_rest() -> None
     try:
         raise ValueError(f"bad row {MARKER}")
     except ValueError as exc:
-        quoted = Quoted.of(
+        quoted = Written.of(
             exc,
             "x.py raised ",
             ", while loading.",
@@ -69,7 +69,7 @@ def test_the_whole_sentence_is_str_and_the_withheld_one_keeps_the_rest() -> None
 
 def test_a_refusal_built_from_one_says_the_whole_sentence() -> None:
     """`str()` of the refusal is what the command line prints, unchanged."""
-    quoted = Quoted.of(ValueError("why"), "it failed: ", named=False)
+    quoted = Written.of(ValueError("why"), "it failed: ", named=False)
     assert str(UsageError(quoted)) == "it failed: why"
     assert str(RefusedError(quoted)) == "it failed: why"
 
@@ -88,7 +88,7 @@ def test_an_int_exit_code_is_code_and_anything_else_a_message(
 ) -> None:
     """§5: `sys.exit(3)` keeps its code everywhere, and `sys.exit("…")` loses
     its text where the message is withheld."""
-    quoted = Quoted.of(SystemExit(code), "")
+    quoted = Written.of(SystemExit(code), "")
     assert str(quoted) == whole
     assert quoted.rendered(withheld="W").startswith(withheld)
 
@@ -231,7 +231,7 @@ def _mint(kind: str, text: str) -> str:
 def test_a_name_reads_as_its_repr_in_clear_and_as_its_token_minted() -> None:
     """In clear the sentence is the one `{name!r}` wrote, so the command line
     reads what it read; minted, each name is its token, quoted the same way."""
-    said = Quoted.said("case ", NameRef("case_id", "it's"), " is suspended")
+    said = Written.said("case ", NameRef("case_id", "it's"), " is suspended")
     assert str(said) == 'case "it\'s" is suspended'
     assert said.rendered(withheld=None, mint=_mint) == "case '<case_id:4>' is suspended"
     assert said.names == (NameRef("case_id", "it's"),)
@@ -246,8 +246,8 @@ def test_a_check_s_name_is_minted_as_the_projection_mints_it() -> None:
 def test_a_wrap_keeps_the_names_of_the_refusal_it_quotes() -> None:
     """`run_from_dict` wraps a validation's refusal: the names inside it are
     still names, so the reader's prefix and the token both reach the agent."""
-    inner = ValueError(Quoted.said("case ", NameRef("case_id", "x"), " is wrong"))
-    wrapped = Quoted.of(inner, "", named=False).around(
+    inner = ValueError(Written.said("case ", NameRef("case_id", "x"), " is wrong"))
+    wrapped = Written.of(inner, "", named=False).around(
         "the run could not be read: ", ""
     )
     assert wrapped.names == (NameRef("case_id", "x"),)
@@ -260,15 +260,15 @@ def test_a_wrap_keeps_the_names_of_the_refusal_it_quotes() -> None:
 
 def test_a_wrap_of_a_plain_sentence_flattens_its_names() -> None:
     """The silent fallback, held so it stays visible: a refusal that is not
-    built from a `Quoted` has no names to carry, and its text goes as it is.
+    built from a `Written` has no names to carry, and its text goes as it is.
     What catches a name in it is the names gate."""
-    wrapped = Quoted.of(ValueError("case 'x' is wrong"), "", named=False)
+    wrapped = Written.of(ValueError("case 'x' is wrong"), "", named=False)
     assert wrapped.names == ()
     assert wrapped.rendered(withheld=None, mint=_mint) == "case 'x' is wrong"
 
 
 def test_the_agent_s_sentence_is_minted_when_a_mint_is_handed_over() -> None:
-    refusal = RefusedError(Quoted.said("check ", NameRef("verdict_name", "lev")))
+    refusal = RefusedError(Written.said("check ", NameRef("verdict_name", "lev")))
     assert refusal_text(refusal, None) == "check 'lev'"
     assert refusal_text(refusal, None, mint=_mint) == "check '<verdict_name:3>'"
 
@@ -286,8 +286,8 @@ def test_a_withheld_value_reads_in_clear_and_says_what_it_withholds_minted() -> 
     """A value the projection lets through neither as a token nor in clear:
     the command line reads it, and an agent reads which kind of thing was
     kept back, one word per kind, never the value. (ADR 0054 §8)"""
-    identity = Quoted.said("the identity ", Withheld("identity", "lev"), " is wrong")
-    keys = Quoted.said(
+    identity = Written.said("the identity ", Withheld("identity", "lev"), " is wrong")
+    keys = Written.said(
         "metadata (", Withheld("run_metadata", "a, b", quoted=False), ")"
     )
     assert str(identity) == "the identity 'lev' is wrong"

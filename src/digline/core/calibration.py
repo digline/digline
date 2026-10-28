@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from digline.core.refused import NameRef, Quoted, RefusedError
+from digline.core.refused import NameRef, RefusedError, Written
 from digline.core.types import at_precision
 
 if TYPE_CHECKING:
@@ -62,7 +62,7 @@ class CalibrationBand:
             )
         if not self.assertion_id:
             raise ValueError(
-                Quoted.said(
+                Written.said(
                     "the calibration of ",
                     NameRef("calibration_check", self.check),
                     " carries no assertion_id: a "
@@ -86,7 +86,7 @@ class CalibrationBand:
         low, high = at_precision(low), at_precision(high)
         if not (0.0 < low <= high < 1.0):
             raise RefusedError(
-                Quoted.said(
+                Written.said(
                     "the calibration of ",
                     NameRef("calibration_check", check),
                     " declares the band "

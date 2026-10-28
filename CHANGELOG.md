@@ -8,10 +8,13 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`digline.core.Quoted` is now `Written`, with no alias.** A public name
+  breaks: code that imports or builds it says `Written`, `Written.of(...)` and
+  `Written.said(...)`.
 - **A refusal carries the names it quotes as names, not only as text** (ADR
-  0054 §8). `Quoted`, the sentence a refusal is built from, can now hold
+  0054 §8). `Written`, the sentence a refusal is built from, can now hold
   `NameRef`s, a name and the kind a projection mints it under, among its
-  words, and needs no exception to quote: `Quoted.said(...)` is a sentence of
+  words, and needs no exception to quote: `Written.said(...)` is a sentence of
   digline's alone. `str()` of a refusal reads as it did. A front end that
   projects hands `refusal_text` a `mint=` and gets each name as its token.
   The validations of a stored run that quote a case, a check, a group, an
@@ -20,8 +23,9 @@ notes under them are this file, verbatim.
   calibration's check or an aggregate (`run/suite.py`), and the declarative
   loader's that quote the provider or the judge a suite names. A suite's own
   name stays in clear. `split_coordinate` takes an optional `kind=`. New
-  in `digline.core`: `NameRef` and `Said`. **The next version is a minor**:
-  public names are added and `Quoted`'s fields widen.
+  in `digline.core`: `NameRef` and `Said`. **The next version is a major**:
+  a public name is renamed with no alias (above), public names are added, and
+  `Written`'s fields widen.
 - **A band or a verdict refused in a stored run now names the file** (ADR 0054
   §8). `CalibrationBand`'s refusal of its band and `UnidentifiedVerdictError`
   passed through the reader unchanged, so the command line said what was wrong
@@ -32,7 +36,7 @@ notes under them are this file, verbatim.
   read finds it as the `__cause__`.
 - **A refusal keeps back what a projected document keeps back, and says what
   it kept** (ADR 0054 §8). A value the projection lets through neither as a
-  token nor in clear is quoted in a `Quoted` as a `Withheld` of its kind: in
+  token nor in clear is quoted in a `Written` as a `Withheld` of its kind: in
   clear it reads as it did, and a front end that projects reads the word
   `WITHHELD_WORDS` gives that kind instead, never the value. Two kinds: a
   run's own metadata, which a projection drops as payload, and an identity

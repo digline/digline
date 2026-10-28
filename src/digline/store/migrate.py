@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from digline.core.refused import Quoted
+from digline.core.refused import Written
 from digline.core.run import (
     SCHEMA_VERSION,
     DocumentRefusedError,
@@ -507,7 +507,7 @@ def migrate_file(path: Path, *, dry_run: bool = False) -> int | None:
         upgraded = upgrade_document(raw)
     except (TypeError, AttributeError) as exc:
         raise DocumentRefusedError(
-            Quoted.of(exc, "the document does not have the shape of a run (", ")")
+            Written.of(exc, "the document does not have the shape of a run (", ")")
         ) from exc
     # Parsed with the current reader *before* anything is written. If the
     # upgrade produced something this version cannot read, the file on disk is
