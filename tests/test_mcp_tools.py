@@ -63,18 +63,30 @@ def test_every_tool_the_server_registers_answers(operator: Path) -> None:
     answered = [
         line.split()[1] for line in done.stdout.splitlines() if line.startswith("ok ")
     ]
-    assert sorted(answered) == sorted(
-        [
-            "compare",
-            "diff",
-            "explain",
-            "get_baseline",
-            "get_run",
-            "list_runs",
-            "log",
-            "run",
-        ]
-    ), done.stdout
+    assert sorted(answered) == declared(), done.stdout
+
+
+def declared() -> list[str]:
+    """The tools the client holds the server to, as it reads them."""
+    shown = subprocess.run(
+        [sys.executable, str(CLIENT), "--root", str(EXAMPLE), "--show-declared"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert shown.returncode == 0, shown.stderr
+    return sorted(json.loads(shown.stdout))
+
+
+def test_the_declared_tools_are_the_table_docs_mcp_md_shows() -> None:
+    """Read from the page that says what the server offers, the one place the
+    set is written down, so the client and the page cannot drift apart."""
+    page = (ROOT / "docs" / "mcp.md").read_text(encoding="utf-8")
+    section = page.split("\n## The ", 1)[1].split("\n## ", 1)[0]
+    rows = [line for line in section.splitlines() if line.startswith("| `")]
+    named = sorted(line.split("`")[1] for line in rows)
+    assert len(named) == 8, named
+    assert declared() == named
 
 
 def test_the_server_is_started_as_the_example_s_mcp_json_starts_it() -> None:

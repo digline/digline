@@ -16,7 +16,8 @@ must.
     python .github/mcp_tools.py --root examples/operator
     python .github/mcp_tools.py --root DIR -- python -m digline_mcp --root DIR ...
 
-Exit 0 when every tool answered, 1 otherwise, each tool on a line of its own.
+Exit 0 when every tool `docs/mcp.md` lists is registered and answered and no
+other tool is registered; 1 otherwise, each tool on a line of its own.
 `tests/test_mcp_tools.py` holds it against this tree's server.
 """
 
@@ -38,6 +39,11 @@ from mcp.types import CallToolResult, TextContent
 #: The suite every call names, which is the example's.
 SUITE = "suite.py"
 
+#: The page that says which tools the server offers. **The one place the set
+#: is written down**: the client reads it from the page's table rather than
+#: keeping a list of its own, so the two cannot drift apart.
+PAGE = Path(__file__).resolve().parents[1] / "docs" / "mcp.md"
+
 #: How long the whole session may take. A server that never answers is a red,
 #: not a hung job.
 TIMEOUT = 300.0
@@ -50,6 +56,20 @@ def declared_server(root: Path) -> list[str]:
     if len(servers) != 1:
         raise SystemExit(f"{root}/.mcp.json names {len(servers)} servers, not one")
     return [servers[0]["command"], *servers[0]["args"]]
+
+
+def declared_tools(page: Path = PAGE) -> list[str]:
+    """The tools `docs/mcp.md` lists: the first column of the table under its
+    `## The … tools` heading."""
+    text = page.read_text(encoding="utf-8")
+    heading = re.search(r"^## The \w+ tools$", text, re.M)
+    if heading is None:
+        raise SystemExit(f"{page} has no `## The … tools` section to read")
+    section = text[heading.end() :].split("\n## ", 1)[0]
+    named = re.findall(r"^\| `([a-z_]+)` \|", section, re.M)
+    if not named:
+        raise SystemExit(f"{page}'s tools section lists no tool")
+    return named
 
 
 def _text(result: CallToolResult) -> str:
@@ -66,9 +86,11 @@ def _answered(result: CallToolResult) -> str | None:
 
 
 async def drive(
-    server: Sequence[str], root: Path, log: Any
+    server: Sequence[str], root: Path, log: Any, declared: Sequence[str]
 ) -> list[tuple[str, str | None]]:
-    """Each registered tool, called once, with what was wrong, if anything."""
+    """Each declared tool, called once, with what was wrong, if anything; and
+    a line for each tool registered and not declared, or declared and not
+    registered."""
     params = StdioServerParameters(command=server[0], args=list(server[1:]), cwd=root)
     said: list[tuple[str, str | None]] = []
     async with (
@@ -77,6 +99,16 @@ async def drive(
     ):
         await session.initialize()
         registered = sorted(tool.name for tool in (await session.list_tools()).tools)
+        # The set is the declared one, not the one found: a tool the page does
+        # not list fails until the page lists it, and a tool it lists that the
+        # server lacks fails by its name.
+        for name in sorted(set(registered) - set(declared)):
+            said.append((name, "registered, and docs/mcp.md does not list it"))
+        for name in sorted(set(declared) - set(registered)):
+            said.append(
+                (name, "listed in docs/mcp.md, and the server does not register it")
+            )
+        registered = sorted(set(registered) & set(declared))
 
         async def call(name: str, arguments: dict[str, Any]) -> CallToolResult:
             return await session.call_tool(name, arguments)
@@ -130,15 +162,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="print the command .mcp.json starts its server with, and stop",
     )
+    parser.add_argument(
+        "--show-declared",
+        action="store_true",
+        help="print the tools docs/mcp.md lists, and stop",
+    )
     parser.add_argument("server", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)
+    declared = declared_tools()
+    if args.show_declared:
+        print(json.dumps(declared))
+        return 0
     server = [a for a in args.server if a != "--"] or declared_server(args.root)
     if args.show_server:
         print(json.dumps(server))
         return 0
     with tempfile.TemporaryFile("w+", encoding="utf-8") as log:
         try:
-            said = asyncio.run(asyncio.wait_for(drive(server, args.root, log), TIMEOUT))
+            said = asyncio.run(
+                asyncio.wait_for(drive(server, args.root, log, declared), TIMEOUT)
+            )
         except Exception as exc:  # noqa: BLE001 - no session at all is the finding
             log.seek(0)
             sys.stderr.write(log.read())
