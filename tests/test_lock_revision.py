@@ -18,12 +18,24 @@ Observed, each one a rewrite by a different `uv`:
 - 2026-10-28, `uvx --from uv uv` moved the root from 3 to 5 while it was
   relocked for pytest-digline 0.5.0, caught before the commit.
 
-The locks do not agree, so there is no common value to hold: each lock has its
-own row, with the reason it reads what it reads. A lock with no row is red, so a
-new one is declared and not assumed. Changing a number here is a decision,
-taken in the pull request that changes the lock. RELEASING.md says so where
-the locks are regenerated: step 5 of *Before the tag: moving the number*, and
-*Before the tag: the home capture*.
+**The table records a state, not a decision.** The root at 3 and the seven
+examples at 5 is nobody's choice: it is which `uv` ran last on each. Nothing
+here says the mix is wanted. A lock with no row is red, so a new one is
+recorded and not assumed. RELEASING.md names this test where the locks are
+regenerated: step 5 of *Before the tag: moving the number*, and *Before the
+tag: the home capture*.
+
+**Normalising every lock to one `revision` is owed, and not done here.** A
+`uv` rewrites a lock only when something in it changes (measured 2026-10-28:
+`uv` 0.13.6 on an unchanged root lock wrote nothing), and the format moves with
+that rewrite. So a normalisation made before the tool is fixed lasts until the
+next relock by another `uv`. It goes with the pin, after the release chain of
+0.35.0.
+
+**The cause is that nothing fixes the tool**, as above: no `required-version`,
+and `setup-uv` pinned by commit with no `version`, so CI takes the newest `uv`.
+Fixing it is the repair. **This test is the alarm, not the repair**: it says
+which lock moved, and the pin, made after the chain, is what stops it moving.
 """
 
 from __future__ import annotations
