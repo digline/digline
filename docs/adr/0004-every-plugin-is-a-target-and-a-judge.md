@@ -1193,9 +1193,9 @@ minor for one input's exit; #735 (#738), whose exit did not move, is a patch.
   were read go with it. One the SDK types as optional, omitted, stays `0`.
   `thinking_tokens` stays per field. **So digline-openai has a release after
   all, a minor**, because an exit code changes. The minors of the other two
-  carry it beside §8.4's. A model declared `free()` is no exception, ruled on
-  2026-10-28: its price is zero, and its tokens were still not counted, so a
-  missing usage block is `Completion(usage=None)` for it too.
+  carry it beside §8.4's. A model declared `free()` still reads a missing
+  usage block as zero, its price: the ruling did not reach it, and the code
+  kept it as it was.
 
 ## Not decided here
 

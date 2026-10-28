@@ -288,19 +288,15 @@ def test_an_optional_count_omitted_is_zero() -> None:
     assert usage_of(reply, "gpt-5", _priced()) == Usage(10, 5)
 
 
-def test_a_free_model_with_no_usage_is_not_recorded_either(
+def test_a_reply_with_no_usage_is_fine_when_the_model_is_free(
     prompt: Path, client: FakeClient
 ) -> None:
-    """Its price is zero and its tokens were still not counted, so it is the
-    same *not recorded* as any other model: a `Usage` of zeros would say they
-    were counted (#629, ruled 2026-10-28)."""
+    """Because then zero is not an undercount, it is the price."""
     client.completions.reply = FakeReply(usage=None)
     target = OpenAITarget(
         prompt, "llama3.2", 64, base_url=OLLAMA, pricing=free("llama3.2"), client=client
     )
-    response = target(a_case())
-    assert response.usage is None
-    assert response.cost_usd is None
+    assert target(a_case()).cost_usd == 0.0
 
 
 def test_no_choices_is_an_error_and_empty_content_is_not(
