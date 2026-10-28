@@ -1183,6 +1183,20 @@ minor for one input's exit; #735 (#738), whose exit did not move, is a patch.
   usage, *"the provider returned no usage"*, is the second row of 8.1 and
   not this. What moves for its users moves in the core.
 
+  *Added 2026-10-28, by the ruling of 2026-10-27 on #629's half in the
+  plugins; the bullet above is kept as written.* That second row now reaches
+  the plugins. A reply with no usage block, refused by digline-openai and
+  digline-bedrock unless the model is declared `free()`, and an
+  `AttributeError` in digline-anthropic, is handed over as
+  `Completion(usage=None)`, and its case is judged. A count the SDK types as
+  required and the reply lacks is the same row, never `0`, and the counts that
+  were read go with it. One the SDK types as optional, omitted, stays `0`.
+  `thinking_tokens` stays per field. **So digline-openai has a release after
+  all, a minor**, because an exit code changes. The minors of the other two
+  carry it beside §8.4's. A model declared `free()` still reads a missing
+  usage block as zero, its price: the ruling did not reach it, and the code
+  kept it as it was.
+
 ## Not decided here
 
 **The arguments a tool was called with.** Left out above, and left out on the

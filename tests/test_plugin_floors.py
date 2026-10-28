@@ -428,6 +428,7 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.store.protocol", "ResultStore", "write_run"): "0.1.0",
     ("digline.targets.completion", "Completion", "text"): "0.8.0",
     ("digline.targets.completion", "Completion", "unpriced"): "0.35.0",
+    ("digline.targets.completion", "Completion", "usage"): "0.8.0",
     ("digline.targets.completion", "ToolCall", "tool"): "0.13.0",
     ("digline.targets.judge", "JudgeBase", "config"): "0.2.0",
     ("digline.targets.judge", "JudgeBase", "prefill"): "0.6.0",

@@ -1046,8 +1046,21 @@ each package.
   next reading of the price list, which `_WhereServed.why_unpriced` takes
   where the list itself cannot price the reply. **The next version is a
   minor**: an exit code changed. **It needs the core release that carries
-  `Completion.unpriced`**, and its floor rises to it (RELEASING.md, *Owed at
-  the cut*).
+  `Completion.unpriced`**, 0.35.0, which is its floor.
+- **A count the reply does not carry is *not recorded*, never `0`** (#629,
+  ADR 0004 §8.9). `input_tokens` and `output_tokens` are required in the SDK's
+  `Usage`, and one missing was read as `0`, which priced the call at nothing.
+  The call now hands over `Completion(usage=None)`: it is on the bill line,
+  its tokens and its cost are not, and `every_cost_known` reads `false`. The
+  counts that were read go with it, because the core cannot hold one count
+  apart. A reply with no `usage` at all raised `AttributeError`, and its case
+  errored over a call that answered; it is now judged the same way. The cache
+  counts, optional in the SDK, stay `0` where a reply omits them, and
+  `thinking_tokens` stays `None` for *not reported*. `usage_of` answers
+  `Usage | None`. An exit code changed, which the minor above already is.
+- **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)`, the
+  override of `Pricing.why_unpriced` and `Completion(usage=None)` are all new
+  in 0.35.0. It was `>=0.17.0`.
 
 - **`temperature` is refused, by name and with the reason.** `AnthropicTarget`,
   `AnthropicJudge` and `AnthropicClaimJudge` took it and sent it. The
@@ -1082,8 +1095,23 @@ each package.
   sentence quotes the model and is scrubbed like the refusal was: an
   application inference profile is an ARN carrying the account. `unpriced_of`
   is new. **The next version is a minor**: an exit code changed. **It needs
-  the core release that carries `Completion.unpriced`**, and its floor rises
-  to it (RELEASING.md, *Owed at the cut*).
+  the core release that carries `Completion.unpriced`**, 0.35.0, which is its
+  floor.
+- **A reply with no usage block is judged, and a count it does not carry is
+  *not recorded*, never `0`** (#629, ADR 0004 §8.9). The reply was refused
+  unless the model was declared `free()`, and its case errored over a call
+  that answered. It now hands over `Completion(usage=None)`: the call is on
+  the bill line, its tokens and its cost are not, and `every_cost_known` reads
+  `false`. `inputTokens` and `outputTokens` are required in `TokenUsage`, and
+  one missing was read as `0`; it is now the same *not recorded*, and the
+  counts that were read go with it. The optional cache members stay `0` where
+  the reply omits them. A model declared `free()` still reads a missing usage
+  block as zero: it is billed by the hour, so the zero is its price.
+  `usage_of` answers `Usage | None`. An exit code changed, which the minor
+  above already is. The refusals of a reply are still scrubbed, though none
+  quotes the model any more.
+- **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)` and
+  `Completion(usage=None)` are both new in 0.35.0. It was `>=0.15.0`.
 
 - **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It
   told a user to set `AWS_REGION`, which botocore does not read for the region:
@@ -1093,6 +1121,23 @@ each package.
   this plugin admits, and at 1.43.114. The sentence is still a `ValueError`
   raised when the target or the judge is built, and still names `region=` and
   `client=`; only the variable changed. Needs no core release.
+
+## digline-openai — unreleased
+
+- **A reply with no `usage` is judged, and a count it does not carry is *not
+  recorded*, never `0`** (#629, ADR 0004 §8.9). The reply was refused unless
+  the model was declared `free()`, and its case errored over a call that
+  answered. It now hands over `Completion(usage=None)`: the call is on the
+  bill line, its tokens and its cost are not, and `every_cost_known` reads
+  `false`. `prompt_tokens` and `completion_tokens` are required in the SDK's
+  `CompletionUsage`, and one missing was read as `0`; it is now the same *not
+  recorded*, and the counts that were read go with it. `prompt_tokens_details`
+  is optional, and its counts stay `0` where a reply omits it. A model declared
+  `free()` still reads a missing `usage` as zero, which is its price.
+  `usage_of` answers `Usage | None`. **The next version is a minor**: an exit
+  code changed.
+- **The dependency is `digline>=0.35.0`**, where `Completion(usage=None)` is
+  new. It was `>=0.17.0`.
 
 ## 0.33.0 — 2026-10-21
 

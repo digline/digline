@@ -67,15 +67,16 @@ def test_append_is_found_nowhere(
     assert [key for key in found if key[2] == "append"] == []
 
 
-def test_the_unresolved_receivers_are_six_replies_of_the_sdk(
+def test_the_unresolved_receivers_are_five_replies_of_the_sdk(
     scanned: Scanned,
 ) -> None:
-    """Six, each a reply of the Anthropic SDK, which pyright types `Any`. A
+    """Five, each a reply of the Anthropic SDK, which pyright types `Any`. A
     seventh was `pytest_digline/plugin.py`'s `loaded`, annotated `Any` where
     digline's `Loaded` is the type: annotated, its `modules_unchecked` is
-    counted."""
+    counted. A sixth was `usage_of`'s `reply.usage`, read through `getattr`
+    since #629, because a reply may carry no `usage` and that is now judged."""
     found, unresolved, _ = scanned
-    assert len(unresolved) == 6, "\n".join(unresolved)
+    assert len(unresolved) == 5, "\n".join(unresolved)
     assert all(
         line.startswith("packages/digline-anthropic/src/digline_anthropic/client.py:")
         for line in unresolved
@@ -89,7 +90,7 @@ def test_every_entry_the_scan_finds_is_dated_unreleased_or_undated(
     """Each `(module, class, attribute)` a plugin reads on something digline
     gives it has a date in `CALLED`, is declared in `UNRELEASED` as on `main`
     and in no tag yet, or has a reason in `UNDATED`: a level-2 public name the
-    delta-pass cannot place is a name it cannot tell new from old. The six
+    delta-pass cannot place is a name it cannot tell new from old. The five
     unresolved receivers are not entries: they are replies of an SDK, not
     names of digline's. (#702)"""
     _, _, defined = scanned
