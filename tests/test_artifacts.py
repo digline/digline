@@ -394,9 +394,20 @@ def test_a_run_without_artifacts_is_unchanged_but_for_the_empty_map() -> None:
     assert document["artifacts"] == {}
 
 
-def test_a_schema_six_file_is_migrated_by_declaring_none(project: Path) -> None:
-    """Additive, and nothing is reconstructed: the prompt of a run from last
-    month is not recoverable and must not be invented."""
+def test_a_schema_six_file_is_migrated_to_an_empty_artifact_map(project: Path) -> None:
+    """The step writes `artifacts: {}`, and nothing is reconstructed: the
+    prompt of such a run is not recoverable and must not be invented.
+
+    **What `{}` states here is not true of that run**, which had a prompt that
+    nothing recorded. ADR 0056 §2 names `_add_artifacts` as one of its two
+    declared violations, and as the one nobody can meet. This test holds what
+    the step does; it does not say the step is right.
+
+    **The fixture is built, not a schema 6 document.** It is a document this
+    tree writes, with `artifacts` removed and the version set to 6, so it still
+    carries `digline_version` and every field of the schemas after 6. A real
+    one cannot be had: no release ever wrote schema 6. digline 0.1.0, the first
+    on PyPI, already writes 7, and only code older than any release wrote 6."""
     key = run_once(project)
     path = project / ".digline" / "acme-bank" / "runs" / "qa" / f"{key}.json"
     document = json.loads(path.read_text(encoding="utf-8"))
