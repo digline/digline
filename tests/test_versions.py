@@ -1040,8 +1040,10 @@ RECORDED: dict[str, dict[str, str]] = {
     "docker/Dockerfile": {
         "0.5.2": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.6.1": "digline-anthropic's and digline-bedrock's version, each "
-        "pinned to its own pyproject by tests/test_docker.py",
+        "0.6.1": "digline-bedrock's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
+        "0.7.0": "digline-anthropic's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
         "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
         "not a digline version",
         "26.2.2": "the pip the image upgrades to, held to an exact version by "

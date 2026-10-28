@@ -396,7 +396,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline-anthropic | #569: a reply in an `inference_geo` with no rate, or with a write to the 1-hour cache, is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict. And #629: a reply with no `usage`, which raised `AttributeError`, is judged with its counts not recorded | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced` and `Completion(usage=None)`: its floor is `0.35.0`, raised with the plugin's half of #629 |
 | digline-bedrock | #569: a reply with a cache write at a TTL other than `5m` is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict. And #629: a reply with no usage block, refused unless the model is `free()`, is judged with its counts not recorded | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced` and `Completion(usage=None)`: its floor is `0.35.0`, raised with the plugin's half of #629 |
 | digline-openai | #629: a reply with no `usage`, refused unless the model is `free()`, is judged with its counts not recorded, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). Its floor is `0.35.0`, raised with the code that needs it |
 
