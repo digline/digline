@@ -1107,7 +1107,12 @@ refused.
   `AnthropicJudge` and `AnthropicClaimJudge`, and that a TOML suite's judge by
   coordinates cannot be given another value, so it moves into a `suite.py`.
 
-## digline-bedrock — unreleased
+## digline-bedrock 0.7.0 — 2026-10-28
+
+Published by its own tag, `digline-bedrock-v0.7.0`, after digline 0.35.0 was
+on PyPI. **A minor, because an exit code changed**: a cache write at a TTL
+this plugin cannot price (#569) and a reply with no usage block (#629) used
+to error their case, and are now judged.
 
 - **A cache write at a TTL this list cannot price is counted, not refused**
   (#569, ADR 0004 §8). A reply whose `cacheDetails` reports a 1-hour write, or
@@ -1134,7 +1139,6 @@ refused.
   quotes the model any more.
 - **The dependency is `digline>=0.35.0`.** `Completion(unpriced=...)` and
   `Completion(usage=None)` are both new in 0.35.0. It was `>=0.15.0`.
-
 - **The sentence for a missing region names `AWS_DEFAULT_REGION`** (#688). It
   told a user to set `AWS_REGION`, which botocore does not read for the region:
   set on its own it gives none, and the same sentence came back. With no

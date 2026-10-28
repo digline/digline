@@ -396,7 +396,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline-bedrock | #569: a reply with a cache write at a TTL other than `5m` is judged where its case or its judged check errored, so a run of them that exited `2` exits by its verdict. And #629: a reply with no usage block, refused unless the model is `free()`, is judged with its counts not recorded | a minor: an exit code changed (*Choosing the version*). It needs the core release that carries `Completion.unpriced` and `Completion(usage=None)`: its floor is `0.35.0`, raised with the plugin's half of #629 |
 | digline-openai | #629: a reply with no `usage`, refused unless the model is `free()`, is judged with its counts not recorded, so a run of them that exited `2` exits by its verdict | a minor: an exit code changed (*Choosing the version*). Its floor is `0.35.0`, raised with the code that needs it |
 
 Empty is the normal state here too. A row left after its package's release is a
@@ -1403,6 +1402,13 @@ should cut and the shape a re-tag of an already-released version takes.
 This is the same move as the counts at the `[GATE]`: a number read out loud
 rather than a memory trusted. `tests/test_tag_names.py` covers it offline, with
 `v0.17.0`'s real message as the control that must fail.
+
+**Its answer depends on what PyPI serves, so read it after the previous
+package is served.** A reading taken while the release before it is still
+unpublished counts that release too. *Observed 2026-10-28:* run for
+digline-bedrock 0.7.0 while digline-anthropic 0.7.0 was not yet on the index,
+it said *"this run will publish 2 package(s)"* and named both. Read again once
+PyPI served anthropic, it named bedrock alone.
 
 ### Not built: a package whose text moved under a version the index serves
 
