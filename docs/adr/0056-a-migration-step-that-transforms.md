@@ -111,44 +111,54 @@ and the file is left as it was (*Context*). And it agrees with ADR 0014 §1's
 second condition, *a field whose honest migrated value is a guess does not
 ride*.
 
-**Where a default is a declaration, and where it is a silence.** *Ruled* by
-Alessandro Prandini on 2026-10-28, after this record was first proposed; the
-reason above was wider than `_STEPS`, and this is its boundary:
+**When a default is a declaration.** *Ruled* by Alessandro Prandini on
+2026-10-28, after this record was first proposed. The reason above was wider
+than `_STEPS`, and this is the question that bounds it:
 
-- **A default is admitted when the old version makes that value true by
-  construction.** Nothing was suspended because nothing could be; no artifact
-  was recorded because artifacts did not exist. It is not an invented value: it
-  is the only value that document could have had. It is the reason `free()`
-  reads a missing usage block as zero (ADR 0004 §8.9, ruled 2026-10-28): a
-  declaration is a value.
-- **A default is forbidden when it stands in for something nobody measured.**
-  There the absence is a silence, and writing a value turns it into data.
-- **For a new case, the criterion is one question: could the old version have
-  produced another value?** If it could, the step refuses. If it could not, the
-  default is a declaration.
+> **What the value states: was it true of that run?** If it was, the default
+> is a declaration. If it was not, the default is forbidden, and the step
+> refuses, naming what is missing.
 
-**The five steps that write a fixed value are the precedent, and the clause
-does not contradict them**, because each falls on the declarative side of that
-question:
+**Why the question is put on the fact.** An earlier form of this clause asked
+*could the old version have produced another value?* That question reads the
+schema, and at a change of schema its answer is always no: the field did not
+exist, so the old version could have produced nothing else. A question whose
+answer is fixed in advance is not a check. Put on the fact, the question can
+answer no.
 
-| step | writes | could the old version have produced another value? |
+**Why a false default is forbidden and not merely tolerated.** A default is
+not read alone. It is compared with a value recorded by a later run, and a
+false one produces a difference that nobody measured: a change reported where
+none was established.
+
+**The five steps that write a fixed value, read against the question.** Three
+pass, and two are violations, declared.
+
+| step | writes | was it true of that run? |
 |---|---|---|
-| `4 -> 5`, `_add_suspended` | `suspended: false` | no: no case could be set aside before the field existed |
-| `5 -> 6`, `_add_aggregate` | `aggregate: []` | no: a run written before aggregates existed declared none |
-| `6 -> 7`, `_add_artifacts` | `artifacts: {}` | no: artifacts did not exist |
-| `7 -> 8`, `_add_configs` | `target_config: {}`, `judge_config: {}` | no: the version recorded no configuration |
-| `17 -> 18`, `_add_schema_eighteen` | `projected: false` | no: nothing before 18 could write a projection |
+| `4 -> 5`, `_add_suspended` | `suspended: false` | **yes.** No case could be set aside before suspension existed, so none was |
+| `5 -> 6`, `_add_aggregate` | `aggregate: []` | **yes.** A run written before aggregates existed declared none |
+| `17 -> 18`, `_add_schema_eighteen` | `projected: false` | **yes.** Nothing before schema 18 could write a projection, so the document is not one |
 
-`7 -> 8` is the one that sits nearest the line, and it holds for a reason of
-its own. The target did have a configuration, and nobody measured it, so a `{}`
-read as *an empty configuration* would be the silence the second bullet
-forbids. It is not read that way: `_add_configs` says, and the comparison does,
-that `{}` from that version is *nothing is known*, so every field compares as
-`unknown` and never as a change. The default declares that nothing was
-recorded. It does not state what the configuration was.
+**The declared violations: exactly two, and the count is fixed.** Both are
+released, and the question forbids both. They are named here rather than left
+among the steps that pass:
 
-These are passengers, not transformations, and this clause does not amend
-them.
+| step | writes | what it states, and why that was not true | where the difference is produced |
+|---|---|---|---|
+| `6 -> 7`, `_add_artifacts` | `artifacts: {}` | *no file under test.* The run had a prompt; nothing recorded it | the artifact deltas of `compare` (`artifact_deltas` in `src/digline/core/compare.py`) give `new` for every file a later run declares, so `artifacts_changed` is true and the report says a file under test changed since the reference; the same `{}` excludes a run from the spread of `digline log` as *testing another prompt* (`_why_not` in `src/digline/report/log.py`) |
+| `7 -> 8`, `_add_configs` | `target_config: {}`, `judge_config: {}` | *the target declared nothing.* It had a configuration; nothing recorded it | `compare`, `diff` and the register read it as not recorded, by `config_deltas`' second rule. `digline log` does not: `_why_not` excludes the run from the spread as *asking another system*, and `sighting` reports *declared no configuration* and sends it on the wire as an absence (both in `src/digline/report/log.py`) |
+
+Measured on 2026-10-28: a store written by digline 0.20.0 and migrated to
+schema 22, with its baseline's `artifacts` set to the `{}` that
+`_add_artifacts` leaves and the suite declaring one file, compared with a new
+run: *"1 file under test changed since the reference."*, and `compare --json`
+gives `artifacts_changed: true`. The readers, line by line, are recorded in
+full in the maintainer's notes, in the record of an empty container read two
+ways.
+
+A step added later that the question forbids is refused. It does not join this
+list. This clause does not change the two steps: it names them.
 
 ### 3. Totality
 
