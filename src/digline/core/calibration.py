@@ -18,7 +18,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from digline.core.refused import RefusedError
+from digline.core.refused import NameRef, Quoted, RefusedError
 from digline.core.types import at_precision
 
 if TYPE_CHECKING:
@@ -62,9 +62,13 @@ class CalibrationBand:
             )
         if not self.assertion_id:
             raise ValueError(
-                f"the calibration of {self.check!r} carries no assertion_id: a "
-                "band binds to its verdict by identity, and one with none "
-                "binds to nothing"
+                Quoted.said(
+                    "the calibration of ",
+                    NameRef("calibration_check", self.check),
+                    " carries no assertion_id: a "
+                    "band binds to its verdict by identity, and one with none "
+                    "binds to nothing",
+                )
             )
         low, high = self.bounds(self.check, self.low, self.high)
         object.__setattr__(self, "low", low)
@@ -82,11 +86,15 @@ class CalibrationBand:
         low, high = at_precision(low), at_precision(high)
         if not (0.0 < low <= high < 1.0):
             raise RefusedError(
-                f"the calibration of {check!r} declares the band "
-                f"{low:.6f}–{high:.6f}. Both ends must lie strictly between 0 "
-                "and 1, with low no greater than high: a band that contains an "
-                "extreme counts a judge that has collapsed onto that extreme as "
-                "in band, so it cannot detect the one thing it exists for"
+                Quoted.said(
+                    "the calibration of ",
+                    NameRef("calibration_check", check),
+                    " declares the band "
+                    f"{low:.6f}–{high:.6f}. Both ends must lie strictly between 0 "
+                    "and 1, with low no greater than high: a band that contains an "
+                    "extreme counts a judge that has collapsed onto that extreme as "
+                    "in band, so it cannot detect the one thing it exists for",
+                )
             )
         return low, high
 

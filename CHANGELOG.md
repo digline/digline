@@ -6,6 +6,39 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A refusal carries the names it quotes as names, not only as text** (ADR
+  0054 §8). `Quoted`, the sentence a refusal is built from, can now hold
+  `NameRef`s, a name and the kind a projection mints it under, among its
+  words, and needs no exception to quote: `Quoted.said(...)` is a sentence of
+  digline's alone. `str()` of a refusal reads as it did. A front end that
+  projects hands `refusal_text` a `mint=` and gets each name as its token.
+  The validations of a stored run that quote a case, a check, a group, an
+  artifact path or a foreign verdict's metadata key now raise this way. New
+  in `digline.core`: `NameRef` and `Said`. **The next version is a minor**:
+  public names are added and `Quoted`'s fields widen.
+- **A band or a verdict refused in a stored run now names the file** (ADR 0054
+  §8). `CalibrationBand`'s refusal of its band and `UnidentifiedVerdictError`
+  passed through the reader unchanged, so the command line said what was wrong
+  without the path of the run or the baseline, and an agent got no `role`.
+  Both are now refused as the document's, `DocumentRefusedError`, with
+  "the run at … could not be read" before them, as every other fault of a
+  stored document is. A caller that caught `UnidentifiedVerdictError` from a
+  read finds it as the `__cause__`.
+- **A refusal keeps back what a projected document keeps back, and says what
+  it kept** (ADR 0054 §8). A value the projection lets through neither as a
+  token nor in clear is quoted in a `Quoted` as a `Withheld` of its kind: in
+  clear it reads as it did, and a front end that projects reads the word
+  `WITHHELD_WORDS` gives that kind instead, never the value. Two kinds: a
+  run's own metadata, which a projection drops as payload, and an identity
+  that is not a digest, which makes the projection refuse the document. That
+  refusal now names the check, as a token once projected, and keeps the
+  identity back: "the verdict 'levenshtein' … has the identity 'x', which is
+  not a digest", where it said "the verdict 'x' … has an identity that is not
+  a digest". New in `digline.core`: `Withheld`, `WithheldKind` and
+  `WITHHELD_WORDS`.
+
 ## 0.35.0 — 2026-10-27
 
 digline **0.35.0**.
@@ -850,6 +883,15 @@ digline **0.34.0**.
   is *The walkthrough for `digline view --allow-promote` (ADR 0033 §8)*, in
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
+
+## digline-mcp — unreleased
+
+- **Under `--names project` a refusal names its tokens, not its names** (ADR
+  0054 §8). A refusal digline composes from the names it quotes reaches the
+  agent with each one minted by the name table, as an answer names it. Where
+  the table answers a name wrongly while a refusal is rendered, the agent gets
+  the projection's own refusal, which names nothing. **Owed at the cut**: the
+  floor on digline rises to the core release that carries it.
 
 ## digline-mcp 0.7.0 — 2026-10-27
 

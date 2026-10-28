@@ -69,6 +69,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 import digline
 from digline.core import (
+    Minter,
+    ProjectionRefusedError,
     json_visible,
 )
 from digline.host import REFUSALS, refused_exit, to_withhold
@@ -124,13 +126,17 @@ _PACKAGE_ROOTS = (
 # instead of the older module-level `ParamSpec`/`TypeVar` pair. `**P` is the
 # parameter *list* of the wrapped function, so the decorator keeps each tool's
 # real signature — which is what the SDK reads to build the input schema.
-def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
+def translated[**P, R](
+    fn: Callable[P, R], *, minter: Callable[[], Minter | None] | None = None
+) -> Callable[P, R]:
     """Re-raise digline's own refusals as `ToolError`, rendered for the agent
     and neutralised.
 
     *Neutralised*, where this said *intact* — and the two differ only in the
     two ranges `json_visible` names, DEL and C1. *Rendered*: whole, except for
-    the message of an exception digline did not write (ADR 0043 §3).
+    the message of an exception digline did not write (ADR 0043 §3). With a
+    `minter` that hands one, each name the refusal quotes is its token, as an
+    answer under `project` names it (ADR 0054 §8).
     """
 
     @wraps(fn)
@@ -138,7 +144,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
         try:
             return fn(*args, **kwargs)
         except (*TRANSLATED, OSError) as exc:
-            raise ToolError(json_visible(_for_the_agent(exc))) from exc
+            raise ToolError(json_visible(_for_the_agent(exc, minter))) from exc
         # This server's own refusals (`refuse`), already in the one shape that
         # reaches an agent: through as they are, and before the catch-all.
         except ToolError:
@@ -151,7 +157,7 @@ def translated[**P, R](fn: Callable[P, R]) -> Callable[P, R]:
             refused = refused_exit(exc, front_end=_HERE)
             if refused is None:
                 raise
-            raise ToolError(json_visible(_for_the_agent(refused))) from exc
+            raise ToolError(json_visible(_for_the_agent(refused, minter))) from exc
         # Anything else is a failure nobody anticipated (ADR 0041 §4 rule 2):
         # said as one, in this server's words, with the traceback in the log
         # and never the message in the answer. (#507)
@@ -190,8 +196,16 @@ def unanticipated(exc: BaseException) -> str:
     )
 
 
-def _for_the_agent(refusal: BaseException) -> str:
-    return refusal_text(refusal, to_withhold(refusal, front_end=_HERE))
+def _for_the_agent(
+    refusal: BaseException, minter: Callable[[], Minter | None] | None = None
+) -> str:
+    mint = None if minter is None else minter()
+    try:
+        return refusal_text(refusal, to_withhold(refusal, front_end=_HERE), mint=mint)
+    # The table answered a name with something that is not a token. Its own
+    # refusal names nothing, so it is what the agent reads. (ADR 0054 §7)
+    except ProjectionRefusedError as fault:
+        return refusal_text(fault, None)
 
 
 def refuse(message: str) -> NoReturn:

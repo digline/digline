@@ -13,8 +13,16 @@ from pathlib import Path
 
 import pytest
 
-from digline.core import Quoted, RefusedError
+from digline.core import (
+    WITHHELD_WORDS,
+    CalibrationBand,
+    NameRef,
+    Quoted,
+    RefusedError,
+    Withheld,
+)
 from digline.host import UsageError, load_suite, to_withhold, written_by_digline
+from digline.host.authorship import quoted_in
 from digline.host.loader import refused_exit
 from digline.wire import WITHHELD, refusal_text
 
@@ -209,3 +217,87 @@ def test_a_toml_suite_that_is_not_utf8_quotes_no_byte(tmp_path: Path) -> None:
     whole = str(caught.value)
     assert whole == f"{suite} is not UTF-8 at byte 34", whole
     assert agent(caught.value) == whole
+
+
+# --------------------------------------------------------------------------- #
+# The names a sentence quotes (ADR 0054 §8)
+# --------------------------------------------------------------------------- #
+
+
+def _mint(kind: str, text: str) -> str:
+    return f"<{kind}:{len(text)}>"
+
+
+def test_a_name_reads_as_its_repr_in_clear_and_as_its_token_minted() -> None:
+    """In clear the sentence is the one `{name!r}` wrote, so the command line
+    reads what it read; minted, each name is its token, quoted the same way."""
+    said = Quoted.said("case ", NameRef("case_id", "it's"), " is suspended")
+    assert str(said) == 'case "it\'s" is suspended'
+    assert said.rendered(withheld=None, mint=_mint) == "case '<case_id:4>' is suspended"
+    assert said.names == (NameRef("case_id", "it's"),)
+
+
+def test_a_check_s_name_is_minted_as_the_projection_mints_it() -> None:
+    """The family and the group apart, as `project_check_name` does."""
+    ref = NameRef("verdict_name", "accuracy[group=till]")
+    assert ref.rendered(_mint) == "'<verdict_name:8>[group=<group:4>]'"
+
+
+def test_a_wrap_keeps_the_names_of_the_refusal_it_quotes() -> None:
+    """`run_from_dict` wraps a validation's refusal: the names inside it are
+    still names, so the reader's prefix and the token both reach the agent."""
+    inner = ValueError(Quoted.said("case ", NameRef("case_id", "x"), " is wrong"))
+    wrapped = Quoted.of(inner, "", named=False).around(
+        "the run could not be read: ", ""
+    )
+    assert wrapped.names == (NameRef("case_id", "x"),)
+    assert str(wrapped) == "the run could not be read: case 'x' is wrong"
+    assert (
+        wrapped.rendered(withheld=None, mint=_mint)
+        == "the run could not be read: case '<case_id:1>' is wrong"
+    )
+
+
+def test_a_wrap_of_a_plain_sentence_flattens_its_names() -> None:
+    """The silent fallback, held so it stays visible: a refusal that is not
+    built from a `Quoted` has no names to carry, and its text goes as it is.
+    What catches a name in it is the names gate."""
+    wrapped = Quoted.of(ValueError("case 'x' is wrong"), "", named=False)
+    assert wrapped.names == ()
+    assert wrapped.rendered(withheld=None, mint=_mint) == "case 'x' is wrong"
+
+
+def test_the_agent_s_sentence_is_minted_when_a_mint_is_handed_over() -> None:
+    refusal = RefusedError(Quoted.said("check ", NameRef("verdict_name", "lev")))
+    assert refusal_text(refusal, None) == "check 'lev'"
+    assert refusal_text(refusal, None, mint=_mint) == "check '<verdict_name:3>'"
+
+
+def test_a_sentence_that_quotes_no_exception_is_digline_s() -> None:
+    """No cause: what decides is the refusal's own frame, here digline's."""
+    with pytest.raises(RefusedError) as refused:
+        CalibrationBand.bounds("lev", 0.9, 0.1)
+    assert quoted_in(refused.value) is not None
+    assert written_by_digline(refused.value)
+    assert to_withhold(refused.value) is None
+
+
+def test_a_withheld_value_reads_in_clear_and_says_what_it_withholds_minted() -> None:
+    """A value the projection lets through neither as a token nor in clear:
+    the command line reads it, and an agent reads which kind of thing was
+    kept back, one word per kind, never the value. (ADR 0054 §8)"""
+    identity = Quoted.said("the identity ", Withheld("identity", "lev"), " is wrong")
+    keys = Quoted.said(
+        "metadata (", Withheld("run_metadata", "a, b", quoted=False), ")"
+    )
+    assert str(identity) == "the identity 'lev' is wrong"
+    assert str(keys) == "metadata (a, b)"
+    minted = identity.rendered(withheld=None, mint=_mint)
+    assert "lev" not in minted
+    assert minted == f"the identity {WITHHELD_WORDS['identity']} is wrong"
+    assert keys.rendered(withheld=None, mint=_mint) == (
+        f"metadata ({WITHHELD_WORDS['run_metadata']})"
+    )
+    assert WITHHELD_WORDS["identity"] != WITHHELD_WORDS["run_metadata"]
+    assert identity.withheld == (Withheld("identity", "lev"),)
+    assert identity.names == ()

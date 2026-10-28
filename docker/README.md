@@ -94,7 +94,11 @@ importable from your suite with nothing else to configure.
   this image starts from the same base
 - `digline`, and the three provider plugins — `digline-anthropic`,
   `digline-openai`, `digline-bedrock` — installed from PyPI at build time, at
-  the versions pinned in the `Dockerfile` beside this file
+  the versions the `Dockerfile` pins at the commit the image was built from:
+  for a release, the `Dockerfile` at its `v*` tag. The image names that
+  commit in its `org.opencontainers.image.revision` label. A plugin released
+  after it is pinned in the `Dockerfile` on `main` and reaches the image with
+  the next release of digline, as *How it is published*, below, says
 - `pip`, upgraded to the exact version the `Dockerfile` pins rather than the
   one the base bundles, because a derived image installs with it
 - `git`, so that a run records the commit of the mounted repository. Without it

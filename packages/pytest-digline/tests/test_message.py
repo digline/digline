@@ -174,7 +174,9 @@ def _unidentified(document: str) -> str:
     ("edit", "named"),
     [
         pytest.param(_projected, "DifferentRegimesError", id="compare-refuses"),
-        pytest.param(_unidentified, "UnidentifiedVerdictError", id="read-refuses"),
+        # The verdict's refusal arrives as the document's, since ADR 0054 §8:
+        # the store's reader names the file it could not read.
+        pytest.param(_unidentified, "DocumentRefusedError", id="read-refuses"),
     ],
 )
 def test_a_refusal_from_digline_is_a_usage_error_not_a_crash(
