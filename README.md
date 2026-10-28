@@ -10,7 +10,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14570/badge)](https://www.bestpractices.dev/projects/14570)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/digline/digline/badge)](https://scorecard.dev/viewer/?uri=github.com/digline/digline)
 
-<sub>CI is the merge queue's latest run, where every change is tested before it reaches `main`; a red can mean the queue turned a pull request away while `main` did not move.</sub>
+<sub>CI is the merge queue's latest run — the gate a change passes on its way to `main`; a red can mean the queue turned a pull request away while `main` did not move.</sub>
 
 ---
 
