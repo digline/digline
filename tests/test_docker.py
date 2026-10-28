@@ -291,7 +291,12 @@ def test_the_image_job_is_gated_on_what_the_image_is_made_of() -> None:
     not — that leaves a required check waiting forever."""
     text = ci()
     assert "needs: image-touched" in text
-    assert "if: needs.image-touched.outputs.build == 'true'" in text
+    image = text.partition("\n  image:")[2].partition("\n    runs-on:")[0]
+    assert "needs.image-touched.outputs.build == 'true'" in image
+    # `image-touched` waits for a job every pull request skips, so the result
+    # has to be read explicitly: the implicit `success()` would skip this job.
+    assert "needs.image-touched.result == 'success'" in image
+    assert "!cancelled()" in image
     gate = text.partition("\n  image-touched:")[2].partition("\n  image:")[0]
     # The pattern the job actually greps with, not the prose around it: a
     # comment naming `docker/` would otherwise satisfy this while the filter

@@ -41,7 +41,48 @@ permissions:
   contents: read
 
 jobs:
+  queue-tested:
+    name: Did the merge queue already run this commit?
+    # On a push to `main` only. The queue tests `main` plus the pull request on
+    # its own ref and then moves `main` to that same commit, so the push run
+    # would test, a second time, a SHA the queue has just tested. Measured on
+    # the 30 pull requests merged up to #769: the merged commit was the queue's
+    # commit 30 times in 30, every job of the queue's run had finished before
+    # the push run was created, and the push run never turned a job red that
+    # the queue had not already turned red on the same commit.
+    #
+    # `.github/queue_tested.py` reads the answer from the commit — a
+    # `merge_group` run of `ci` on exactly this SHA, with every repeated job
+    # green — and never from who pushed. A commit that did not come through
+    # the queue has no such run and is tested in full. An error reading the
+    # API answers `false`, and so does a queue run with any of those jobs red.
+    #
+    # The jobs below that wait for this one run when it is skipped (every
+    # other event), and that is what `!cancelled()` in their `if:` is for: a
+    # job whose `needs` was skipped is skipped too, unless its condition says
+    # otherwise. `docs` does not wait for it: on a push to `main` it runs a
+    # different build from the queue's (its own comment says which), so it
+    # is not a repetition.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # The runs and jobs listings of this repository's workflows.
+      actions: read
+    outputs:
+      tested: ${{ steps.read.outputs.tested }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - id: read
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: python3 .github/queue_tested.py "$SHA"
+
   gates:
+    needs: queue-tested
+    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -314,6 +355,8 @@ jobs:
     # here and leaves the plugin tags out. `test_releasing.py` holds the list
     # below to every test that calls `tests/_tags.py`, so a twelfth cannot be
     # written that skips everywhere.
+    needs: queue-tested
+    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -415,6 +458,8 @@ jobs:
     #
     # Not a required check, and deliberately: `CLAUDE.md`, beside the three
     # `gates`, says why — item 3 above is a red this repository did not cause.
+    needs: queue-tested
+    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -469,6 +514,11 @@ jobs:
     # would apply to the whole workflow. A job skipped by `if:` still reports,
     # so a required check stays satisfiable; a workflow that never triggers
     # leaves it waiting forever.
+    #
+    # Skipped with the others when the queue already ran this commit, and
+    # `image` with it: a job whose `needs` was skipped is skipped.
+    needs: queue-tested
+    if: ${{ !cancelled() && needs.queue-tested.outputs.tested != 'true' }}
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.check.outputs.build }}
@@ -516,7 +566,13 @@ jobs:
     # v0.5.0 was already on PyPI, because the only build was the one that
     # publishes.
     needs: image-touched
-    if: needs.image-touched.outputs.build == 'true'
+    # `!cancelled()` and the result, not the bare output: `image-touched`
+    # waits for `queue-tested`, which every event but a push skips, and the
+    # implicit `success()` of a job's `if:` reads every job upstream, so
+    # without it this job would be skipped on every pull request.
+    if: >-
+      ${{ !cancelled() && needs.image-touched.result == 'success' &&
+      needs.image-touched.outputs.build == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
