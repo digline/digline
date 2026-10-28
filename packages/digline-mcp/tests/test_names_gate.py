@@ -36,14 +36,16 @@ a name is red unless `NAMED_IN_PROSE` declares it, and that table may only
 shrink. What this walk does not cover:
 
 - **A refusal nobody provokes here is not seen.** The walk is of the
-  provocations, not of the code. Not provoked: the refusals of loading a
-  suite, which every tool does first and which quote the suite's own names;
-  the store's other refusals on reading; and any refusal added later.
+  provocations, not of the code. What is and is not provoked is written
+  beside `NAMED_IN_PROSE_COUNT`.
 - **A refusal is provoked through one tool.** A stored document is read
   through `get_run`; the other tools read it through the same `read_run`.
 - **Only this fixture's names are looked for**, and a name that is also a
-  word digline writes could not be told from it. A name is matched where it
-  stands as a name, so the group `till` is not found in "still".
+  word digline writes could not be told from it: the fixture's provider and
+  model are the coordinate digline's own sentences give as an example. A
+  name is matched where it stands as a name, so the group `till` is not found
+  in "still", and a slash bounds it, so a provider is found in
+  `provider/model`.
 """
 
 from __future__ import annotations
@@ -650,17 +652,27 @@ def test_the_gate_classifies_the_names_of_a_refusal(
 
 def named_in(text: str, names: set[str]) -> frozenset[str]:
     """The names that stand in `text` as names, not as part of a longer word:
-    the group `till` stands in "group 'till'" and not in "still". A character
-    a name can hold may not touch it on either side, and a full stop after it
-    ends a sentence unless a name character follows."""
-    return frozenset(
-        name
-        for name in names
-        if re.search(
-            rf"(?<![A-Za-z0-9_./-]){re.escape(name)}(?![A-Za-z0-9_/-]|\.[A-Za-z0-9])",
-            text,
-        )
-    )
+    the group `till` stands in "group 'till'" and not in "still".
+
+    A name is continued only by a letter or a digit touching it, as Python's
+    `str.isalnum` reads them, and bounded by anything else. **No list of what
+    may bound a name is written here**: two such lists, one after the other,
+    each missed a character (a space, then a slash). So a slash bounds a name,
+    and a provider is found in `provider/model`; and a name with more after a
+    hyphen or a full stop is found too. That errs towards counting, which is
+    the side a gate has to err on."""
+    found: set[str] = set()
+    for name in names:
+        start = text.find(name)
+        while start != -1:
+            end = start + len(name)
+            before = text[start - 1] if start > 0 else ""
+            after = text[end] if end < len(text) else ""
+            if not before.isalnum() and not after.isalnum():
+                found.add(name)
+                break
+            start = text.find(name, start + 1)
+    return frozenset(found)
 
 
 def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
@@ -673,7 +685,18 @@ def test_a_name_is_found_as_a_name_and_not_inside_a_word() -> None:
     }
     assert named_in("accuracy[group=till] moved", names) == {"till"}
     assert named_in("it still carries what redaction removes", names) == set()
-    assert named_in("opening-hours-2 and prompts/system.txt.bak", names) == set()
+    assert named_in("tillage, until, till2", names) == set()
+    # Whatever is not a letter or a digit bounds a name, so a provider is found
+    # in `provider/model`, and a name with more after a punctuation mark is
+    # found too: the matcher errs towards counting.
+    coordinates = {"anthropic", "claude-haiku-4-5"}
+    assert named_in("judged by anthropic/claude-haiku-4-5", coordinates) == coordinates
+    assert named_in('it is "anthropic/<model>"', coordinates) == {"anthropic"}
+    assert named_in("opening-hours-2 and prompts/system.txt.bak", names) == {
+        "opening-hours",
+        "prompts/system.txt",
+    }
+    assert named_in("anthropic\u00e9 and \u00e9anthropic", coordinates) == set()
 
 
 @dataclass(frozen=True, slots=True)
@@ -706,10 +729,12 @@ class EchoTable:
         return None
 
 
-def _document(base: str, edit: Callable[[dict[str, Any]], object]) -> Provoke:
+def _document(
+    base: str, edit: Callable[[dict[str, Any]], object], *, diffed: bool = False
+) -> Provoke:
     """`get_run` on the second run, its stored document replaced by `base`
     (`stored`, or a valid `redacted` or `projected` copy of it) with `edit`
-    applied."""
+    applied. `diffed`: `diff` of the first run against it instead."""
 
     def provoke(scene: Scene) -> ToolError:
         stored = next((scene.repo / ".digline").glob(f"*/runs/*/{scene.second}.json"))
@@ -723,6 +748,13 @@ def _document(base: str, edit: Callable[[dict[str, Any]], object]) -> Provoke:
         edit(document)
         try:
             stored.write_text(json.dumps(document), encoding="utf-8")
+            if diffed:
+                return _refusal(
+                    scene.repo,
+                    "diff",
+                    {"suite": SPEC, "run1": scene.first, "run2": scene.second},
+                    table=scene.table,
+                )
             return _refusal(
                 scene.repo,
                 "get_run",
@@ -821,6 +853,121 @@ def _echoing_table(scene: Scene) -> ToolError:
     return _refusal(
         scene.repo, "get_run", {"suite": SPEC, "run": scene.second}, table=EchoTable()
     )
+
+
+def _baseline(edit: Callable[[dict[str, Any]], object]) -> Provoke:
+    """`get_baseline`, the reference's stored document edited."""
+
+    def provoke(scene: Scene) -> ToolError:
+        stored = next((scene.repo / ".digline").glob("*/baselines/*.json"))
+        kept = stored.read_bytes()
+        document: dict[str, Any] = json.loads(kept)
+        edit(document)
+        try:
+            stored.write_text(json.dumps(document), encoding="utf-8")
+            return _refusal(
+                scene.repo, "get_baseline", {"suite": SPEC}, table=scene.table
+            )
+        finally:
+            stored.write_bytes(kept)
+
+    return provoke
+
+
+def _suite(*edits: tuple[str, str]) -> Provoke:
+    """`get_run` on a copy of the fixture's suite, beside it, with each edit
+    made once: a suite refused as it loads, which every tool loads first."""
+
+    def provoke(scene: Scene) -> ToolError:
+        source = (scene.repo / SPEC).read_text(encoding="utf-8")
+        for old, new in edits:
+            assert source.count(old) == 1, old
+            source = source.replace(old, new)
+        broken = scene.repo / "broken.py"
+        broken.write_text(source, encoding="utf-8")
+        try:
+            return _refusal(
+                scene.repo, "get_run", {"suite": broken.name}, table=scene.table
+            )
+        finally:
+            broken.unlink()
+
+    return provoke
+
+
+def _toml(*tail: str, target: str | None = None) -> Provoke:
+    """`get_run` on a declarative suite beside the fixture's, with its tenant,
+    its name, its cases and its model, so its names are the fixture's."""
+
+    def provoke(scene: Scene) -> ToolError:
+        broken = scene.repo / "broken.toml"
+        broken.write_text(
+            _TOML_HEAD + (_TOML_TARGET if target is None else target) + "".join(tail),
+            encoding="utf-8",
+        )
+        try:
+            return _refusal(
+                scene.repo, "get_run", {"suite": broken.name}, table=scene.table
+            )
+        finally:
+            broken.unlink()
+
+    return provoke
+
+
+#: The fixture's own case list, as the widened suite declares each case.
+_CASE = 'Case(id=c["id"], vars=c["vars"], expected=c["expected"], '
+_GROUP = 'group="till" if "price" in c["id"] else "shelf"'
+_NO_GROUP = (_GROUP, "group=None")
+_TWO_DISTANCES = (
+    "Levenshtein(threshold=0.75, tolerance=0.05),",
+    "Levenshtein(threshold=0.75, tolerance=0.05), "
+    "Levenshtein(threshold=0.7, tolerance=0.05),",
+)
+
+
+def _calibrating(
+    check: str = "llm_rubric", output: str = "x", question: str | None = ""
+) -> tuple[str, str]:
+    """Every case of the fixture made a calibration case of `check`."""
+    asked = "" if question is None else f"input={question!r}, "
+    return (
+        _CASE,
+        _CASE + f"calibration=Calibration(check={check!r}, output={output!r}, "
+        f"{asked}low=0.2, high=0.8), ",
+    )
+
+
+_TOML_HEAD = """[suite]
+tenant = "bookshop"
+environment = "dev"
+name = "replies"
+cases = "cases.json"
+
+"""
+_TOML_TARGET = """[target]
+type = "provider"
+provider = "anthropic/claude-haiku-4-5"
+prompt_file = "prompts/user.txt"
+max_tokens = 200
+"""
+_TOML_CHECK = """
+[[assertions]]
+type = "levenshtein"
+threshold = 0.75
+tolerance = 0.05
+"""
+
+
+def _toml_judge(coordinate: str) -> str:
+    return f"""
+[[assertions]]
+type = "llm_rubric"
+rubric = "warm"
+judge = "{coordinate}"
+threshold = 0.7
+tolerance = 0.1
+"""
 
 
 #: Every refusal this gate walks: the tool driven into it, and words of its
@@ -948,6 +1095,159 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
         _echoing_table,
         "with something that does not have a token's form",
     ),
+    # The refusals of loading a suite. Every tool loads it first, so each
+    # crosses the boundary from any of them. (ADR 0054 §8, ruled 2026-10-28)
+    "a case suspended with no reason": (
+        _suite((_CASE, _CASE + 'suspended="", ')),
+        "is suspended without a stated reason: a suspension nobody",
+    ),
+    "a case with an empty expected": (
+        _suite(('expected=c["expected"], ', 'expected="", ')),
+        "declares an empty expected",
+    ),
+    "a case with an empty group": (
+        _suite((_GROUP, 'group=""')),
+        "declares an empty group",
+    ),
+    "a canary in a group": (
+        _suite((_CASE, _CASE + "canary=True, ")),
+        "is a canary and declares the group",
+    ),
+    "a canary that calibrates": (
+        _suite(
+            _NO_GROUP,
+            (_CASE, _CASE + "canary=True, " + _calibrating()[1][len(_CASE) :]),
+        ),
+        "is both a canary and a calibration case: a canary asks",
+    ),
+    "a calibration case in a group": (
+        _suite(_calibrating()),
+        "is a calibration case and declares the group",
+    ),
+    "a calibration with an empty answer": (
+        _suite(_NO_GROUP, _calibrating(output="")),
+        "declares an empty output",
+    ),
+    "a calibration of a check nobody declared": (
+        _suite(_NO_GROUP, _calibrating(check="nope")),
+        "which no assertion in suite 'replies' is called",
+    ),
+    "a calibration of a check two share": (
+        _suite(_NO_GROUP, _calibrating(check="levenshtein"), _TWO_DISTANCES),
+        "which 2 assertions in suite 'replies' share",
+    ),
+    "a calibration of a check nobody judges": (
+        _suite(_NO_GROUP, _calibrating(check="levenshtein")),
+        "which is not a judged check",
+    ),
+    "a calibration with no question": (
+        _suite(_NO_GROUP, _calibrating(question=None)),
+        "and declares no input",
+    ),
+    "a case id declared twice": (
+        _suite(
+            (
+                "+ CALIBRATION",
+                '+ CALIBRATION + [Case(id="opening-hours", vars={"question": "x"}, '
+                'expected="y", label="positive")]',
+            )
+        ),
+        "declares case id 'opening-hours' twice",
+    ),
+    "an aggregate named as an expanded one": (
+        _suite(
+            (
+                'Accuracy(over="levenshtein", ',
+                'Accuracy(name="accuracy[group=till]", over="levenshtein", ',
+            )
+        ),
+        "writes '[group=' in its own name",
+    ),
+    "an aggregate over a check nobody declared": (
+        _suite(('Accuracy(over="levenshtein", ', 'Accuracy(over="nope", ')),
+        "aggregates over 'nope'",
+    ),
+    "an aggregate over a check two share": (
+        _suite(_TWO_DISTANCES),
+        "aggregates over 'levenshtein', which 2 assertions",
+    ),
+    "cases with no label under a confusion matrix": (
+        _suite(('label="positive", ', "")),
+        "so every case needs a label. Missing on:",
+    ),
+    "a check with a floor that is not a number": (
+        _suite(
+            (
+                "Levenshtein(threshold=0.75, tolerance=0.05),",
+                "Levenshtein(threshold=0.75, tolerance=0.05, "
+                'floor_standard_errors=float("nan")),',
+            )
+        ),
+        "floor_standard_errors must be a positive finite number",
+    ),
+    "a declarative target that names its model twice": (
+        _toml('model = "claude-haiku-4-5"\n', _TOML_CHECK),
+        "`model` is the second half of `provider`",
+    ),
+    "a declarative target handed a client": (
+        _toml('client = "x"\n', _TOML_CHECK),
+        "`client` is a Python object, not configuration",
+    ),
+    "a declarative target with a misspelt parameter": (
+        _toml("temprature = 0.2\n", _TOML_CHECK),
+        "has no parameter `temprature`",
+    ),
+    "a declarative target from a provider not installed": (
+        _toml(
+            _TOML_CHECK,
+            target=_TOML_TARGET.replace('"anthropic/', '"nowhere/'),
+        ),
+        "no provider named 'nowhere' is installed",
+    ),
+    "a declarative price missing a rate": (
+        _toml("[target.pricing]\ninput_per_mtok = 1.0\n", _TOML_CHECK),
+        "`output_per_mtok` is missing",
+    ),
+    "a declarative judge written as an import": (
+        _toml(_TOML_CHECK, _toml_judge("pkg.mod:judge")),
+        "which is an import written as a string",
+    ),
+    "a declarative judge with a dot for a slash": (
+        _toml(_TOML_CHECK, _toml_judge("anthropic.claude")),
+        "`judge` is 'anthropic.claude', which is an import",
+    ),
+    "a declarative judge with no model": (
+        _toml(_TOML_CHECK, _toml_judge("anthropic/")),
+        "which is not a provider/model coordinate",
+    ),
+    # The store's other refusals on reading.
+    "a run filed under another tenant": (
+        _document("stored", lambda d: d.update(tenant="elsewhere")),
+        "declares tenant 'elsewhere'",
+    ),
+    "a run filed under another suite": (
+        _document("stored", lambda d: d.update(suite="elsewhere")),
+        "declares suite 'elsewhere'",
+    ),
+    "a run filed under a name that is not its key": (
+        _document("stored", lambda d: d.update(config_hash="0000000000000000")),
+        "is filed under a name that is not its key",
+    ),
+    "a baseline filed under another tenant": (
+        _baseline(lambda d: d.update(tenant="elsewhere")),
+        "declares tenant 'elsewhere'",
+    ),
+    # `diff` over two runs graded by different judges, one recording none.
+    "two runs graded by different judges": (
+        _document(
+            "stored",
+            lambda d: d.update(
+                judge_config={"identities": ["anthropic/claude-haiku-4-5"]}
+            ),
+            diffed=True,
+        ),
+        "and the first records none",
+    ),
 }
 
 #: The refusals whose sentence names what the projection tokenises:
@@ -1024,23 +1324,153 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
         "core/run.py, _check_projected, verdict",
         frozenset({"gift-wrap"}),
     ),
+    "a case suspended with no reason": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a case with an empty expected": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a case with an empty group": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a canary in a group": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours", "shelf"}),
+    ),
+    "a canary that calibrates": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "a calibration case in a group": (
+        "run/suite.py, Case.__post_init__",
+        frozenset({"opening-hours", "shelf"}),
+    ),
+    "a calibration with an empty answer": (
+        "run/suite.py, Calibration.__post_init__",
+        frozenset({"llm_rubric"}),
+    ),
+    "a calibration of a check nobody declared": (
+        "run/suite.py, Suite._check_calibrations",
+        frozenset({"levenshtein", "llm_rubric", "opening-hours"}),
+    ),
+    "a calibration of a check two share": (
+        "run/suite.py, Suite._check_calibrations",
+        frozenset({"levenshtein", "opening-hours"}),
+    ),
+    "a calibration of a check nobody judges": (
+        "run/suite.py, Suite._check_calibrations",
+        frozenset({"levenshtein", "opening-hours"}),
+    ),
+    "a calibration with no question": (
+        "run/suite.py, Suite._check_calibrations",
+        frozenset({"llm_rubric", "opening-hours"}),
+    ),
+    "a case id declared twice": (
+        "run/suite.py, Suite.__post_init__",
+        frozenset({"opening-hours"}),
+    ),
+    "an aggregate named as an expanded one": (
+        "run/suite.py, Suite._check_aggregates",
+        frozenset({"accuracy", "till"}),
+    ),
+    "an aggregate over a check nobody declared": (
+        "run/suite.py, Suite._check_aggregates",
+        frozenset({"accuracy", "levenshtein", "llm_rubric"}),
+    ),
+    "an aggregate over a check two share": (
+        "run/suite.py, Suite._check_aggregates",
+        frozenset({"accuracy", "levenshtein"}),
+    ),
+    "cases with no label under a confusion matrix": (
+        "run/suite.py, Suite._check_aggregates",
+        frozenset(
+            {
+                "gift-wrap",
+                "opening-hours",
+                "order-a-book",
+                "price-check",
+                "signed-copies",
+            }
+        ),
+    ),
+    "a check with a floor that is not a number": (
+        "run/suite.py, Suite.__post_init__",
+        frozenset({"levenshtein"}),
+    ),
+    "a declarative target that names its model twice": (
+        "host/toml_suite.py, _provider",
+        frozenset({"anthropic"}),
+    ),
+    "a declarative target handed a client": (
+        "host/toml_errors.py, object_parameter",
+        frozenset({"anthropic"}),
+    ),
+    "a declarative target with a misspelt parameter": (
+        "host/toml_errors.py, unknown_key",
+        frozenset({"anthropic"}),
+    ),
+    "a declarative judge with no model": (
+        "host/toml_errors.py, not_a_coordinate "
+        "(the suite's provider, and the example it writes)",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+    ),
 }
 
 #: How many refusals `NAMED_IN_PROSE` declares. Lowered when one is repaired;
 #: raising it is what a pull request that adds a refusal naming a name has to
 #: show.
 #:
-#: **What this number does not cover**, so it is not read as the width of
-#: ADR 0054 §8. It counts the refusals `PROVOCATIONS` drives, and three kinds
-#: cross the boundary and are not driven yet:
+#: **What this number covers and what it does not**, so it is not read as
+#: more than it is. It counts the refusals `PROVOCATIONS` drives, which are:
+#: reading a stored run, a redacted one and a projected one; `diff` over two
+#: suites and over two judges; a table that answers with the name; loading a
+#: suite, where a sentence of `run/suite.py` quotes a case, a check, a group or
+#: an aggregate, and where the declarative loader quotes a provider, a judge or
+#: a price; and four of the store's refusals on reading. Three more name the
+#: fixture's provider or model only because digline's own words do, and are
+#: in `COINCIDENCES`, not here. Not driven, and so not counted:
 #:
-#: - the refusals of loading a suite, which every tool does first. They are
-#:   inside §8, ruled so on 2026-10-28, and several quote a check's name or a
-#:   case id (`run/suite.py`);
-#: - the store's other refusals on reading a run or a baseline;
-#: - `diff`'s refusal of two runs graded by different judges, which was read
-#:   in the code and not provoked.
-NAMED_IN_PROSE_COUNT = 17
+#: - the other refusals of loading a suite: the checks' own constructors in
+#:   `core/assertions.py`, `PiiPattern`, `host/loader.py`, and the
+#:   declarative loader's sentences about a key or a table;
+#: - the store's refusals of a register, a directory it cannot read, a run
+#:   with no key and a baseline that is a projection;
+#: - any refusal added later.
+NAMED_IN_PROSE_COUNT = 38
+
+#: The refusals whose sentence holds a name of this fixture only because
+#: digline's own words do, each with its site, the names and why. **Not
+#: leaks**: the fixture's provider and model, `anthropic` and
+#: `claude-haiku-4-5`, are also the example coordinate digline writes and the
+#: name an installed plugin registers. Repairing one would mean changing
+#: digline's text, so they are not counted in `NAMED_IN_PROSE`, and the width
+#: measured is read as 38 plus these. The fixture keeps that provider because
+#: it is `examples/prompt-first`, whose target is `AnthropicTarget`, and a
+#: model digline does not price is refused before it runs. Held like the
+#: other table: one added is a number raised in the same diff.
+COINCIDENCES: dict[str, tuple[str, frozenset[str], str]] = {
+    "a declarative target from a provider not installed": (
+        "targets/registry.py, _missing",
+        frozenset({"anthropic"}),
+        "it lists the providers installed here, and one is the fixture's",
+    ),
+    "a declarative judge written as an import": (
+        "host/toml_errors.py, not_a_coordinate",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+        "it gives 'anthropic/claude-haiku-4-5' as an example",
+    ),
+    "a declarative judge with a dot for a slash": (
+        "host/toml_errors.py, not_a_coordinate",
+        frozenset({"anthropic", "claude-haiku-4-5"}),
+        "it gives 'anthropic/claude-haiku-4-5' as an example",
+    ),
+}
+
+#: How many refusals `COINCIDENCES` declares.
+COINCIDENCES_COUNT = 3
 
 
 @pytest.fixture(scope="module")
@@ -1105,36 +1535,52 @@ def test_no_refusal_names_in_its_sentence_what_the_projection_tokenises(
 ) -> None:
     """A refusal that crosses the boundary under `project` names nothing the
     table was asked to mint, or it is declared in `NAMED_IN_PROSE` with the
-    names it lets out. One declared that names nothing any more, or other
-    names than declared, is red too, so the table says what is true."""
+    names it lets out, or in `COINCIDENCES` with why it is not a leak. One
+    declared that names nothing any more, or other names than declared, is red
+    too, so each table says what is true."""
+    declared = {why: names for why, (_, names) in NAMED_IN_PROSE.items()} | {
+        why: names for why, (_, names, _) in COINCIDENCES.items()
+    }
     undeclared = {
         why: sorted(seen.names)
         for why, seen in walked.items()
-        if seen.names and why not in NAMED_IN_PROSE
+        if seen.names and why not in declared
     }
     assert not undeclared, (
         "these refusals name in their sentence what the projection tokenises, "
         f"and NAMED_IN_PROSE does not declare them: {undeclared}"
     )
-    stale = sorted(why for why in NAMED_IN_PROSE if not walked[why].names)
+    stale = sorted(why for why in declared if not walked[why].names)
     assert not stale, (
-        f"NAMED_IN_PROSE declares {stale}, whose sentences no longer name "
-        "anything the projection tokenises: take them out and lower "
-        "NAMED_IN_PROSE_COUNT"
+        f"{stale} are declared and their sentences no longer name anything the "
+        "projection tokenises: take them out of their table and lower its count"
     )
     moved = {
         why: (sorted(names), sorted(walked[why].names))
-        for why, (_, names) in NAMED_IN_PROSE.items()
+        for why, names in declared.items()
         if walked[why].names and walked[why].names != names
     }
     assert not moved, f"declared names, then measured: {moved}"
 
 
 def test_the_table_of_refusals_that_name_only_shrinks() -> None:
-    """Every entry is a provocation this gate walks, and the count is held,
-    so an entry added is a number raised in the same diff."""
+    """Every entry is a provocation this gate walks, in one table only, and
+    each table's count is held, so an entry added is a number raised in the
+    same diff. A coincidence added in silence would hide a leak as well as a
+    leak added would."""
     assert set(NAMED_IN_PROSE) <= set(PROVOCATIONS), sorted(
         set(NAMED_IN_PROSE) - set(PROVOCATIONS)
+    )
+    assert set(COINCIDENCES) <= set(PROVOCATIONS), sorted(
+        set(COINCIDENCES) - set(PROVOCATIONS)
+    )
+    assert not set(NAMED_IN_PROSE) & set(COINCIDENCES), sorted(
+        set(NAMED_IN_PROSE) & set(COINCIDENCES)
+    )
+    assert len(COINCIDENCES) == COINCIDENCES_COUNT, (
+        f"COINCIDENCES holds {len(COINCIDENCES)} refusals and COINCIDENCES_COUNT "
+        f"says {COINCIDENCES_COUNT}: a refusal declared a coincidence is one the "
+        "count of NAMED_IN_PROSE no longer shows, so say so in the number"
     )
     assert len(NAMED_IN_PROSE) == NAMED_IN_PROSE_COUNT, (
         f"NAMED_IN_PROSE holds {len(NAMED_IN_PROSE)} refusals and "
