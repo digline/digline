@@ -950,7 +950,7 @@ PROVOCATIONS: dict[str, tuple[Provoke, str]] = {
     ),
 }
 
-#: The refusals whose sentence names, today, what the projection tokenises:
+#: The refusals whose sentence names what the projection tokenises:
 #: each with the site the name enters the sentence at and the names that
 #: leave. **It may only shrink.** A refusal repaired leaves it, and the test
 #: below says so; one that starts to name is red until it is declared here,
@@ -1029,6 +1029,17 @@ NAMED_IN_PROSE: dict[str, tuple[str, frozenset[str]]] = {
 #: How many refusals `NAMED_IN_PROSE` declares. Lowered when one is repaired;
 #: raising it is what a pull request that adds a refusal naming a name has to
 #: show.
+#:
+#: **What this number does not cover**, so it is not read as the width of
+#: ADR 0054 §8. It counts the refusals `PROVOCATIONS` drives, and three kinds
+#: cross the boundary and are not driven yet:
+#:
+#: - the refusals of loading a suite, which every tool does first. They are
+#:   inside §8, ruled so on 2026-10-28, and several quote a check's name or a
+#:   case id (`run/suite.py`);
+#: - the store's other refusals on reading a run or a baseline;
+#: - `diff`'s refusal of two runs graded by different judges, which was read
+#:   in the code and not provoked.
 NAMED_IN_PROSE_COUNT = 17
 
 
