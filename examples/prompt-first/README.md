@@ -31,7 +31,7 @@ as got worse.
 
 ```console
 $ uv sync && DIGLINE_LIVE=1 uv run digline run --suite suite.py
-$ DIGLINE_LIVE=1 uv run digline promote --suite suite.py --run latest --replacing 2026-10-28T10-42-33-181829-00-00-927bb4b0e0fa82a5
+$ DIGLINE_LIVE=1 uv run digline promote --suite suite.py --run latest --replacing 2026-10-28T12-25-33-365220-00-00-efe01136327fd179
 # edit prompts/system.txt, then
 $ DIGLINE_LIVE=1 uv run digline compare --suite suite.py --run latest
 ```

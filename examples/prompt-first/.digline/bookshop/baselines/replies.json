@@ -10,11 +10,11 @@
       "text": "Customer asks: {question}\n"
     }
   },
-  "config_hash": "927bb4b0e0fa82a5",
-  "created_at": "2026-10-28T10:42:33.181829+00:00",
+  "config_hash": "efe01136327fd179",
+  "created_at": "2026-10-28T12:25:33.365220+00:00",
   "digline_version": "0.35.0",
   "environment": "dev",
-  "git_commit": "1579a489483aa8f3c29bf4e3a4421501371e5b38",
+  "git_commit": "307d1064e373c083db1ac998ccc1fc52760ddfea",
   "judge_config": {
     "identities": [
       "anthropic/claude-haiku-4-5"
@@ -35,7 +35,7 @@
   "metadata": {},
   "modules_unchecked": [],
   "projected": false,
-  "promoted_at": "2026-10-28T10:44:23.144556+00:00",
+  "promoted_at": "2026-10-28T12:28:00.539388+00:00",
   "redacted": false,
   "results": [
     {
@@ -47,27 +47,31 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 194.0,
+            "distance": 187.4,
             "errored_samples": 0,
-            "length": 242.666667,
-            "samples": 3,
+            "length": 233.6,
+            "samples": 5,
             "scores": [
-              0.198413,
-              0.213333,
-              0.191235
+              0.185771,
+              0.191837,
+              0.19469,
+              0.212963,
+              0.20614
             ],
-            "spread": 0.022098
+            "spread": 0.027192
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.198413, 0.213333, 0.191235)",
-          "sample_max": 0.213333,
-          "sample_min": 0.191235,
+          "reason": "mean of 5 samples (0.185771, 0.191837, 0.194690, 0.212963, 0.206140)",
+          "sample_max": 0.212963,
+          "sample_min": 0.185771,
           "samples": [
-            0.198413,
-            0.213333,
-            0.191235
+            0.185771,
+            0.191837,
+            0.19469,
+            0.212963,
+            0.20614
           ],
-          "score": 0.200994,
+          "score": 0.19828,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -75,29 +79,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
               0.333333,
+              0.433333,
+              0.3,
               0.333333,
-              0.366667
+              0.3
             ],
-            "spread": 0.033334
+            "spread": 0.133333
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.333333, 0.333333, 0.366667)",
-          "sample_max": 0.366667,
+          "reason": "mean of 5 samples (0.333333, 0.433333, 0.300000, 0.333333, 0.300000)",
+          "sample_max": 0.433333,
           "sample_means": true,
-          "sample_min": 0.333333,
+          "sample_min": 0.3,
           "samples": [
             0.333333,
+            0.433333,
+            0.3,
             0.333333,
-            0.366667
+            0.3
           ],
-          "score": 0.344444,
+          "score": 0.34,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -113,27 +122,31 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 184.666667,
+            "distance": 159.0,
             "errored_samples": 0,
-            "length": 245.666667,
-            "samples": 3,
+            "length": 217.4,
+            "samples": 5,
             "scores": [
-              0.23221,
-              0.261062,
-              0.254098
+              0.292683,
+              0.276923,
+              0.263889,
+              0.266667,
+              0.246753
             ],
-            "spread": 0.028852
+            "spread": 0.04593
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.232210, 0.261062, 0.254098)",
-          "sample_max": 0.261062,
-          "sample_min": 0.23221,
+          "reason": "mean of 5 samples (0.292683, 0.276923, 0.263889, 0.266667, 0.246753)",
+          "sample_max": 0.292683,
+          "sample_min": 0.246753,
           "samples": [
-            0.23221,
-            0.261062,
-            0.254098
+            0.292683,
+            0.276923,
+            0.263889,
+            0.266667,
+            0.246753
           ],
-          "score": 0.249123,
+          "score": 0.269383,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -141,29 +154,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
-            "agreement": 0.666667,
+            "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.75,
-              0.633333,
-              0.366667
+              0.6,
+              0.683333,
+              0.4,
+              0.4,
+              0.4
             ],
-            "spread": 0.383333
+            "spread": 0.283333
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.750000, 0.633333, 0.366667)",
-          "sample_max": 0.75,
+          "reason": "mean of 5 samples (0.600000, 0.683333, 0.400000, 0.400000, 0.400000)",
+          "sample_max": 0.683333,
           "sample_means": true,
-          "sample_min": 0.366667,
+          "sample_min": 0.4,
           "samples": [
-            0.75,
-            0.633333,
-            0.366667
+            0.6,
+            0.683333,
+            0.4,
+            0.4,
+            0.4
           ],
-          "score": 0.583333,
+          "score": 0.496667,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -179,27 +197,31 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 177.0,
+            "distance": 191.6,
             "errored_samples": 0,
-            "length": 213.333333,
-            "samples": 3,
+            "length": 230.2,
+            "samples": 5,
             "scores": [
-              0.161826,
-              0.183333,
-              0.16895
+              0.130952,
+              0.182796,
+              0.175115,
+              0.206349,
+              0.170404
             ],
-            "spread": 0.021507
+            "spread": 0.075397
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.161826, 0.183333, 0.168950)",
-          "sample_max": 0.183333,
-          "sample_min": 0.161826,
+          "reason": "mean of 5 samples (0.130952, 0.182796, 0.175115, 0.206349, 0.170404)",
+          "sample_max": 0.206349,
+          "sample_min": 0.130952,
           "samples": [
-            0.161826,
-            0.183333,
-            0.16895
+            0.130952,
+            0.182796,
+            0.175115,
+            0.206349,
+            0.170404
           ],
-          "score": 0.17137,
+          "score": 0.173123,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -207,29 +229,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.333333,
-              0.6,
-              0.566667
+              0.3,
+              0.5,
+              0.566667,
+              0.433333,
+              0.6
             ],
-            "spread": 0.266667
+            "spread": 0.3
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.333333, 0.600000, 0.566667)",
+          "reason": "mean of 5 samples (0.300000, 0.500000, 0.566667, 0.433333, 0.600000)",
           "sample_max": 0.6,
           "sample_means": true,
-          "sample_min": 0.333333,
+          "sample_min": 0.3,
           "samples": [
-            0.333333,
-            0.6,
-            0.566667
+            0.3,
+            0.5,
+            0.566667,
+            0.433333,
+            0.6
           ],
-          "score": 0.5,
+          "score": 0.48,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -245,27 +272,31 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 203.666667,
+            "distance": 206.6,
             "errored_samples": 0,
-            "length": 255.333333,
-            "samples": 3,
+            "length": 257.4,
+            "samples": 5,
             "scores": [
-              0.203774,
+              0.196364,
+              0.195489,
               0.2,
-              0.20339
+              0.190299,
+              0.205882
             ],
-            "spread": 0.003774
+            "spread": 0.015583
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.203774, 0.200000, 0.203390)",
-          "sample_max": 0.203774,
-          "sample_min": 0.2,
+          "reason": "mean of 5 samples (0.196364, 0.195489, 0.200000, 0.190299, 0.205882)",
+          "sample_max": 0.205882,
+          "sample_min": 0.190299,
           "samples": [
-            0.203774,
+            0.196364,
+            0.195489,
             0.2,
-            0.20339
+            0.190299,
+            0.205882
           ],
-          "score": 0.202388,
+          "score": 0.197607,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -273,29 +304,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.4,
-              0.333333,
-              0.633333
+              0.466667,
+              0.433333,
+              0.416667,
+              0.533333,
+              0.366667
             ],
-            "spread": 0.3
+            "spread": 0.166666
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.400000, 0.333333, 0.633333)",
-          "sample_max": 0.633333,
+          "reason": "mean of 5 samples (0.466667, 0.433333, 0.416667, 0.533333, 0.366667)",
+          "sample_max": 0.533333,
           "sample_means": true,
-          "sample_min": 0.333333,
+          "sample_min": 0.366667,
           "samples": [
-            0.4,
-            0.333333,
-            0.633333
+            0.466667,
+            0.433333,
+            0.416667,
+            0.533333,
+            0.366667
           ],
-          "score": 0.455555,
+          "score": 0.443333,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -311,27 +347,31 @@
           "assertion_id": "9831ae8fdaf2e736",
           "metadata": {
             "agreement": 1.0,
-            "distance": 214.666667,
+            "distance": 201.4,
             "errored_samples": 0,
-            "length": 264.666667,
-            "samples": 3,
+            "length": 249.4,
+            "samples": 5,
             "scores": [
-              0.184615,
-              0.2,
-              0.182482
+              0.211982,
+              0.193798,
+              0.180451,
+              0.195122,
+              0.184615
             ],
-            "spread": 0.017518
+            "spread": 0.031531
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.184615, 0.200000, 0.182482)",
-          "sample_max": 0.2,
-          "sample_min": 0.182482,
+          "reason": "mean of 5 samples (0.211982, 0.193798, 0.180451, 0.195122, 0.184615)",
+          "sample_max": 0.211982,
+          "sample_min": 0.180451,
           "samples": [
-            0.184615,
-            0.2,
-            0.182482
+            0.211982,
+            0.193798,
+            0.180451,
+            0.195122,
+            0.184615
           ],
-          "score": 0.189032,
+          "score": 0.193194,
           "status": "fail",
           "threshold": 0.75,
           "tolerance": 0.05
@@ -339,29 +379,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
-              0.3,
-              0.3,
-              0.2
+              0.266667,
+              0.15,
+              0.233333,
+              0.233333,
+              0.3
             ],
-            "spread": 0.1
+            "spread": 0.15
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.300000, 0.300000, 0.200000)",
+          "reason": "mean of 5 samples (0.266667, 0.150000, 0.233333, 0.233333, 0.300000)",
           "sample_max": 0.3,
           "sample_means": true,
-          "sample_min": 0.2,
+          "sample_min": 0.15,
           "samples": [
-            0.3,
-            0.3,
-            0.2
+            0.266667,
+            0.15,
+            0.233333,
+            0.233333,
+            0.3
           ],
-          "score": 0.266667,
+          "score": 0.236667,
           "status": "fail",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -381,29 +426,34 @@
         {
           "assertion": "llm_rubric",
           "assertion_id": "ee25dfb48a823134",
+          "floor_standard_errors": 2.0,
           "judged": true,
           "metadata": {
             "agreement": 1.0,
             "errored_samples": 0,
-            "samples": 3,
+            "samples": 5,
             "scores": [
+              0.766667,
               0.716667,
-              0.8,
-              0.716667
+              0.7,
+              0.716667,
+              0.7
             ],
-            "spread": 0.083333
+            "spread": 0.066667
           },
           "origin": "builtin",
-          "reason": "mean of 3 samples (0.716667, 0.800000, 0.716667)",
-          "sample_max": 0.8,
+          "reason": "mean of 5 samples (0.766667, 0.716667, 0.700000, 0.716667, 0.700000)",
+          "sample_max": 0.766667,
           "sample_means": true,
-          "sample_min": 0.716667,
+          "sample_min": 0.7,
           "samples": [
+            0.766667,
             0.716667,
-            0.8,
-            0.716667
+            0.7,
+            0.716667,
+            0.7
           ],
-          "score": 0.744445,
+          "score": 0.72,
           "status": "pass",
           "threshold": 0.7,
           "tolerance": 0.1
@@ -430,25 +480,25 @@
   "tenant": "bookshop",
   "usage": {
     "judge": {
-      "calls": 54,
-      "counted": 54,
+      "calls": 90,
+      "counted": 90,
       "every_call_seen": true,
       "every_cost_known": false,
       "spent_usd": 0.0,
       "tokens": {
-        "input_tokens": 21042,
-        "output_tokens": 3129
+        "input_tokens": 34986,
+        "output_tokens": 5328
       }
     },
     "target": {
-      "calls": 15,
-      "counted": 15,
+      "calls": 25,
+      "counted": 25,
       "every_call_seen": true,
       "every_cost_known": false,
       "spent_usd": 0.0,
       "tokens": {
-        "input_tokens": 1023,
-        "output_tokens": 891
+        "input_tokens": 1705,
+        "output_tokens": 1457
       }
     }
   }
