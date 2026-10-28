@@ -159,6 +159,10 @@ def _gate() -> ModuleType:
     spec = importlib.util.spec_from_file_location("_name_pass_gate", GATE)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
+    # Registered before it runs, as `importlib`'s own recipe does: a
+    # `dataclass` in the gate looks its module up in `sys.modules` while the
+    # module is still being executed.
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
