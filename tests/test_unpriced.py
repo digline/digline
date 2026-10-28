@@ -743,14 +743,76 @@ def test_a_priced_rejudge_prints_the_bill_and_no_sentence(tmp_path: Path) -> Non
     assert "cost not computable" not in stderr
 
 
-def test_rejudge_json_carries_the_usage_as_run_json_does(tmp_path: Path) -> None:
-    """The markers, as `run --json` carries them (ADR 0025 §9). The sentences
-    are not in it: where they go under `--json` is not decided (ADR 0004 §8.0,
-    item 2)."""
+def test_rejudge_json_carries_the_usage_and_the_sentences(tmp_path: Path) -> None:
+    """The markers, as `run --json` carries them (ADR 0025 §9), and the
+    sentences in the envelope, once each (ADR 0004 §8.0, item 2, decided
+    for `--json`)."""
     code, stdout, stderr = _rejudge_cli(tmp_path, "--json", unpriced=GEO)
     assert code == EXIT_OK, stderr
     payload = json.loads(stdout)
     judge = payload["usage"]["judge"]
     assert judge["calls"] == 2
     assert judge["every_cost_known"] is False
-    assert GEO not in stdout
+    assert payload["unpriced"] == [GEO]
+
+
+def test_a_priced_rejudge_json_says_it_looked(tmp_path: Path) -> None:
+    """Present and empty, never absent: an empty list says the sentences were
+    read and there were none."""
+    code, stdout, stderr = _rejudge_cli(tmp_path, "--json", unpriced=None)
+    assert code == EXIT_OK, stderr
+    assert json.loads(stdout)["unpriced"] == []
+
+
+def _run_json_cli(
+    tmp_path: Path, *, cost: str, unpriced: str | None
+) -> dict[str, object]:
+    (tmp_path / "suite_qa.py").write_text(
+        CLI_SUITE % {"cost": cost, "unpriced": unpriced}, encoding="utf-8"
+    )
+    done = cli(tmp_path, "run", "--suite", "suite_qa.py", "--json")
+    assert done.returncode == EXIT_OK, done.stderr
+    return json.loads(done.stdout)
+
+
+def test_run_json_carries_the_sentence_once(tmp_path: Path) -> None:
+    payload = _run_json_cli(tmp_path, cost="None", unpriced=GEO)
+    assert payload["unpriced"] == [GEO]
+
+
+def test_a_priced_run_json_says_it_looked(tmp_path: Path) -> None:
+    payload = _run_json_cli(tmp_path, cost="0.001", unpriced=None)
+    assert payload["unpriced"] == []
+
+
+def _cost_known(payload: dict[str, object]) -> list[object]:
+    usage = payload["usage"]
+    assert isinstance(usage, dict)
+    return [usage[side]["every_cost_known"] for side in ("target", "judge")]  # pyright: ignore[reportUnknownVariableType]
+
+
+@pytest.mark.parametrize(
+    ("cost", "unpriced"),
+    [("None", GEO), ("0.001", None), ("None", None)],
+    ids=["unpriced", "priced", "cost not stated"],
+)
+def test_a_sentence_means_a_cost_not_known(
+    tmp_path: Path, cost: str, unpriced: str | None
+) -> None:
+    """The invariant, in the direction that holds: a sentence is only ever
+    written for a call whose cost is not known, so a non-empty list beside
+    every line's `every_cost_known` true is a contradiction."""
+    payload = _run_json_cli(tmp_path, cost=cost, unpriced=unpriced)
+    if payload["unpriced"]:
+        assert False in _cost_known(payload)
+
+
+def test_a_cost_not_known_can_have_no_sentence(tmp_path: Path) -> None:
+    """The other direction does not hold, and this pins why. A cost can be not
+    known with nobody saying why: a reply whose `cost_usd` is `None` and that
+    states no reason, a reply whose counts were not read (#629), a price that
+    raises. Then `every_cost_known` is false and the list is empty, which is
+    true of the run: no sentence was written."""
+    payload = _run_json_cli(tmp_path, cost="None", unpriced=None)
+    assert False in _cost_known(payload)
+    assert payload["unpriced"] == []

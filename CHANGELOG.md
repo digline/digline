@@ -48,9 +48,15 @@ notes under them are this file, verbatim.
   and a `--json` document with no `usage`, so not even the markers. It now
   prints the judge's line and each sentence after it, as `digline run` does
   (§8.3), and its `--json` carries `usage` as `run --json` does (ADR 0025 §9).
-  The sentences are not in `--json` for either command: where they go there is
-  not decided. `rejudge` in `digline.run` takes an optional `on_unpriced`,
-  which `execute` already takes. Nothing a script parses moves: an added key.
+  `rejudge` in `digline.run` takes an optional `on_unpriced`, which `execute`
+  already takes.
+- **`run --json` and `rejudge --json` carry why a cost is not known** (ADR
+  0004 §8.0, item 2, decided). `unpriced` is the list of sentences the command
+  prints on standard error after the bill, once each, and it is present on
+  every document, empty where there was none, so an empty list says the
+  command looked. It is in the envelope, not the stored run document. An
+  added key, so `OUTPUT_VERSION` does not move. The MCP `run` tool does not
+  carry it yet: its half waits with the server's half of ADR 0054 §8.
 
 ## 0.35.0 — 2026-10-27
 

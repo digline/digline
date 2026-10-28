@@ -364,6 +364,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                     usage=measured.run.usage,
                     notes=notes,
                     errored_checks=errored,
+                    unpriced=measured.unpriced,
                 )
             )
         )
@@ -589,6 +590,7 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
                     usage=run.usage,
                     notes=notes,
                     errored_checks=len(errored_verdicts(run)),
+                    unpriced=unpriced,
                 )
             )
         )

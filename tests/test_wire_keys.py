@@ -558,6 +558,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             usage=now.usage,
             notes=("no_kind declares no KIND",),
             errored_checks=2,
+            unpriced=("model 'm' ran in a geography with no rate",),
         ),
     )
 

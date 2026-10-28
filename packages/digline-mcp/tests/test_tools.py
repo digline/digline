@@ -494,6 +494,10 @@ def test_the_tenant_verifies_and_never_overrides(repo: Path) -> None:
     assert "The suite decides" in message
 
 
+#: The keys `digline run --json` carries and this server's `run` does not yet.
+CLI_ONLY = frozenset({"unpriced"})
+
+
 def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
     """The third of the three reused shapes, and the one that is easiest to
     forget: it is four keys, so it looks too small to drift."""
@@ -503,7 +507,12 @@ def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
     through_the_cli = json.loads(done.stdout)
     # The keys are the contract; the run key itself differs because these are
     # two different runs, which is the only honest way to compare two writes.
-    assert set(through_the_tool) == set(through_the_cli)
+    # One declared difference: `unpriced`, the sentences for a cost not known,
+    # is on the command line's envelope and not yet on the tool's. Where they
+    # go here waits on this server's half of ADR 0004 §8.0, item 2, with ADR
+    # 0054 §8: a sentence quotes a model, which `--names project` would mint.
+    # Absent on the tool says it did not look, which is true.
+    assert set(through_the_tool) == set(through_the_cli) - CLI_ONLY
     assert through_the_tool["tenant"] == through_the_cli["tenant"]
     assert through_the_tool["suite"] == through_the_cli["suite"]
     assert through_the_tool["sentence"] == through_the_cli["sentence"]

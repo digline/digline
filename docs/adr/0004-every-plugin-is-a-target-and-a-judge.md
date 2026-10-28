@@ -820,9 +820,19 @@ Three things, each found in the writing and ruled on by none of the seven.
    the judge, whose replies can be unpriced. Read in `src/digline/cli/main.py`
    at `8ab47910`, without running it. The change that adds this note also
    closes that part: `rejudge` prints the judge's line and its sentences as
-   `run` does, and its `--json` carries `usage`. Where the sentences go under
-   `--json`, for both commands, and in `digline-mcp`, is still not decided
-   here.
+   `run` does, and its `--json` carries `usage`.
+
+   *Decided 2026-10-28, in the same change:* **under `--json`, for both
+   `run` and `rejudge`, the sentences go in the envelope**, as `unpriced`, a
+   list present on every document and empty where there was none. The
+   envelope is not the run document. Measured, `run --json` prints ten keys,
+   `key`, `sentence`, `notes`, `usage` and the like, and the stored run has
+   eighteen, among them `results` and `schema_version`. So §8.3's *never in
+   the run document* holds, and a pipeline that reads `--json` gets what a
+   person reads on standard error. **What stays not decided is `digline-mcp`
+   alone.** Its `run` tool answers without `unpriced`, which says it did not
+   look. Its sentence quotes a model, which `--names project` would have to
+   mint, so it waits with the server's half of ADR 0054 §8.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.
