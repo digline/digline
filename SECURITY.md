@@ -409,6 +409,17 @@ counts. The comment in the Dockerfile says the same. Scorecard reads the shape
 of this pin as an unpinned dependency, and that is the declared cost of the
 choice.
 
+**The image keeps pip, because a derived image installs its suite's
+dependencies with it.** That is the recipe `docker/README.md` documents: an
+image built `FROM` this one, which runs `pip install` for what its suite needs.
+The scan also reports the packages pip carries inside itself: `pip/_vendor`
+lists urllib3, setuptools and msgpack among them. Those copies are not updated
+on their own, because pip ships them; they move when pip moves. The urllib3
+that is installed is a distribution of its own, and is already at the version
+that fixes what is reported against the copy inside pip. Removing pip would break the recipe, and whoever put it back
+with `ensurepip` would get the pip the base bundles, which is older than the
+one pinned here.
+
 **No fuzzing harness runs.** Three of digline's inputs come from nobody it
 trusts: what a target answers, since everything digline judges is a model's
 output; the arguments an agent passes to the tools of `digline-mcp`'s server;
