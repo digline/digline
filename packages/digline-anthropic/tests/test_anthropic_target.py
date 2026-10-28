@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import types
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -19,7 +20,8 @@ import pytest
 from digline.run import Case
 from digline.targets import ModelPrice, Pricing, Usage
 from digline_anthropic import ANTHROPIC_PRICING, PRICES_READ_ON, AnthropicTarget
-from digline_anthropic.client import GEO_MULTIPLIERS, tool_calls_of, tools_of, usage_of
+from digline_anthropic.client import GEO_MULTIPLIERS, tool_calls_of, tools_of
+from digline_anthropic.client import usage_of as read_usage
 
 
 @dataclass
@@ -110,6 +112,14 @@ def prompt(tmp_path: Path) -> Path:
     path = tmp_path / "answer.md"
     path.write_text("What is the capital of {country}?\n", encoding="utf-8")
     return path
+
+
+def usage_of(reply: Any) -> Usage:
+    """`usage_of` on a reply whose counts are all there, where `None` would be
+    the test's own mistake."""
+    usage = read_usage(reply)
+    assert usage is not None, "the counts this test reads were not read"
+    return usage
 
 
 def a_target(prompt: Path, **kwargs: Any) -> tuple[AnthropicTarget, FakeClient]:
@@ -878,3 +888,82 @@ def test_the_next_call_is_priced_at_its_own_geography(prompt: Path) -> None:
         ),
     )
     assert target(case).cost_usd == pytest.approx(2.00)
+
+
+def test_a_reply_with_no_usage_is_judged(prompt: Path) -> None:
+    """It raised `AttributeError`, and its case errored over a call that
+    answered. Its counts are now *not recorded*: no tokens, no cost, and the
+    output is there to judge (#629)."""
+    target, client = a_target(prompt)
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("Rome.")], usage=cast("FakeUsage", None)
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.output == "Rome."
+    assert response.usage is None
+    assert response.cost_usd is None
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        types.SimpleNamespace(output_tokens=5),
+        types.SimpleNamespace(input_tokens=10),
+        types.SimpleNamespace(input_tokens=None, output_tokens=5),
+        types.SimpleNamespace(input_tokens=10, output_tokens=None),
+    ],
+    ids=["input absent", "output absent", "input None", "output None"],
+)
+def test_a_required_count_absent_records_no_counts(usage: object) -> None:
+    """`input_tokens` and `output_tokens` are required in the SDK's `Usage`, so
+    one missing is not a zero, and the counts that were read go with it: the
+    core cannot hold one count apart (#629)."""
+    reply = FakeReply(content=[FakeBlock("x")], usage=cast("FakeUsage", usage))
+    assert read_usage(reply) is None
+
+
+def test_a_required_count_of_zero_is_a_measurement() -> None:
+    """The other side of the line: a `0` the reply carries was counted."""
+    reply = FakeReply(content=[FakeBlock("x")], usage=FakeUsage(0, 0))
+    assert usage_of(reply) == Usage(0, 0)
+
+
+def test_an_optional_count_omitted_is_zero() -> None:
+    """The cache counts are optional in the SDK's `Usage`: omitted, there was
+    nothing to count."""
+    usage = types.SimpleNamespace(input_tokens=10, output_tokens=5)
+    reply = FakeReply(content=[FakeBlock("x")], usage=cast("FakeUsage", usage))
+    assert usage_of(reply) == Usage(10, 5)
+
+
+def test_counts_not_read_leave_no_geography_for_the_price_list(
+    prompt: Path,
+) -> None:
+    """A US-only reply whose `output_tokens` is missing: no `cost` is asked
+    for, so the factor must not be handed over, or the next reading of the
+    list would take it. And no `unpriced` sentence rides a `usage=None`,
+    which the core refuses (#629)."""
+    target, client = a_target(prompt, pricing=NO_CACHE_RATES)
+    usage = types.SimpleNamespace(
+        input_tokens=1_000_000, inference_geo="us", cache_read_input_tokens=10
+    )
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("x")], usage=cast("FakeUsage", usage)
+    )
+    response = target(Case(id="it", vars={"country": "Italy"}))
+    assert response.usage is None
+    assert response.unpriced is None
+    asked = target.pricing.cost("claude-sonnet-5", Usage(1_000_000, 0))
+    assert asked == pytest.approx(2.00)
+
+
+def test_counts_not_read_carry_no_unpriced_sentence() -> None:
+    """A geography with no rate beside a missing count: the core refuses
+    `unpriced` with `usage=None`, so the plugin hands over neither (#629)."""
+    from digline_anthropic.client import completion_of
+
+    usage = types.SimpleNamespace(input_tokens=10, inference_geo="eu")
+    reply = FakeReply(content=[FakeBlock("x")], usage=cast("FakeUsage", usage))
+    completion = completion_of(reply)
+    assert completion.usage is None
+    assert completion.unpriced is None

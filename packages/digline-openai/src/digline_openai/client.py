@@ -124,7 +124,7 @@ def build_client(base_url: str | None, api_key: str | None) -> Any:
         return openai.OpenAI(base_url=base_url, api_key=NO_KEY)
 
 
-def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
+def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage | None:
     """Tokens out of a chat completion, with the cached ones subtracted.
 
     OpenAI counts cached prompt tokens **inside** `prompt_tokens` — the opposite
@@ -133,21 +133,30 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
     rate and again at the discounted one, so the cached count comes off the
     input before the `Usage` is built.
 
-    A provider that reports no usage at all is refused, unless the model is
-    priced at zero anyway — which is to say unless you told us, with `free()`,
-    that this one costs nothing. Anything else would report a run as cheaper
-    than it was, and that is the failure that reads as good news.
+    **`None` where a count it needs was not reported** (#629): the call is
+    on the line, and its tokens and cost are not. A reply with no `usage` at
+    all used to be refused, and its case errored over a call that answered;
+    it is now judged. `prompt_tokens` and `completion_tokens` are required in
+    the SDK's `CompletionUsage`, so either one absent is a rename or an SDK
+    older than the field, and reading it as `0` would price the call at
+    nothing, the failure that reads as good news. The core cannot hold one
+    count apart, so the counts that were read go with it.
+    `prompt_tokens_details` is optional, and a count it omits is `0`: there was
+    nothing to count. `thinking_tokens` stays per field.
+
+    **A model declared `free()` reads a missing `usage` as zero.** `free()` is
+    your declaration, so it is the rule's second half: a count omitted by
+    declaration means there was nothing to count.
     """
     usage = getattr(reply, "usage", None)
     if usage is None:
         if _is_free(model, pricing):
             return Usage(input_tokens=0, output_tokens=0)
-        raise ValueError(
-            f"the provider returned no usage for model {model!r}, so this call "
-            "cannot be priced. If it is a model you host and it costs nothing, "
-            "say so: `pricing=free(...)`"
-        )
-    prompt_tokens = int(getattr(usage, "prompt_tokens", 0) or 0)
+        return None
+    prompt_tokens = _required(usage, "prompt_tokens")
+    completion_tokens = _required(usage, "completion_tokens")
+    if prompt_tokens is None or completion_tokens is None:
+        return None
     reasoning = _reasoning(usage)
     details = getattr(usage, "prompt_tokens_details", None)
     cached = int(getattr(details, "cached_tokens", 0) or 0)
@@ -155,11 +164,18 @@ def usage_of(reply: Any, model: str, pricing: Pricing) -> Usage:
     inside = cached + (written if CACHE_WRITES_ARE_INSIDE_PROMPT_TOKENS else 0)
     return Usage(
         input_tokens=max(prompt_tokens - inside, 0),
-        output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
+        output_tokens=completion_tokens,
         cache_read_tokens=cached,
         cache_write_tokens=written,
         thinking_tokens=reasoning,
     )
+
+
+def _required(usage: Any, name: str) -> int | None:
+    """A count the SDK types as required, or `None` where the reply lacks it:
+    absent and `None` are the same answer, and a `0` read is a measurement."""
+    found = getattr(usage, name, None)
+    return None if found is None else int(found)
 
 
 def _reasoning(usage: Any) -> int | None:

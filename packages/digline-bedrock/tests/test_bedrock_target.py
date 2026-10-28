@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import ast
 import os
-from collections.abc import Callable
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
@@ -32,7 +32,9 @@ from digline_bedrock import (
     free,
     scrub,
 )
-from digline_bedrock.client import resolve_region, text_of, unpriced_of, usage_of
+from digline_bedrock import client as bedrock_client
+from digline_bedrock.client import resolve_region, text_of, unpriced_of
+from digline_bedrock.client import usage_of as read_usage
 
 SONNET = "anthropic.claude-sonnet-4-20250514-v1:0"
 EU_SONNET = f"eu.{SONNET}"
@@ -198,10 +200,72 @@ def test_blocks_without_text_are_skipped(prompt: Path, client: FakeClient) -> No
     assert a_target(prompt, client)(a_case()).output == "Rome, in Italy."
 
 
-def test_a_reply_with_no_usage_is_refused(prompt: Path, client: FakeClient) -> None:
-    client.reply = converse_reply(usage=False)
-    with pytest.raises(ValueError, match="no usage"):
-        a_target(prompt, client)(a_case())
+def usage_of(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
+    """`usage_of` on a reply whose counts are all there, where `None` would be
+    the test's own mistake."""
+    usage = read_usage(reply, model, pricing)
+    assert usage is not None, "the counts this test reads were not read"
+    return usage
+
+
+def test_a_reply_with_no_usage_is_judged(prompt: Path, client: FakeClient) -> None:
+    """It was refused, and its case errored over a call that answered. Its
+    counts are now *not recorded*: no tokens, no cost, and the output is there
+    to judge (#629)."""
+    client.reply = converse_reply("Rome.", usage=False)
+    response = a_target(prompt, client)(a_case())
+    assert response.output == "Rome."
+    assert response.usage is None
+    assert response.cost_usd is None
+
+
+@pytest.mark.parametrize(
+    "usage",
+    [
+        {"outputTokens": 5},
+        {"inputTokens": 10},
+        {"inputTokens": None, "outputTokens": 5},
+        {"inputTokens": 10, "outputTokens": None},
+    ],
+    ids=["input absent", "output absent", "input null", "output null"],
+)
+def test_a_required_count_absent_records_no_counts(usage: dict[str, Any]) -> None:
+    """`inputTokens` and `outputTokens` are required in `TokenUsage`, so one
+    missing is not a zero, and the counts that were read go with it: the core
+    cannot hold one count apart (#629)."""
+    reply = converse_reply("Rome.")
+    reply["usage"] = usage | {"cacheReadInputTokens": 7}
+    assert read_usage(reply, SONNET, bedrock_pricing("eu-west-1")) is None
+
+
+def test_a_required_count_of_zero_is_a_measurement() -> None:
+    """The other side of the line: a `0` the reply carries was counted."""
+    reply = converse_reply("Rome.", input_tokens=0, output_tokens=0)
+    assert usage_of(reply, SONNET, bedrock_pricing("eu-west-1")) == Usage(0, 0)
+
+
+def test_an_optional_count_omitted_is_zero() -> None:
+    """The cache members are optional in `TokenUsage`: omitted, there was
+    nothing to count."""
+    reply = converse_reply("Rome.", input_tokens=10, output_tokens=5)
+    reply["usage"] = {"inputTokens": 10, "outputTokens": 5}
+    assert usage_of(reply, SONNET, bedrock_pricing("eu-west-1")) == Usage(10, 5)
+
+
+def test_counts_not_read_carry_no_unpriced_sentence() -> None:
+    """A 1-hour write beside a missing count: the core refuses `unpriced` with
+    `usage=None`, so the plugin hands over neither (#629)."""
+    reply = converse_reply("Rome.")
+    reply["usage"] = {
+        "outputTokens": 5,
+        "cacheWriteInputTokens": 100,
+        "cacheDetails": [{"ttl": "1h", "inputTokens": 100}],
+    }
+    completion = bedrock_client.completion_of(
+        reply, SONNET, bedrock_pricing("eu-west-1")
+    )
+    assert completion.usage is None
+    assert completion.unpriced is None
 
 
 def test_a_reply_with_no_usage_is_fine_when_the_model_has_no_token_price(
@@ -576,32 +640,32 @@ def one_hour_write() -> dict[str, Any]:
     return reply
 
 
-def no_usage() -> dict[str, Any]:
-    return converse_reply("Rome.", usage=False)
-
-
-@pytest.mark.parametrize(
-    ("reply", "refusal"),
-    [(no_usage, ValueError)],
-    ids=["no usage"],
-)
 def test_a_refusal_of_the_reply_does_not_carry_the_account_to_the_verdicts(
     prompt: Path,
     client: FakeClient,
-    reply: Callable[[], dict[str, Any]],
-    refusal: type[Exception],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """F-1 of the delta-pass over 0.6.0. `complete` scrubbed what the API
     raised, but the refusals of a reply are raised after that, and both quote
     the model, which for an application inference profile is an ARN carrying
     the customer's account. They reached every verdict's reason, and the run
-    file, in clear. The class is kept: a missing usage block is still refused
-    as `ValueError`. A 1-hour write is no longer refused, and its sentence is
-    held to the same scrub below (ADR 0004 §8.4)."""
+    file, in clear. The class is kept. A 1-hour write is no longer refused, and
+    its sentence is held to the same scrub below (ADR 0004 §8.4).
+
+    **Injected since #629.** A missing usage block was the last refusal of a
+    reply that quoted the model, and it is now judged. The scrub stays for the
+    next one, so a refusal is injected where `completion_of` reads the counts,
+    quoting the model as that one did."""
     from digline.core import Contains
     from digline.run import Suite, execute
 
-    client.reply = reply()
+    refusal = ValueError
+
+    def refused(reply: Mapping[str, Any], model: str, pricing: Pricing) -> Usage:
+        raise refusal(f"the reply carries no usage for model {model!r}")
+
+    monkeypatch.setattr(bedrock_client, "usage_of", refused)
+    client.reply = converse_reply("Rome.")
     target = BedrockTarget(
         prompt,
         PROFILE_ARN,

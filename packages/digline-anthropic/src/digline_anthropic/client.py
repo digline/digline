@@ -219,7 +219,7 @@ def text_of(reply: Any) -> str:
     )
 
 
-def usage_of(reply: Any) -> Usage:
+def usage_of(reply: Any) -> Usage | None:
     """Tokens out of a message.
 
     `cache_creation_input_tokens` is **not** part of `input_tokens`. Measured
@@ -239,15 +239,37 @@ def usage_of(reply: Any) -> Usage:
     the SDK the workspace pins carries. A reply without it — an older
     SDK, or an API that did not send one — is read as before, every write at
     the 5-minute rate.
+
+    **`None` where a count it needs was not reported** (#629). `input_tokens`
+    and `output_tokens` are required in the SDK's `Usage`, so either one absent
+    is a rename or an SDK older than the field, and reading it as `0` would
+    price the call at nothing. The core cannot hold one count apart, so the
+    whole call is *not recorded*, the counts that were read included. A reply
+    with no `usage` at all is the same, and its case is judged. The two cache
+    counts are optional in the SDK, and one it omits is `0`: there was nothing
+    to count. `thinking_tokens` stays per field, `None` for *not reported*.
     """
-    usage = reply.usage
+    usage = getattr(reply, "usage", None)
+    if usage is None:
+        return None
+    input_tokens = _required(usage, "input_tokens")
+    output_tokens = _required(usage, "output_tokens")
+    if input_tokens is None or output_tokens is None:
+        return None
     return Usage(
-        input_tokens=int(getattr(usage, "input_tokens", 0)),
-        output_tokens=int(getattr(usage, "output_tokens", 0)),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
         cache_read_tokens=int(getattr(usage, "cache_read_input_tokens", 0) or 0),
         cache_write_tokens=int(getattr(usage, "cache_creation_input_tokens", 0) or 0),
         thinking_tokens=_thinking(usage),
     )
+
+
+def _required(usage: Any, name: str) -> int | None:
+    """A count the SDK types as required, or `None` where the reply lacks it:
+    absent and `None` are the same answer, and a `0` read is a measurement."""
+    found = getattr(usage, name, None)
+    return None if found is None else int(found)
 
 
 def _one_hour_writes(usage: Any) -> int:
@@ -420,13 +442,16 @@ def completion_of(reply: Any) -> Completion:
     provider that does not name a backend build.
     """
     finish, raw = finish_of(getattr(reply, "stop_reason", None), FINISH)
+    usage = usage_of(reply)
     return Completion(
         text=text_of(reply),
-        usage=usage_of(reply),
+        usage=usage,
         finish=finish,
         finish_raw=raw,
         tools=tools_of(reply),
         tool_calls=tool_calls_of(reply),
         model=str(reply.model) if getattr(reply, "model", None) else None,
-        unpriced=unpriced_of(reply),
+        # Counts not read already say the cost is not known, and the core
+        # refuses the two together. (#629)
+        unpriced=None if usage is None else unpriced_of(reply),
     )
