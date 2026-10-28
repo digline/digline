@@ -227,3 +227,36 @@ jobs:
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo "${{ needs.smoke.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  scan:
+    name: Scan the image just published, on main
+    # `image-scan.yml` is a schedule, and a release publishes a new `latest`
+    # in between: without this its alerts describe the previous image until
+    # the next Monday. Measured on 2026-10-28: nine alerts the published image
+    # had already fixed stayed open for a day, and a dispatch on `main` closed
+    # them at once.
+    #
+    # **A dispatch on `main`, not a scan here.** An upload counts for the ref
+    # the scan runs on. This workflow runs on the tag, so a scan in it would
+    # count for the tag and close nothing on `main`; the three scans of
+    # 2026-10-27 ran on a branch and counted for that branch.
+    #
+    # Only when `latest` moved: a rebuild of an older release with the box
+    # unticked leaves `latest` where it was, and the scan would refuse it.
+    needs: [on-main, smoke, publish]
+    if: github.event_name == 'push' || inputs.latest
+    runs-on: ubuntu-latest
+    permissions:
+      # Widened on this job alone, and for one call: starting a workflow
+      # (`POST /actions/workflows/{id}/dispatches`) needs `actions: write`.
+      # Nothing here checks out, builds or pushes.
+      actions: write
+    steps:
+      - name: Dispatch image-scan.yml on main, expecting this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVISION: ${{ needs.smoke.outputs.revision }}
+        run: |
+          gh workflow run image-scan.yml --repo "$GITHUB_REPOSITORY" \
+            --ref main -f revision="$REVISION"
+          echo "Dispatched image-scan.yml on main, expecting \`$REVISION\`." >> "$GITHUB_STEP_SUMMARY"
