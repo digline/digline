@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.0.0 — unreleased
+## 1.0.0 — 2026-10-29
 
 digline **1.0.0**.
 
@@ -133,6 +133,16 @@ digline **1.0.0**.
   `where only one of the two runs recorded its configuration`. On the wire it
   is the word `config_unrecorded` in a spread's `excluded`, new under
   `OUTPUT_VERSION` 5. Runs that all recorded none are counted, as before.
+
+### Seen working in a browser — not owed
+
+- **The walkthrough was not owed for 1.0.0, and did not run.** Nothing in the
+  launch key, the hand-over or the promote form changed since 0.34.0, the last
+  release that ran it: `src/digline/cli/view.py`, `src/digline/report/pages.py`
+  and `src/digline/host/promotion.py` have no commit between `v0.34.0` and
+  `d783cac5`, and no `view.` key of `report/text.py` changed, measured on
+  2026-10-29. The refusals ADR 0054 §8 reshaped are in `core/refused.py`,
+  `core/run.py` and the suite loaders, none of them the three above.
 
 ## 0.35.0 — 2026-10-27
 
