@@ -1256,10 +1256,15 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "errored_checks": _INT,
         # Why a cost is not known, each sentence once: what `digline run` and
         # `digline rejudge` print on stderr after the bill. Present on both
-        # commands' `--json`, and empty where there was none. Absent from MCP's
-        # `run` until its half is decided, so absent says *not looked*. In this
+        # commands' `--json`, and empty where there was none: on a producer that
+        # carries the key, empty says it looked and was given no sentence.
+        # Absent from MCP's `run`, and there absent says only that the producer
+        # does not carry the key, not that it did not look: the sentences name a
+        # model in clear, and under `--names project` nothing mints them. In this
         # envelope, never in the stored run document (ADR 0004 §8.3).
-        # Added under `OUTPUT_VERSION = 4`: ADR 0004 §8.0, item 2.
+        # Added on `main` on 2026-10-28, while `main` still wrote
+        # `OUTPUT_VERSION = 4`. No release wrote it under 4: 1.0.0, which writes
+        # 5, is the first to carry it. ADR 0004 §8.0, item 2.
         "unpriced": _k(_arr("string"), optional=True),
     },
     # The MCP `list_runs` tool. `list` prints no JSON. (run.py)

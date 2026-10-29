@@ -495,18 +495,22 @@ def test_the_tenant_verifies_and_never_overrides(repo: Path) -> None:
 
 
 #: The keys `digline run --json` carries and this server's `run` does not yet,
-#: each with why. A declared exception with a known end, and counted, so a
-#: second key cannot join it in silence: whoever adds one raises
-#: `CLI_ONLY_COUNT` in the same diff and writes the reason here.
+#: each with why. A declared exception, and counted, so a second key cannot
+#: join it in silence: whoever adds one raises `CLI_ONLY_COUNT` in the same diff
+#: and writes the reason here.
 #:
-#: **The end.** `unpriced` leaves when this server's half of ADR 0004 §8.0,
-#: item 2, lands with ADR 0054 §8's server half. The table is then empty, and
-#: an empty table is removed, with its count, its test and the subtraction in
-#: `test_run_matches_the_cli_field_for_field`, not left standing.
+#: **The end, and what it is not.** `unpriced` leaves when this server carries
+#: it, and that waits on a decision, not on a release: its sentences name a
+#: model in clear, and under `--names project` nothing mints them. This said
+#: it would leave with ADR 0054 §8's server half. That half reached the
+#: refusals in digline-mcp 0.8.0 and the key stayed, so it was never the
+#: condition. When the table is empty it is removed, with its count, its test
+#: and the subtraction in `test_run_matches_the_cli_field_for_field`, not left
+#: standing.
 CLI_ONLY: dict[str, str] = {
-    "unpriced": "the sentences for a cost not known quote a model, which "
-    "`--names project` would have to mint; absent here says the tool did not "
-    "look (ADR 0004 §8.0, item 2)",
+    "unpriced": "the sentences for a cost not known name a model in clear, and "
+    "under `--names project` nothing mints them; absent here says this tool "
+    "does not carry the key, not that it did not look (ADR 0004 §8.0, item 2)",
 }
 CLI_ONLY_COUNT = 1
 
@@ -530,10 +534,11 @@ def test_run_matches_the_cli_field_for_field(repo: Path) -> None:
     # The keys are the contract; the run key itself differs because these are
     # two different runs, which is the only honest way to compare two writes.
     # One declared difference: `unpriced`, the sentences for a cost not known,
-    # is on the command line's envelope and not yet on the tool's. Where they
-    # go here waits on this server's half of ADR 0004 §8.0, item 2, with ADR
-    # 0054 §8: a sentence quotes a model, which `--names project` would mint.
-    # Absent on the tool says it did not look, which is true.
+    # is on the command line's envelope and not on the tool's. Whether the tool
+    # carries them waits on a decision: a sentence names a model in clear, and
+    # under `--names project` nothing mints it. Absent on the tool says the tool
+    # does not carry the key. It does not say the tool did not look: the run
+    # the tool makes collects the sentences, and the tool leaves them out.
     assert set(through_the_tool) == set(through_the_cli) - set(CLI_ONLY)
     assert through_the_tool["tenant"] == through_the_cli["tenant"]
     assert through_the_tool["suite"] == through_the_cli["suite"]
