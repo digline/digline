@@ -66,6 +66,18 @@ withheld response. The same ruling leaves the **list**
 `target_config.withheld` / `judge_config.withheld` as it is, and that list is
 spelt with the same word.
 
+*Noted 2026-10-29, and the table and the sentences that count three places
+kept as written.* The third row is **not renamed**. Ruled by Alessandro Prandini
+on 2026-10-29, and transcribed in the maintainer's notes. Measured, the mark
+sits at `results[].verdicts[].metadata.*.withheld`: `project` writes
+`{"withheld": true}` as the value of a token key. At that path the key may be
+digline's mark, or a field a third-party assertion wrote as its own value, and
+the path alone does not tell them apart, so renaming there would sometimes
+rename somebody else's data. So the positions a renaming step renames are two,
+not three: an artifact's entry and a recorded response. The rule is written on
+`Renames` in `src/digline/store/migrate.py`, and `tests/test_migration_steps.py`
+refuses a pair whose old path is under a verdict's `metadata` (#803).
+
 So schema 23 would carry the first step that renames, and the rule for it is
 written here, before the code.
 
@@ -93,6 +105,10 @@ not `builtin`, under a key that is not one of the driver's own. That is where
 its foreign verdicts when it is built (`_check_projected`), which is what
 `run_from_dict` builds.
 A renaming step addresses that position and no other.
+
+*Noted 2026-10-29, and the paragraph above kept as written.* That position is
+not renamed after all: the note under *Context* says why, and the gate refuses
+it.
 
 ### 2. What a renaming step may not do
 
