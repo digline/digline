@@ -290,7 +290,7 @@ def test_the_digest_does_not_leave_either() -> None:
 
 def test_a_suite_can_opt_in_and_it_is_one_line() -> None:
     run = a_run(prompt=Artifact(sha="a" * 64, text="eligibility: over 65 only"))
-    out = redact(run, Disclosure(artifact_text=True)).artifacts["prompt"]
+    out = redact(run, Disclosure(artifact_body=True)).artifacts["prompt"]
     assert out.text == "eligibility: over 65 only"
     assert out.withheld is False
 
@@ -606,11 +606,11 @@ def test_report_redacted_is_the_path_that_has_to_be_right(project: Path) -> None
 
 
 def test_the_opt_in_shows_the_diff_in_a_redacted_report(project: Path) -> None:
-    """`Disclosure(artifact_text=True)` is the one line that changes it, and it has
+    """`Disclosure(artifact_body=True)` is the one line that changes it, and it has
     to actually change it — a flag that quietly does nothing is worse than no
     flag."""
     (project / "suite.py").write_text(
-        SUITE % {"disclosure": "artifact_text=True"}, encoding="utf-8"
+        SUITE % {"disclosure": "artifact_body=True"}, encoding="utf-8"
     )
     (project / "prompt.md").write_text(PROMPT_V1, encoding="utf-8")
     run_once(project)

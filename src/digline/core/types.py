@@ -96,20 +96,34 @@ class Disclosure:
     The default is the empty one, so code that redacts without knowing the
     suite's policy discloses *less*, never more.
 
-    `artifact_text` follows that rule rather than making an exception of itself.
+    `artifact_body` follows that rule rather than making an exception of itself.
     The prompt is the software house's own file, which argues for letting it
     travel — but it is written *for* an end company and is where that company's
     rules end up, so no default can tell the two apart by looking. Opting in is
     one line in the suite, and the suite goes through a review. (ADR 0003)
+
+    **An artifact's body is everything its record holds beyond the path**:
+    today the text and the text's digest (`Artifact.text`, `Artifact.sha`).
+    The two never cross apart. The digest verifies the text, and prompts live
+    in a small, guessable space, so a digest sent alone lets through what
+    withholding the text was meant to keep in: hash the candidates, and the
+    one that matches is the text. With the flag false, what crosses is the
+    path and `withheld`.
+
+    The name is `artifact_body` and not `artifact_text_and_digest` because the
+    record may one day hold a third field, and a name that enumerates the
+    parts could then be repaired only in a major release. A name for the whole
+    covers a part added later, and this paragraph says what the whole is.
     """
 
     score_metadata: frozenset[str] = frozenset()
     run_metadata: frozenset[str] = frozenset()
-    #: Whether the declared artifacts — content and digest — cross a boundary.
+    #: Whether the declared artifacts' bodies cross a boundary: what the
+    #: docstring above defines as everything their record holds beyond the path.
     #: `Disclosure` is a value and enforces nothing about where a file sits:
     #: the perimeter is checked in `host.artifacts.read_artifacts`, and
     #: `.digline` and `.git` in `core.run.barred_from_crossing`. (ADR 0042)
-    artifact_text: bool = False
+    artifact_body: bool = False
 
 
 NOTHING_EXTRA = Disclosure()

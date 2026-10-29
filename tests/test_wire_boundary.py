@@ -175,7 +175,7 @@ def test_the_recorded_answer_has_no_key_to_travel_through() -> None:
     not know the field's name, so no caller can ask for it and no `Disclosure`
     can widen its way to it. The marker suite above already proves the text does
     not appear; this says *why* it cannot."""
-    document = run_document(loaded_run(), Disclosure(artifact_text=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     assert "responses" not in json.dumps(document)
     for case in rows(document, "results"):
         assert "responses" not in case
@@ -191,7 +191,7 @@ def test_the_recorded_trajectory_has_no_key_to_travel_through() -> None:
     The marker suite proves the argument does not appear; this says why it
     cannot. (ADR 0018 §2)
     """
-    document = run_document(loaded_run(), Disclosure(artifact_text=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     serialized = json.dumps(document)
     assert "tool_calls" not in serialized
     assert "lookup_account" not in serialized
@@ -399,7 +399,7 @@ def test_the_added_keys_did_not_move_the_output_version() -> None:
     numbers and a boolean that changed meaning in 0.33.0 under 2, and the bump
     to 4 for a key renamed, `name` to `assertion` on a verdict. The bump to 5
     is for five keys renamed, one of them this document's own: `artifacts`
-    to `artifact_text` in its `disclosure`."""
+    to `artifact_body` in its `disclosure`."""
     from digline.wire import OUTPUT_VERSION
 
     assert OUTPUT_VERSION == 5
@@ -445,7 +445,7 @@ def test_the_document_says_what_it_was_allowed_to_carry() -> None:
     assert document["disclosure"] == {
         "run_metadata": ["model"],
         "score_metadata": [],
-        "artifact_text": False,
+        "artifact_body": False,
     }
 
 
@@ -506,7 +506,7 @@ def test_neither_the_prompt_nor_its_digest_travels_undisclosed() -> None:
 def test_the_prompt_travels_when_the_suite_declares_it() -> None:
     """The positive half, so the gate is proving a boundary and not proving that
     a field is always empty."""
-    document = run_document(loaded_run(), Disclosure(artifact_text=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     artifacts = cast(dict[str, dict[str, Any]], document["artifacts"])
     assert artifacts["prompt.md"]["text"] == ARTIFACT_TEXT
     assert artifacts["prompt.md"]["sha"] == ARTIFACT_SHA
@@ -580,7 +580,7 @@ def test_a_disclosure_cannot_release_the_perimeter_field() -> None:
     widest = Disclosure(
         run_metadata=frozenset({"model", "customer_balance"}),
         score_metadata=frozenset({"cost_usd", "max_usd", "ratio"}),
-        artifact_text=True,
+        artifact_body=True,
     )
     assert WITHHELD_HOST not in json.dumps(run_document(loaded_run(), widest))
 

@@ -170,7 +170,7 @@ production is one nobody should act on.
 > They are neither verdict nor measurement, and they do not cross a boundary
 > unless the suite declares `Disclosure(artifacts=True)`.
 >
-> *Annotated 2026-10-28, the sentence above kept as written:* the flag is `Disclosure(artifact_text=True)` since the change that took `OUTPUT_VERSION` to 5, which renamed it with its key in the run document, `artifacts` in `disclosure`. The flag this record names by its old spelling is that one, and nothing it rules moved.
+> *Annotated 2026-10-28, the sentence above kept as written:* the flag is `Disclosure(artifact_body=True)` since the change that took `OUTPUT_VERSION` to 5, which renamed it with its key in the run document, `artifacts` in `disclosure`. The flag this record names by its old spelling is that one, and nothing it rules moved.
 
 This is the rule that makes the three worlds compatible.
 

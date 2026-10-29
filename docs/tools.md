@@ -170,7 +170,7 @@ answers the other's question.
 
 ## Withholding it
 
-Artifacts do not travel by default. `Disclosure(artifact_text=True)` is what lets
+Artifacts do not travel by default. `Disclosure(artifact_body=True)` is what lets
 them cross a boundary, and a redacted run withholds the **digest as well as the
 text** — a digest is a verifier, and a tool list is not drawn from a large
 space, so an attacker who can enumerate plausible variants can hash each

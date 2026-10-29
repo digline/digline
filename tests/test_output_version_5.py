@@ -62,7 +62,7 @@ def test_the_output_version_is_5() -> None:
 #: Every key version 5 renamed, as `(shape, before, after)`.
 RENAMED = (
     ("log.roll", "sent", "asked"),
-    ("disclosure", "artifacts", "artifact_text"),
+    ("disclosure", "artifacts", "artifact_body"),
     ("explain", "scope", "reading"),
     ("runs", "runs", "rows"),
     ("diff", "runs", "sides"),
@@ -112,10 +112,10 @@ def test_a_roll_says_asked() -> None:
     assert "sent" not in document
 
 
-def test_the_disclosure_says_artifact_text() -> None:
-    document = run_document(loaded_run(), Disclosure(artifact_text=True))
+def test_the_disclosure_says_artifact_body() -> None:
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     disclosure = cast(dict[str, Any], document["disclosure"])
-    assert disclosure["artifact_text"] is True
+    assert disclosure["artifact_body"] is True
     assert "artifacts" not in disclosure
     assert "artifacts" in document, "the control: the run's own `artifacts` stays"
 

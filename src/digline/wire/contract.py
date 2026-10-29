@@ -309,9 +309,9 @@ __all__ = [
 #:    document (record of the name pass, *Le sei decisioni*):
 #:    - `log.roll.sent` is `asked`: the one model a roll was asked for, where
 #:      `sent` on a sighting and a span is a list;
-#:    - `disclosure.artifacts` is `artifact_text`: the flag, where `artifacts`
+#:    - `disclosure.artifacts` is `artifact_body`: the flag, where `artifacts`
 #:      on a run is the map of the files; the Python parameter
-#:      `Disclosure(artifact_text=)` moved with it, never one half without the
+#:      `Disclosure(artifact_body=)` moved with it, never one half without the
 #:      other;
 #:    - `explain.scope` is `reading`: which of the two documents this reading
 #:      is, where `scope` on a delta, a check and a rule is case or run;
@@ -1327,7 +1327,7 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "run_metadata": _STRINGS,
         "score_metadata": _STRINGS,
         # `artifacts` until `OUTPUT_VERSION = 5`.
-        "artifact_text": _BOOL,
+        "artifact_body": _BOOL,
     },
     "usage": {"target": _k(_Obj("usage.line")), "judge": _k(_Obj("usage.line"))},
     "usage.line": {
@@ -1428,5 +1428,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     5,
-    "9130e64e4593fce6b5ff9f96872474d10895a6bb3563b9ea303677a82fc3801e",
+    "de33fb5eb503dd2ecd342db6ab929544a4bb848f97587e7339d6c4819c66bfff",
 )

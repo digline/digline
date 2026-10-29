@@ -12,7 +12,7 @@ notes under them are this file, verbatim.
   that parses the old names breaks, so each one says the new name:
   - `log --json`: each roll's `sent` is `asked`, the one model the roll was
     asked for. A sighting's and a span's `sent` stay.
-  - a run document's `disclosure`: `artifacts` is `artifact_text`.
+  - a run document's `disclosure`: `artifacts` is `artifact_body`.
   - `explain --json`: the top-level `scope` is `reading`, `comparison` or
     `run`. Each fact's `scope` stays.
   - the MCP tool `list_runs`: `runs` is `rows`.
@@ -20,10 +20,10 @@ notes under them are this file, verbatim.
 
   No document carries an old name beside its new one. `unpriced` (below) ships
   first under 5.
-- **`Disclosure(artifacts=...)` is now `Disclosure(artifact_text=...)`, with no
+- **`Disclosure(artifacts=...)` is now `Disclosure(artifact_body=...)`, with no
   alias.** A public name breaks: a suite that discloses its artifacts says
-  `Disclosure(artifact_text=True)`, and code that reads the flag reads
-  `.artifact_text`. The flag and its key in the document moved together.
+  `Disclosure(artifact_body=True)`, and code that reads the flag reads
+  `.artifact_body`. The flag and its key in the document moved together.
 - **`Sighting.answered` and `IdentitySpan.answered` are now `reported`, with no
   alias.** A public name breaks, for code that reads the reading through
   `digline.report`. `log --json` already said `reported` since `OUTPUT_VERSION`

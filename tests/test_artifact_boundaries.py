@@ -70,7 +70,7 @@ FREE = (
     "notes/.digline-old.md",
 )
 
-ARTIFACTS_DISCLOSED = Disclosure(artifact_text=True)
+ARTIFACTS_DISCLOSED = Disclosure(artifact_body=True)
 
 
 #: One judged case. A run with no case judged nothing, and since ADR 0049 that
@@ -397,7 +397,7 @@ def test_report_redacted_refuses_git_config_when_artifacts_are_disclosed(
     _project(
         repository,
         artifacts='Path("prompt.md"), Path(".git/config")',
-        disclosure="artifact_text=True",
+        disclosure="artifact_body=True",
     )
     _run_suite(repository)
     out = repository / "redacted.html"
@@ -419,7 +419,7 @@ def test_report_redacted_answers_when_artifacts_are_not_disclosed(
     assert code == EXIT_OK, stderr
 
 
-@pytest.mark.parametrize("disclosure", ["", "artifact_text=True"])
+@pytest.mark.parametrize("disclosure", ["", "artifact_body=True"])
 def test_promote_refuses_git_config_whatever_the_disclosure(
     repository: Path, disclosure: str
 ) -> None:

@@ -140,7 +140,7 @@ Each one lands in `Run.artifacts` as an `Artifact`:
 `digline view` labels a run with (`prompt a1b2c3`) so runs of one prompt group
 at a glance.
 
-**They do not travel by default.** `Disclosure(artifact_text=True)` is the opt-in,
+**They do not travel by default.** `Disclosure(artifact_body=True)` is the opt-in,
 and it is one line in the suite, which goes through a review. A prompt is your
 file and it is also where an end company's rules end up, and no default can tell
 those apart by looking — so the rule from ADR 0002 §3 holds without an
@@ -160,7 +160,7 @@ recorded like any other, and refused by the command that would let it cross:
 artifacts, and `promote` refuses it whatever the `Disclosure`, because a
 baseline carries every artifact's text into `baselines/`. That refusal is a
 `CrossingRefusedError`, which names the file, and the CLI exits 64 too; the
-document is never narrowed instead. Without `Disclosure(artifact_text=True)`, a file
+document is never narrowed instead. Without `Disclosure(artifact_body=True)`, a file
 under `.digline` is withheld like every other artifact, and no command is
 refused except `promote`.
 
@@ -173,7 +173,7 @@ cannot say whether the prompt moved, and does not pretend to.
 `withhold_artifacts(comparison)` is applied by the side holding both runs, so the
 outcome is a fact that side established. The document then says *"1 file under
 test changed"* and stops — no diff, no digest, no path.
-`Disclosure(artifact_text=True)` is what puts the diff back. Reasoning in
+`Disclosure(artifact_body=True)` is what puts the diff back. Reasoning in
 [ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
 ### `Suite.record_responses`: the answers, for judging them again
@@ -2376,10 +2376,12 @@ on: the value is still a string.
 - `sent` is `asked` on each entry of `log --json`'s `rolls`: the one model a
   roll was asked for, where a sighting's and a span's `sent` hold every model
   the side sent;
-- `artifacts` is `artifact_text` in the `disclosure` object of a run document,
+- `artifacts` is `artifact_body` in the `disclosure` object of a run document,
   and the parameter of the same name moved with it:
-  `Disclosure(artifact_text=True)`. What the flag lets through is an artifact's
-  text, and a run document's `artifacts` is the artifacts themselves;
+  `Disclosure(artifact_body=True)`. What the flag lets through is an artifact's
+  body, everything its record holds beyond the path: today the text and the
+  text's digest, which never cross apart. A run document's `artifacts` is the
+  artifacts themselves;
 - `scope` is `reading` at the top of `explain --json`: which of the two
   documents was read, `comparison` or `run`, where each fact's `scope` is a
   check's, `case` or `run`;
@@ -2662,7 +2664,7 @@ passes**, numbers included. `0.01` written by `CostBudget` is a measurement;
 suspension reasons disappear, the verdicts remain. It is a function on the value
 and not a serializer option, so no future transport can forget about it.
 
-`Disclosure(artifact_text=True)` lets the declared files travel; the default keeps
+`Disclosure(artifact_body=True)` lets the declared files travel; the default keeps
 them, digest and all.
 A declared file outside the perimeter is refused when the run is made; one under
 `.digline` or `.git` is refused by the command that would let it cross. Neither is

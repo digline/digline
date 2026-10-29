@@ -597,7 +597,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             Disclosure(
                 score_metadata=frozenset({"judge_min"}),
                 run_metadata=frozenset({"model"}),
-                artifact_text=True,
+                artifact_body=True,
             ),
         ),
     )
@@ -738,7 +738,7 @@ def test_a_bump_since_the_last_release_leaves_added_empty() -> None:
     are empty, or the bump did not fold.
 
     This is the check that sees `run.unpriced`, which no tag holds: left in
-    `_ADDED` at the bump to 5, with `_BASE` pinned at `b7dcd938…`, this test is
+    `_ADDED` at the bump to 5, with `_BASE` pinned at `d83e9d77…`, this test is
     red and the one below is green.
 
     **What it costs**, stated here: from a bump until the release that writes
@@ -753,11 +753,19 @@ def test_a_bump_since_the_last_release_leaves_added_empty() -> None:
         return
     assert not _ADDED and not _ADDED_WORDS, (
         f"{tag} declares OUTPUT_VERSION {released} and this tree {OUTPUT_VERSION}, "
-        "so this tree is the bump, and the bump did not fold: "
-        f"{[f'{e.shape}.{e.key}' for e in _ADDED]}"
-        f"{[f'{w.shape}.{w.key}: {w.word}' for w in _ADDED_WORDS]} are still "
-        "added. Fold them into `_BASE`, empty both, and pin the digest the "
-        "test above suggests."
+        "so this tree is a bump no release has written yet, and these are in "
+        f"`_ADDED` or `_ADDED_WORDS`: {[f'{e.shape}.{e.key}' for e in _ADDED]} "
+        f"{[f'{w.shape}.{w.key}: {w.word}' for w in _ADDED_WORDS]}. This test "
+        "cannot tell two causes apart, so read which one is yours. (1) The bump "
+        "did not fold: they were added under the old version. Fold them into "
+        "`_BASE`, empty both, and pin the digest "
+        "`test_the_base_has_not_moved_under_this_output_version` suggests. "
+        "(2) You added them under the new version, before its first release. "
+        "They ship first in that release, as `_BASE` does, so they go in "
+        "`_BASE`, not in `_ADDED`: write them there with the comment an "
+        "`_ADDED` entry would carry, and pin the new digest beside the same "
+        "version, which no release has written. Either way `_ADDED` and "
+        "`_ADDED_WORDS` stay empty until that release is tagged."
     )
 
 
@@ -785,7 +793,7 @@ def test_no_added_key_was_shown_by_a_release_under_an_older_version() -> None:
     after its last release and before the bump. No tag holds it, so a bump that
     left it in `_ADDED` is green here. `run.unpriced` is one, added under 4
     after 0.35.0 and folded at the bump to 5; left in `_ADDED`, `_BASE` would
-    digest to `b7dcd938…` and this test would pass. The test above is the one
+    digest to `d83e9d77…` and this test would pass. The test above is the one
     that refuses it."""
     tag = _last_release_under_an_older_version()
     shown = {

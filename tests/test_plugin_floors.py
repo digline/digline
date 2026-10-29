@@ -409,7 +409,8 @@ CALLED: dict[tuple[str, str, str], str] = {
     # Named `scope` until `OUTPUT_VERSION` 5, when the facts this name held
     # became `facts`. The attribute is as old as its date and its meaning is
     # not: a floor read from this table would let digline-mcp read the facts
-    # where it means the document, which is why RELEASING.md owes its floor.
+    # where it means the document. This gate cannot see that class, a renamed
+    # attribute, and RELEASING.md records it beside the widened signature.
     ("digline.host.reading", "Explained", "reading"): "0.13.0",
     ("digline.host.reading", "Explained", "run"): "0.13.0",
     ("digline.host.resolve", "Resolved", "key"): "0.6.0",

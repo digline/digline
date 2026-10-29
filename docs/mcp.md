@@ -261,7 +261,7 @@ What does not, and is **absent rather than emptied**:
   data (*that* a case was suspended does travel: it is coverage);
 - any `Score.metadata` key the suite's `Disclosure` does not cover;
 - a prompt **and its digest** unless the suite declares
-  `Disclosure(artifact_text=True)` — a digest is a verifier, and prompts live in a
+  `Disclosure(artifact_body=True)` — a digest is a verifier, and prompts live in a
   small enough space that one recovers the text (ADR 0003 §4);
   A declared file outside the perimeter is refused when the run is made; one
   under `.digline` or `.git` is refused by the command that would let it cross.

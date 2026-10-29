@@ -116,13 +116,13 @@ KEPT: tuple[Kept, ...] = (
     Kept(_0046, "the pages that say `Disclosure(artifacts=True)` is what", RECORD),
     Kept("CLAUDE.md", "`Disclosure(artifacts=True)`: a prompt carries", FIXED),
     Kept(_CONTRACT, "`log.roll.sent` is `asked`", BUMP),
-    Kept(_CONTRACT, "`disclosure.artifacts` is `artifact_text`", BUMP),
+    Kept(_CONTRACT, "`disclosure.artifacts` is `artifact_body`", BUMP),
     Kept(_CONTRACT, "`explain.scope` is `reading`", BUMP),
     Kept(_CONTRACT, "`runs.runs` is `rows`", BUMP),
     Kept(_CONTRACT, "`diff.runs` is `sides`", BUMP),
     Kept(
         "CHANGELOG.md",
-        "**`Disclosure(artifacts=...)` is now `Disclosure(artifact_text=...)`",
+        "**`Disclosure(artifacts=...)` is now `Disclosure(artifact_body=...)`",
         ANNOUNCED,
     ),
     Kept(
@@ -146,7 +146,7 @@ def stands_in(text: str, name: str) -> bool:
     return False
 
 
-#: A parameter is a word of its own followed by `=`: `artifact_text=` and
+#: A parameter is a word of its own followed by `=`: `artifact_body=` and
 #: `some_artifacts=` are not `artifacts=`. A call is its name as a word too:
 #: `explain_json(` is not `explain_json_x(` or `my_explain_json(`.
 def _parameter(name: str) -> re.Pattern[str]:
@@ -279,7 +279,7 @@ def test_a_parameter_is_read_inside_the_call_only() -> None:
         "x\nDisclosure(\n    run_metadata=frozenset(),\n    artifacts=True,\n)", *d
     ) == [1]
     assert passes("Disclosure(artifacts = True)", *d) == [0]
-    assert passes("Disclosure(artifact_text=True)", *d) == []
+    assert passes("Disclosure(artifact_body=True)", *d) == []
     assert passes("Suite(artifacts=[path])", *d) == []
     assert passes("Disclosure(some_artifacts=True)", *d) == []
     assert passes("Disclosure(f(x), run_metadata=s) artifacts=", *d) == []
