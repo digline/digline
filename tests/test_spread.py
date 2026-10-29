@@ -257,6 +257,98 @@ def test_a_population_that_differs_only_by_a_suspension_is_excluded() -> None:
     assert item.excluded.get("population") == 1
 
 
+@pytest.mark.parametrize("side", ["target_config", "judge_config"])
+def test_a_configuration_not_recorded_is_not_another_system(side: str) -> None:
+    """A run that recorded no configuration is not one that asked another
+    system, or graded with another instrument: one side recorded nothing, and
+    `config_deltas` reads that as `unknown`, never as a change (its second
+    rule). Excluded as a mismatch, it was counted as a change nobody measured,
+    which is ADR 0056 §2's declared violation on `_add_configs` in its one
+    repairable reader.
+
+    It does not join the range in silence either: whether it measured the same
+    system cannot be told from here, so it stays out and the reading says why.
+    """
+    rows = history(0.71, 0.86, 0.80)
+    unrecorded = replace(
+        a_run("2025-12-31T00:00:00+00:00", 0.55), **{side: SystemConfig()}
+    )
+    rows.insert(0, ("k9", unrecorded))
+    [item] = read(rows).spread
+
+    assert side not in item.excluded, item.excluded
+    assert item.excluded.get("config_unrecorded") == 1, item.excluded
+    assert item.runs == 2
+
+
+def test_a_latest_run_that_recorded_no_configuration_excludes_the_same_way() -> None:
+    """The rule reads both sides: `unknown` whichever one recorded nothing."""
+    rows = history(0.71, 0.86)
+    rows.append(
+        (
+            "k9",
+            replace(
+                a_run("2026-02-01T00:00:00+00:00", 0.80), target_config=SystemConfig()
+            ),
+        )
+    )
+    [item] = read(rows).spread
+
+    assert item.excluded == {"config_unrecorded": 2}, item.excluded
+
+
+def test_runs_that_all_recorded_no_configuration_are_counted() -> None:
+    """Neither side recorded anything: absent is not a change (the first rule),
+    and nothing is excluded for it."""
+    rows = [
+        (key, replace(run, target_config=SystemConfig(), judge_config=SystemConfig()))
+        for key, run in history(0.71, 0.86, 0.80)
+    ]
+    [item] = read(rows).spread
+
+    assert item.excluded == {}, item.excluded
+    assert item.runs == 2
+
+
+def test_a_configuration_that_differs_is_still_another_system() -> None:
+    """The control: a mismatch between two recorded configurations stays the
+    exclusion it always was, even beside a judge that recorded nothing."""
+    rows = history(0.71, 0.86, 0.80)
+    odd = replace(
+        a_run("2025-12-31T00:00:00+00:00", 0.55, model="m-2"),
+        judge_config=SystemConfig(),
+    )
+    rows.insert(0, ("k9", odd))
+    [item] = read(rows).spread
+
+    assert item.excluded == {"target_config": 1}, item.excluded
+
+
+@pytest.mark.parametrize("locale", sorted(LOCALES))
+def test_a_configuration_not_recorded_is_said(locale: Locale) -> None:
+    """Out of the range, and named: in the sentence and on the wire."""
+    rows = history(0.71, 0.86, 0.80)
+    rows.insert(
+        0,
+        (
+            "k9",
+            replace(
+                a_run("2025-12-31T00:00:00+00:00", 0.55), target_config=SystemConfig()
+            ),
+        ),
+    )
+    table = strings(locale)
+    expected = table["log.spread.excluded"].format(
+        excluded=table["log.spread.excluded.config_unrecorded"].format(count=1)
+    )
+
+    said = "\n".join(log_text(read(rows), locale=locale))
+
+    assert expected in said, said
+    [row] = cast("list[dict[str, Any]]", log_json(read(rows))["spread"])
+    assert row["excluded"] == {"config_unrecorded": 1}
+
+
 def test_a_run_another_model_answered_is_out_of_the_set() -> None:
     """The set stops at the run before what answered changed.
 

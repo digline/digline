@@ -99,6 +99,16 @@ notes under them are this file, verbatim.
   reads `target: no call answered, calls made and cost not recorded; not every
   call seen`, on standard error only: `--json` and the run document are
   unchanged.
+- **`digline log` no longer says a run that recorded no configuration was
+  asking another system** (ADR 0056 §2). Its spread excluded such a run as
+  `asking another system`, or `grading with another instrument` for the
+  judge, which reported a change nobody measured: `compare` and `diff` read
+  the same run as `unknown`. Every run digline 0.1.x wrote is one, through
+  `digline migrate`. The run still stays out of the range, because whether
+  it measured the same system cannot be told, and the reading now says why:
+  `where only one of the two runs recorded its configuration`. On the wire it
+  is the word `config_unrecorded` in a spread's `excluded`, new under
+  `OUTPUT_VERSION` 5. Runs that all recorded none are counted, as before.
 
 ## 0.35.0 — 2026-10-27
 

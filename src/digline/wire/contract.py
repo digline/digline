@@ -352,6 +352,18 @@ __all__ = [
 #:    the flag lets the text's digest through with the text, so it became
 #:    `artifact_body`. No release carries `artifact_text`.
 #:
+#:    *Re-pinned a second time on 2026-10-29 (`aec4de70…`), the paragraph
+#:    above kept as written.* What moved `_BASE` is one word:
+#:    `config_unrecorded` joined the vocabulary of `log.spread`'s `excluded`,
+#:    because `digline log` stopped excluding a run that recorded no
+#:    configuration as *asking another system* and names it instead (ADR 0056
+#:    §2, the repairable half of `_add_configs`). It is an addition, which
+#:    under a released version is an entry in `_ADDED_WORDS`. In this window
+#:    `test_a_bump_since_the_last_release_leaves_added_empty` holds
+#:    `_ADDED_WORDS` empty, so the word is in `_BASE`, with the comment it
+#:    would have carried there, and the digest of 5 moved under the exception
+#:    beside `_BASE`.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -567,7 +579,11 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #     So a rename or a type change made between a bump and its first release
 #     moves `_BASE` and its digest under that same version, rather than
 #     climbing to the next: a version climbed past before any release would be
-#     a number no artifact carries. **The exception ends at the tag.** From
+#     a number no artifact carries. *Widened the same day:* an **addition**
+#     in that window goes into `_BASE` too, a key or a word. It comes out for
+#     the first time under that version, so it is part of the base that
+#     version shows, and `_ADDED` and `_ADDED_WORDS` stay empty, as the test
+#     below demands. **The exception ends at the tag.** From
 #     the release that writes the version on, a movement of `_BASE` is a bump.
 #     What keeps it honest is
 #     `test_a_bump_since_the_last_release_leaves_added_empty`: while this
@@ -1153,6 +1169,10 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         "low": _NUM_OR_NULL,
         "high": _NUM_OR_NULL,
         "runs": _INT,
+        # The word `config_unrecorded` in this vocabulary was added under
+        # `OUTPUT_VERSION = 5`, before any release wrote 5: ADR 0056 §2; ADR
+        # 0024 §7.2, amended 2026-10-29. In `_BASE` and not in `_ADDED_WORDS`,
+        # which stay empty until that release (the record of 5, above).
         "excluded": _k(_map("integer", keys=frozenset(EXCLUSIONS))),
         "unidentified": _INT,
         "commits": _INT,
@@ -1450,5 +1470,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     5,
-    "de33fb5eb503dd2ecd342db6ab929544a4bb848f97587e7339d6c4819c66bfff",
+    "aec4de70bfa53e30c1ab54db34d27799f3e4c3219cc25ef39dcb89a56b26d3e4",
 )

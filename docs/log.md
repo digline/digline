@@ -276,8 +276,9 @@ check.
 | `measuring other rules` | a different `config_hash` |
 | `counting other cases` | a different case-id set, or different suspensions, canaries or calibration cases |
 | `testing another prompt` | a declared artifact's digest differs — a run declaring no artifacts is counted, and the reading says so |
-| `asking another system` | the target configuration differs, as sent |
-| `grading with another instrument` | the judge configuration differs |
+| `asking another system` | the target configuration differs, as sent, between two runs that both recorded one |
+| `grading with another instrument` | the judge configuration differs, between two runs that both recorded one |
+| `where only one of the two runs recorded its configuration` | one run recorded its target or judge configuration and the other recorded none, as every run of digline 0.1.x did: not a change, which `compare` would read as `unknown`, and not counted either, because whether the two measured the same system cannot be told |
 | `another model was reported` | equal configurations whose recorded sighting differs |
 
 Nothing here refuses the command, and `--since`/`--until` narrow this set like
