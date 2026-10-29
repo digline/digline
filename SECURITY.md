@@ -156,9 +156,11 @@ boundary, who wrote the value, and what does a hostile value do there.*
 Reproduce on the artifact that actually travels, not on the code that builds it,
 and write the regression test so that it fails against the release just cut.
 
-It has run on 0.7.1 and on every minor release since, each recorded in
-the changelog — except the newest minor while its own pass is still owed:
-that pass runs between the release's green and its announcement. The pass
+It has run on 0.7.1 and on every minor release since, through 0.34.0. **Two
+releases are still waiting for their own pass: 0.35.0 and 1.0.0.** A pass
+that found something is in the changelog, beside the fix it led to. One that
+found nothing often left no line there, and its report is kept in the
+maintainers' notes, which are not public. The pass
 over 0.7.1's four fixes found two more, shipped the
 same day as 0.7.2. The pass over 0.8.0 found `resolved_model` travelling in
 clear out of a redacted run — a boundary decided that morning and wrong by
