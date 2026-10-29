@@ -423,7 +423,7 @@ def build_server(
         read = explained(store, loaded_suite, resolved.key, mint=mint)
         return explain_json(
             read.reading,
-            scope=read.scope,
+            reading=read.scope,
             exit_code=read.exit_code,
             note=resolved.note,
             run=read.run,

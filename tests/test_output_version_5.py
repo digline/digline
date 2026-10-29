@@ -122,7 +122,7 @@ def test_the_disclosure_says_artifact_text() -> None:
 
 def test_explain_says_reading() -> None:
     run = loaded_run()
-    document = explain_json(facts(run), scope="run", exit_code=0)
+    document = explain_json(facts(run), reading="run", exit_code=0)
     assert document["reading"] == "run"
     assert "scope" not in document
 

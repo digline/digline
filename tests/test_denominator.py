@@ -388,7 +388,7 @@ def test_the_explain_row_carries_the_flag_to_a_program() -> None:
     already matches on, and a program can still tell this row apart."""
     run = run_with(both_pass(1.0, 3))
     reading = facts(run, compare(run, LENIENT_REFERENCE))
-    payload = explain_json(reading, scope="comparison", exit_code=0)
+    payload = explain_json(reading, reading="comparison", exit_code=0)
     rows = [
         f
         for f in cast("list[dict[str, object]]", payload["facts"])
@@ -577,7 +577,7 @@ def test_the_surfaces_say_it_with_the_sentences_they_already_had() -> None:
     assert "got better" not in said
 
     # The wire.
-    payload = explain_json(facts(run, comparison), scope="comparison", exit_code=0)
+    payload = explain_json(facts(run, comparison), reading="comparison", exit_code=0)
     (row,) = [
         f
         for f in cast("list[dict[str, object]]", payload["facts"])

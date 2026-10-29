@@ -6,10 +6,10 @@ So this file counts the forms that can only mean the renamed keys:
 
 - **a qualified path**: `log.roll.sent`, `disclosure.artifacts`,
   `explain.scope`, `runs.runs`, `diff.runs`;
-- **`artifacts=` inside a `Disclosure(` call**, the Python parameter that moved
-  with its key.
+- **`artifacts=` inside a `Disclosure(` call** and **`scope=` inside an
+  `explain_json(` call**, the Python parameters that moved with their keys.
 
-A search for these does not answer zero, and zero is the wrong number: 24
+A search for these does not answer zero, and zero is the wrong number: 25
 lines keep one, each for a reason in one of five classes, and `KEPT` declares
 them.
 
@@ -20,8 +20,8 @@ them.
 - **a fixed decision's paragraph**, annotated and never rewritten, as ADR 0046
   did with the same paragraph;
 - **the contract's record of the bump**, which names what it renamed;
-- **the changelog line that announces the rename**, which has to name the old
-  parameter for whoever reads it against the last release.
+- **the changelog lines that announce the renames**, which have to name the
+  old parameter for whoever reads them against the last release.
 
 The count is fixed and red both ways: a line more is a use that came back or a
 mention nobody declared, and a declared line that is gone is a declaration
@@ -29,7 +29,7 @@ that no longer says anything.
 
 **Each search carries its control in the same pass**: a form known to stand in
 the tree, read by the same matcher over the same files, so a search that
-answers 24 is a search that looks.
+answers 25 is a search that looks.
 
 **Whole word, by the names gate's derivation** (`named_in` in
 `packages/digline-mcp/tests/test_names_gate.py`): a path is continued only by
@@ -59,10 +59,12 @@ QUALIFIED: dict[str, str] = {
     "runs.runs": "span.runs",
     "diff.runs": "diff.sides",
 }
-#: The parameter, and the control beside it: another parameter of the same
-#: call.
-PARAMETER = "artifacts"
-PARAMETER_CONTROL = "run_metadata"
+#: Each renamed parameter as `(call, parameter)`, with its control: another
+#: parameter of the same call.
+PARAMETERS: dict[tuple[str, str], tuple[str, str]] = {
+    ("Disclosure", "artifacts"): ("Disclosure", "run_metadata"),
+    ("explain_json", "scope"): ("explain_json", "exit_code"),
+}
 
 
 class Kept(NamedTuple):
@@ -77,7 +79,7 @@ HISTORY = "released history, not rewritten"
 RECORD = "an accepted record, kept as written and noted where it became false"
 FIXED = "a fixed decision's paragraph, annotated and not rewritten"
 BUMP = "the contract's record of the bump"
-ANNOUNCED = "the changelog line that announces the rename"
+ANNOUNCED = "a changelog line that announces a rename"
 
 _0042 = "docs/adr/0042-the-two-boundaries-of-an-artifact.md"
 _0046 = "docs/adr/0046-a-widening-is-a-declared-class.md"
@@ -123,6 +125,11 @@ KEPT: tuple[Kept, ...] = (
         "**`Disclosure(artifacts=...)` is now `Disclosure(artifact_text=...)`",
         ANNOUNCED,
     ),
+    Kept(
+        "CHANGELOG.md",
+        "**`explain_json(scope=...)` is now `explain_json(reading=...)`",
+        ANNOUNCED,
+    ),
 )
 
 
@@ -140,23 +147,24 @@ def stands_in(text: str, name: str) -> bool:
 
 
 #: A parameter is a word of its own followed by `=`: `artifact_text=` and
-#: `some_artifacts=` are not `artifacts=`.
+#: `some_artifacts=` are not `artifacts=`. A call is its name as a word too:
+#: `explain_json(` is not `explain_json_x(` or `my_explain_json(`.
 def _parameter(name: str) -> re.Pattern[str]:
     return re.compile(rf"(?<![A-Za-z0-9_]){name}\s*=")
 
 
-#: How far a call is read for its closing parenthesis. A `Disclosure(` in prose
+#: How far a call is read for its closing parenthesis. A call in prose
 #: that never closes is not read to the end of the file.
 _CALL_REACH = 400
 
 
-def passes(text: str, name: str) -> list[int]:
-    """The 0-based line of each `Disclosure(` call in `text` whose arguments
-    pass `name`, read to the call's closing parenthesis, so a call that spans
-    lines is read whole."""
+def passes(text: str, call: str, name: str) -> list[int]:
+    """The 0-based line of each `call(` in `text` whose arguments pass `name`,
+    read to the call's closing parenthesis, so a call that spans lines is read
+    whole."""
     pattern = _parameter(name)
     lines: list[int] = []
-    for opened in re.finditer(r"Disclosure\(", text):
+    for opened in re.finditer(rf"(?<![A-Za-z0-9_]){call}\(", text):
         depth, at = 1, opened.end()
         limit = min(len(text), at + _CALL_REACH)
         while at < limit and depth:
@@ -186,27 +194,29 @@ def _tracked(root: Path) -> list[tuple[str, str]]:
 
 
 def search(
-    paths: tuple[str, ...], parameters: tuple[str, ...], root: Path = ROOT
-) -> dict[str, list[tuple[str, str]]]:
+    paths: tuple[str, ...], parameters: tuple[tuple[str, str], ...], root: Path = ROOT
+) -> dict[object, list[tuple[str, str]]]:
     """Every `(path, line)` where each qualified path stands, and where each
-    parameter is passed to `Disclosure(`, in one pass over the tracked text
-    files, this file left out."""
-    found: dict[str, list[tuple[str, str]]] = {n: [] for n in (*paths, *parameters)}
+    `(call, parameter)` is passed, in one pass over the tracked text files,
+    this file left out."""
+    found: dict[object, list[tuple[str, str]]] = {n: [] for n in (*paths, *parameters)}
     for path, text in _tracked(root):
         lines = text.splitlines()
         for line in lines:
             for name in paths:
                 if stands_in(line, name):
                     found[name].append((path, line))
-        for name in parameters:
-            found[name].extend((path, lines[at]) for at in passes(text, name))
+        for call, name in parameters:
+            found[call, name].extend(
+                (path, lines[at]) for at in passes(text, call, name)
+            )
     return found
 
 
-def old_lines(found: dict[str, list[tuple[str, str]]]) -> list[tuple[str, str]]:
+def old_lines(found: dict[object, list[tuple[str, str]]]) -> list[tuple[str, str]]:
     """The lines that carry any old form, each once."""
     seen: dict[tuple[str, str], None] = {}
-    for name in (*QUALIFIED, PARAMETER):
+    for name in (*QUALIFIED, *PARAMETERS):
         for hit in found[name]:
             seen.setdefault(hit)
     return list(seen)
@@ -235,18 +245,20 @@ def unexplained(
 
 
 def test_the_old_keys_stand_only_where_they_are_declared() -> None:
-    found = search((*QUALIFIED, *QUALIFIED.values()), (PARAMETER, PARAMETER_CONTROL))
-    controls = [*QUALIFIED.values(), PARAMETER_CONTROL]
+    found = search(
+        (*QUALIFIED, *QUALIFIED.values()), (*PARAMETERS, *PARAMETERS.values())
+    )
+    controls: list[object] = [*QUALIFIED.values(), *PARAMETERS.values()]
     blind = [control for control in controls if not found[control]]
     assert not blind, f"the search found no control, so it did not look: {blind}"
     lines = old_lines(found)
     problems = unexplained(lines)
     assert not problems, "\n".join(problems)
-    assert len(lines) == len(KEPT) == 24
+    assert len(lines) == len(KEPT) == 25
 
 
-def test_the_declared_lines_are_24_in_five_classes() -> None:
-    assert len(KEPT) == 24
+def test_the_declared_lines_are_25_in_five_classes() -> None:
+    assert len(KEPT) == 25
     assert {k.reason for k in KEPT} == {HISTORY, RECORD, FIXED, BUMP, ANNOUNCED}
     assert len(set(KEPT)) == len(KEPT), "a line declared twice"
 
@@ -261,16 +273,22 @@ def test_the_matcher_is_the_names_gates() -> None:
 
 
 def test_a_parameter_is_read_inside_the_call_only() -> None:
-    assert passes("Disclosure(artifacts=True)", PARAMETER) == [0]
+    d = ("Disclosure", "artifacts")
+    assert passes("Disclosure(artifacts=True)", *d) == [0]
     assert passes(
-        "x\nDisclosure(\n    run_metadata=frozenset(),\n    artifacts=True,\n)",
-        PARAMETER,
+        "x\nDisclosure(\n    run_metadata=frozenset(),\n    artifacts=True,\n)", *d
     ) == [1]
-    assert passes("Disclosure(artifacts = True)", PARAMETER) == [0]
-    assert passes("Disclosure(artifact_text=True)", PARAMETER) == []
-    assert passes("Suite(artifacts=[path])", PARAMETER) == []
-    assert passes("Disclosure(some_artifacts=True)", PARAMETER) == []
-    assert passes("Disclosure(f(x), run_metadata=s) artifacts=", PARAMETER) == []
+    assert passes("Disclosure(artifacts = True)", *d) == [0]
+    assert passes("Disclosure(artifact_text=True)", *d) == []
+    assert passes("Suite(artifacts=[path])", *d) == []
+    assert passes("Disclosure(some_artifacts=True)", *d) == []
+    assert passes("Disclosure(f(x), run_metadata=s) artifacts=", *d) == []
+    e = ("explain_json", "scope")
+    assert passes("explain_json(facts(run), scope='run', exit_code=0)", *e) == [0]
+    assert passes("explain_json(facts(run, scope=s), reading='run')", *e) == [0]
+    assert passes("explain_json(f, reading='run', exit_code=0)", *e) == []
+    assert passes("my_explain_json(f, scope='run')", *e) == []
+    assert passes("fact_json(f, scope='run')", *e) == []
 
 
 def test_a_line_more_and_a_line_missing_are_both_red() -> None:

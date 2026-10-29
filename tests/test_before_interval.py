@@ -67,7 +67,7 @@ def _checks(now: Run, before: Run | None) -> list[dict[str, Any]]:
     comparison = None if before is None else compare(now, before)
     document = explain_json(
         facts(now, comparison),
-        scope="run" if before is None else "comparison",
+        reading="run" if before is None else "comparison",
         exit_code=0,
         run=now,
         baseline=before,

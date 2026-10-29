@@ -1094,7 +1094,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
             json.dumps(
                 explain_json(
                     read.reading,
-                    scope=read.scope,
+                    reading=read.scope,
                     exit_code=read.exit_code,
                     note=resolved.note,
                     run=read.run,

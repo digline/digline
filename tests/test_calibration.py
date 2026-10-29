@@ -1354,10 +1354,10 @@ def test_the_fields_are_never_written_and_a_quoting_reason_stays_inside() -> Non
             compare_json(comparison, head, baseline=held, full=True)
         ),
         "explain --json": json.dumps(
-            explain_json(facts(run, comparison), scope="comparison", exit_code=2)
+            explain_json(facts(run, comparison), reading="comparison", exit_code=2)
         ),
         "explain --json, alone": json.dumps(
-            explain_json(facts(run), scope="run", exit_code=2)
+            explain_json(facts(run), reading="run", exit_code=2)
         ),
         "MCP run document": json.dumps(run_document(run, NOTHING_EXTRA)),
         "headline sentence": head.sentence,

@@ -603,7 +603,7 @@ def test_no_marker_survives_the_reading() -> None:
         (facts(run), "run"),
         (facts(run, compare(run, loaded_run())), "comparison"),
     ):
-        document = json.dumps(explain_json(reading, scope=scope, exit_code=0))
+        document = json.dumps(explain_json(reading, reading=scope, exit_code=0))
         for marker in MARKERS:
             assert marker not in document, f"{marker!r} crossed on the {scope} reading"
 
@@ -618,7 +618,7 @@ def test_the_reading_has_no_reason_field_to_fill() -> None:
     for fact in reading:
         assert not hasattr(fact, "reason")
     assert '"reason"' not in json.dumps(
-        explain_json(reading, scope="comparison", exit_code=0)
+        explain_json(reading, reading="comparison", exit_code=0)
     )
 
 
@@ -626,7 +626,7 @@ def test_a_suspension_reaches_the_reading_as_a_case_and_not_as_a_sentence() -> N
     """The case id is a fact about coverage and travels; the stated reason is
     payload. A suite whose coverage silently shrank must still be visible."""
     run = loaded_run()
-    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    document = json.dumps(explain_json(facts(run), reading="run", exit_code=0))
     assert "case-2" in document
     assert SUSPENSION not in document
 
@@ -637,7 +637,7 @@ def test_neither_the_prompt_nor_its_digest_reaches_the_reading() -> None:
     travelled beside. The reading carries the path and the outcome, and there
     is no field for either the text or the hash."""
     run = loaded_run()
-    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    document = json.dumps(explain_json(facts(run), reading="run", exit_code=0))
     assert "prompt.md" in document
     assert ARTIFACT_TEXT not in document
     assert ARTIFACT_SHA not in document
@@ -652,5 +652,5 @@ def test_the_withheld_perimeter_field_never_reaches_the_reading() -> None:
     run = loaded_run()
     reading = facts(run, compare(run, loaded_run()))
     assert WITHHELD_HOST not in json.dumps(
-        explain_json(reading, scope="comparison", exit_code=0)
+        explain_json(reading, reading="comparison", exit_code=0)
     )

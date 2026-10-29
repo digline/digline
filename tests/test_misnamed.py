@@ -373,7 +373,7 @@ def test_the_reading_and_the_single_run_document_say_it_too() -> None:
             line.startswith("1 check returned a verdict under a name")
             for line in explain_text(reading, locale="en")
         )
-    wire = explain_json(facts(run), scope="run", exit_code=2)
+    wire = explain_json(facts(run), reading="run", exit_code=2)
     assert {
         "about": "run",
         "kind": "misnamed",

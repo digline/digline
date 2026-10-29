@@ -28,6 +28,11 @@ notes under them are this file, verbatim.
   alias.** A public name breaks, for code that reads the reading through
   `digline.report`. `log --json` already said `reported` since `OUTPUT_VERSION`
   4; the field now says what the key says.
+- **`explain_json(scope=...)` is now `explain_json(reading=...)`, with no
+  alias**, and its first parameter, the facts, is `facts` where it was
+  `reading`. A public name breaks for code that builds an `explain` document
+  through `digline.wire`; a call that passes the facts by position changes
+  only the keyword. The parameters now say what the document's keys say.
 - **`digline.core.Quoted` is now `Written`, with no alias.** A public name
   breaks: code that imports or builds it says `Written`, `Written.of(...)` and
   `Written.said(...)`.

@@ -333,6 +333,11 @@ more than the document shows.
 matching on the seven words meets an eighth only where `log` used to end in a
 traceback.
 
+*Annotated 2026-10-29, the paragraph above kept as written:* the key it calls
+`answered` is `reported` since `OUTPUT_VERSION` 4 (#678), so on the wire this
+sighting carries `reported: null`. The shape and the rule are as written; only
+the key's name moved.
+
 **Where it applies.** The projected document the reading can meet today is the
 reference, because `read_baseline` accepts a projected reference. The fold
 applies the same row to any configuration that declares itself projected, so

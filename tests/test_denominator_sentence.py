@@ -173,7 +173,7 @@ def test_the_reading_says_it_from_its_own_facts() -> None:
     assert "43 of 50 cases judged, 7 could not be." in explain_text(
         facts(run), locale="en"
     )
-    wire = explain_json(reading, scope="comparison", exit_code=2)
+    wire = explain_json(reading, reading="comparison", exit_code=2)
     assert "counted" not in str(wire)
 
 

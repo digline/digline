@@ -208,7 +208,7 @@ def test_it_says_so_first_names_the_check_and_exits_two() -> None:
         assert first.startswith("1 check does not reconcile with what the suite asked.")
     reading = facts(run)
     assert "c2 · agrees could not be judged." in explain_text(reading, locale="en")
-    wire = explain_json(reading, scope="run", exit_code=2)
+    wire = explain_json(reading, reading="run", exit_code=2)
     assert wire["facts"][0] == {  # type: ignore[index]
         "about": "run",
         "kind": "unreconciled",
@@ -501,7 +501,7 @@ def test_the_count_crosses_on_the_wire_as_an_added_key() -> None:
     payload = compare_json(comparison, head, baseline=reference, full=False)
     assert payload["reference_unreconciled"] == 1
 
-    reading = explain_json(facts(clean, comparison), scope="comparison", exit_code=0)
+    reading = explain_json(facts(clean, comparison), reading="comparison", exit_code=0)
     emitted = cast("list[dict[str, object]]", reading["facts"])
     kinds = {fact["kind"] for fact in emitted if fact["about"] == "run"}
     assert "reference_unreconciled" in kinds

@@ -28,10 +28,16 @@ are what decide which branches a document takes.
 from __future__ import annotations
 
 import dataclasses
+import importlib.util
+import re
+import subprocess
+import sys
 from collections.abc import Iterator, Mapping
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
+from tests._tags import tags_absent
 
 from digline.core import (
     Artifact,
@@ -525,7 +531,7 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "explain",
         explain_json(
             facts(now, comparison),
-            scope="comparison",
+            reading="comparison",
             exit_code=1,
             run=now,
             baseline=before,
@@ -534,12 +540,12 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
     yield (
         "explain_json run",
         "explain",
-        explain_json(facts(now), scope="run", exit_code=0, run=now),
+        explain_json(facts(now), reading="run", exit_code=0, run=now),
     )
     yield (
         "explain_json without its documents",
         "explain",
-        explain_json(facts(now), scope="run", exit_code=0),
+        explain_json(facts(now), reading="run", exit_code=0),
     )
 
     yield "log_json", "log", log_json(_log())
@@ -655,20 +661,118 @@ def test_every_optional_key_is_left_absent_somewhere() -> None:
 
 def test_the_base_has_not_moved_under_this_output_version() -> None:
     """`_BASE` is the shape every consumer of this `OUTPUT_VERSION` parses. It
-    changes by a bump and by nothing else: an added key goes in `_ADDED`."""
+    changes by a bump and by nothing else: an added key goes in `_ADDED`.
+
+    **The digest a red suggests is the folded one**, `_SHAPES`' digest: what
+    `_BASE` holds once `_ADDED` and `_ADDED_WORDS` are folded into it, which is
+    what the rule beside `_BASE` asks of a bump (#669). Until 2026-10-29 the
+    red suggested `_BASE`'s own digest as it stood, the pin of a bump that did
+    not fold, and both pins pass here: which one is right is the rule's, and
+    `test_no_added_key_was_shown_by_a_release_under_an_older_version` reads a
+    release for the half of it a tag can see."""
     version, pinned = _BASE_DIGEST
     found = _digest(_BASE)
+    folded = _digest(_SHAPES)
+    fold = (
+        "fold `_ADDED` into `_BASE` and `_ADDED_WORDS` into its vocabulary, "
+        "empty both (the rule beside `_BASE`, #669), and pin"
+    )
     assert version == OUTPUT_VERSION, (
         f"`_BASE_DIGEST` belongs to OUTPUT_VERSION {version}, and it is "
-        f"{OUTPUT_VERSION}. After a bump, fold `_ADDED` into `_BASE`, empty "
-        "`_ADDED`, and pin the new version and digest together."
+        f"{OUTPUT_VERSION}. After a bump, {fold} ({OUTPUT_VERSION}, {folded!r}): "
+        "the digest of the folded base."
     )
     assert found == pinned, (
         "`_BASE` moved under the same `OUTPUT_VERSION`. If a key was added, "
         "take it out of `_BASE` and put it in `_ADDED`. If a key was renamed or "
         "removed, or a value may now take another type, a consumer parsing the "
-        "old shape breaks: bump `OUTPUT_VERSION`, record why in `contract.py`, "
-        f"and pin ({OUTPUT_VERSION + 1}, {found!r}).\n" + "\n".join(_lines(_BASE))
+        f"old shape breaks: bump `OUTPUT_VERSION` to {OUTPUT_VERSION + 1}, unless "
+        "this tree is that bump, record why in `contract.py`, "
+        f"{fold} the new version beside {folded!r}: the digest of the folded "
+        "base.\n" + "\n".join(_lines(_SHAPES))
+    )
+
+
+ROOT = Path(__file__).resolve().parents[1]
+_spec = importlib.util.spec_from_file_location(
+    "contract_diff", ROOT / "tools" / "contract_diff.py"
+)
+assert _spec is not None and _spec.loader is not None
+contract_diff = importlib.util.module_from_spec(_spec)
+sys.modules[_spec.name] = contract_diff
+_spec.loader.exec_module(contract_diff)
+
+
+def _output_version_at(tag: str) -> int | None:
+    """The `OUTPUT_VERSION` `tag`'s contract declares, or `None` where the tag
+    has no `contract.py` to say it."""
+    shown = subprocess.run(  # noqa: S603
+        ["git", "-C", str(ROOT), "show", f"{tag}:src/digline/wire/contract.py"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    found = re.search(r"^OUTPUT_VERSION = (\d+)$", shown.stdout, re.MULTILINE)
+    return int(found.group(1)) if shown.returncode == 0 and found else None
+
+
+def _last_release_under_an_older_version() -> str:
+    """The newest `v0.*` tag whose contract declares an `OUTPUT_VERSION` below
+    this tree's: the last release a key added under this version cannot be in.
+    """
+    listed = subprocess.run(  # noqa: S603
+        ["git", "-C", str(ROOT), "tag", "-l", "v0.*", "--sort=-v:refname"],  # noqa: S607
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    if not listed:
+        tags_absent(["v0.1.0"])
+    for tag in listed:
+        version = _output_version_at(tag)
+        if version is not None and version < OUTPUT_VERSION:
+            return tag
+    raise AssertionError(f"no tag declares an OUTPUT_VERSION below {OUTPUT_VERSION}")
+
+
+def test_no_added_key_was_shown_by_a_release_under_an_older_version() -> None:
+    """The half of the fold a release can see. A key in `_ADDED` was added under
+    this `OUTPUT_VERSION`, so no release written under an older one shows it:
+    where one does, the bump left it in `_ADDED` instead of folding it into
+    `_BASE`. The same for a word in `_ADDED_WORDS` and the vocabulary its map
+    had. The release is read as `tools/contract_diff.py` reads one, by the
+    contract `_lines(_SHAPES)` derives at its tag.
+
+    **What it does not see**, stated here: a key added under the old version
+    after its last release and before the bump. No tag holds it, so a bump that
+    left it in `_ADDED` is green here. `run.unpriced` is one, added under 4
+    after 0.35.0 and folded at the bump to 5; left in `_ADDED`, `_BASE` would
+    digest to `b7dcd938…` and this test would pass. For that one the rule
+    beside `_BASE` and the digest the red above suggests are what hold."""
+    tag = _last_release_under_an_older_version()
+    shown = {
+        line.split(": ", 1)[0].rstrip("?"): line.split(": ", 1)[1]
+        for line in contract_diff.contract_at(tag, ROOT)
+    }
+    keys = [
+        f"{entry.shape}.{entry.key}"
+        for entry in _ADDED
+        if f"{entry.shape}.{entry.key}" in shown
+    ]
+    words = [
+        f"{word.shape}.{word.key}: {word.word}"
+        for word in _ADDED_WORDS
+        if any(
+            word.word in vocabulary.split("|")
+            for vocabulary in re.findall(
+                r"map<([^>]*)>", shown.get(f"{word.shape}.{word.key}", "")
+            )
+        )
+    ]
+    assert not keys and not words, (
+        f"{tag}, written under an older OUTPUT_VERSION, already shows "
+        f"{keys + words}: the bump left them in `_ADDED` or `_ADDED_WORDS` "
+        "instead of folding them into `_BASE`."
     )
 
 
