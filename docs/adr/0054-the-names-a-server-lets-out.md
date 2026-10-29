@@ -19,11 +19,11 @@
   and on the reading of this record's draft, and this record is written before
   the code
 - Shipped: 0.35.0 — the core's half: `load_name_table`, `NameTable`,
-  `one_table`, `project_check_name`, `project_declared` and `mint=`. Not §8 for
-  the core's refusals, **which is in no release yet**: the refusals carry the
-  names they quote as `NameRef`s in their `Written` in this tree (#782, #783,
-  #786), and digline-mcp passes its minter on a floor owed at the cut. The
-  server's half ships in digline-mcp 0.7.0
+  `one_table`, `project_check_name`, `project_declared` and `mint=`. §8 for
+  the core's refusals ships in 1.0.0: the refusals carry the names they quote
+  as `NameRef`s in their `Written` (#782, #783, #786). digline-mcp passes its
+  minter on a floor owed at its own cut. The server's half ships in
+  digline-mcp 0.7.0
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:
   0.7.0. The order is ruled and is not overtaken: `OUTPUT_VERSION` 4 in the

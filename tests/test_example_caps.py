@@ -218,6 +218,13 @@ RELEASED: dict[str, int] = {
     # 22 — `origin` on a verdict and `named` on a configuration, additive
     # (ADR 0034 §17; #323, #711).
     "0.35.0": 22,
+    # Schema 22 still. 1.0.0 moves the number, not the document: schema 23 is
+    # not in this release, and
+    # `test_the_schema_this_workspace_writes_belongs_to_a_release` holds this
+    # row equal to the `SCHEMA_VERSION` the tree writes. From 1.0.0 a minor
+    # does not break a public Python signature, and the schema keeps moving in
+    # a minor as before (RELEASING.md, *Choosing the version*).
+    "1.0.0": 22,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

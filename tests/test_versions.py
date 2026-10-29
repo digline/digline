@@ -283,6 +283,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "audited its own output",
     },
     "src/digline/wire/contract.py": {
+        "0.35.0": (
+            "'added under 4 after 0.35.0, the release that wrote 4' — the one "
+            "release that wrote `output_version` 4, named in version 5's "
+            "record: history"
+        ),
         "0.34.0": (
             "the one release that wrote `output_version` 3, named in version "
             "4's record as the release three of the folded keys shipped in: "
@@ -350,12 +355,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
-        "0.36.0": (
-            "the core release that carries the names a refusal quotes (ADR "
-            "0054 §8), which digline-mcp's floor is owed in the table of "
-            "floors owed at the cut: the minor above 0.35.0, named before it "
-            "exists because the row has to say where the floor goes, and moved "
-            "by the cut if the release gets another number"
+        "0.35.0": (
+            "the release before 1.0.0, told as history: its release chain in "
+            "the Status block, the cap `<0.36` it set, and the call that "
+            "raises against it in the floor owed at the cut. And the floor of "
+            "every example, `>=0.35.0`, which is not a claim about now but the "
+            "oldest release that reads the baselines' schema 22 (step 5)"
         ),
         "0.6.3": (
             "not a digline version: digline-mcp's, the release PyPI served when "
@@ -866,10 +871,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "added under version 3 that 'shipped under it in 0.34.0' — the release "
         "a measurement was made on, the last release before a repair, and the "
         "one release that wrote version 3: history",
-        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
-        "`Messages.create` first has no `temperature` (0.125.0 is the last "
-        "that takes it), read from each wheel on 2026-10-26. The reason the "
-        "anthropic plugin refuses `temperature`",
+        # "1.0.0" left this file's entries with 1.0.0 itself. It is the
+        # `anthropic` SDK release whose `Messages.create` first has no
+        # `temperature`, not ours, and
+        # `test_a_record_may_not_be_the_current_version` refuses to register
+        # the current version as history. While the current version is 1.0.0
+        # the sweep reads it here as if it named our release. **At the next
+        # version, register it again.**
         "0.33.0": "'In 0.33.0, under `output_version: 2`' — the release whose "
         "numbers and `within_noise` changed meaning without a bump (#669), "
         "told as history in the record of version 3",
@@ -1027,6 +1035,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_examples.py, which is where a third-party version belongs",
     },
     "examples/langchain4j/README.md": {
+        "0.35.0": "the floor of the pin the README quotes, `digline>=0.35.0,<2`: "
+        "the oldest release that reads the example's schema-22 baseline, not a "
+        "claim about the current release",
         "0.21.0": "the release `expect_config` arrived in, named where the "
         "README says the line is now owed. A fact about one release",
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
@@ -1288,19 +1299,23 @@ RECORDED: dict[str, dict[str, str]] = {
         "1.5.0": "not a digline version either: the `anthropic` this workspace "
         "pins, where the container exists and is `None` on a reply that "
         "reported no split. The other half of the same measurement",
-        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
-        "`Messages.create` first has no `temperature` (0.125.0 is the last "
-        "that takes it), read from each wheel on 2026-10-26. The reason the "
-        "anthropic plugin refuses `temperature`",
+        # "1.0.0" left this file's entries with 1.0.0 itself. It is the
+        # `anthropic` SDK release whose `Messages.create` first has no
+        # `temperature`, not ours, and
+        # `test_a_record_may_not_be_the_current_version` refuses to register
+        # the current version as history. While the current version is 1.0.0
+        # the sweep reads it here as if it named our release. **At the next
+        # version, register it again.**
         "2.0.0": "not a digline version: the first `anthropic` SDK release that "
         "sends API version 2026-10-21, which refuses `temperature` with a 400",
     },
-    "docs/declarative.md": {
-        "1.0.0": "not a digline version: the `anthropic` SDK release whose "
-        "`Messages.create` first has no `temperature` (0.125.0 is the last "
-        "that takes it), read from each wheel on 2026-10-26. The reason the "
-        "anthropic plugin refuses `temperature`",
-    },
+    # "docs/declarative.md" left this table with 1.0.0 itself: its one entry,
+    # "1.0.0", is the `anthropic` SDK release whose `Messages.create` first has
+    # no `temperature`, not ours, and
+    # `test_a_record_may_not_be_the_current_version` refuses to register the
+    # current version as history. While the current version is 1.0.0 the
+    # sweep reads it there as if it named our release. **At the next version,
+    # register it again.**
     "packages/pytest-digline/src/pytest_digline/plugin.py": {
         "0.25.1": "the delta-pass over 0.25.1 is the pass the refusal "
         "translation came out of, and the number says which pass it was",
