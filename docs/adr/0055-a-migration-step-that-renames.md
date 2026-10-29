@@ -221,6 +221,13 @@ Today nothing reads `_STEPS` as a family. Each step is tested where its field is
 (`tests/test_calibration.py` for `16 -> 17`, `tests/test_noise_floor.py` for
 `8 -> 9`, and so on), and no test names `_STEPS`.
 
+*Noted 2026-10-29 (#803), and the paragraph above kept as written: it was true
+on 2026-10-28.* The gate is paid. Every entry of `_STEPS` declares its nature,
+with its paths as `SchemaPath`s, and `tests/test_migration_steps.py` reads
+`_STEPS` as a family. No step in `_STEPS` renames, so the renaming half is run
+on a renaming step built in that test, and on a broken copy the same checks
+must refuse.
+
 ## Consequences
 
 - Schema 23's renaming step, when it is written, follows §1 to §6 and arrives

@@ -105,7 +105,19 @@ class Adds:
 class Renames:
     """Each pair is the old position and the new one, as paths. The value is
     carried unchanged, an absent key stays absent, and a document with both
-    names is refused (ADR 0055)."""
+    names is refused (ADR 0055).
+
+    Paths and nothing else: no condition beside them, so the gate reads what a
+    step renames from the declaration and never has to trust a function.
+
+    **A verdict's metadata is never renamed.** At
+    `results[].verdicts[].metadata.*.withheld` the key may be digline's mark,
+    the `{"withheld": true}` a projection writes in place of a foreign value, or
+    a field a third-party assertion wrote as its own value, and the path alone
+    does not tell them apart. Renaming there would sometimes rename somebody
+    else's data, so a pair whose old path is under a verdict's `metadata` is
+    refused by the gate.
+    """
 
     pairs: tuple[tuple[SchemaPath, SchemaPath], ...]
 

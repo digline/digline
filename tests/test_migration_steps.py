@@ -5,7 +5,9 @@ or transforms lands. Each entry of `_STEPS` declares one of four natures: it
 writes nothing, it adds, it renames, or it transforms. What it touches is
 declared as paths in the schema, never as names, because a name is written at
 more than one position: `withheld` is a configuration's list and, in three
-other places, a boolean meaning *kept back*.
+other places, a boolean meaning *kept back*. One of those three, a verdict's
+metadata, is never renamed: the path cannot tell digline's mark from a third
+party's field (`Renames`).
 
 **Two of the four natures have no instance.** No step in `_STEPS` renames and
 none transforms, so a test that only walked `_STEPS` would never run the half of
@@ -158,6 +160,12 @@ def _faults(step: object) -> list[str]:
             # Declared as names, the pair has no position to compare.
             if not all(isinstance(cast(object, p), SchemaPath) for p in (old, new)):
                 continue
+            if "metadata" in old.segments:
+                faults.append(
+                    f"{old} is under a verdict's metadata, where the key may be "
+                    "digline's mark or a third party's own field, and the path "
+                    "does not tell them apart: it is not renamed"
+                )
             if old.segments[:-1] != new.segments[:-1] or old == new:
                 faults.append(
                     f"{old} -> {new} is not a rename: a rename changes the last "
@@ -297,10 +305,12 @@ def _document(version: int) -> Document:
     """A document that carries every path a step in this file can touch.
 
     It is not parsed by any reader: a step reads keys, and this holds the keys
-    each step reads and writes. `withheld` is at every position the stored
-    document writes it, and two of them are positions no rename may touch: a
-    configuration's list, and a third-party verdict's own metadata in a
-    document that is not a projection (ADR 0055, *Context*).
+    each step reads and writes. `withheld` is at an artifact's entry and a
+    recorded response, the two positions the built renaming step declares, and
+    at three positions no rename may touch, all in a document that is not a
+    projection: a configuration's list, a verdict's own metadata key, and a
+    third party's value at `results[].verdicts[].metadata.*.withheld`, which is
+    the path where a projection writes its mark (ADR 0055, *Context*).
     """
     return {
         "schema_version": version,
@@ -317,7 +327,13 @@ def _document(version: int) -> Document:
                         "assertion": "judge",
                         "assertion_id": "a1",
                         "score": 0.8,
-                        "metadata": {"scores": [0.7, 0.9], "withheld": True},
+                        "metadata": {
+                            "scores": [0.7, 0.9],
+                            "withheld": True,
+                            # A third party's own value, in the form a
+                            # projection's mark takes, at the mark's path.
+                            "rubric": {"withheld": True},
+                        },
                         "samples": [0.7, 0.9],
                         "sample_min": 0.7,
                         "sample_max": 0.9,
@@ -522,6 +538,24 @@ def test_a_rename_by_spelling_is_caught_on_the_undeclared_positions() -> None:
     broken = Step(_rename_by_spelling, _RENAMES)
     with pytest.raises(AssertionError, match="carried 'withheld' and was not declared"):
         _holds(broken, _document(22))
+
+
+def test_a_rename_under_a_verdicts_metadata_is_refused_before_any_document() -> None:
+    """The projection's mark and a third party's field share the path
+    `results[].verdicts[].metadata.*.withheld`, and the fixture holds the second
+    there. A step that renamed at that path would rename it."""
+    old = SchemaPath.of("results[].verdicts[].metadata.*.withheld")
+    assert _matches(_document(22), old) == [
+        ("results", 0, "verdicts", 0, "metadata", "rubric", "withheld")
+    ]
+    at_the_mark = Renames(
+        pairs=((old, SchemaPath.of("results[].verdicts[].metadata.*.redacted")),)
+    )
+    assert _faults(Step(_rename_by_position(at_the_mark), at_the_mark)) == [
+        "results[].verdicts[].metadata.*.withheld is under a verdict's metadata, "
+        "where the key may be digline's mark or a third party's own field, and "
+        "the path does not tell them apart: it is not renamed"
+    ]
 
 
 def test_a_rename_declared_by_name_is_refused_before_any_document() -> None:
