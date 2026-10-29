@@ -21,8 +21,9 @@ dependencies = [
     # in this directory gets the six reading tools — and no `promote`, because
     # there is no such tool to have. From 0.7.0, because `.mcp.json` and
     # `loop.py` pass `--names clear`, the declaration 0.7.0 makes required and
-    # no earlier release knows (ADR 0054 §1).
-    "digline-mcp>=0.7,<0.8",
+    # no earlier release knows (ADR 0054 §1). The cap admits 0.8, the release
+    # that stands beside digline 1.0.0.
+    "digline-mcp>=0.7,<0.9",
     # The client half of the same protocol, for `loop.py`'s probe: it calls
     # `promote` by name on that server each cycle and expects to be told there
     # is no such tool. Named here rather than reached through `digline-mcp`,
