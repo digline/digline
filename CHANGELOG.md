@@ -8,6 +8,9 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **The release delta-pass over 1.0.0, and the delta-pass over 0.35.0 that
+  was still owed, came back clean.** Nothing in either earns an advisory or
+  a fix. Their records are in the maintainers' notes.
 - **`digline run` says where the run went and what to type next.** Two lines
   on standard error, after the bill: `digline: recorded <path>`, the document
   the run wrote, as read from the folder the command ran in, and `digline:

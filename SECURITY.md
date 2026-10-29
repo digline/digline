@@ -156,8 +156,7 @@ boundary, who wrote the value, and what does a hostile value do there.*
 Reproduce on the artifact that actually travels, not on the code that builds it,
 and write the regression test so that it fails against the release just cut.
 
-It has run on 0.7.1 and on every minor release since, through 0.34.0. **Two
-releases are still waiting for their own pass: 0.35.0 and 1.0.0.** A pass
+It has run on 0.7.1, on every minor release since, and on 1.0.0. A pass
 that found something is in the changelog, beside the fix it led to. One that
 found nothing often left no line there, and its report is kept in the
 maintainers' notes, which are not public. The pass
