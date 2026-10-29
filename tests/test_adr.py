@@ -223,8 +223,12 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "behind `ResultStore`"
     ),
     "0055-a-migration-step-that-renames": (
-        "no step in `_STEPS` renames a key, and the gate its §7 owes is in no "
-        "test: nothing reads `_STEPS` as a family"
+        "no step in `_STEPS` renames a key; the gate its §7 owes is "
+        "`tests/test_migration_steps.py`, run on a renaming step built there"
+    ),
+    "0056-a-migration-step-that-transforms": (
+        "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
+        "`tests/test_migration_steps.py`, run on a transforming step built there"
     ),
 }
 
