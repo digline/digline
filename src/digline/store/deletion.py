@@ -42,6 +42,7 @@ def refusal_for_a_promoted_run(
     return PromotedRunError(
         f"run {ref.key} of suite {ref.suite} is the one its current baseline "
         f"was promoted from{when}. A delete never removes the run under the "
-        "baseline: promote another run first, with `digline promote --suite … "
-        f"--run <key> --replacing {ref.key}`, and delete this one after."
+        "baseline: promote another run first, with `digline promote --suite "
+        f"SUITE --run KEY --replacing {ref.key}`, where SUITE is the suite and "
+        "KEY another run's key, and delete this one after."
     )

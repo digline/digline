@@ -186,6 +186,7 @@ def need_baseline(store: ResultStore, suite: Suite) -> Run:
         raise UsageError(
             f"suite {suite.name!r} has no baseline for tenant {suite.tenant!r} yet. "
             "Run it, look at the result, then "
-            "'digline promote --run <key> --replacing none'."
+            "'digline promote --run KEY --replacing none', with KEY the key of "
+            "the run you looked at."
         )
     return baseline
