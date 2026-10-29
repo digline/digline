@@ -393,7 +393,7 @@ jobs:
           title="$(uv run --quiet python -c 'import json; print(json.load(open("report.json"))["title"])')"
           uv run --quiet python -c 'import json; open("body.md","w").write(json.load(open("report.json"))["body"])'
           gh label create release-followup --color B60205 \
-            --description "A step of RELEASING.md after the tag is still undone" \
+            --description "A check of RELEASING.md after the tag did not come back done" \
             --force > /dev/null 2>&1 || true
           scope="$(uv run --quiet python -c 'import json; print(json.load(open("report.json"))["scope"])')"
           # The open issues are a listing too, and the same two halves apply
@@ -482,8 +482,8 @@ jobs:
 
       # Last, so the issue exists before the run goes red: the red is for
       # whoever is watching, the issue is for whoever is not.
-      - name: Fail if a step of the runbook is still undone
+      - name: Fail unless every check held and was sound
         if: steps.version.outputs.released == 'yes' && steps.ask.outcome != 'success'
         run: |
-          echo "::error::a step of RELEASING.md after the tag is undone — see the issue labelled release-followup"
+          echo "::error::a check of RELEASING.md after the tag did not come back done: it did not hold, it could not be judged, or it was not sound — see the issue labelled release-followup"
           exit 1
