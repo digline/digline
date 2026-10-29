@@ -1,6 +1,6 @@
 [project]
 name = "pytest-digline"
-version = "0.5.0"
+version = "0.5.1"
 description = "Gate a pytest run on a digline comparison: one row per check, against the baseline committed in your repo."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -72,12 +72,17 @@ dependencies = [
     #
     # And a cap, the first on the core: `<0.33`, raised to `<0.34` with the
     # core's 0.33.0, to `<0.35` with 0.34.0 and to `<0.36` with 0.35.0, the
-    # minor its tests now run against. 0.32.0 made `declared` a
+    # minor its tests then ran against, and to `<2` in this package's release
+    # on 1.0.0. 0.32.0 made `declared` a
     # mandatory argument of `headline`, and 0.2.4, which declared
     # `digline>=0.31.0` and nothing above it, stopped every session on it with
-    # a `TypeError`. A core minor may change a signature this plugin calls, so
-    # the resolver keeps the core inside the minor this release was run
-    # against, and a user stays on a pair that works.
+    # a `TypeError`. Before 1.0 a core minor could change a signature this
+    # plugin calls, so the cap kept the core inside the minor a release was run
+    # against. From 1.0.0 a minor does not break a public Python signature, nor
+    # rename a name this plugin imports or a method it calls: that waits for
+    # the next major (RELEASING.md, *Choosing the version*). So the cap is the
+    # next major, every 1.x installs under it, and a user still stays on a pair
+    # that works.
     #
     # 0.34.0, an eighth time, by name: a check the run has no verdict for asks
     # `phrase` for a `fact.row_missing` key (#574), and `--digline-run` imports
@@ -86,9 +91,12 @@ dependencies = [
     # the call raises `KeyError` and the imports `ImportError`. It was owed at
     # the cut and raised in this package's own release, after the core was on
     # PyPI, because a floor may not name a release that does not exist yet. The
-    # cap was then `<0.35`, the minor above it, and is `<0.36` since the
+    # cap was then `<0.35`, the minor above it, and was `<0.36` from the
     # core's 0.35.0.
-    "digline>=0.34.0,<0.36",
+    #
+    # The floor did not move for 1.0.0: nothing this plugin imports or calls
+    # was renamed or changed there.
+    "digline>=0.34.0,<2",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry
     # point in a decade, and a cap here would fight the one dependency the user

@@ -1151,6 +1151,21 @@ in, which is a correction of a sentence and not a change to a tool.
   and it is in `AGENTS.md` rule 6 and in both copies of the skill, word for
   word.
 
+## pytest-digline 0.5.1 — 2026-10-29
+
+Published by its own tag, `pytest-digline-v0.5.1`, after digline 1.0.0 was on
+PyPI. **A patch, because nothing the plugin does changes:** its code is
+0.5.0's, and no nodeid of its rows, no exit status a session ends with and no
+name it exposes moves. What moves is the dependency, as in pytest-digline
+0.3.1 and digline-mcp 0.6.2.
+
+- **The dependency is `digline>=0.34.0,<2`.** The cap is the next major: from
+  1.0.0 a minor does not break a public Python signature, so every 1.x
+  installs under it. 0.5.0 caps the core at `<0.36`, so a project that holds
+  it stays on digline 0.35. This release is the one that stands beside 1.0.0.
+  The floor does not move: nothing the plugin imports or calls was renamed or
+  changed in 1.0.0.
+
 ## pytest-digline 0.5.0 — 2026-10-28
 
 Published by its own tag, `pytest-digline-v0.5.0`, after digline 0.35.0 was on
