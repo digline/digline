@@ -579,7 +579,11 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #     So a rename or a type change made between a bump and its first release
 #     moves `_BASE` and its digest under that same version, rather than
 #     climbing to the next: a version climbed past before any release would be
-#     a number no artifact carries. **The exception ends at the tag.** From
+#     a number no artifact carries. *Widened the same day:* an **addition**
+#     in that window goes into `_BASE` too, a key or a word. It comes out for
+#     the first time under that version, so it is part of the base that
+#     version shows, and `_ADDED` and `_ADDED_WORDS` stay empty, as the test
+#     below demands. **The exception ends at the tag.** From
 #     the release that writes the version on, a movement of `_BASE` is a bump.
 #     What keeps it honest is
 #     `test_a_bump_since_the_last_release_leaves_added_empty`: while this
