@@ -38,8 +38,14 @@ from digline.core.run import (
 from digline.store.file_store import write_atomic
 
 __all__ = [
+    "Adds",
     "MigrationReport",
     "NonAdditiveError",
+    "Renames",
+    "SchemaPath",
+    "Step",
+    "Transforms",
+    "WritesNothing",
     "document_version",
     "migrate_file",
     "upgrade_document",
@@ -48,6 +54,94 @@ __all__ = [
 
 class NonAdditiveError(Exception):
     """Raised when a document cannot be upgraded without inventing a value."""
+
+
+@dataclass(frozen=True, slots=True)
+class SchemaPath:
+    """A position in the stored document, never a name (ADR 0055 §1).
+
+    Written as keys separated by `.`, with `[]` after a key for every element
+    of the list it holds and `*` for every value of a map:
+    `results[].responses[].withheld` is one position, and `target_config.withheld`
+    is another, spelt with the same last key.
+    """
+
+    segments: tuple[str, ...]
+
+    @classmethod
+    def of(cls, text: str) -> SchemaPath:
+        segments: list[str] = []
+        for part in text.split("."):
+            # `results[]` is the key `results` and then every element under it.
+            key, brackets, rest = part.partition("[]")
+            if not key or rest:
+                raise ValueError(f"{text!r} is not a path in the schema")
+            segments.append(key)
+            if brackets:
+                segments.append("[]")
+        return cls(tuple(segments))
+
+    def __str__(self) -> str:
+        return ".".join(self.segments).replace(".[]", "[]")
+
+
+def _paths(*texts: str) -> tuple[SchemaPath, ...]:
+    return tuple(SchemaPath.of(text) for text in texts)
+
+
+@dataclass(frozen=True, slots=True)
+class WritesNothing:
+    """The document comes out identical but for `schema_version`."""
+
+
+@dataclass(frozen=True, slots=True)
+class Adds:
+    """Writes at `writes` and nowhere else; nothing already there changes."""
+
+    writes: tuple[SchemaPath, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Renames:
+    """Each pair is the old position and the new one, as paths. The value is
+    carried unchanged, an absent key stays absent, and a document with both
+    names is refused (ADR 0055).
+
+    Paths and nothing else: no condition beside them, so the gate reads what a
+    step renames from the declaration and never has to trust a function.
+
+    **A verdict's metadata is never renamed.** At
+    `results[].verdicts[].metadata.*.withheld` the key may be digline's mark,
+    the `{"withheld": true}` a projection writes in place of a foreign value, or
+    a field a third-party assertion wrote as its own value, and the path alone
+    does not tell them apart. Renaming there would sometimes rename somebody
+    else's data, so a pair whose old path is under a verdict's `metadata` is
+    refused by the gate.
+    """
+
+    pairs: tuple[tuple[SchemaPath, SchemaPath], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Transforms:
+    """Reads `reads` at every position of `domain`, writes `writes`, which is
+    one of them, and removes the rest. An input absent inside the domain, or
+    inputs that do not determine the new value, are refused with one of
+    `refusals`; outside the domain nothing is touched (ADR 0056)."""
+
+    domain: SchemaPath
+    reads: tuple[SchemaPath, ...]
+    writes: SchemaPath
+    removes: tuple[SchemaPath, ...]
+    refusals: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Step:
+    """One entry of `_STEPS`: what it does, and what it declares it does."""
+
+    apply: Callable[[dict[str, Any]], dict[str, Any]]
+    nature: WritesNothing | Adds | Renames | Transforms
 
 
 def _add_suspended(raw: dict[str, Any]) -> dict[str, Any]:
@@ -406,27 +500,49 @@ def _add_schema_twenty_two(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
-#: from-version -> how to reach the next one. A version absent from this table
-#: is one whose bump was not additive, and the absence is the whole statement.
-_STEPS: Mapping[int, Callable[[dict[str, Any]], dict[str, Any]]] = {
-    4: _add_suspended,
-    5: _add_aggregate,
-    6: _add_artifacts,
-    7: _add_configs,
-    8: _add_sample_interval,
-    9: _add_schema_ten,
-    10: _add_schema_eleven,
-    11: _add_schema_twelve,
-    12: _add_schema_thirteen,
-    13: _add_schema_fourteen,
-    14: _add_schema_fifteen,
-    15: _add_schema_sixteen,
-    16: _add_schema_seventeen,
-    17: _add_schema_eighteen,
-    18: _add_schema_nineteen,
-    19: _add_schema_twenty,
-    20: _add_schema_twenty_one,
-    21: _add_schema_twenty_two,
+#: from-version -> how to reach the next one, and what the step declares it
+#: does. A version absent from this table is one whose bump was not additive,
+#: and the absence is the whole statement. Every entry declares its nature, and
+#: `tests/test_migration_steps.py` holds each to it (ADR 0055 §7, ADR 0056 §6).
+_STEPS: Mapping[int, Step] = {
+    4: Step(_add_suspended, Adds(_paths("results[].suspended"))),
+    5: Step(_add_aggregate, Adds(_paths("aggregate"))),
+    6: Step(_add_artifacts, Adds(_paths("artifacts"))),
+    7: Step(_add_configs, Adds(_paths("target_config", "judge_config"))),
+    8: Step(
+        _add_sample_interval,
+        Adds(
+            _paths(
+                "results[].verdicts[].samples",
+                "results[].verdicts[].sample_min",
+                "results[].verdicts[].sample_max",
+                "aggregate[].samples",
+                "aggregate[].sample_min",
+                "aggregate[].sample_max",
+            )
+        ),
+    ),
+    9: Step(_add_schema_ten, WritesNothing()),
+    10: Step(_add_schema_eleven, WritesNothing()),
+    11: Step(_add_schema_twelve, WritesNothing()),
+    12: Step(_add_schema_thirteen, WritesNothing()),
+    13: Step(_add_schema_fourteen, WritesNothing()),
+    14: Step(_add_schema_fifteen, WritesNothing()),
+    15: Step(_add_schema_sixteen, WritesNothing()),
+    16: Step(_add_schema_seventeen, Adds(_paths("results[].calibration.assertion_id"))),
+    17: Step(_add_schema_eighteen, Adds(_paths("projected"))),
+    18: Step(_add_schema_nineteen, WritesNothing()),
+    19: Step(_add_schema_twenty, WritesNothing()),
+    20: Step(_add_schema_twenty_one, WritesNothing()),
+    21: Step(_add_schema_twenty_two, WritesNothing()),
+}
+
+#: The steps whose default states something that was not true of the run, by
+#: from-version: ADR 0056 §2's declared violations. The count is fixed at two,
+#: and a step added later that the rule forbids is refused, not listed here.
+_DECLARED_VIOLATIONS: Mapping[int, str] = {
+    6: "`artifacts: {}` states no file under test; the run had a prompt",
+    7: "`{}` configurations state the target declared nothing; it had a configuration",
 }
 
 #: What each non-additive bump introduced, for the refusal message. Kept beside
@@ -476,7 +592,7 @@ def upgrade_document(raw: Mapping[str, Any]) -> dict[str, Any]:
                 f"version introduced {introduced}. Nothing here can supply it, "
                 "and supplying it wrongly is worse than not reading the file."
             )
-        document = step(document)
+        document = step.apply(document)
         version += 1
         document["schema_version"] = version
     return document
