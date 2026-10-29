@@ -989,14 +989,29 @@ digline **0.34.0**.
   `RELEASING.md` under *Before the tag: a control a person meets first in a
   browser*.
 
-## digline-mcp — unreleased
+## digline-mcp 0.8.0 — 2026-10-29
+
+Published by its own tag, `digline-mcp-v0.8.0`, after digline 1.0.0 was on
+PyPI. **A minor**: the keys its tools answer with are renamed at
+`OUTPUT_VERSION` 5, and the sentence an agent reads from a refusal under
+`--names project` changed.
+
+- **The dependency is `digline>=1.0.0,<2`.** The floor: `errors.translated`
+  passes `mint=` to `refusal_text`, and the `explain` tool passes `reading=` to
+  `explain_json` and reads `Explained.facts` and `Explained.reading`, all new
+  in 1.0.0; against 0.35.0 the calls raise `TypeError`, and there
+  `Explained.reading` holds the facts. The cap is the next major: from 1.0.0 a
+  minor does not break a public Python signature, so every 1.x installs under
+  it. 0.7.0 caps the core at `<0.36`, so a project that holds it stays on
+  digline 0.35. This release is the one that stands beside 1.0.0.
+- **`examples/operator` requires `digline-mcp>=0.7,<0.9`**, so it installs
+  this release.
 
 - **Under `--names project` a refusal names its tokens, not its names** (ADR
   0054 §8). A refusal digline composes from the names it quotes reaches the
   agent with each one minted by the name table, as an answer names it. Where
   the table answers a name wrongly while a refusal is rendered, the agent gets
-  the projection's own refusal, which names nothing. **Owed at the cut**: the
-  floor on digline rises to the core release that carries it.
+  the projection's own refusal, which names nothing.
 - **The tools answer with the keys of `OUTPUT_VERSION` 5, which renames five
   with no alias.** An agent or a client that reads the old names breaks, so
   each one says the new name:
@@ -1009,8 +1024,8 @@ digline **0.34.0**.
   - `get_run` and `get_baseline`: a run document's `disclosure` says
     `artifact_body` where it said `artifacts`.
 
-  The core builds these responses, so this ships with the core release that
-  writes `OUTPUT_VERSION` 5, on the floor owed above.
+  The core builds these responses, so this ships on digline 1.0.0, which
+  writes `OUTPUT_VERSION` 5.
 
 ## digline-mcp 0.7.0 — 2026-10-27
 

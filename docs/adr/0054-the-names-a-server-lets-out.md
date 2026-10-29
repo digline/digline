@@ -22,7 +22,8 @@
   `one_table`, `project_check_name`, `project_declared` and `mint=`. §8 for
   the core's refusals ships in 1.0.0: the refusals carry the names they quote
   as `NameRef`s in their `Written` (#782, #783, #786). digline-mcp passes its
-  minter on a floor owed at its own cut. The server's half ships in
+  minter to them from digline-mcp 0.8.0, whose cut raised its floor to
+  `digline>=1.0.0` (#810). The server's half ships in
   digline-mcp 0.7.0
 - Date: 2026-10-26
 - Opens: **nothing in the schema**, and digline-mcp's command line, as a minor:

@@ -1,6 +1,6 @@
 [project]
 name = "digline-mcp"
-version = "0.7.0"
+version = "0.8.0"
 description = "MCP server for digline: an agent can read a result and measure one, and cannot promote a baseline."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -125,13 +125,17 @@ dependencies = [
     # release that does not exist yet.
     #
     # And a cap, the first on the core: `<0.33`, raised to `<0.34` with the
-    # core's 0.33.0, to `<0.35` with 0.34.0 and to `<0.36` with 0.35.0, the
-    # minor its tests now run against. 0.32.0 made `declared` a
+    # core's 0.33.0, to `<0.35` with 0.34.0, to `<0.36` with 0.35.0, and to
+    # `<2` in this package's release on 1.0.0. 0.32.0 made `declared` a
     # mandatory argument of `headline`, and 0.5.0, which declared
     # `digline>=0.31.0` and nothing above it, could no longer answer `compare`
-    # on it: the tool raised `TypeError`. A core minor may change a signature
-    # this server calls, so the resolver keeps the core inside the minor this
-    # release was run against, and a user stays on a pair that works.
+    # on it: the tool raised `TypeError`. Before 1.0 a core minor could change a
+    # signature this server calls, so the cap kept the core inside the minor a
+    # release was run against. From 1.0.0 a minor does not break a public
+    # Python signature, nor rename a name this server imports or a method it
+    # calls: that waits for the next major (RELEASING.md, *Choosing the
+    # version*). So the cap is the next major, every 1.x installs under it,
+    # and a user still stays on a pair that works.
     #
     # Raised to 0.34.0 by signature and by name: the `run` tool passes
     # `errored_checks=` to `run_json` (#654), and imports `unignored` and
@@ -139,8 +143,8 @@ dependencies = [
     # 0.33.0 the call raises `TypeError` and the import `ImportError`. It was
     # owed at the cut and raised in this package's own release, after the core
     # was on PyPI, because a floor may not name a release that does not exist
-    # yet. The cap was then `<0.35`, the minor above it, and is `<0.36`
-    # since the core's 0.35.0.
+    # yet. The cap was then `<0.35`, the minor above it, and was `<0.36`
+    # from the core's 0.35.0.
     #
     # Raised to 0.35.0 by name and by signature: `--names project` imports
     # `load_name_table`, `one_table`, `project_check_name` and
@@ -149,19 +153,22 @@ dependencies = [
     # take it there; and its tools answer with the keys `output_version` 4
     # renamed (#678), which 0.35.0 writes. Against 0.34.0 the imports raise
     # `ImportError`. It was owed at the cut and raised in this package's own
-    # release, after the core was on PyPI. The cap stays `<0.36`. (ADR 0054)
+    # release, after the core was on PyPI. The cap stayed `<0.36`. (ADR 0054)
     #
-    # Owed at the cut: `errors.translated` passes `mint=` to `refusal_text`,
-    # which first takes it in the core release that carries the names a refusal
-    # quotes, so a refusal under `--names project` names its tokens. Against
-    # 0.35.0 the call raises `TypeError`. RELEASING.md's table names the floor
-    # and the cap. (ADR 0054 §8)
+    # Raised to 1.0.0 by signature: `errors.translated` passes `mint=` to
+    # `refusal_text`, which first takes it in 1.0.0, the core release that
+    # carries the names a refusal quotes, so a refusal under `--names project`
+    # names its tokens. Against 0.35.0 the call raises `TypeError`. (ADR 0054
+    # §8)
     #
-    # Owed at the same cut, by `OUTPUT_VERSION` 5: the `explain` tool passes
+    # And by `OUTPUT_VERSION` 5, which 1.0.0 writes: the `explain` tool passes
     # `reading=` to `explain_json` and reads `Explained.facts` and
     # `Explained.reading`. Against 0.35.0 the call raises `TypeError`, and
     # `Explained.reading` there holds the facts, not which document was read.
-    "digline>=0.35.0,<0.36",
+    # Both were owed at the cut and raised in this package's own release,
+    # after the core was on PyPI, because a floor may not name a release that
+    # does not exist yet.
+    "digline>=1.0.0,<2",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

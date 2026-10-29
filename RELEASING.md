@@ -427,7 +427,6 @@ tag.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError`. And `OUTPUT_VERSION` 5: the `explain` tool passes `reading=` to `explain_json`, which raises `TypeError` against 0.35.0, and reads `Explained.facts` and `Explained.reading`, where 0.35.0 has no `facts` and its `reading` holds the facts | `1.0.0` | raise the cap to `<2` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -517,7 +516,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline-mcp | ADR 0054 §8: under `--names project` a refusal's names reach the agent as tokens | the sentence an agent reads changed; its floor is owed at the cut, in the table above |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
