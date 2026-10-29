@@ -1725,6 +1725,8 @@ that schema in `accepting_baseline_schema`, exactly; on the command line that is
 `--accepting-baseline-schema N`, on `run` and on `rejudge`.
 `refuse_unreadable_baseline(store, suite, accepting_schema=None)` is the same
 check on its own, for a script that writes runs without `measure()` (#621).
+It returns whether a baseline file stands for the suite, readable or not, and
+`measure()` keeps that answer in `Measured.baseline_found`.
 
 The reasoning in full is
 [ADR 0017](adr/0017-the-journal-and-the-resumed-run.md).

@@ -28,6 +28,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import sys
 import traceback
 from collections.abc import Mapping, Sequence
@@ -391,6 +393,18 @@ def cmd_run(args: argparse.Namespace) -> int:
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)
+    judged_nothing = nothing_judged(measured.run, suite.declared())
+    # Where the run went, and what to type next, on stderr beside the bill:
+    # stdout stays the key, which the action reads. `recorded` is said for
+    # every run written and only then, so a refusal before the write says
+    # neither line. `next` uses what this run produced, so a run that judged
+    # nothing has none. It names `compare` whenever a baseline file stands,
+    # without judging it: whether the file is a usable reference is
+    # `compare`'s to say. (B0)
+    shown = _as_typed(store.run_path(measured.ref), args.root)
+    say(f"digline: recorded {shown}", err=True)
+    if not judged_nothing and measured.baseline_found is not None:
+        say(f"digline: next: {_next_command(args, measured.baseline_found)}", err=True)
     # `0` asserts that a measurement was made, and a run that judged none of
     # the cases its suite measures made none. The run is written and its key
     # printed all the same: the document is real, the measurement is missing.
@@ -398,10 +412,50 @@ def cmd_run(args: argparse.Namespace) -> int:
     # not be judged beside judged ones, and a lost scale, still exit `0` here,
     # while `report` and `explain` say `2` about the same run. (ADR 0049 §3,
     # amended 2026-10-22; #654)
-    if nothing_judged(measured.run, suite.declared()):
+    if judged_nothing:
         say(f"digline: {phrase('en', 'fact.nothing_judged')}", err=True)
         return EXIT_UNJUDGED
     return EXIT_OK
+
+
+def _as_typed(path: Path, root: str) -> Path:
+    """`path` as the person reads it from the folder they typed the command in.
+
+    The store resolves its root, so the path it hands back is absolute. Shown
+    relative to the working directory when `--root` was relative, the default
+    `.` included, and left absolute when `--root` was.
+    """
+    if Path(root).is_absolute():
+        return path
+    return Path(os.path.relpath(path))
+
+
+def _next_command(args: argparse.Namespace, baseline_found: bool) -> str:
+    """The command after this run, with a shell comment saying what it does.
+
+    It can be pasted whole: the words are quoted as a shell splits them, and
+    the comment is a comment there. It repeats the options that move where the
+    next command looks or what it signs: `--root`, `--tenant` and `--env` on
+    both, and `--target` on `promote`, which signs the system the run measured
+    (ADR 0022 §5); `compare` takes no target. The rest describe how this run
+    was made, and the next command takes none of them.
+    """
+    if baseline_found:
+        words = ["digline", "compare", "--suite", args.suite, "--run", "latest"]
+        does = "says whether anything got worse"
+    else:
+        words = ["digline", "promote", "--suite", args.suite, "--run", "latest"]
+        words += ["--replacing", "none"]
+        does = "keeps this run as the reference"
+    if args.root != ".":
+        words += ["--root", args.root]
+    if args.tenant is not None:
+        words += ["--tenant", args.tenant]
+    if args.env is not None:
+        words += ["--env", args.env]
+    if not baseline_found and args.target is not None:
+        words += ["--target", args.target]
+    return f"{shlex.join(words)}  # {does}"
 
 
 def _retry_note(retrying: Mapping[str, str]) -> str:
