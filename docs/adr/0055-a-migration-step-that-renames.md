@@ -61,6 +61,9 @@ their redacted and projected forms, and one fresh run:
 | a recorded response, `results[].responses[].withheld` | `_response_to_dict` | `true`, and the entry carries nothing else |
 | the value that stands in for a foreign verdict's metadata under a projection, `results[].verdicts[].metadata.<token>` | `project`, through `WITHHELD_METADATA` | the object `{"withheld": true}` |
 
+*Noted 2026-10-29, and the table kept as written.* The third row is not
+renamed: the dated note below, in this section, says why.
+
 The second row is read from the code only: no measured document held a
 withheld response. The same ruling leaves the **list**
 `target_config.withheld` / `judge_config.withheld` as it is, and that list is
