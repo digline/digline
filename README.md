@@ -361,11 +361,13 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`0.35.0`, pre-1.0. The offline cycle — write the suite, run, compare, promote,
+`1.0.0`. The offline cycle — write the suite, run, compare, promote,
 report, and commit what a person decided — is complete, covered by tests, and
 used daily on a real project, and
-since 0.5.0 the suite may be written as data as well as in Python. The API may
-still change before 1.0; the baseline format is versioned and migrates. The
+since 0.5.0 the suite may be written as data as well as in Python. From 1.0.0 a
+minor release does not break a public Python signature; the `--json` output and
+the stored baseline keep versions of their own, `OUTPUT_VERSION` and
+`SCHEMA_VERSION`, which may still move in a minor, and the baseline migrates. The
 production store, the bridge from production failures back to committed cases,
 and the reactive side are designed in
 [ADR 0002](docs/adr/0002-three-worlds-and-where-the-data-lives.md) and not

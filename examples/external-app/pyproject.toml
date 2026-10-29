@@ -7,10 +7,13 @@ dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
     # `HttpTarget` arrives in 0.1.2 (friction 14) and the committed baseline is
-    # schema 8, so anything older refuses it. The pin is not that minimum: the
-    # release ritual moves every example onto the release, so it is the current
-    # one, and the caps gate in tests/test_examples.py holds it there.
-    "digline>=0.9,<0.36",
+    # schema 8, so anything older refuses it.
+    # The floor names the oldest digline that reads the baseline committed
+    # here: schema 22, so 0.35.0. When the baselines move to another schema,
+    # the floor moves with them. No gate checks it yet, and this sentence is
+    # that gate's specification (RELEASING.md, step 5). The cap is the next
+    # major: from 1.0.0 a minor breaks no public Python signature.
+    "digline>=0.35.0,<2",
 ]
 
 [dependency-groups]

@@ -6,8 +6,32 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 1.0.0 — unreleased
 
+digline **1.0.0**.
+
+- **1.0.0 makes a promise about the Python surface, and only about it.** From
+  1.0.0 a minor does not break a public Python signature: a public name is
+  not removed or renamed, and a function does not lose a parameter, rename
+  one or gain a required one, before the next major. The promise does not
+  cover the two contracts that have versions of their own: the `--json`
+  output and every MCP response say their shape in `OUTPUT_VERSION`, and the
+  stored document says its shape in `SCHEMA_VERSION`, with `digline migrate`
+  as the way through. Both keep moving in a minor. The rule is written in
+  `RELEASING.md`, *Choosing the version*.
+- **What 1.0.0 does not contain, and why it can wait.** Because the stored
+  document has a version of its own and moves in a minor, the work on it goes
+  to 1.1 and not into this release: `withheld` renamed `redacted` where it
+  means *kept back* in the stored document (ADR 0055), the calibration band
+  as a relation between two answers (ADR 0056's first case), the two
+  migration steps that carry them, and a store written by an older release
+  walked again to the schema that release writes. This release writes schema
+  22, as 0.35.0 did, and no baseline is migrated or promoted again for it.
+- **The examples pin `digline>=0.35.0,<2`.** The cap is the next major, which
+  the promise above makes safe. The floor is the oldest release that reads the
+  baselines the examples commit, schema 22: until now four examples admitted
+  0.9.0 and seven 0.20.0, which `pip` could leave installed beside a baseline
+  they refuse.
 - **`OUTPUT_VERSION` is 5: five keys are renamed, with no alias.** A consumer
   that parses the old names breaks, so each one says the new name:
   - `log --json`: each roll's `sent` is `asked`, the one model the roll was
@@ -963,6 +987,20 @@ digline **0.34.0**.
   the table answers a name wrongly while a refusal is rendered, the agent gets
   the projection's own refusal, which names nothing. **Owed at the cut**: the
   floor on digline rises to the core release that carries it.
+- **The tools answer with the keys of `OUTPUT_VERSION` 5, which renames five
+  with no alias.** An agent or a client that reads the old names breaks, so
+  each one says the new name:
+  - `list_runs`: `runs` is `rows`;
+  - `diff`: `runs` is `sides`, holding `left` and `right`;
+  - `explain`: the top-level `scope` is `reading`, `comparison` or `run`. Each
+    fact's `scope` stays;
+  - `log`: each roll's `sent` is `asked`. A sighting's and a span's `sent`
+    stay;
+  - `get_run` and `get_baseline`: a run document's `disclosure` says
+    `artifact_body` where it said `artifacts`.
+
+  The core builds these responses, so this ships with the core release that
+  writes `OUTPUT_VERSION` 5, on the floor owed above.
 
 ## digline-mcp 0.7.0 — 2026-10-27
 
