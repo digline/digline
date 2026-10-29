@@ -345,6 +345,13 @@ __all__ = [
 #:    `_ADDED_WORDS` are empty. It refuses the unfolded pin, and the red that
 #:    holds the pin suggests the folded digest.
 #:
+#:    **Re-pinned once before any release wrote 5**, under the exception beside
+#:    `_BASE`. Pinned at the bump on 2026-10-28 (`9130e64e…`) with the flag in
+#:    `disclosure` named `artifact_text`, and again on 2026-10-29
+#:    (`de33fb5e…`), when that name was found to say less than the flag does:
+#:    the flag lets the text's digest through with the text, so it became
+#:    `artifact_body`. No release carries `artifact_text`.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -554,6 +561,21 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 #   `_ADDED_WORDS` folds too, back into `_BASE`'s vocabulary, because a word
 #   is a key to a consumer and `_BASE`'s digest spells the vocabulary: left
 #   out, the new base would claim a word it had as one added after it (#669);
+#   - **the exception, ruled 2026-10-29: a version no release has written yet
+#     may be re-pinned.** A version names a shape at the moment a consumer can
+#     observe it, and a version that never shipped has said nothing to anyone.
+#     So a rename or a type change made between a bump and its first release
+#     moves `_BASE` and its digest under that same version, rather than
+#     climbing to the next: a version climbed past before any release would be
+#     a number no artifact carries. **The exception ends at the tag.** From
+#     the release that writes the version on, a movement of `_BASE` is a bump.
+#     What keeps it honest is
+#     `test_a_bump_since_the_last_release_leaves_added_empty`: while this
+#     tree's `OUTPUT_VERSION` differs from the one the last release declares,
+#     `_ADDED` and `_ADDED_WORDS` are empty, so the window cannot hide an
+#     added key behind a re-pin and the fold cannot be skipped. Without that
+#     test, *may be re-pinned* would mean *nobody looks*. Each re-pin is
+#     written in the record of its version, above;
 # - **changing what a number means**, with its key and its type unchanged, is a
 #   bump of `OUTPUT_VERSION` too, from 2026-10-12 on. Ruled that day. A
 #   consumer that reads the number would otherwise go on parsing it and be
