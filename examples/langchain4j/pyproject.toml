@@ -6,9 +6,13 @@ requires-python = ">=3.12"
 dependencies = [
     # The published package, nothing local. This directory is meant to become
     # its own repository: `cp -r` it anywhere and `uv sync` has to work.
-    # `config_path` arrives in 0.3.0 (ADR 0005 §8). The pin is not that minimum
-    # but the current release, which the ritual raises and the caps gate holds.
-    "digline>=0.20,<0.36",
+    # `config_path` arrives in 0.3.0 (ADR 0005 §8).
+    # The floor names the oldest digline that reads the baseline committed
+    # here: schema 22, so 0.35.0. When the baselines move to another schema,
+    # the floor moves with them. No gate checks it yet, and this sentence is
+    # that gate's specification (RELEASING.md, step 5). The cap is the next
+    # major: from 1.0.0 a minor breaks no public Python signature.
+    "digline>=0.35.0,<2",
 ]
 
 [dependency-groups]
