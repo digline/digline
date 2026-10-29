@@ -177,7 +177,7 @@ def test_nothing_reaches_the_wire() -> None:
     assert not any("asked" in key for key in row)
     reading = explain_json(
         facts(now, comparison),
-        scope="comparison",
+        reading="comparison",
         exit_code=0,
         run=now,
         baseline=reference,

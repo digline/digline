@@ -400,6 +400,8 @@ What does not cross, and is **absent rather than emptied**:
 - `Artifact.text` **and `Artifact.sha` together** unless the suite declares
   `Disclosure(artifacts=True)`, per ADR 0003 §4 — a prompt carries the end
   company's rules, and a digest is a verifier that recovers them;
+  *annotated 2026-10-28, the text kept as written, here and in the test
+  plan:* the flag is `Disclosure(artifact_body=True)` since the change that took `OUTPUT_VERSION` to 5, which renamed it with its key in the run document, `artifacts` in `disclosure`. The flag this record names by its old spelling is that one, and nothing it rules moved.
 - `SystemConfig`'s perimeter fields — `base_url`, the client's topology — which
   leave as a name in `withheld` and never as a value (ADR 0005 §2);
 - `Case.metadata` and `Case.vars` entirely: they are the inputs, which is to say

@@ -660,8 +660,8 @@ def test_the_json_is_symmetric_and_has_no_verdict_field(repo: Path) -> None:
     assert there["counts"]["favours_left"] == back["counts"]["favours_right"]
     assert there["counts"]["favours_right"] == back["counts"]["favours_left"]
     assert there["counts"]["differing"] == back["counts"]["differing"]
-    assert there["runs"]["left"] == back["runs"]["right"]
-    assert there["runs"]["right"] == back["runs"]["left"]
+    assert there["sides"]["left"] == back["sides"]["right"]
+    assert there["sides"]["right"] == back["sides"]["left"]
     for here, over in zip(there["checks"], back["checks"], strict=True):
         assert here["left"] == over["right"] and here["right"] == over["left"]
 

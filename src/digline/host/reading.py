@@ -64,13 +64,15 @@ class Explained:
     """A run read back, and the reference it was read against if there is one.
 
     `run` and `baseline` ride along because the CLI warns when either came from
-    a newer digline; the reading itself is `reading`, `scope` and `exit_code`.
+    a newer digline; the reading itself is `facts`, `reading` and `exit_code`,
+    named as `explain --json`'s keys are: `reading` says which of the two
+    documents this is.
     """
 
     run: Run
     baseline: Run | None
-    reading: tuple[Fact, ...]
-    scope: Literal["comparison", "run"]
+    facts: tuple[Fact, ...]
+    reading: Literal["comparison", "run"]
     exit_code: int
 
 
@@ -179,7 +181,7 @@ def reported(
         complete_artifacts = comparison.artifact_deltas
         run = redact(run, suite.disclosure)
         comparison = compare(run, baseline)
-        if not suite.disclosure.artifacts:
+        if not suite.disclosure.artifact_body:
             comparison = replace(
                 comparison,
                 artifact_deltas=withhold_artifacts(

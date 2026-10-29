@@ -471,7 +471,7 @@ def test_no_reason_reaches_the_reading_or_the_wire() -> None:
         assert not hasattr(fact, "reason")
 
     rendered = repr(reading) + repr(
-        explain_json(reading, scope="comparison", exit_code=1)
+        explain_json(reading, reading="comparison", exit_code=1)
     )
     for payload in (
         "the judge explained itself",
@@ -507,7 +507,7 @@ def test_a_withheld_artifact_carries_no_digest() -> None:
         target_config=run.target_config,
     )
     reading = facts(withheld)
-    payload = repr(explain_json(reading, scope="run", exit_code=0))
+    payload = repr(explain_json(reading, reading="run", exit_code=0))
     assert "sha" not in payload
     assert "prompt.md" in payload
 
@@ -537,16 +537,16 @@ def test_the_reading_of_a_comparison_says_what_moved() -> None:
 def test_the_wire_states_its_scope_rather_than_leaving_it_to_be_inferred() -> None:
     comparison, run, _baseline = a_pair()
     both = (
-        explain_json(facts(run, comparison), scope="comparison", exit_code=1),
-        explain_json(facts(a_lone()), scope="run", exit_code=0),
+        explain_json(facts(run, comparison), reading="comparison", exit_code=1),
+        explain_json(facts(a_lone()), reading="run", exit_code=0),
     )
-    assert [payload["scope"] for payload in both] == ["comparison", "run"]
+    assert [payload["reading"] for payload in both] == ["comparison", "run"]
     assert all(payload["output_version"] == OUTPUT_VERSION for payload in both)
 
 
 def test_every_fact_says_what_it_is_about() -> None:
     comparison, run, _baseline = a_pair()
-    payload = explain_json(facts(run, comparison), scope="comparison", exit_code=1)
+    payload = explain_json(facts(run, comparison), reading="comparison", exit_code=1)
     # `cast` rather than a looser annotation: the payload is a JSON document
     # by design, not a model, so a strict reader has to say what it expects.
     emitted = cast("list[dict[str, object]]", payload["facts"])

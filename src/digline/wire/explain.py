@@ -128,9 +128,9 @@ def fact_json(
 
 
 def explain_json(
-    reading: Sequence[Fact],
+    facts: Sequence[Fact],
     *,
-    scope: str,
+    reading: str,
     exit_code: int,
     note: str = "",
     run: Run | None = None,
@@ -138,11 +138,11 @@ def explain_json(
 ) -> dict[str, object]:
     """The whole reading, for a program.
 
-    `scope` says which of the two documents this is — `"comparison"` or
+    `reading` says which of the two documents this is — `"comparison"` or
     `"run"` — rather than leaving a consumer to infer it from which kinds
-    turned up. A run whose comparison found nothing and a run with no reference
-    at all produce different readings, and the difference must not be something
-    you deduce from an absence.
+    turned up. A run whose comparison found nothing and a run
+    with no reference at all produce different readings, and the difference
+    must not be something you deduce from an absence.
 
     `note` is what resolving the run stepped over, `Resolved.note`, as on
     `compare --json`. An added key. (#433)
@@ -156,14 +156,14 @@ def explain_json(
     spans = _reference_spans(baseline)
     payload: dict[str, object] = {
         "output_version": OUTPUT_VERSION,
-        "scope": scope,
+        "reading": reading,
         # The same number the process exits with, for the same reason it is on
         # `compare --json`: over MCP there is no process to exit, and the two
         # surfaces must not answer differently. (ADR 0011 §4)
         "exit_code": exit_code,
         "facts": [
             fact_json(fact, before_interval=_before_interval(fact, spans))
-            for fact in reading
+            for fact in facts
         ],
         "note": note,
     }

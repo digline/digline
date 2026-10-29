@@ -2284,7 +2284,7 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
     ADR 0042 §3 names, and the refusal says so instead of filing the file under
     a `withheld` the suite did not choose.
     """
-    if disclosure.artifacts:
+    if disclosure.artifact_body:
         refused = crossing_refusal(
             run, going="a redacted document disclosing artifacts would carry its text"
         )
@@ -2347,7 +2347,7 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # text was for. (ADR 0003 §4)
         artifacts=(
             dict(run.artifacts)
-            if disclosure.artifacts
+            if disclosure.artifact_body
             else {path: Artifact(text=None, withheld=True) for path in run.artifacts}
         ),
         # Carried, whatever the disclosure says, for `canary`'s reason above: it

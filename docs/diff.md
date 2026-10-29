@@ -131,14 +131,14 @@ configuration deltas. The value is **mandatory**, unlike `compare --json`: this
 command takes two positional run keys, and an optional-valued flag in front of
 them makes the argument parser swallow the first key.
 
-The structure is symmetric — `runs.left` and `runs.right`, `favours_left` and
+The structure is symmetric — `sides.left` and `sides.right`, `favours_left` and
 `favours_right`, `left_exceeds` and `right_exceeds` — and **there is no `worse`
 field**. Its absence is the point, not an omission: there is nothing here for a
 pipeline to gate on, which is why `diff` is a separate command rather than a
 flag on `compare`. If you want a gate, use `compare`; that is what a gate is
 for.
 
-Each of `runs.left` and `runs.right` carries `note` beside its `key`: what
+Each of `sides.left` and `sides.right` carries `note` beside its `key`: what
 resolving that argument stepped over, the line printed on stderr, and empty for
 a key typed by hand. Two arguments, so there can be two notes.
 
@@ -150,7 +150,7 @@ a key typed by hand. Two arguments, so there can be two notes.
     "interval_pairs": 2, "left_exceeds": 2, "right_exceeds": 0, "total": 2
   },
   "judges": [],
-  "output_version": 4,
+  "output_version": 5,
   "systems_differ": true,
   "suite": "support",
   "tenant": "northwind"

@@ -8,6 +8,36 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **`OUTPUT_VERSION` is 5: five keys are renamed, with no alias.** A consumer
+  that parses the old names breaks, so each one says the new name:
+  - `log --json`: each roll's `sent` is `asked`, the one model the roll was
+    asked for. A sighting's and a span's `sent` stay.
+  - a run document's `disclosure`: `artifacts` is `artifact_body`.
+  - `explain --json`: the top-level `scope` is `reading`, `comparison` or
+    `run`. Each fact's `scope` stays.
+  - the MCP tool `list_runs`: `runs` is `rows`.
+  - `diff --json`: `runs` is `sides`, holding `left` and `right`.
+
+  No document carries an old name beside its new one. `unpriced` (below) ships
+  first under 5.
+- **`Disclosure(artifacts=...)` is now `Disclosure(artifact_body=...)`, with no
+  alias.** A public name breaks: a suite that discloses its artifacts says
+  `Disclosure(artifact_body=True)`, and code that reads the flag reads
+  `.artifact_body`. The flag and its key in the document moved together.
+- **`Sighting.answered` and `IdentitySpan.answered` are now `reported`, with no
+  alias.** A public name breaks, for code that reads the reading through
+  `digline.report`. `log --json` already said `reported` since `OUTPUT_VERSION`
+  4; the field now says what the key says.
+- **`explain_json(scope=...)` is now `explain_json(reading=...)`, with no
+  alias**, and its first parameter, the facts, is `facts` where it was
+  `reading`. A public name breaks for code that builds an `explain` document
+  through `digline.wire`; a call that passes the facts by position changes
+  only the keyword. The parameters now say what the document's keys say.
+- **`digline.host.Explained`'s `reading` is now `facts`, and its `scope` is now
+  `reading`, with no alias.** A public name breaks, and one name changes what
+  it holds: code that read the facts from `.reading` reads them from `.facts`,
+  and `.reading` is now `"comparison"` or `"run"`. The fields say what
+  `explain --json`'s keys say.
 - **`digline.core.Quoted` is now `Written`, with no alias.** A public name
   breaks: code that imports or builds it says `Written`, `Written.of(...)` and
   `Written.said(...)`.

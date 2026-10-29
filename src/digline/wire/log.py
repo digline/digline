@@ -43,8 +43,9 @@ def sighting_json(found: Sighting) -> dict[str, object]:
     `OBSERVED_FIELDS`, and which nothing attests. The sentences were amended to
     say `reported as` because one field was getting two verbs in two
     renderings; the key waited, because renaming it is an `OUTPUT_VERSION` bump
-    for a word, and it took the bump that renamed a verdict's check. The
-    dataclass field is still `answered`: it is not on the wire. (#678)
+    for a word, and it took the bump that renamed a verdict's check (#678).
+    The dataclass field followed at `OUTPUT_VERSION = 5`: it is `reported`
+    too, so the field and the key carry one verb.
 
     A differing id is still more than an echo — no passthrough returns a string
     nobody sent — so ADR 0020 §3's doctrine stands. The verb moved, not the
@@ -53,7 +54,7 @@ def sighting_json(found: Sighting) -> dict[str, object]:
     return {
         "provider": found.provider,
         "sent": list(found.sent),
-        "reported": found.answered,
+        "reported": found.reported,
         "absence": found.absence,
     }
 
@@ -63,7 +64,7 @@ def span_json(span: IdentitySpan) -> dict[str, object]:
         "side": span.side,
         "provider": span.provider,
         "sent": list(span.sent),
-        "reported": span.answered,
+        "reported": span.reported,
         "absence": span.absence,
         "first_seen": span.first_seen,
         "last_seen": span.last_seen,
@@ -86,7 +87,7 @@ def roll_json(roll: Roll) -> dict[str, object]:
     return {
         "side": roll.side,
         "provider": roll.provider,
-        "sent": roll.sent,
+        "asked": roll.sent,
         "before": roll.before,
         "after": roll.after,
         "last_before": roll.last_before,

@@ -114,8 +114,8 @@ Overlapping intervals mean the two are not distinguishable by that check. That
 is evidence beside the count, never an excuse: a diff has no baseline, so no
 interval has the standing to overrule a difference.
 
-Each side carries its own note, beside its key: `runs.left.note` and
-`runs.right.note`."""
+Each side carries its own note, beside its key: `sides.left.note` and
+`sides.right.note`."""
 
 RUN = """\
 Execute the suite against its target and store the result.
@@ -152,8 +152,8 @@ EXPLAIN = """\
 A run read back as typed facts: what ran, what moved and by how much, against
 which measured interval, what was suspended, what could not be judged, and what
 differed underneath. Held against the baseline when there is one, read alone
-when there is not — `scope` says which. `run_key` names the run read, and
-`baseline_key` the reference where `scope` is `comparison`.
+when there is not — `reading` says which. `run_key` names the run read, and
+`baseline_key` the reference where `reading` is `comparison`.
 
 `exit_code` is the contract, exactly as on `compare`: 0 proceed, 1 stop and
 report what got worse, 2 stop because nothing downstream is meaningful.

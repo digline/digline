@@ -15,6 +15,8 @@
   by a pointer only. `Disclosure(artifacts=True)` stays necessary for an
   artifact to cross. It is no longer sufficient. Nothing else in 0003 changes,
   and §5's meaning of `withheld` is kept on purpose (§4 here)
+  *Annotated 2026-10-28, the text kept as written, here and below:* the flag is `Disclosure(artifact_body=True)` since the change that took `OUTPUT_VERSION` to 5, which renamed it with its key in the run document, `artifacts` in `disclosure`. The flag this record names by its old spelling is that one, and nothing it rules moved.
+  Where §3 says the flag is true, `Disclosure.artifact_body` is.
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §3 (code
   that redacts discloses less, never more);
   [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §4 and §5;

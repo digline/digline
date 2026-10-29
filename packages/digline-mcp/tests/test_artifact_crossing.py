@@ -62,7 +62,7 @@ def _call(root: Path, tool: str, **arguments: Any) -> Any:
 
 
 def test_get_run_refuses_in_words_when_artifacts_are_disclosed(tmp_path: Path) -> None:
-    root = _repository(tmp_path, "artifacts=True")
+    root = _repository(tmp_path, "artifact_body=True")
     with pytest.raises(ToolError) as caught:
         _call(root, "get_run", suite=str(root / "suite.py"))
     assert type(caught.value) is not UnexpectedToolError, caught.value

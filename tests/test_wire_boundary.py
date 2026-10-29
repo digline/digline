@@ -175,7 +175,7 @@ def test_the_recorded_answer_has_no_key_to_travel_through() -> None:
     not know the field's name, so no caller can ask for it and no `Disclosure`
     can widen its way to it. The marker suite above already proves the text does
     not appear; this says *why* it cannot."""
-    document = run_document(loaded_run(), Disclosure(artifacts=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     assert "responses" not in json.dumps(document)
     for case in rows(document, "results"):
         assert "responses" not in case
@@ -191,7 +191,7 @@ def test_the_recorded_trajectory_has_no_key_to_travel_through() -> None:
     The marker suite proves the argument does not appear; this says why it
     cannot. (ADR 0018 §2)
     """
-    document = run_document(loaded_run(), Disclosure(artifacts=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     serialized = json.dumps(document)
     assert "tool_calls" not in serialized
     assert "lookup_account" not in serialized
@@ -397,11 +397,13 @@ def test_the_added_keys_did_not_move_the_output_version() -> None:
     The version is 4 since #678, and not because of these keys: they were
     added under 2 and folded into version 3's base. The bump to 3 is for
     numbers and a boolean that changed meaning in 0.33.0 under 2, and the bump
-    to 4 for a key renamed, `name` to `assertion` on a verdict."""
+    to 4 for a key renamed, `name` to `assertion` on a verdict. The bump to 5
+    is for five keys renamed, one of them this document's own: `artifacts`
+    to `artifact_body` in its `disclosure`."""
     from digline.wire import OUTPUT_VERSION
 
-    assert OUTPUT_VERSION == 4
-    assert run_document(instrumented(), Disclosure())["output_version"] == 4
+    assert OUTPUT_VERSION == 5
+    assert run_document(instrumented(), Disclosure())["output_version"] == 5
 
 
 def test_the_instrument_flags_carry_none_of_the_customers_data() -> None:
@@ -443,7 +445,7 @@ def test_the_document_says_what_it_was_allowed_to_carry() -> None:
     assert document["disclosure"] == {
         "run_metadata": ["model"],
         "score_metadata": [],
-        "artifacts": False,
+        "artifact_body": False,
     }
 
 
@@ -481,7 +483,7 @@ def test_the_listing_is_newest_first_on_the_recorded_fact() -> None:
         baseline_key="older",
         listing=Listing(runs=()),
     )
-    assert [r["key"] for r in rows(document, "runs")] == ["newer", "older"]
+    assert [r["key"] for r in rows(document, "rows")] == ["newer", "older"]
     assert document["baseline_key"] == "older"
 
 
@@ -504,7 +506,7 @@ def test_neither_the_prompt_nor_its_digest_travels_undisclosed() -> None:
 def test_the_prompt_travels_when_the_suite_declares_it() -> None:
     """The positive half, so the gate is proving a boundary and not proving that
     a field is always empty."""
-    document = run_document(loaded_run(), Disclosure(artifacts=True))
+    document = run_document(loaded_run(), Disclosure(artifact_body=True))
     artifacts = cast(dict[str, dict[str, Any]], document["artifacts"])
     assert artifacts["prompt.md"]["text"] == ARTIFACT_TEXT
     assert artifacts["prompt.md"]["sha"] == ARTIFACT_SHA
@@ -578,7 +580,7 @@ def test_a_disclosure_cannot_release_the_perimeter_field() -> None:
     widest = Disclosure(
         run_metadata=frozenset({"model", "customer_balance"}),
         score_metadata=frozenset({"cost_usd", "max_usd", "ratio"}),
-        artifacts=True,
+        artifact_body=True,
     )
     assert WITHHELD_HOST not in json.dumps(run_document(loaded_run(), widest))
 
@@ -601,7 +603,7 @@ def test_no_marker_survives_the_reading() -> None:
         (facts(run), "run"),
         (facts(run, compare(run, loaded_run())), "comparison"),
     ):
-        document = json.dumps(explain_json(reading, scope=scope, exit_code=0))
+        document = json.dumps(explain_json(reading, reading=scope, exit_code=0))
         for marker in MARKERS:
             assert marker not in document, f"{marker!r} crossed on the {scope} reading"
 
@@ -616,7 +618,7 @@ def test_the_reading_has_no_reason_field_to_fill() -> None:
     for fact in reading:
         assert not hasattr(fact, "reason")
     assert '"reason"' not in json.dumps(
-        explain_json(reading, scope="comparison", exit_code=0)
+        explain_json(reading, reading="comparison", exit_code=0)
     )
 
 
@@ -624,7 +626,7 @@ def test_a_suspension_reaches_the_reading_as_a_case_and_not_as_a_sentence() -> N
     """The case id is a fact about coverage and travels; the stated reason is
     payload. A suite whose coverage silently shrank must still be visible."""
     run = loaded_run()
-    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    document = json.dumps(explain_json(facts(run), reading="run", exit_code=0))
     assert "case-2" in document
     assert SUSPENSION not in document
 
@@ -635,7 +637,7 @@ def test_neither_the_prompt_nor_its_digest_reaches_the_reading() -> None:
     travelled beside. The reading carries the path and the outcome, and there
     is no field for either the text or the hash."""
     run = loaded_run()
-    document = json.dumps(explain_json(facts(run), scope="run", exit_code=0))
+    document = json.dumps(explain_json(facts(run), reading="run", exit_code=0))
     assert "prompt.md" in document
     assert ARTIFACT_TEXT not in document
     assert ARTIFACT_SHA not in document
@@ -650,5 +652,5 @@ def test_the_withheld_perimeter_field_never_reaches_the_reading() -> None:
     run = loaded_run()
     reading = facts(run, compare(run, loaded_run()))
     assert WITHHELD_HOST not in json.dumps(
-        explain_json(reading, scope="comparison", exit_code=0)
+        explain_json(reading, reading="comparison", exit_code=0)
     )

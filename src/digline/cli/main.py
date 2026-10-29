@@ -1093,8 +1093,8 @@ def cmd_explain(args: argparse.Namespace) -> int:
         emit(
             json.dumps(
                 explain_json(
-                    read.reading,
-                    scope=read.scope,
+                    read.facts,
+                    reading=read.reading,
                     exit_code=read.exit_code,
                     note=resolved.note,
                     run=read.run,
@@ -1107,7 +1107,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
         )
         return read.exit_code
 
-    for line in explain_text(read.reading, locale=args.locale):
+    for line in explain_text(read.facts, locale=args.locale):
         say(line)
     return read.exit_code
 

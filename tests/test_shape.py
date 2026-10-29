@@ -401,7 +401,7 @@ def test_explain_json_carries_the_numbers_only_on_its_own_facts() -> None:
 
     now, before = collapsed()
     payload = explain_json(
-        facts(now, compare(now, before)), scope="comparison", exit_code=0
+        facts(now, compare(now, before)), reading="comparison", exit_code=0
     )
     kinds = {f["kind"]: f for f in payload["facts"]}  # type: ignore[union-attr]
     assert kinds["shape"]["shape"]["run"]["extremes"] == 4

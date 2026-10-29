@@ -356,9 +356,20 @@ that does not exist yet (*A floor names a core version*, below), so the pull
 request that creates the need cannot write it. It writes a row here instead,
 and the cut that settles the row deletes it.
 
+*Recorded 2026-10-29:* **nor a renamed attribute that a plugin reads.** A
+rename does not raise any floor the gate computes, and against an older core it
+breaks nothing visibly when the old name survives with another meaning. At
+`OUTPUT_VERSION` 5, `Explained.reading` became the document read, and the facts
+it used to hold became `Explained.facts`. digline-mcp reading `read.reading`
+against 0.35.0 would have found the facts there: wrong data, no error, and the
+gate green, because `Explained.reading` is dated 0.13.0. A floor this package
+already owed for another reason is what saves it this time. A check for the
+class, an attribute whose meaning moved under its name, is work for after the
+tag.
+
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError` | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
+| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError`. And `OUTPUT_VERSION` 5: the `explain` tool passes `reading=` to `explain_json`, which raises `TypeError` against 0.35.0, and reads `Explained.facts` and `Explained.reading`, where 0.35.0 has no `facts` and its `reading` holds the facts | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

@@ -62,7 +62,7 @@ def test_explain_is_the_cli_explain_json(promoted: Path) -> None:
     assert answered == json.loads(shown.stdout)
     assert answered["run_key"] == key
     assert answered["exit_code"] == shown.returncode
-    assert answered["scope"] == "comparison"
+    assert answered["reading"] == "comparison"
 
 
 def test_log_is_the_cli_log_json(promoted: Path) -> None:
@@ -364,7 +364,7 @@ def test_a_self_diff_is_refused(repo: Path) -> None:
 def test_list_runs_is_newest_first_and_marks_the_baseline(promoted: Path) -> None:
     newest = run_key(promoted)
     listing = call(promoted, "list_runs", suite=str(promoted / "suite_qa.py"))
-    runs = listing["runs"]
+    runs = listing["rows"]
     assert isinstance(runs, list)
     assert runs[0]["key"] == newest
     assert listing["baseline_key"] not in (None, newest)
@@ -384,7 +384,7 @@ def test_get_run_names_a_verdicts_check_assertion(repo: Path) -> None:
     no `name` beside it. `name` until `output_version` 4. (#678)"""
     run_key(repo)
     document = call(repo, "get_run", suite=str(repo / "suite_qa.py"))
-    assert document["output_version"] == 4
+    assert document["output_version"] == 5
     verdicts = [v for case in document["results"] for v in case["verdicts"]]
     assert verdicts, "the control: the run carries a verdict"
     for verdict in verdicts:
@@ -553,7 +553,7 @@ def test_list_runs_reports_what_it_could_not_read(repo: Path) -> None:
     stored.write_text(json.dumps(document), encoding="utf-8")
 
     listing = call(repo, "list_runs", suite=str(repo / "suite_qa.py"))
-    assert listing["runs"] == []
+    assert listing["rows"] == []
     assert listing["skipped"] == {"2": 1}
     assert "1 run(s) at schema 2" in str(listing["note"])
     assert listing["unreadable"] == 0
@@ -572,7 +572,7 @@ def test_list_runs_leaves_a_refused_run_out_and_counts_it(promoted: Path) -> Non
 
     listing = call(promoted, "list_runs", suite=str(promoted / "suite_qa.py"))
 
-    assert len(listing["runs"]) == 1
+    assert len(listing["rows"]) == 1
     assert listing["refused"] == 1
     assert "refused: 1 run(s): a (" in str(listing["note"])
     assert listing["baseline_unreadable"] is False

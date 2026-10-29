@@ -140,7 +140,7 @@ Each one lands in `Run.artifacts` as an `Artifact`:
 `digline view` labels a run with (`prompt a1b2c3`) so runs of one prompt group
 at a glance.
 
-**They do not travel by default.** `Disclosure(artifacts=True)` is the opt-in,
+**They do not travel by default.** `Disclosure(artifact_body=True)` is the opt-in,
 and it is one line in the suite, which goes through a review. A prompt is your
 file and it is also where an end company's rules end up, and no default can tell
 those apart by looking — so the rule from ADR 0002 §3 holds without an
@@ -160,7 +160,7 @@ recorded like any other, and refused by the command that would let it cross:
 artifacts, and `promote` refuses it whatever the `Disclosure`, because a
 baseline carries every artifact's text into `baselines/`. That refusal is a
 `CrossingRefusedError`, which names the file, and the CLI exits 64 too; the
-document is never narrowed instead. Without `Disclosure(artifacts=True)`, a file
+document is never narrowed instead. Without `Disclosure(artifact_body=True)`, a file
 under `.digline` is withheld like every other artifact, and no command is
 refused except `promote`.
 
@@ -173,7 +173,7 @@ cannot say whether the prompt moved, and does not pretend to.
 `withhold_artifacts(comparison)` is applied by the side holding both runs, so the
 outcome is a fact that side established. The document then says *"1 file under
 test changed"* and stops — no diff, no digest, no path.
-`Disclosure(artifacts=True)` is what puts the diff back. Reasoning in
+`Disclosure(artifact_body=True)` is what puts the diff back. Reasoning in
 [ADR 0003](adr/0003-artifacts-travel-only-when-the-suite-says-so.md).
 
 ### `Suite.record_responses`: the answers, for judging them again
@@ -2355,7 +2355,7 @@ half of the classification's bookkeeping and stays internal.
 ## What `--json` promises
 
 `digline compare --json` and `digline run --json` print an object whose first
-key is `output_version`, currently `4`. It is bumped when the shape changes and
+key is `output_version`, currently `5`. It is bumped when the shape changes and
 is **not** `SCHEMA_VERSION`: that one versions documents already on disk and
 comes with migrations, because a run file written last month must still be
 readable. This one versions what a pipeline parses on stdout today, where
@@ -2371,6 +2371,29 @@ otherwise go on parsing it and be wrong in silence, with the version unchanged.
 boolean whose meaning moves is a bump as well. The version does not cover a
 word in a vocabulary changing, such as an outcome or a kind a consumer matches
 on: the value is still a string.
+
+**Version 5 renames five keys, each to the one thing it holds.**
+- `sent` is `asked` on each entry of `log --json`'s `rolls`: the one model a
+  roll was asked for, where a sighting's and a span's `sent` hold every model
+  the side sent;
+- `artifacts` is `artifact_body` in the `disclosure` object of a run document,
+  and the parameter of the same name moved with it:
+  `Disclosure(artifact_body=True)`. What the flag lets through is an artifact's
+  body, everything its record holds beyond the path: today the text and the
+  text's digest, which never cross apart. A run document's `artifacts` is the
+  artifacts themselves;
+- `scope` is `reading` at the top of `explain --json`: which of the two
+  documents was read, `comparison` or `run`, where each fact's `scope` is a
+  check's, `case` or `run`;
+- `runs` is `rows` on the MCP tool `list_runs`: the listing's rows, where `runs`
+  on `log --json` is a count;
+- `runs` is `sides` on `diff --json`: the two runs compared, `left` and `right`.
+
+No document carries both an old name and its new one. `reported` on `log
+--json`'s sightings and spans stays as version 4 named it; what moved is the
+Python field behind it, `Sighting.answered` and `IdentitySpan.answered`, which
+is `reported` too. `unpriced`, on `run --json` and `rejudge --json`, was
+added under 4 and ships first under 5.
 
 **Version 4 renames keys, and one concept has one name.** The value a
 verdict's `score.name` holds is `assertion` in the run file, `compare --json`'s
@@ -2477,7 +2500,7 @@ the target's alone, because nothing checks what a mapper returns.
 
 ### The same fact in different documents
 
-Three facts take a different form depending on the document that carries them.
+Two facts take a different form depending on the document that carries them.
 Each form below is the one the code writes today.
 
 - **`modules_unchecked`**, the modules the run found already loaded rather than
@@ -2493,22 +2516,18 @@ Each form below is the one the code writes today.
     (`digline.report.render`, `module_lines`).
   - **the HTML report:** a count in a sentence, and a sentence of its own when the
     run did not record it.
-- **`runs`:**
-  - **`log --json`:** an integer, a number of runs, at the top, in each entry of
-    `spans` and in each entry of `spread` (`digline.wire.log`).
-  - **`diff --json`:** an object with `left` and `right`, each holding the run's
-    `key`, `label`, `created_at`, `environment` and `note`
-    (`digline.wire.diff`).
-  - **the MCP tool `list_runs`:** an array, one object per run
-    (`digline.wire.run`, `runs_json`). `digline list` has no `--json`.
 - **`promoted_at`**, when a reference was approved, where that was not
   recorded:
   - **a run file:** the key is absent (`digline.core.run`);
   - **the MCP tools `get_run` and `get_baseline`:** `""` (`digline.wire.run`);
   - **`log --json`:** `null` (`digline.wire.log`).
 
-A verdict's check was a fourth, until `output_version` 4: it is `assertion` in
-every document that carries a verdict now (#678).
+A verdict's check was a third, until `output_version` 4: it is `assertion` in
+every document that carries a verdict now (#678). `runs` was a fourth, until
+`output_version` 5: an integer on `log --json`, an object on `diff --json` and an
+array on `list_runs`. It is a count of runs wherever it stands now, at the top of
+`log --json` and in each entry of its `spans` and `spread`; `diff --json` names
+its two runs `sides`, and `list_runs` its rows `rows`.
 
 `get_run`, `get_baseline` and `list_runs` have no counterpart among the CLI's
 `--json` outputs. [`mcp.md`](mcp.md#what-the-responses-are) has the table of
@@ -2645,7 +2664,7 @@ passes**, numbers included. `0.01` written by `CostBudget` is a measurement;
 suspension reasons disappear, the verdicts remain. It is a function on the value
 and not a serializer option, so no future transport can forget about it.
 
-`Disclosure(artifacts=True)` lets the declared files travel; the default keeps
+`Disclosure(artifact_body=True)` lets the declared files travel; the default keeps
 them, digest and all.
 A declared file outside the perimeter is refused when the run is made; one under
 `.digline` or `.git` is refused by the command that would let it cross. Neither is

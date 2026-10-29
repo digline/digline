@@ -268,7 +268,7 @@ def runs_json(
             "tenant": tenant,
             "suite": suite,
             "baseline_key": baseline_key,
-            "runs": [
+            "rows": [
                 {
                     "key": key,
                     "created_at": run.created_at,
@@ -385,7 +385,7 @@ def run_document(
 
     What crosses is the verdict. What does not: `Verdict.reason`, the stated
     reason a case was suspended, `Score.metadata` the suite did not disclose,
-    artifact text without `Disclosure(artifacts=True)`, and the case inputs
+    artifact text without `Disclosure(artifact_body=True)`, and the case inputs
     entirely — `Case.vars` and `Case.metadata` are the data.
     The refusal for an artifact under `.digline` or `.git` is applied in this
     function, through `core.run.crossing_refusal`. A file outside the
@@ -423,7 +423,7 @@ def run_document(
     sentence is the one `list_runs` already returns in clear, so it opens no
     new crossing. An added key. (#433)
     """
-    if disclosure.artifacts:
+    if disclosure.artifact_body:
         refused = crossing_refusal(
             run,
             going="the MCP response, which discloses artifacts, would carry its text",
@@ -510,7 +510,7 @@ def run_document(
             "artifacts": {
                 path: (
                     {"sha": artifact.sha, "text": artifact.text}
-                    if disclosure.artifacts
+                    if disclosure.artifact_body
                     else {"withheld": True}
                 )
                 for path, artifact in sorted(run.artifacts.items())
@@ -549,7 +549,7 @@ def run_document(
             "disclosure": {
                 "run_metadata": sorted(disclosure.run_metadata),
                 "score_metadata": sorted(disclosure.score_metadata),
-                "artifacts": disclosure.artifacts,
+                "artifact_body": disclosure.artifact_body,
             },
             **({} if note is None else {"note": note}),
         }

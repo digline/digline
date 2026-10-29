@@ -333,6 +333,11 @@ more than the document shows.
 matching on the seven words meets an eighth only where `log` used to end in a
 traceback.
 
+*Annotated 2026-10-29, the paragraph above kept as written:* the key it calls
+`answered` is `reported` since `OUTPUT_VERSION` 4 (#678), so on the wire this
+sighting carries `reported: null`. The shape and the rule are as written; only
+the key's name moved.
+
 **Where it applies.** The projected document the reading can meet today is the
 reference, because `read_baseline` accepts a projected reference. The fold
 applies the same row to any configuration that declares itself projected, so
@@ -375,6 +380,12 @@ The reading is two value types, both frozen, both in `digline.report` beside
         last_before:   str                       # the last run that recorded `before`
         first_after:   str                       # the first run that recorded `after`
         silent_between: int                      # runs in between that recorded nothing
+
+*Annotated 2026-10-28, the listing above kept as written:* `IdentitySpan`'s
+field `answered` is `reported` since the change that took `OUTPUT_VERSION` to
+5, and so is `Sighting`'s. It is the name the wire key took at 4 (#678), so the
+field and the key carry one verb. `Roll`'s `sent` is still `sent`; on the wire
+it is `asked` since 5.
 
 No `score`, no `status`, no `outcome`, no canary flag, no aggregate. This is
 ADR 0012 §4's move applied to a different hazard: there the type could not hold

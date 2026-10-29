@@ -23,7 +23,7 @@ from tests.test_wire_boundary import loaded_run
 
 from digline.core import Disclosure
 from digline.store import Listing
-from digline.wire import OUTPUT_VERSION, run_document, runs_json
+from digline.wire import run_document, runs_json
 from digline.wire.contract import _SHAPES  # pyright: ignore[reportPrivateUsage]
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,11 +38,6 @@ def _folded(path: Path, *, comments: bool = False) -> str:
     if comments:
         text = re.sub(r"^\s*#:? ?", "", text, flags=re.MULTILINE)
     return " ".join(text.split())
-
-
-def test_the_output_version_is_4() -> None:
-    assert OUTPUT_VERSION == 4
-    assert run_document(loaded_run(), Disclosure())["output_version"] == 4
 
 
 #: Every key version 4 renamed, as `(shape, before, after)`. One concept, one
@@ -109,7 +104,7 @@ def test_list_runs_names_an_aggregate_verdicts_check_assertion() -> None:
         baseline_key=None,
         listing=Listing(runs=()),
     )
-    rows = cast(list[dict[str, Any]], document["runs"])
+    rows = cast(list[dict[str, Any]], document["rows"])
     (verdict,) = rows[0]["aggregate"]
     assert verdict["assertion"] == "llm_rubric"
     assert "name" not in verdict

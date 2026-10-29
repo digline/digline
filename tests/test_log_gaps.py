@@ -43,7 +43,7 @@ def test_a_roll_there_and_back_no_longer_reads_as_no_change() -> None:
     log = read(run_at(T1, A), run_at(T4, A), register=(entry_naming(gone[1]),))
 
     (span,) = target_spans(log)
-    assert (span.answered, span.first_seen, span.last_seen) == (A, T1, T4)
+    assert (span.reported, span.first_seen, span.last_seen) == (A, T1, T4)
     assert span.unread_on_record == 1
     assert log.on_record_not_read == (T2,)
     assert "1 run(s) on record inside it were not read" in said(log)

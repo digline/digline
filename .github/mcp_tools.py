@@ -128,7 +128,7 @@ async def drive(
             listed = await call("list_runs", {"suite": SUITE})
             said.append(("list_runs", _answered(listed)))
             content = listed.structured_content or {}
-            keys = [str(r["key"]) for r in content.get("runs", []) if "key" in r]
+            keys = [str(r["key"]) for r in content.get("rows", []) if "key" in r]
         arguments: dict[str, dict[str, Any]] = {
             "get_run": {"suite": SUITE},
             "get_baseline": {"suite": SUITE},

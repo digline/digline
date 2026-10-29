@@ -213,8 +213,8 @@ The tests are in `packages/digline-mcp/tests/test_tools.py`.
 `shape` and `suite_deltas`, `diff`'s `checks`, `explain`'s `facts` and `log`'s
 `spread`, as the run file does. Until `output_version` 4 it went by `name`,
 `check` and `rule` in some of them (#678). The fields
-whose form still differs from one document to the next, `modules_unchecked`,
-`runs` and `promoted_at`, are listed in
+whose form still differs from one document to the next, `modules_unchecked`
+and `promoted_at`, are listed in
 [the API reference](api.md#the-same-fact-in-different-documents).
 
 `compare` carries `exit_code` — `0` proceed, `1` stop and report what got worse,
@@ -235,7 +235,7 @@ key to pass back: the run it names cannot be read here. `get_baseline` has no
 `note`, because a baseline is never resolved. (#433)
 
 `compare` and `explain` carry **`run_key`**, the run they read, and `explain`
-carries **`baseline_key`** where its `scope` is `comparison`; `compare` always
+carries **`baseline_key`** where its `reading` is `comparison`; `compare` always
 does. Both are derived from the documents read, not copied from your argument,
 so with `latest` they say which run was picked, and with a key they confirm it.
 Quote and recommend the run by `run_key`: a second `get_run(run="latest")` can
@@ -261,7 +261,7 @@ What does not, and is **absent rather than emptied**:
   data (*that* a case was suspended does travel: it is coverage);
 - any `Score.metadata` key the suite's `Disclosure` does not cover;
 - a prompt **and its digest** unless the suite declares
-  `Disclosure(artifacts=True)` — a digest is a verifier, and prompts live in a
+  `Disclosure(artifact_body=True)` — a digest is a verifier, and prompts live in a
   small enough space that one recovers the text (ADR 0003 §4);
   A declared file outside the perimeter is refused when the run is made; one
   under `.digline` or `.git` is refused by the command that would let it cross.
