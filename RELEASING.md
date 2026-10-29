@@ -2186,6 +2186,69 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v1.0.0 — no race: every pair the capture wrote agreed, and the waits were
+  for an upload not yet made.** `publish` (`40857569689`) and `docker-publish`
+  (`40857569851`) passed on attempt 1, every job.
+  `tools/tag_names.py "digline 1.0.0"` ran on #808's merge commit, `b4859d93`,
+  which was `origin/main`, immediately before the tag: one package, named.
+  Every plugin's version was already served, so none rode the tag.
+  - **The gate was a person's click, and this session did not read it.** The
+    approvals endpoint was not read here, by the maintainer's instruction.
+  - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
+    digline 1.0.0's wheel and sdist, and skipped the ten files of the five
+    plugins already on the index. `plugins_against_core.py` classified
+    digline-mcp 0.7.0 and pytest-digline 0.5.0 as excluded by their own cap,
+    `<0.36`, and both install checks left them out and said so: `imported 4`,
+    digline and the three provider plugins, and the quickstart's 3 calls, after
+    TestPyPI and after PyPI.
+  - **The index**: the `pypi` job's wait saw digline 1.0.0 `after 10s` on
+    `/simple/`, and its version page `after 60s`, on the seventh read.
+  - **The signatures and the release.** The `github-release` job ran: 2
+    bundles, one per file, each `OK` from sigstore. The `mcp-registry` job
+    planned nothing: *"the registry already holds"* digline-mcp 0.7.0.
+  - **The index race, both builds, and the capture's pair for the core's pin
+    (step 6).** The capture ran, the pair was present for every pin, and it
+    had nothing to explain.
+    - **The smoke build waited 300 seconds at the runner**, and the tag was
+      pushed before the upload: ten reads from 10:26:36.2Z to 10:31:06.4Z saw
+      serial 42827076 with no 1.0.0, and the eleventh, at 10:31:36.4Z, saw
+      serial 42909722 with it. PyPI took the wheel at 10:31:16.8Z. Inside the
+      build the wait saw it `after 0s`. The pair agreed: `side=wait` at
+      10:31:50.9Z and `side=pip` at 10:31:51.3Z both read serial 42909722,
+      etag `e5re6Nee5qKjoUqBmWQ1iA`, through the same shield
+      (`cache-iad-khef600071-IAD`) with a different last hop.
+    - **The multi-arch build, arm64 (`#17`): the pair agreed.** Its wait read
+      serial 42827076 at 10:33:53.2Z and serial 42909722 at 10:34:08.6Z,
+      `after 16s`. `side=wait` at 10:34:08.6Z and `side=pip` at 10:34:12.4Z
+      both read serial 42909722, the same etag, through the same shield, with
+      a different last hop (`cache-phx1710038-PHX` and
+      `cache-hhr-khhr2060043-HHR`). The leg installed `digline-1.0.0` beside
+      the three provider plugins.
+    - **The amd64 leg was `CACHED`** in every step after the base, the install
+      included, so its log proves nothing about what that leg installed.
+  - **The image**: `1.0.0`, `1.0` and `latest` were pushed as one index,
+    `sha256:a6cb618109149f7ce7c788a90fe724b7c7bdebe9c32106b0e3c1f3cc5bc83b3b`.
+    The `.dist-info` in the layers was not opened.
+  - **The examples**: the `workflow_run` `ci` after `publish` (`40858474692`)
+    ran the legs on the tag's commit. Ten were green and one red, `operator`:
+    its pin `digline-mcp>=0.7,<0.8` resolved digline-mcp 0.7.0, whose cap
+    `<0.36` kept digline at 0.35.0, and `.github/mcp_tools.py`, which reads
+    `list_runs`'s `rows`, a key 0.35.0 still calls `runs`, failed `diff` on
+    *"list_runs gave 0"*. The seven locks moved to 1.0.0 with `--upgrade-package digline`,
+    locked with uv 0.13.6 so that `revision = 5` holds. The dispatch against
+    `main` follows the pull request that lands them.
+  - **The plugin releases owed, and released.** digline-mcp 0.8.0, on
+    `digline>=1.0.0,<2` (#810, `digline-mcp-v0.8.0` on `d22d235d`, `publish`
+    `40862896947`), and its registry entry, which the registry lists. Then
+    pytest-digline 0.5.1, on `digline>=0.34.0,<2` (#811,
+    `pytest-digline-v0.5.1` on `1228d4bc`, `publish` `40879448789`). Each tag
+    published one package, `tools/tag_names.py` named it on the merge commit,
+    and each release was read served from PyPI and installed into an empty
+    environment. pytest-digline's `tag_names.py` was read only once
+    digline-mcp 0.8.0 was served.
+  - **Not done at the tag.** Step 7, digline-action's default image, which
+    `release-followup` reads as 0.35.0 on its `main` and 0.34.0 on `v1`. It
+    stays undone by the maintainer's decision.
 - **v0.35.0 — no race: every pair the capture wrote agreed, and the one wait
   was at the runner, before any build.** `publish` (`40541751806`) and
   `docker-publish` (`40541751578`) passed on attempt 1, every job.
