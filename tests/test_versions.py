@@ -910,14 +910,6 @@ RECORDED: dict[str, dict[str, str]] = {
             "not a digline version: the nltk release both locks moved to on "
             "2026-10-26 (#691), outside the advisory's range"
         ),
-        "0.34.0": (
-            "the last minor whose delta-pass ran, in *The delta-pass*: a record "
-            "of which passes happened, moved only when the next one runs"
-        ),
-        "0.35.0": (
-            "a release still waiting for its own delta-pass, named in *The "
-            "delta-pass*: a record of a pass owed, removed when the pass runs"
-        ),
         "0.29.0": (
             "the core release digline-mcp 0.4.5 requires, named in "
             "GHSA-x6w8-q92m-23h3's declared defect as half of what fixes it: "
