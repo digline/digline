@@ -27,6 +27,14 @@ shape in `OUTPUT_VERSION`; and the stored document says its shape in
 `SCHEMA_VERSION`, with `digline migrate` as the way through. A minor that moves
 either says so in that number, and breaks no Python signature by doing it.
 
+**Nor does it cover the CLI, by choice and not by omission.** The promise is
+about the Python API. The command line's surface, its subcommands, its options
+and its exit codes, may still change in a minor, and the list above that says
+so stays true. The reason is the work on a first use, which may touch the words
+of the commands and what `run`'s exit means: promising that surface now would
+shut out a change we want to be able to make. Whoever ties a script to an exit
+code or to a subcommand's name should know it.
+
 **The plugins' caps depend on this sentence.** From 1.0.0 each plugin declares
 `digline<2`: every minor of 1.x installs under the cap, which is safe only
 because a minor does not change a signature the plugin calls.
