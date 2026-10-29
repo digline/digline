@@ -42,7 +42,7 @@ inside it is not a regression — the headline counts it, and `explain` prints t
 interval. Declare nothing and the samples are still recorded, but the tolerance
 decides alone.
 
-```console
+```console suite=support
 $ digline compare --suite suite.py --run latest
 2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
 
@@ -145,7 +145,7 @@ When your judge is a real model, add a provider plugin:
 `uv add digline-anthropic` (or `pip install digline-anthropic`), likewise
 `digline-openai` and `digline-bedrock`.
 
-```console
+```console suite=support
 $ digline run --suite suite.py
 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
 
@@ -156,7 +156,7 @@ tenant 'northwind' · support baseline set to 2026-08-26T15-44-09-282929-00-00-e
 Now make it worse — delete `— Northwind Support` from the second answer —
 and ask again:
 
-```console
+```console suite=support
 $ digline run --suite suite.py
 2026-08-26T15-44-09-492722-00-00-e7421ec503ccefe8
 
