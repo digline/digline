@@ -200,6 +200,7 @@ type ExclusionKind = Literal[
     "artifacts",
     "target_config",
     "judge_config",
+    "config_unrecorded",
     "identity",
 ]
 
@@ -212,6 +213,7 @@ EXCLUSIONS: tuple[ExclusionKind, ...] = (
     "artifacts",
     "target_config",
     "judge_config",
+    "config_unrecorded",
     "identity",
 )
 
@@ -521,6 +523,21 @@ def _artifacts(run: Run) -> Mapping[str, str]:
     return {path: item.sha for path, item in sorted(run.artifacts.items())}
 
 
+def _config_differs(
+    run: SystemConfig, latest: SystemConfig
+) -> Literal["differs", "unrecorded"] | None:
+    """`config_deltas`' first two rules, read for one row of §7.2's table.
+
+    Neither side recorded anything: absent is not a change, `None`. One side
+    recorded nothing: `unrecorded`, which is `unknown` and not a mismatch. Both
+    recorded: compared as sent, through `redacted()`, as the row always was.
+    """
+    run, latest = run.redacted(), latest.redacted()
+    if run.recorded != latest.recorded:
+        return "unrecorded"
+    return "differs" if run != latest else None
+
+
 def _why_not(latest: Run, run: Run, *, in_span: bool) -> ExclusionKind | None:
     """Why this run may not be measured beside the latest one, or `None`.
 
@@ -543,10 +560,19 @@ def _why_not(latest: Run, run: Run, *, in_span: bool) -> ExclusionKind | None:
         return "population"
     if _artifacts(run) != _artifacts(latest):
         return "artifacts"
-    if run.target_config.redacted() != latest.target_config.redacted():
+    target = _config_differs(run.target_config, latest.target_config)
+    judge = _config_differs(run.judge_config, latest.judge_config)
+    if target == "differs":
         return "target_config"
-    if run.judge_config.redacted() != latest.judge_config.redacted():
+    if judge == "differs":
         return "judge_config"
+    if "unrecorded" in (target, judge):
+        # Not another system: one side recorded nothing, which
+        # `config_deltas` reads as `unknown` and never as a change (its second
+        # rule). Not counted either, because whether it measured the same
+        # system cannot be told; it stays out under a name of its own. (ADR
+        # 0056 §2, the repairable half of `_add_configs`)
+        return "config_unrecorded"
     if not in_span:
         # The set is the **latest identity span** only. What answered is mostly
         # not verifiable (ADR 0020 §3), so it is never inferred: the span is the

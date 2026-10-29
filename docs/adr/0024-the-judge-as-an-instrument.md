@@ -1583,6 +1583,17 @@ runs that identified the answering model, not the exclusion. Reordering would
 relabel an exclusion that already happens and change no behaviour, so the next
 reader meets this line rather than an apparent redundancy.*
 
+*Amended 2026-10-29, and the table kept as written: the **configuration** row
+compares two configurations only when both sides recorded one.* A side that
+recorded nothing is what `compare` reads as `unknown` under `config_deltas`'
+second rule, and this row read it as a mismatch: a run digline 0.1.x wrote,
+migrated through `_add_configs`, was excluded as *asking another system*. That
+is the repairable half of ADR 0056 §2's declared violation on `_add_configs`.
+Such a run is now excluded under a reason of its own, `config_unrecorded`, and
+said: not counted, because whether it measured the same system cannot be told,
+and not called a change, because nobody measured one. Two runs that both
+recorded nothing are counted, as before.
+
 **The latest run is never in the N.** ADR 0006 §5's asymmetry: a noisy new run
 must not widen its own excuse.
 

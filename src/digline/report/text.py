@@ -1431,6 +1431,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "log.spread.excluded.artifacts": "{count} testing another prompt",
         "log.spread.excluded.target_config": "{count} asking another system",
         "log.spread.excluded.judge_config": ("{count} grading with another instrument"),
+        "log.spread.excluded.config_unrecorded": (
+            "{count} where only one of the two runs recorded its configuration"
+        ),
         "log.spread.excluded.identity": ("{count} where another model was reported"),
         "log.spread.unidentified": (
             "  {count} of the {total} run(s) did not identify the answering model."
@@ -2728,6 +2731,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "log.spread.excluded.judge_config": (
             "{count} che giudicano con un altro strumento"
+        ),
+        "log.spread.excluded.config_unrecorded": (
+            "{count} in cui solo una delle due run ha registrato la configurazione"
         ),
         "log.spread.excluded.identity": (
             "{count} in cui è stato riportato un altro modello"

@@ -149,6 +149,15 @@ among the steps that pass. They are not alike, and the last column is why:
 | `6 -> 7`, `_add_artifacts` | `artifacts: {}` | *no file under test.* The run had a prompt; nothing recorded it | the artifact deltas of `compare` (`artifact_deltas` in `src/digline/core/compare.py`) give `new` for every file a later run declares, so `artifacts_changed` is true and the report says a file under test changed since the reference; the same `{}` excludes a run from the spread of `digline log` as *testing another prompt* (`_why_not` in `src/digline/report/log.py`) | **nobody.** No release ever wrote schema 6: digline 0.1.0, the first on PyPI (2026-08-27), already writes 7, which arrived with `a7653237` two hours before the tag. The step acts only on documents written by code older than any release. The violation is true and not reachable |
 | `7 -> 8`, `_add_configs` | `target_config: {}`, `judge_config: {}` | *the target declared nothing.* It had a configuration; nothing recorded it | `compare`, `diff` and the register read it as not recorded, by `config_deltas`' second rule. `digline log` does not: `_why_not` excludes the run from the spread as *asking another system*, and `sighting` reports *declared no configuration* and sends it on the wire as an absence (both in `src/digline/report/log.py`) | **every store that holds a run of digline 0.1.x.** Those releases write schema 7, and their documents cross this step. The violation is reachable, and the half that can be repaired without changing the type is `_why_not` |
 
+*Noted 2026-10-29, and the table kept as written.* The repairable half of
+`_add_configs` is repaired: `_why_not` reads a side that recorded nothing as
+`config_deltas`' second rule does, so `digline log` no longer excludes such a
+run as *asking another system*, and excludes it under a reason of its own,
+`config_unrecorded` (ADR 0024 §7.2, amended 2026-10-29). `sighting`, the other
+half, still reports *declared no configuration*: it wants the type, and it is
+not repaired here. The violation stays declared, because the step still writes
+`{}`.
+
 **Why `_add_artifacts` is not repaired.** Its violation cannot be met, and
 repairing it would be wrong where it can. A document in the field with
 `artifacts: {}` and no `digline_version` was written at schema 7, 8 or 9,
