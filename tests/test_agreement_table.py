@@ -213,3 +213,59 @@ def test_the_docstring_rows_are_the_approved_words() -> None:
 
 def test_every_place_has_a_row_for_every_predicate() -> None:
     assert set(ADR_ROWS) == set(GUIDE_ROWS) == set(DOCSTRING_ROWS) == set(PREDICATES)
+
+
+# Two and four samples. ADR 0006 §13 said the smallest majority is met by every
+# fully judged vote "at any `n`"; at an even `n` a fully judged vote can tie,
+# and that floor refuses the tie (corrected there on 2026-10-29). No place words
+# a row for these counts, so each floor is held to §12 itself: it binds where
+# the larger judged side, out of every sample asked for, is below the floor.
+EVEN_SAMPLES = (2, 4)
+
+
+def _compositions(samples: int) -> list[tuple[int, int, int]]:
+    """Every vote of `samples` with a judged sample, as `COMPOSITIONS` is."""
+    return [
+        (p, f, samples - p - f)
+        for p in range(samples + 1)
+        for f in range(samples + 1 - p)
+        if p + f > 0
+    ]
+
+
+def _folded_at(samples: int, p: int, f: int, e: int, floor: str) -> Verdict:
+    votes = [_sample("pass")] * p + [_sample("fail")] * f + [_sample("error")] * e
+    minimum = as_agreement(floor, samples=samples, field="min_agreement")
+    return combine_samples(votes, min_agreement=minimum)
+
+
+EVEN_VOTES = [
+    (samples, f"{n}/{samples}", *vote)
+    for samples in EVEN_SAMPLES
+    for n in range(1, samples + 1)
+    for vote in _compositions(samples)
+]
+
+
+def test_the_even_votes_are_every_floor_against_every_judged_vote() -> None:
+    assert len(_compositions(2)) == 5
+    assert len(_compositions(4)) == 14
+    assert len(EVEN_VOTES) == 2 * 5 + 4 * 14
+
+
+@pytest.mark.parametrize(("samples", "floor", "p", "f", "e"), EVEN_VOTES)
+def test_at_an_even_count_each_floor_binds_where_section_12_says(
+    samples: int, floor: str, p: int, f: int, e: int
+) -> None:
+    agreeing = int(floor.split("/")[0])
+    binds = max(p, f) < agreeing
+    assert (_folded_at(samples, p, f, e, floor).status == "error") is binds
+
+
+@pytest.mark.parametrize(
+    ("samples", "floor", "p", "f"), [(4, "3/4", 2, 2), (2, "2/2", 1, 1)]
+)
+def test_the_smallest_majority_refuses_a_fully_judged_tie(
+    samples: int, floor: str, p: int, f: int
+) -> None:
+    assert _folded_at(samples, p, f, 0, floor).status == "error"

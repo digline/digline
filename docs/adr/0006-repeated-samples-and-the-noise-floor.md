@@ -489,6 +489,15 @@ nothing with three errors in it. The general shape is the same at any `n`: the
 smallest majority (`2/3` at three samples) is met by every fully judged vote,
 and binds only through errors.
 
+*Corrected 2026-10-29, the sentence above kept as it was.* The last sentence
+holds at an odd `n` and not at an even one, where a fully judged vote can tie.
+At four samples the smallest majority is `3/4`, and two pass beside two fail,
+with no sample errored, is `error`. At two samples it is `2/2`, and one pass
+beside one fail is `error`. The gate does what §12 says: the larger judged side
+is two of four, or one of two, which is below the floor. What does not hold is
+the generalisation. `tests/test_agreement_table.py` now holds every floor at two
+and four samples to the gate, beside the five-sample rows.
+
 The brief fixture sits on the second row. Its canonical case is a 3–2 split,
 which meets `3/5` at its edge and stays a real `fail` for `compare()` to read,
 and which `4/5` would have refused.
