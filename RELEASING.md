@@ -5102,6 +5102,34 @@ job, because that job went red twice and nobody read it, and because it
 reads `main` alone: a `main` bumped while `v1` stays put is green there and
 reaches no user.
 
+**What the seven read of the seven steps, and what stays prose.** The run goes
+red when a check does not come back done: it did not hold, it could not be
+judged, or it was not sound. That is all it reads. So a step is covered only
+where one of the seven reads it from the fact, and the rest of it is done or
+not done by a person, with nothing turning red:
+
+| Step | Read from the fact | What no check reads |
+|---|---|---|
+| 1, the reviewer gate | whole: the approvals record an `approved` | nothing |
+| 2, `docker-publish` | in part: the three image tags are one digest | the `served` lines and the clean `pip install` in its log |
+| 3, the example locks | in part: each lock names the release | the dispatch of `ci.yml` and what it found |
+| 4, the Status block | in part: the block names the release | what the block says about it |
+| 5, the example reports | whole: rendered after the tag, each naming a commit | nothing |
+| 6, the capture's two lines | none | all of it: they are written into the Status block, which step 4 reads for the release's name alone |
+| 7, the action's default image | whole: `main` and `v1` default to the released image | nothing |
+
+The seventh question, every plugin PyPI serves admits the release, is not one
+of these steps. What it reads is owed by *The plugins, after this release*, in
+*Before the tag: moving the number*.
+
+**The four holes are declared, not closed.** Step 2's log, step 3's dispatch,
+step 4's content and step 6 stay prose on purpose. A check invented to cover
+one would read that a line exists, not that it says the right thing, and that
+is the reason *These three have no gate, and must not be given one* gives for
+the delta-pass: what is gatable is the consequence, not the act. A Status
+block that says a step is undone does not turn the run red either: step 4 is
+read for the release's name, and step 7 is read from `action.yml`.
+
 **The finding is an issue, not a colour.** One open issue **per release**,
 labelled `release-followup`, whose body is the current reading and whose title
 names the step that is undone; a later run about the same release rewrites it,
