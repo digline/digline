@@ -185,8 +185,11 @@ def run_json(
     # after the bill, once each: in this envelope and never in the stored run
     # document, which §8.3 keeps them out of. Present and empty where there was
     # none, because the caller looked. Absent only where a caller passes
-    # nothing, which is `digline-mcp`'s `run` until its half is decided: absent
-    # there says it did not look. (ADR 0004 §8.0, item 2, and §8.3)
+    # nothing, which is `digline-mcp`'s `run`: absent there says that producer
+    # does not carry the key, not that it did not look. Its run collects the
+    # sentences as the command line's does, and leaves them out: they name a
+    # model in clear, and under `--names project` nothing mints them.
+    # (ADR 0004 §8.0, item 2, and §8.3)
     if unpriced is not None:
         payload["unpriced"] = list(unpriced)
     return neutralised(payload)

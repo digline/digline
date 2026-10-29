@@ -18,6 +18,16 @@
   Alessandro Prandini on 2026-10-26, on #548 (where the ruling is a comment)
   and on the reading of this record's draft, and this record is written before
   the code
+  *Annotated 2026-10-29, the status above kept as written:* §8 for the core's
+  refusals shipped in 1.0.0, and `Shipped:` below names the change that
+  carries it. `Shipped:` also names two different things, and either could be
+  read as "the server's half of §8": the server's half itself, which ships in
+  digline-mcp 0.7.0, and the server passing its minter to the core's refusals,
+  which ships from digline-mcp 0.8.0. ADR 0004 §8.0, item 2, has the MCP `run`
+  tool carry `unpriced` *"with the server's half of ADR 0054 §8"*. With two
+  things of that name, and neither of them minting a sentence about a cost,
+  that dependency could not be resolved as written: 0.8.0 shipped the second,
+  and the key stayed absent.
 - Shipped: 0.35.0 — the core's half: `load_name_table`, `NameTable`,
   `one_table`, `project_check_name`, `project_declared` and `mint=`. §8 for
   the core's refusals ships in 1.0.0: the refusals carry the names they quote
