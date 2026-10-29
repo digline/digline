@@ -380,9 +380,9 @@ jobs:
     # ten build that release's reader from `git archive <tag> src` and run it,
     # and one reads `SCHEMA_VERSION` out of every tag `RELEASED` names in
     # `test_example_caps.py`. A twelfth reads the tags for a name a plugin
-    # calls that `UNRELEASED` says no release carries (#569). A thirteenth
-    # reads the contract of the last release under an older `OUTPUT_VERSION`,
-    # for a key the bump should have folded into `_BASE`. The checkout
+    # calls that `UNRELEASED` says no release carries (#569). Two more read
+    # the `OUTPUT_VERSION` and the contract the releases declare, for a key a
+    # bump should have folded into `_BASE`. The checkout
     # below fetches one commit and no tags, so in `gates` all of them skip, and
     # a count of skips at the bottom of a green run is a silence: no old reader
     # was built and no row was read.
@@ -431,6 +431,7 @@ jobs:
           tests/test_sample_means.py::test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway
           tests/test_example_caps.py::test_the_table_agrees_with_the_tags
           tests/test_plugin_calls.py::test_an_unreleased_entry_is_in_no_release_tag
+          tests/test_wire_keys.py::test_a_bump_since_the_last_release_leaves_added_empty
           tests/test_wire_keys.py::test_no_added_key_was_shown_by_a_release_under_an_older_version
 
       # The negative half, as `docs` has it: a tag that is certainly missing,

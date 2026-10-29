@@ -217,10 +217,10 @@ def test_need_baseline_refuses_on_a_fake_without_one() -> None:
 def test_explained_compares_against_the_fakes_baseline() -> None:
     key = key_of(NEWER.created_at, NEWER.config_hash)
     against = explained(a_store(baseline=OLDER), SUITE_OBJ, key)
-    assert against.scope == "comparison"
+    assert against.reading == "comparison"
     assert against.baseline is OLDER
     alone = explained(a_store(), SUITE_OBJ, key)
-    assert alone.scope == "run"
+    assert alone.reading == "run"
     assert alone.baseline is None
 
 

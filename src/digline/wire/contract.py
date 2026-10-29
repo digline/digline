@@ -327,23 +327,23 @@ __all__ = [
 #:
 #:    The Python names behind `explain`'s `reading` followed: `explain_json`'s
 #:    `scope=` is `reading=`, and its first parameter, the facts, which was
-#:    `reading`, is `facts`, as the key beside it. **The chain is not closed in
-#:    `digline.host`.** `Explained.scope` stays `scope`, because
-#:    `Explained.reading` already holds the facts: closing it means taking that
-#:    field to `facts` first, as the key and the parameter did. It is not on
-#:    the wire, so it waits on no bump and can come in any later release.
-#:    `Explained` is in `digline.host.__all__` and not among the names
-#:    `docs/api.md` gives for `digline.host`.
+#:    `reading`, is `facts`, as the key beside it. So did `digline.host`'s
+#:    `Explained`, which hands both to it: its `reading`, the facts, is
+#:    `facts`, and its `scope` is `reading`. `__all__` decides what is public,
+#:    and `Explained` is in `digline.host.__all__`. `docs/api.md` does not list
+#:    it among `digline.host`'s names, and that is not an acquittal: it is
+#:    `docs/api.md` incomplete.
 #:
 #:    The bump folds `_ADDED` into `_BASE`, by the rule written beside `_BASE`
 #:    (#669) and as the bumps to 3 and to 4 above did: `unpriced` on `run`,
 #:    added under 4 after 0.35.0, the release that wrote 4, ships first under 5.
 #:    `_ADDED_WORDS` was empty, so no word folded. The pinned digest is the
 #:    folded base's. With `unpriced` left in `_ADDED`, `_BASE` digests to
-#:    another value, and the test that holds the pin passes on either: the fold
-#:    is the rule's choice, and its red now suggests the folded digest. The
-#:    check that reads the last release under 4 cannot see `unpriced`, because
-#:    no tag holds it.
+#:    another value, and the test that holds the pin passes on either. What
+#:    holds the fold is a second test: where this tree's `OUTPUT_VERSION`
+#:    differs from the one the last release declares, `_ADDED` and
+#:    `_ADDED_WORDS` are empty. It refuses the unfolded pin, and the red that
+#:    holds the pin suggests the folded digest.
 #:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is

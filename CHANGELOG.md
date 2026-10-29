@@ -33,6 +33,11 @@ notes under them are this file, verbatim.
   `reading`. A public name breaks for code that builds an `explain` document
   through `digline.wire`; a call that passes the facts by position changes
   only the keyword. The parameters now say what the document's keys say.
+- **`digline.host.Explained`'s `reading` is now `facts`, and its `scope` is now
+  `reading`, with no alias.** A public name breaks, and one name changes what
+  it holds: code that read the facts from `.reading` reads them from `.facts`,
+  and `.reading` is now `"comparison"` or `"run"`. The fields say what
+  `explain --json`'s keys say.
 - **`digline.core.Quoted` is now `Written`, with no alias.** A public name
   breaks: code that imports or builds it says `Written`, `Written.of(...)` and
   `Written.said(...)`.

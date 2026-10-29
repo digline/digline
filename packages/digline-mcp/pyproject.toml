@@ -156,6 +156,11 @@ dependencies = [
     # quotes, so a refusal under `--names project` names its tokens. Against
     # 0.35.0 the call raises `TypeError`. RELEASING.md's table names the floor
     # and the cap. (ADR 0054 §8)
+    #
+    # Owed at the same cut, by `OUTPUT_VERSION` 5: the `explain` tool passes
+    # `reading=` to `explain_json` and reads `Explained.facts` and
+    # `Explained.reading`. Against 0.35.0 the call raises `TypeError`, and
+    # `Explained.reading` there holds the facts, not which document was read.
     "digline>=0.35.0,<0.36",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the

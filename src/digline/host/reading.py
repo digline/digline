@@ -64,13 +64,15 @@ class Explained:
     """A run read back, and the reference it was read against if there is one.
 
     `run` and `baseline` ride along because the CLI warns when either came from
-    a newer digline; the reading itself is `reading`, `scope` and `exit_code`.
+    a newer digline; the reading itself is `facts`, `reading` and `exit_code`,
+    named as `explain --json`'s keys are: `reading` says which of the two
+    documents this is.
     """
 
     run: Run
     baseline: Run | None
-    reading: tuple[Fact, ...]
-    scope: Literal["comparison", "run"]
+    facts: tuple[Fact, ...]
+    reading: Literal["comparison", "run"]
     exit_code: int
 
 

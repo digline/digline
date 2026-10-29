@@ -667,9 +667,9 @@ def test_the_base_has_not_moved_under_this_output_version() -> None:
     `_BASE` holds once `_ADDED` and `_ADDED_WORDS` are folded into it, which is
     what the rule beside `_BASE` asks of a bump (#669). Until 2026-10-29 the
     red suggested `_BASE`'s own digest as it stood, the pin of a bump that did
-    not fold, and both pins pass here: which one is right is the rule's, and
-    `test_no_added_key_was_shown_by_a_release_under_an_older_version` reads a
-    release for the half of it a tag can see."""
+    not fold. Both pins pass here, so this test does not choose between them:
+    `test_a_bump_since_the_last_release_leaves_added_empty` does, and refuses
+    the unfolded one."""
     version, pinned = _BASE_DIGEST
     found = _digest(_BASE)
     folded = _digest(_SHAPES)
@@ -716,10 +716,9 @@ def _output_version_at(tag: str) -> int | None:
     return int(found.group(1)) if shown.returncode == 0 and found else None
 
 
-def _last_release_under_an_older_version() -> str:
-    """The newest `v0.*` tag whose contract declares an `OUTPUT_VERSION` below
-    this tree's: the last release a key added under this version cannot be in.
-    """
+def _release_tags() -> list[str]:
+    """This repository's `v0.*` tags, newest first; a skip, or a failure in
+    the `readers` job, where the checkout has none."""
     listed = subprocess.run(  # noqa: S603
         ["git", "-C", str(ROOT), "tag", "-l", "v0.*", "--sort=-v:refname"],  # noqa: S607
         capture_output=True,
@@ -728,7 +727,45 @@ def _last_release_under_an_older_version() -> str:
     ).stdout.split()
     if not listed:
         tags_absent(["v0.1.0"])
-    for tag in listed:
+    return listed
+
+
+def test_a_bump_since_the_last_release_leaves_added_empty() -> None:
+    """The fold, read where it can be read without a tag holding the keys.
+    Where this tree's `OUTPUT_VERSION` differs from the one the last release
+    declares, this tree is a bump that release did not ship, and a bump folds
+    `_ADDED` and `_ADDED_WORDS` into `_BASE` and empties them (#669). So both
+    are empty, or the bump did not fold.
+
+    This is the check that sees `run.unpriced`, which no tag holds: left in
+    `_ADDED` at the bump to 5, with `_BASE` pinned at `b7dcd938…`, this test is
+    red and the one below is green.
+
+    **What it costs**, stated here: from a bump until the release that writes
+    it, a key added under the new version cannot go in `_ADDED`, because this
+    test cannot tell it from a key the bump forgot. Such a key ships first in
+    that release, as `_BASE` does, so it goes in `_BASE` and the pin moves with
+    it, under a version no release has written yet."""
+    tag = _release_tags()[0]
+    released = _output_version_at(tag)
+    assert released is not None, f"{tag} declares no OUTPUT_VERSION"
+    if released == OUTPUT_VERSION:
+        return
+    assert not _ADDED and not _ADDED_WORDS, (
+        f"{tag} declares OUTPUT_VERSION {released} and this tree {OUTPUT_VERSION}, "
+        "so this tree is the bump, and the bump did not fold: "
+        f"{[f'{e.shape}.{e.key}' for e in _ADDED]}"
+        f"{[f'{w.shape}.{w.key}: {w.word}' for w in _ADDED_WORDS]} are still "
+        "added. Fold them into `_BASE`, empty both, and pin the digest the "
+        "test above suggests."
+    )
+
+
+def _last_release_under_an_older_version() -> str:
+    """The newest `v0.*` tag whose contract declares an `OUTPUT_VERSION` below
+    this tree's: the last release a key added under this version cannot be in.
+    """
+    for tag in _release_tags():
         version = _output_version_at(tag)
         if version is not None and version < OUTPUT_VERSION:
             return tag
@@ -736,7 +773,8 @@ def _last_release_under_an_older_version() -> str:
 
 
 def test_no_added_key_was_shown_by_a_release_under_an_older_version() -> None:
-    """The half of the fold a release can see. A key in `_ADDED` was added under
+    """The case the test above does not cover: after the release that wrote
+    this `OUTPUT_VERSION`, `_ADDED` holds keys again. A key in `_ADDED` was added under
     this `OUTPUT_VERSION`, so no release written under an older one shows it:
     where one does, the bump left it in `_ADDED` instead of folding it into
     `_BASE`. The same for a word in `_ADDED_WORDS` and the vocabulary its map
@@ -747,8 +785,8 @@ def test_no_added_key_was_shown_by_a_release_under_an_older_version() -> None:
     after its last release and before the bump. No tag holds it, so a bump that
     left it in `_ADDED` is green here. `run.unpriced` is one, added under 4
     after 0.35.0 and folded at the bump to 5; left in `_ADDED`, `_BASE` would
-    digest to `b7dcd938…` and this test would pass. For that one the rule
-    beside `_BASE` and the digest the red above suggests are what hold."""
+    digest to `b7dcd938…` and this test would pass. The test above is the one
+    that refuses it."""
     tag = _last_release_under_an_older_version()
     shown = {
         line.split(": ", 1)[0].rstrip("?"): line.split(": ", 1)[1]

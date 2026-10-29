@@ -358,7 +358,7 @@ and the cut that settles the row deletes it.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError` | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
+| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError`. And `OUTPUT_VERSION` 5: the `explain` tool passes `reading=` to `explain_json`, which raises `TypeError` against 0.35.0, and reads `Explained.facts` and `Explained.reading`, where 0.35.0 has no `facts` and its `reading` holds the facts | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no

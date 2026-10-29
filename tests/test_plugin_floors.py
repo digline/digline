@@ -406,9 +406,12 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.host.measure", "Prepared", "plan"): "0.11.0",
     ("digline.host.reading", "Explained", "baseline"): "0.13.0",
     ("digline.host.reading", "Explained", "exit_code"): "0.13.0",
+    # Named `scope` until `OUTPUT_VERSION` 5, when the facts this name held
+    # became `facts`. The attribute is as old as its date and its meaning is
+    # not: a floor read from this table would let digline-mcp read the facts
+    # where it means the document, which is why RELEASING.md owes its floor.
     ("digline.host.reading", "Explained", "reading"): "0.13.0",
     ("digline.host.reading", "Explained", "run"): "0.13.0",
-    ("digline.host.reading", "Explained", "scope"): "0.13.0",
     ("digline.host.resolve", "Resolved", "key"): "0.6.0",
     ("digline.host.resolve", "Resolved", "note"): "0.6.0",
     ("digline.report.diff", "", "sentence"): "0.6.0",
@@ -458,7 +461,9 @@ UNDATED: dict[tuple[str, str, str], str] = {}
 #: the release that carries it (RELEASING.md, *Before the tag: moving the
 #: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
 #: so a name the cut forgot to move fails there rather than staying here.
-UNRELEASED: dict[tuple[str, str, str], str] = {}
+UNRELEASED: dict[tuple[str, str, str], str] = {
+    ("digline.host.reading", "Explained", "facts"): "OUTPUT_VERSION 5",
+}
 
 
 def plugins() -> list[Path]:
