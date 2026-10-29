@@ -111,7 +111,8 @@ def test_the_readme_suite_runs(quickstart: Path) -> None:
 
 
 def replay(workdir: Path) -> tuple[set[str], int]:
-    """The quickstart, exactly as the page tells it, and what it printed.
+    """The quickstart, exactly as the page tells it, and what it printed on
+    either stream, as a terminal shows both.
 
     Between the promotion and the second run the sign-off is dropped from the
     *second* answer — that is the "make it worse" the README asks for, and it
@@ -122,7 +123,7 @@ def replay(workdir: Path) -> tuple[set[str], int]:
 
     first = cli(workdir, "run", "--suite", "suite.py")
     assert first.returncode == EXIT_OK, first.stderr
-    printed.append(first.stdout)
+    printed.extend((first.stdout, first.stderr))
 
     promoted = cli(
         workdir,
@@ -135,7 +136,7 @@ def replay(workdir: Path) -> tuple[set[str], int]:
         "latest",
     )
     assert promoted.returncode == EXIT_OK, promoted.stderr
-    printed.append(promoted.stdout)
+    printed.extend((promoted.stdout, promoted.stderr))
 
     suite = workdir / "suite.py"
     source = suite.read_text(encoding="utf-8")
@@ -146,10 +147,10 @@ def replay(workdir: Path) -> tuple[set[str], int]:
 
     second = cli(workdir, "run", "--suite", "suite.py")
     assert second.returncode == EXIT_OK, second.stderr
-    printed.append(second.stdout)
+    printed.extend((second.stdout, second.stderr))
 
     compared = cli(workdir, "compare", "--suite", "suite.py", "--run", "latest")
-    printed.append(compared.stdout)
+    printed.extend((compared.stdout, compared.stderr))
 
     lines = {normalise(line) for chunk in printed for line in chunk.splitlines()}
     return lines - {""}, compared.returncode
@@ -181,6 +182,20 @@ def test_every_printed_line_comes_back_out_of_a_real_run(quickstart: Path) -> No
             continue
         for line in output:
             assert line in actual, f"`{command}` never printed: {line!r}"
+
+
+def test_the_replay_hears_standard_error_too(quickstart: Path) -> None:
+    """A terminal shows both streams, so a console block may show both.
+
+    `digline run` puts only the key on standard output and says everything
+    else on standard error: the plan before the first call, the bill after the
+    last. A replay that read standard output alone could not hold a block that
+    quoted any of it, right or wrong, and the anti-fabrication rule above would
+    have had nothing to say about half of what the command prints.
+    """
+    actual, _returncode = replay(quickstart)
+    plans = [line for line in actual if line.startswith("digline: tenant ")]
+    assert plans, "the replay heard none of what `digline run` says on stderr"
 
 
 def test_the_exit_code_on_the_page_is_the_exit_code(quickstart: Path) -> None:
