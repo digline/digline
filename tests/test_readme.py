@@ -3,12 +3,22 @@
 The front page is the one artifact a reader trusts without checking, so nothing
 on it is allowed to be typed by hand:
 
-- the suite in the ```python block is written to a file and run;
+- each suite in a ```python block is written to a file and run;
 - every line of terminal output in a ```console block has to come back out of a
-  real execution of that same suite;
+  real execution of the suite that block belongs to;
 - the assertion table has to name every assertion the package exports;
 - the command table has to name exactly the subcommands `--help` announces;
 - every relative link has to resolve.
+
+**A page can hold more than one suite, and a console block says whose it is.**
+Its fence reads ```console suite=<name>, the `name=` of a suite on the page.
+Ownership is declared, not inferred from where the block stands: a block may
+come before its suite or after it. A console block with no label, or a label
+naming no suite on the page, is red. The ```bash blocks are install lines, not
+transcripts, and are never replayed.
+
+**The number of suites is fixed here**, in `SECTIONS`, with the replay of each.
+A suite added to the page without a replay in this file does not pass.
 
 The run keys are the one thing that legitimately differs between two executions,
 so they are normalised away — and only they.
@@ -16,10 +26,13 @@ so they are normalised away — and only they.
 
 from __future__ import annotations
 
+import ast
 import re
 import subprocess
 import sys
 import tomllib
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -38,9 +51,56 @@ KEY_RE = re.compile(r"\d{4}-\d{2}-\d{2}T[\d-]+-[0-9a-f]{16}")
 #: The sign-off the quickstart drops to produce the regression the README shows.
 SIGN_OFF = " — Northwind Support"
 
+#: A fenced block: the info string after the backticks, and its body.
+FENCE = re.compile(r"^```([^\n]*)\n(.*?)^```", re.M | re.S)
 
-def blocks(language: str) -> list[str]:
-    return re.findall(rf"```{language}\n(.*?)```", TEXT, re.DOTALL)
+#: The label that gives a console block to a suite.
+LABEL = re.compile(r"console suite=([\w.-]+)")
+
+
+def fences() -> list[tuple[str, str, int]]:
+    """Every fenced block on the page: its info string, its body, and where it
+    starts in `TEXT`."""
+    return [(m.group(1).strip(), m.group(2), m.start()) for m in FENCE.finditer(TEXT)]
+
+
+def suite_name(source: str) -> str | None:
+    """The `name=` of the one `Suite(...)` call in a block, read from the code."""
+    names = [
+        keyword.value.value
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "Suite"
+        for keyword in node.keywords
+        if keyword.arg == "name"
+        and isinstance(keyword.value, ast.Constant)
+        and isinstance(keyword.value.value, str)
+    ]
+    return names[0] if len(names) == 1 else None
+
+
+def suites() -> dict[str, str]:
+    """Each ```python block on the page, by the name of the suite it declares."""
+    found: dict[str, str] = {}
+    for info, body, _at in fences():
+        if info == "python":
+            name = suite_name(body)
+            assert name is not None, "a ```python block declares no one Suite(name=)"
+            assert name not in found, f"two suites on the page are named {name!r}"
+            found[name] = body
+    return found
+
+
+def console_blocks() -> list[tuple[str | None, str]]:
+    """Each ```console block: the suite its label names, or `None` without a
+    label, and its body."""
+    labelled: list[tuple[str | None, str]] = []
+    for info, body, _at in fences():
+        if info == "console" or info.startswith("console "):
+            match = LABEL.fullmatch(info)
+            labelled.append((match.group(1) if match else None, body))
+    return labelled
 
 
 def normalise(line: str) -> str:
@@ -57,60 +117,27 @@ def cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-# --------------------------------------------------------------------------- #
-# The suite on the front page is a suite that runs
-# --------------------------------------------------------------------------- #
-
-
-def test_the_readme_shows_exactly_one_suite() -> None:
-    """More than one and "the quickstart" stops having a referent."""
-    assert len(blocks("python")) == 1
-
-
-@pytest.fixture
-def quickstart(tmp_path: Path) -> Path:
-    """The README's own code block, on disk, ready to run."""
-    workdir = tmp_path / "quickstart"
-    workdir.mkdir()
-    (workdir / "suite.py").write_text(blocks("python")[0], encoding="utf-8")
-    return workdir
-
-
-def test_the_readme_suite_is_self_contained(quickstart: Path) -> None:
-    """No import from a project the reader does not have. The judge and the
-    target are in the block, which is what makes it copyable."""
-    source = (quickstart / "suite.py").read_text(encoding="utf-8")
-    imports = re.findall(r"^(?:from|import)\s+([\w.]+)", source, re.MULTILINE)
-    assert set(imports) == {"digline.core", "digline.run"}
-    assert "def judge(" in source and "def target(" in source
-
-
-def test_the_readme_hands_the_tenant_over_right_after_the_suite() -> None:
-    """The copy source of friction 64: a suite copied between customers with
-    its `tenant=` line unchanged files one customer's runs under another's.
-    The value is ours, so the paragraph under the block has to say so, and
-    say what a tenant is for, about the tenant the block actually declares."""
-    tenant = re.search(r'tenant="([^"]+)"', blocks("python")[0])
-    assert tenant is not None
-    after = TEXT.split("```python\n", 1)[1].split("```\n", 1)[1]
-    paragraph = after.strip().split("\n\n", 1)[0]
-    assert paragraph.startswith(f'`tenant="{tenant.group(1)}"` is ours')
-    assert "one customer" in paragraph
-    assert "`.digline/<tenant>/`" in paragraph
-
-
-def test_the_readme_suite_runs(quickstart: Path) -> None:
-    done = cli(quickstart, "run", "--suite", "suite.py")
-    assert done.returncode == EXIT_OK, done.stderr
-    assert KEY_RE.fullmatch(done.stdout.strip())
+def entries(suite: str | None = None) -> list[tuple[str, list[str]]]:
+    """Every `$ command` in the console blocks of `suite`, or of the whole page,
+    with the lines printed under it."""
+    found: list[tuple[str, list[str]]] = []
+    for owner, body in console_blocks():
+        if suite is not None and owner != suite:
+            continue
+        for line in body.splitlines():
+            if line.startswith("$ "):
+                found.append((line[2:].strip(), []))
+            elif line.strip() and found:
+                found[-1][1].append(normalise(line))
+    return found
 
 
 # --------------------------------------------------------------------------- #
-# Every printed line came out of an execution
+# Each suite on the page, and how it is replayed
 # --------------------------------------------------------------------------- #
 
 
-def replay(workdir: Path) -> tuple[set[str], int]:
+def replay_support(workdir: Path) -> tuple[set[str], int]:
     """The quickstart, exactly as the page tells it, and what it printed on
     either stream, as a terminal shows both.
 
@@ -156,35 +183,148 @@ def replay(workdir: Path) -> tuple[set[str], int]:
     return lines - {""}, compared.returncode
 
 
-def console_entries() -> list[tuple[str, list[str]]]:
-    """Every `$ command` in the README with the lines printed under it."""
-    entries: list[tuple[str, list[str]]] = []
-    for block in blocks("console"):
-        for line in block.splitlines():
-            if line.startswith("$ "):
-                entries.append((line[2:].strip(), []))
-            elif line.strip() and entries:
-                entries[-1][1].append(normalise(line))
-    return entries
+@dataclass(frozen=True)
+class Section:
+    """A suite on the page: how it is replayed, the exit its arc ends on, and
+    whether the page must show that exit."""
+
+    replay: Callable[[Path], tuple[set[str], int]]
+    exits: int
+    shows_exit: bool
+
+
+#: Every suite the page holds, and nothing else. Fixed: a suite added to the
+#: page without its replay here is refused by the count below.
+SECTIONS: dict[str, Section] = {
+    # The quickstart: a judge, two answers signed, and the second made worse.
+    "support": Section(replay=replay_support, exits=EXIT_WORSE, shows_exit=True),
+}
+SUITES_ON_THE_PAGE = 1
+
+
+@pytest.fixture(params=sorted(SECTIONS))
+def section(request: pytest.FixtureRequest, tmp_path: Path) -> tuple[str, Path]:
+    """One suite of the page, on disk, ready to run."""
+    name: str = request.param
+    workdir = tmp_path / name
+    workdir.mkdir()
+    (workdir / "suite.py").write_text(suites()[name], encoding="utf-8")
+    return name, workdir
+
+
+@pytest.fixture
+def quickstart(tmp_path: Path) -> Path:
+    """The Northwind quickstart, on disk, ready to run."""
+    workdir = tmp_path / "quickstart"
+    workdir.mkdir()
+    (workdir / "suite.py").write_text(suites()["support"], encoding="utf-8")
+    return workdir
+
+
+# --------------------------------------------------------------------------- #
+# Which block belongs to which suite
+# --------------------------------------------------------------------------- #
+
+
+def test_the_page_shows_exactly_the_suites_this_file_replays() -> None:
+    """A fixed count and the same names: a suite added to the page without a
+    replay here, or one removed from the page, is red."""
+    shown = suites()
+    assert len(shown) == SUITES_ON_THE_PAGE == len(SECTIONS), sorted(shown)
+    assert set(shown) == set(SECTIONS)
+
+
+def test_every_console_block_names_its_suite() -> None:
+    unlabelled = [body.splitlines()[0] for owner, body in console_blocks() if not owner]
+    assert not unlabelled, (
+        "a ```console block with no `suite=` label belongs to no suite and is "
+        f"replayed by nothing: {unlabelled}"
+    )
+
+
+def test_every_label_names_a_suite_on_the_page() -> None:
+    named = {owner for owner, _body in console_blocks() if owner}
+    assert named <= set(suites()), f"labels naming no suite: {named - set(suites())}"
+
+
+def test_every_suite_owns_a_console_block() -> None:
+    """The control: a suite whose blocks all went missing would pass every
+    replay test vacuously."""
+    owners = {owner for owner, _body in console_blocks()}
+    for name in suites():
+        assert name in owners, f"no ```console block is labelled suite={name}"
+
+
+# --------------------------------------------------------------------------- #
+# The suites on the front page are suites that run
+# --------------------------------------------------------------------------- #
+
+
+def test_every_suite_is_self_contained(section: tuple[str, Path]) -> None:
+    """No import from a project the reader does not have, and the target in the
+    block, which is what makes it copyable."""
+    _name, workdir = section
+    source = (workdir / "suite.py").read_text(encoding="utf-8")
+    imports = re.findall(r"^(?:from|import)\s+([\w.]+)", source, re.MULTILINE)
+    assert set(imports) == {"digline.core", "digline.run"}
+    assert "def target(" in source
+
+
+def test_the_quickstart_carries_its_judge(quickstart: Path) -> None:
+    """The quickstart's regression is a judge's score falling: the judge has to
+    be in the block, or the page shows a regression it cannot produce."""
+    assert "def judge(" in (quickstart / "suite.py").read_text(encoding="utf-8")
+
+
+def test_the_readme_hands_the_tenant_over_right_after_the_suite() -> None:
+    """The copy source of friction 64: a suite copied between customers with
+    its `tenant=` line unchanged files one customer's runs under another's.
+    The value is ours, so the paragraph under the quickstart's block has to say
+    so, and say what a tenant is for, about the tenant the block declares."""
+    source = suites()["support"]
+    tenant = re.search(r'tenant="([^"]+)"', source)
+    assert tenant is not None
+    (at,) = [at for info, body, at in fences() if info == "python" and body == source]
+    after = TEXT[at:].split("```python\n", 1)[1].split("```\n", 1)[1]
+    paragraph = after.strip().split("\n\n", 1)[0]
+    assert paragraph.startswith(f'`tenant="{tenant.group(1)}"` is ours')
+    assert "one customer" in paragraph
+    assert "`.digline/<tenant>/`" in paragraph
+
+
+def test_every_suite_runs(section: tuple[str, Path]) -> None:
+    _name, workdir = section
+    done = cli(workdir, "run", "--suite", "suite.py")
+    assert done.returncode == EXIT_OK, done.stderr
+    assert KEY_RE.fullmatch(done.stdout.strip())
+
+
+# --------------------------------------------------------------------------- #
+# Every printed line came out of an execution of its own suite
+# --------------------------------------------------------------------------- #
 
 
 def test_every_command_on_the_page_is_a_digline_command() -> None:
-    shown = {command.split()[0] for command, _output in console_entries()}
+    shown = {command.split()[0] for command, _output in entries()}
     assert shown <= {"digline", "echo"}
 
 
-def test_every_printed_line_comes_back_out_of_a_real_run(quickstart: Path) -> None:
+def test_every_printed_line_comes_back_out_of_a_real_run(
+    section: tuple[str, Path],
+) -> None:
     """The anti-fabrication rule. A README that quotes output nobody produced is
-    a README that will quote output nobody can produce."""
-    actual, _returncode = replay(quickstart)
-    for command, output in console_entries():
+    a README that will quote output nobody can produce. Each block is held to
+    the run of its own suite."""
+    name, workdir = section
+    actual, _returncode = SECTIONS[name].replay(workdir)
+    for command, output in entries(name):
         if command.startswith("echo"):
             continue
         for line in output:
-            assert line in actual, f"`{command}` never printed: {line!r}"
+            assert line in actual, f"`{command}` ({name}) never printed: {line!r}"
 
 
-def test_the_replay_hears_standard_error_too(quickstart: Path) -> None:
+def test_the_replay_hears_standard_error_too(section: tuple[str, Path]) -> None:
     """A terminal shows both streams, so a console block may show both.
 
     `digline run` puts only the key on standard output and says everything
@@ -193,18 +333,19 @@ def test_the_replay_hears_standard_error_too(quickstart: Path) -> None:
     quoted any of it, right or wrong, and the anti-fabrication rule above would
     have had nothing to say about half of what the command prints.
     """
-    actual, _returncode = replay(quickstart)
+    name, workdir = section
+    actual, _returncode = SECTIONS[name].replay(workdir)
     plans = [line for line in actual if line.startswith("digline: tenant ")]
-    assert plans, "the replay heard none of what `digline run` says on stderr"
+    assert plans, f"the replay of {name} heard none of what `digline run` says"
 
 
-def test_the_exit_code_on_the_page_is_the_exit_code(quickstart: Path) -> None:
-    _actual, returncode = replay(quickstart)
-    assert returncode == EXIT_WORSE
-    shown = [
-        output for command, output in console_entries() if command.startswith("echo")
-    ]
-    assert shown, "the page no longer shows an exit code"
+def test_the_exit_code_on_the_page_is_the_exit_code(section: tuple[str, Path]) -> None:
+    name, workdir = section
+    _actual, returncode = SECTIONS[name].replay(workdir)
+    assert returncode == SECTIONS[name].exits
+    shown = [output for command, output in entries(name) if command.startswith("echo")]
+    if SECTIONS[name].shows_exit:
+        assert shown, f"the page no longer shows the exit code of {name}"
     for output in shown:
         assert [int(line) for line in output] == [returncode]
 
