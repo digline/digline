@@ -1451,3 +1451,36 @@ def test_the_workflow_asks_every_version_in_a_matrix() -> None:
     )
     version_step = next(s for s in ask["steps"] if s.get("id") == "version")
     assert 'version="${{ matrix.version }}"' in version_step["run"]
+
+
+def test_a_step_turns_the_run_red_when_the_seven_do_not_come_back_done() -> None:
+    """The step that makes a run red, found by what it does and not by its
+    name, so renaming it cannot silence it.
+
+    `ask` runs the seven and is allowed to fail, so that the issue is written
+    first. One step after it reads that failure, says so as an error, and exits
+    1. Until this test nothing held that step: the workflow's other tests read
+    the versions, the matrix, the refs and the plugins. A step renamed, or edited
+    so that it never ran, would have left every run green while the issue said
+    a step was undone."""
+    import yaml
+
+    workflow = yaml.safe_load(
+        (ROOT / ".github" / "workflows" / "release-followup.yml").read_text()
+    )
+    steps = workflow["jobs"]["ask"]["steps"]
+    ask = next(s for s in steps if s.get("id") == "ask")
+    assert ask.get("continue-on-error") is True, "ask must be allowed to fail"
+    assert "release_followup.py" in ask["run"], "ask must run the seven"
+
+    red = [s for s in steps if "steps.ask.outcome != 'success'" in str(s.get("if"))]
+    assert len(red) == 1, f"one step reads ask's failure, found {len(red)}"
+    (step,) = red
+    lines = [line.strip() for line in step["run"].splitlines()]
+    assert any(line.startswith('echo "::error::') for line in lines), (
+        "the red step says why, as an error annotation"
+    )
+    assert "exit 1" in lines, "the red step exits 1"
+    # Last, so the issue exists before the run goes red (the workflow's own
+    # comment above the step).
+    assert step is steps[-1], "the red step is the last of the job"
