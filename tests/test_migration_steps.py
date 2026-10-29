@@ -221,10 +221,8 @@ def _renamed(nature: Renames, before: Document) -> Document:
 def _holds_renames(nature: Renames, before: Document, after: Document) -> None:
     for old, _new in nature.pairs:
         assert not _matches(after, old), f"{old} is still in the document (ADR 0055 §5)"
-    assert _same(after, _renamed(nature, before)), (
-        "on the declared paths the value is not carried unchanged, or a path that "
-        "was not declared changed (ADR 0055 §1, §7)"
-    )
+    # Before the whole document is compared, so that a rename by spelling is
+    # named by the position it should not have touched.
     declared = {at for old, _ in nature.pairs for at in _matches(before, old)}
     for old, _new in nature.pairs:
         for at in _keyed(before):
@@ -233,6 +231,10 @@ def _holds_renames(nature: Renames, before: Document, after: Document) -> None:
                     f"{at} carried {old.segments[-1]!r} and was not declared, and it "
                     "does not carry it any more (ADR 0055 §1)"
                 )
+    assert _same(after, _renamed(nature, before)), (
+        "on the declared paths the value is not carried unchanged, or a path that "
+        "was not declared changed (ADR 0055 §1, §7)"
+    )
 
 
 def _holds_transforms(nature: Transforms, before: Document, after: Document) -> None:
@@ -260,6 +262,7 @@ def _holds(step: Step, before: Document) -> str:
     that transforms must carry one of its declared sentences; any other step
     that refuses is reported as refused, and the caller decides.
     """
+    assert _faults(step) == [], _faults(step)
     nature = step.nature
     try:
         after = _apply(step, before)
@@ -517,9 +520,7 @@ def test_a_rename_by_spelling_is_caught_on_the_undeclared_positions() -> None:
     list and the foreign metadata are renamed too, and only a check on the
     undeclared positions can see it, since the declared ones are right."""
     broken = Step(_rename_by_spelling, _RENAMES)
-    with pytest.raises(
-        AssertionError, match="was not declared changed|carried 'withheld'"
-    ):
+    with pytest.raises(AssertionError, match="carried 'withheld' and was not declared"):
         _holds(broken, _document(22))
 
 
