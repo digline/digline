@@ -475,6 +475,18 @@ tree being tagged, and not the page as a whole:
    look the same. Run the pass or record it before the tag, or correct the
    sentence. A patch does not move it.
 
+   *Noted 2026-10-29, the step above kept as written.* At the cut of 1.0.0,
+   the first cut this step was in force for (it landed in `3cbb3182`, after
+   `v0.35.0` was tagged), it was not done. 0.35.0's pass had not run and left
+   no line, and the sentence turned false at `v1.0.0`; 1.0.0's own pass is
+   also owed. `SECURITY.md` now names the two releases waiting for a pass
+   instead of an exception for one. And the `grep` above is narrower than
+   the sentence: before 0.35.0 it finds no line for eighteen minors whose
+   passes ran. Each has either a line in the changelog in other words
+   (*"Found by the 0.9.0 delta-pass"*) or, from 0.20.0, a report in the
+   maintainers' notes. The changelog names no pass at all over 0.24.0 or over
+   0.27.0 to 0.32.0.
+
 2. **What the image leaves out**, in *Advisories against a dependency*: *"the
    Docker image does not contain it"*, said of nltk, and *"The Docker image does
    not contain `digline-mcp`, and so has no PyJWT at all"*. Read
