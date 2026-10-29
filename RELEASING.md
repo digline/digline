@@ -12,6 +12,25 @@ three levels below read *a public name*, a CLI subcommand or option
 removed or changed in meaning, an exit code changed, or a schema change that
 needs `migrate` or a re-promote. 0.12.0 was a minor for this reason.
 
+**From 1.0.0, a minor does not break a public Python signature.** *Ruled
+2026-10-29, for 1.0.0.* A public name, read in the three levels below, is not
+removed or renamed in a minor, and a function, method or class it names does
+not lose a parameter, rename one, or gain a required one. Such a change waits
+for the next major. So from 1.0.0 the first item of the list above, *a public
+name removed or renamed*, moves the **major**, and the rest of the list still
+moves the minor.
+
+**What the promise does not cover is what makes it keepable.** Two contracts
+have versions of their own, and they keep moving in a minor as they did before
+1.0: what a program reads, the `--json` output and every MCP response, says its
+shape in `OUTPUT_VERSION`; and the stored document says its shape in
+`SCHEMA_VERSION`, with `digline migrate` as the way through. A minor that moves
+either says so in that number, and breaks no Python signature by doing it.
+
+**The plugins' caps depend on this sentence.** From 1.0.0 each plugin declares
+`digline<2`: every minor of 1.x installs under the cap, which is safe only
+because a minor does not change a signature the plugin calls.
+
 **The rule holds for each package, not only for digline.** A package's version
 moves by what its own users rely on. For `pytest-digline` that includes the
 nodeids of its rows, which `-k`, `--deselect`, `--lf` and a CI configuration
@@ -68,7 +87,8 @@ a plugin, and it is the first level's. **None of the three has a perimeter of
 packages.** The first has `docs/api.md`'s, the second has the cap's, and the
 third is the rest. *On 2026-10-25, `docs/api.md` documented seven packages.*
 1. **A name `docs/api.md` lists**, in whatever package. Removing or renaming it
-   moves the minor. The list decides and not the package. Two precedents read
+   moved the minor before 1.0, and moves the major from 1.0.0 (the promise
+   above). The list decides and not the package. Two precedents read
    it, and they contradict each other. 0.25.1 applied the list, removing
    `digline.store.utc_now_iso` in a patch: *"It was never in the public API
    (`docs/api.md` lists `utc_now_iso` under `digline.host` only)"*. 0.21.2
@@ -80,14 +100,19 @@ third is the rest. *On 2026-10-25, `docs/api.md` documented seven packages.*
    published: `digline-mcp` 0.4.1, which this release breaks"*.
 2. **A name `docs/api.md` does not list, and a plugin uses**: a name it
    imports, or a method or an attribute it calls on something digline gives
-   it. Removing or renaming it moves the minor too. Calls are in because of
+   it. Removing or renaming it is the same break as the first level's: the
+   minor before 1.0, the major from 1.0.0. Calls are in because of
    `FileResultStore.key_for` in 0.21.2: not listed, not an import, and it broke
    `digline-mcp` 0.4.1, which called `store.key_for(baseline)`. The reason is the
-   cap: each plugin declares `digline<X.Y`, and that bound protects the
-   plugin's users only through a minor. A patch is inside the cap, so pip
-   installs it under the plugin whatever module holds the name, and a patch
-   that renamed what the plugin uses would break it on the user's machine with
-   nothing here red. **No test enforces the consequence on the version**, as
+   cap. **Whatever is inside a plugin's cap installs under that plugin**,
+   whatever module holds the name, so a release inside the cap that renamed
+   what the plugin uses would break it on the user's machine with nothing here
+   red. Before 1.0 each plugin declared `digline<X.Y`, the next minor, and only
+   a patch was inside it. From 1.0.0 each declares `digline<2`, and every minor
+   and patch of 1.x is inside it: so renaming a name a plugin uses does **not**
+   move the minor, because a minor may not do it at all. It moves the major,
+   the one release outside the cap. **No test enforces the consequence on the
+   version**, as
    with the rule of 2026-10-12 on a number that changes meaning
    (`src/digline/wire/contract.py`), so review applies it. Which mechanism
    covers which half:
@@ -204,7 +229,7 @@ step you are about to perform, not the step that failed last time.
 ## Before the tag: moving the number
 
 `version` in `pyproject.toml` is one line and **four edits**, plus a fifth on a
-minor. Nothing here is
+major. Nothing here is
 optional and nothing is subtle; what it is, is unwritten — until 0.15.2 this
 section did not exist, and the six red tests below were the only instructions
 anybody got. They are good instructions. They are also a quarter of an hour
@@ -269,12 +294,13 @@ names versions for a living.
 moves no schema still gets a row; the row is what lets the example caps be
 checked against a release rather than against a number in the air.
 
-**5. On a minor, raise the example caps and relock the examples that carry a
-lock.** Every `examples/*/pyproject.toml` pins digline under the next minor —
-`digline>=0.20,<0.22` while the tree is on 0.21 — so a bump to `0.22.0` is
-excluded by all of them, and
+**5. On a major, raise the example caps and relock the examples that carry a
+lock.** Every `examples/*/pyproject.toml` pins digline under the next major —
+`digline>=0.35.0,<2` from 1.0.0 — so a minor or a patch of 1.x is admitted by
+all of them, and this step has nothing to do. A major is excluded by all of
+them, and
 `test_examples.py::test_every_example_admits_the_versions_this_workspace_declares`
-says so, naming the first. Raise the bound by one minor in every pyproject and
+says so, naming the first. Raise the bound by one major in every pyproject and
 in any README that quotes it (`examples/langchain4j/README.md` does), then run
 `uv lock` in each example that carries a `uv.lock`. Only the specifier line of
 each lock should move; the version it resolves stays the newest the index
@@ -284,6 +310,25 @@ new version is still *After the tag* work.
 its own format there, and nothing in this repository fixes which `uv` that is.
 `tests/test_lock_revision.py` holds each lock to the value declared for it, and
 names the file that moved.
+
+**Before 1.0 this step ran on every minor, and 1.0.0 runs it for the last time
+in that form.** *Rewritten 2026-10-29.* Each example pinned digline under the
+next minor, `<0.36` on 0.35.0, so every minor excluded every example. 1.0.0
+moves the caps from `<0.36` to `<2`, and from then on the step waits for a
+major. What lets a cap reach that far is the promise in *Choosing the version*:
+a minor does not break a public Python signature.
+
+**The floor of an example names the oldest digline that reads the baseline
+committed beside it.** From 1.0.0 that is schema 22, so `>=0.35.0`. When the
+baselines move to another schema, the floor moves with them, to the first
+release that writes it, once the index serves it: a floor the index does not
+serve cannot be locked, and `uv sync --locked` is a gate. **No gate checks this
+yet.** `tests/test_example_caps.py` reads the newest release a cap admits and
+never the oldest a floor admits, so a floor below the baseline's schema is
+green. This paragraph is the specification of the gate that will check it.
+Until it exists, review holds it. Why it matters: `uv` resolves to the newest
+release, but `pip` leaves a digline already installed in place when it
+satisfies the pin, and an older one refuses the baseline in the next directory.
 
 **This step became mandatory on 2026-09-28, and the gate changed the ritual
 without telling it.** On 0.21.0 the caps moved in the bump (`4785a9e`) and the
@@ -297,15 +342,20 @@ cannot go green. Found on the way to 0.22.0, where the step had never been
 written: the test's own message cited this file for a rule this file did not
 contain.
 
-**The plugins' caps, on a minor.** `digline-mcp` and `pytest-digline` pin
-`digline>=X,<Y`. Nothing here reddens when the version moves past `Y`: both take
+**The plugins' caps, on a major.** `digline-mcp` and `pytest-digline` pin
+`digline>=X,<Y`, and from their releases that follow 1.0.0 that is `<2`: a
+minor of 1.x moves neither cap, because it may not break a signature they call
+(*Choosing the version*). Before 1.0 their caps moved on every minor. Nothing here reddens when the version moves past `Y`: both take
 digline from the workspace, so the cap does not stop the resolution in this tree,
 and the plugin floors gate reads the floor and drops everything after the comma.
 What the cap decides is who gets the release. In a project, the resolver keeps the
 core below `Y` and does not say why. `pip install -U digline` and `uv pip install
 -U digline` install the newer core beside the capped plugin anyway: pip prints
-`ERROR:` and exits 0, uv says nothing. So the caps move in the same pull request
-as the version, and nothing will remind you.
+`ERROR:` and exits 0, uv says nothing. So on a major the caps move with the
+version, and nothing will remind you. *For 1.0.0, ruled 2026-10-29:* the core's
+pull request leaves both plugins untouched, and each cap moves from `<0.36` to
+`<2` in that plugin's own cut, digline-mcp's with its floor owed at the cut,
+in the table below.
 
 **Then one more, which no test reddens: say which decisions this release
 ships.** Every record in `docs/adr/` carries `- Shipped:`, a core version or
@@ -369,7 +419,7 @@ tag.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError`. And `OUTPUT_VERSION` 5: the `explain` tool passes `reading=` to `explain_json`, which raises `TypeError` against 0.35.0, and reads `Explained.facts` and `Explained.reading`, where 0.35.0 has no `facts` and its `reading` holds the facts | `0.36.0` | raise the cap to `<0.37` with it, and ship digline-mcp on that floor after the core is on PyPI |
+| `digline-mcp` | ADR 0054 §8: `errors.translated` passes `mint=` to `refusal_text`, which first takes it in the core release that carries the names a refusal quotes (`NameRef`, `Written` with names); against 0.35.0 the call raises `TypeError`. And `OUTPUT_VERSION` 5: the `explain` tool passes `reading=` to `explain_json`, which raises `TypeError` against 0.35.0, and reads `Explained.facts` and `Explained.reading`, where 0.35.0 has no `facts` and its `reading` holds the facts | `1.0.0` | raise the cap to `<2` with it, and ship digline-mcp on that floor after the core is on PyPI |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -459,7 +509,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| digline | ADR 0054 §8: `NameRef`, `Said`, `Withheld`, `WithheldKind` and `WITHHELD_WORDS` in `digline.core`, `Written` that holds names and needs no cause, `refusal_text(mint=)`; a band's and an unidentified verdict's refusal in a stored run is `DocumentRefusedError` with the reader's prefix | a major: a public name is renamed with no alias (`Written`), public names are added, and a refusal a user reads changed its type and its words |
 | digline-mcp | ADR 0054 §8: under `--names project` a refusal's names reach the agent as tokens | the sentence an agent reads changed; its floor is owed at the cut, in the table above |
 
 Empty is the normal state here too. A row left after its package's release is a
@@ -468,8 +517,10 @@ row nobody finished.
 **The plugins, after this release.** `digline-mcp` and `pytest-digline` are
 published with caps below this core. Raising the caps in this tree reaches
 nobody: until both are released again, a project that holds them resolves
-the previous core, and is not told. So a minor that moves the caps owes a
-release of each plugin that holds one.
+the previous core, and is not told. So a release that moves the caps owes a
+release of each plugin that holds one. With the caps at `<2` that is a major,
+and 1.0.0 itself, whose caps move from `<0.36` to `<2`. A minor of 1.x moves
+no cap, and owes the plugins nothing on this account.
 
 ### The six that stay red until you have done all four
 

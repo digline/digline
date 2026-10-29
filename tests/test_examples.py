@@ -2139,7 +2139,7 @@ def test_every_example_admits_the_versions_this_workspace_declares() -> None:
 #: did not contain until 0.22.0.
 CAP_STEP = (
     "RELEASING.md's *Before the tag: moving the number*, step 5 says "
-    "(*On a minor, raise the example caps and relock the examples that carry "
+    "(*On a major, raise the example caps and relock the examples that carry "
     "a lock*)"
 )
 
@@ -2156,7 +2156,7 @@ def test_the_step_the_cap_message_cites_exists() -> None:
     text = " ".join((ROOT / "RELEASING.md").read_text(encoding="utf-8").split())
     assert "## Before the tag: moving the number" in text
     assert (
-        "**5. On a minor, raise the example caps and relock the examples that "
+        "**5. On a major, raise the example caps and relock the examples that "
         "carry a lock.**"
     ) in text
 
