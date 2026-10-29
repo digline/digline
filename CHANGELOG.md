@@ -6,6 +6,23 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **`digline run` says where the run went and what to type next.** Two lines
+  on standard error, after the bill: `digline: recorded <path>`, the document
+  the run wrote, as read from the folder the command ran in, and `digline:
+  next: <command>  # <what it does>`, which pastes whole and runs. With no
+  reference the command is `digline promote … --run latest --replacing none`;
+  beside a reference it is `digline compare … --run latest`, whether or not
+  that reference is one `compare` can read, which is `compare`'s to say. It
+  repeats `--suite` as given, `--root`, `--tenant` and `--env`, and `--target`
+  on `promote`. A run that judged nothing says `recorded` and no `next`, and a
+  refusal before the run is written says neither. Standard output is still the
+  key alone, and no existing sentence changes.
+- **`refuse_unreadable_baseline` returns whether a baseline file stands**, and
+  `Measured` carries it as `baseline_found`, `None` where nobody looked. A
+  caller that ignores the return is unaffected.
+
 ## 1.0.0 — 2026-10-29
 
 digline **1.0.0**.

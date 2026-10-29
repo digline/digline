@@ -112,6 +112,11 @@ class Measured:
     #: sentence. Beside the run and never in it: the person who ran the command
     #: reads it, after the bill. (ADR 0004 §8.3)
     unpriced: tuple[str, ...] = ()
+    #: Whether a baseline file stood for this suite when the run began, as
+    #: `refuse_unreadable_baseline` found it: `True` for a file, readable or
+    #: not, `False` for none. `None` where nobody looked, so a `Measured`
+    #: built without it does not claim that there is no reference.
+    baseline_found: bool | None = None
 
 
 def prepare(
@@ -273,7 +278,7 @@ def _seed(holder: object, observed: SystemConfig) -> None:
 
 def refuse_unreadable_baseline(
     store: ResultStore, suite: Suite, *, accepting_schema: int | None = None
-) -> None:
+) -> bool:
     """Refuse to spend where the comparison the spending is for cannot be read.
 
     A baseline at a schema this digline does not read makes every `compare`
@@ -299,16 +304,22 @@ def refuse_unreadable_baseline(
     baseline declares, as `--accepting-pin` accepts exactly the paths a
     promotion implicates. Naming another schema, or one where nothing is
     unreadable, is refused: an acceptance of nothing is a mistake, not a no-op.
+
+    **It returns whether a baseline file stands for this suite**, the answer
+    the read above already holds: `False` for none, `True` for a file, whether
+    it was read, refused here and accepted, or left to `compare`. Whether that
+    file is a usable reference is `compare`'s to say, by the same choice as
+    above. A caller that only wants the refusal ignores it.
     """
     try:
-        store.read_baseline(suite.tenant, suite.name)
+        found = store.read_baseline(suite.tenant, suite.name) is not None
     except DocumentRefusedError as exc:
         # `None` for a broken file, which is left to `compare`. See above.
-        declared, unreadable = exc.declared_schema, exc
+        declared, unreadable, found = exc.declared_schema, exc, True
     except (TenantMismatchError, SuiteMismatchError, NotAReferenceError):
         # `compare`'s, by the same choice: the read raises them after the
         # schema has already been read and found readable.
-        declared, unreadable = None, None
+        declared, unreadable, found = None, None, True
     else:
         declared, unreadable = None, None
 
@@ -327,9 +338,9 @@ def refuse_unreadable_baseline(
                 f"the baseline declares schema {declared}",
                 declared_schema=declared,
             )
-        return
+        return found
     if declared is None:
-        return
+        return found
     remedy = (
         "Upgrade digline to one that reads it"
         if declared > SCHEMA_VERSION
@@ -368,7 +379,9 @@ def measure(
     cannot read is refused unless `accepting_baseline_schema` names it — see
     `refuse_unreadable_baseline`. (#621)
     """
-    refuse_unreadable_baseline(store, suite, accepting_schema=accepting_baseline_schema)
+    baseline_found = refuse_unreadable_baseline(
+        store, suite, accepting_schema=accepting_baseline_schema
+    )
     if prepared.resume is not None:
         seed_observed(suite, target, prepared.resume)
     journal = store.open_journal(prepared.header)
@@ -390,4 +403,10 @@ def measure(
     )
     ref = store.write_run(run)
     journal.complete()
-    return Measured(ref=ref, run=run, plan=prepared.plan, unpriced=tuple(unpriced))
+    return Measured(
+        ref=ref,
+        run=run,
+        plan=prepared.plan,
+        unpriced=tuple(unpriced),
+        baseline_found=baseline_found,
+    )
