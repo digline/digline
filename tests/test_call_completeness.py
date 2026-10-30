@@ -620,15 +620,23 @@ def _target_line(line: CallTotals) -> str:
     return only
 
 
-@pytest.mark.parametrize("line", [SILENT, MIXED], ids=["silent", "mixed"])
-def test_a_line_whose_cost_is_not_known_prints_no_figure(line: CallTotals) -> None:
-    """`0.000000 USD` beside *cost not known* read as a run that cost nothing,
-    and a partial sum as the bill. Where a cost on the line is not known, the
+def test_a_line_with_no_known_cost_prints_no_figure() -> None:
+    """`0.000000 USD` beside *cost not known* read as a run that cost nothing.
+    Where a cost on the line is not known and the known ones sum to zero, the
     line names the calls and says the cost is not known, with no number."""
-    said = _target_line(line)
+    said = _target_line(SILENT)
     assert "USD" not in said, said
     assert "cost not known" in said, said
-    assert said.startswith(f"target: {line.calls} call")
+    assert said.startswith("target: 1 call")
+
+
+def test_a_mixed_line_keeps_its_figure_and_says_it_is_not_the_whole_bill() -> None:
+    """The other side of the same rule: a sum above zero of the costs that are
+    known is a lower bound, and a lower bound above zero says something. So the
+    figure stays, and the clause beside it says not every cost is known."""
+    said = _target_line(MIXED)
+    assert "0.004000 USD" in said, said
+    assert said.endswith("; cost not known for every call"), said
 
 
 def test_a_silent_target_still_says_no_counts_were_reported() -> None:
