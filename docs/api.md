@@ -551,7 +551,9 @@ The totals cross a boundary; the per-call counts on a recorded response do not
   means some line's `every_cost_known` is `false`; the other way round does
   not hold, because a cost can be not known with no one saying why: a reply
   whose counts were not read, or a target that states no cost and no reason.
-  The MCP `run` tool does not carry `unpriced` yet.
+  The MCP `run` tool carries it too: in clear as given, and under
+  `--names project` each sentence withheld as
+  `WITHHELD_WORDS["cost_reason"]`, the list keeping its length.
 
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written

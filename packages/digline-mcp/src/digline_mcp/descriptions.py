@@ -134,6 +134,13 @@ not a verdict, and an empty list means the suite was read and had none. A note
 is answered, not silenced. **Do not move a tolerance, declare a KIND
 unchecked, or drop a case to make a note go away.**
 
+`unpriced` holds why a cost is not known: the sentence a plugin wrote for each
+reply it could not price, once each. An empty list means the run looked and
+nobody said why. Where this server shows names as tokens, each sentence is
+withheld, because it names a model, and the list keeps its length: the reasons
+exist and are not shown. Say beside the bill that its cost is not known, and
+why where you can read it.
+
 A baseline this digline cannot read is refused before the count is asked: a
 run now could not be compared with it. `accepting_baseline_schema` goes through
 that refusal, by the schema number it names. Accepting it is the person's

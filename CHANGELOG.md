@@ -6,6 +6,25 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-mcp — unreleased
+
+- **The `run` tool says why a cost is not known, as `unpriced`.** It used to
+  collect the sentences a plugin wrote for a reply it could not price and
+  leave them out, so an agent read `every_cost_known: false` and no reason.
+  It now passes them, with its minter, to the same `run_json` that builds
+  `digline run --json`, and answers with the same keys. In clear the
+  sentences cross as given. Under `--names project` each is withheld whole as
+  `WITHHELD_WORDS["cost_reason"]`, because it names a model and nothing mints
+  it, and the list keeps its length. An empty list means the run looked and
+  nobody said why. The tool's description says so. (ADR 0004 §8.0, item 2)
+- **The dependency is `digline>=1.0.2,<2`.** The floor: the `run` tool passes
+  `mint=` to `run_json` and relies on `WITHHELD_WORDS["cost_reason"]`, both
+  new in 1.0.2; against 1.0.1 the call raises `TypeError`.
+
+Nothing that worked stops working: a key added to one tool's answer, and a
+floor. By the enumeration in `RELEASING.md`, *Choosing the version*, which
+holds for each package, that is a patch, as digline-mcp 0.6.3 was.
+
 ## 1.0.2 — 2026-10-30
 
 digline **1.0.2**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
