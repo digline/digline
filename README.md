@@ -1,7 +1,5 @@
 # digline
 
-**Regression testing for LLM applications: sample your reference, declare a floor on the checks that need one, and a score drop is read against how much that score moves on its own. A flip from pass to fail is always a regression.**
-
 [![PyPI](https://img.shields.io/pypi/v/digline)](https://pypi.org/project/digline/)
 [![Downloads](https://static.pepy.tech/badge/digline/month)](https://pypistats.org/packages/digline)
 [![Python 3.12+](https://img.shields.io/pypi/pyversions/digline)](pyproject.toml)
@@ -11,6 +9,10 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/digline/digline/badge)](https://scorecard.dev/viewer/?uri=github.com/digline/digline)
 
 <sub>CI is the merge queue's latest run — the gate a change passes on its way to `main`; a red can mean the queue turned a pull request away while `main` did not move.</sub>
+
+```bash
+pip install digline
+```
 
 ---
 
@@ -23,32 +25,58 @@
 digline runs in your pipeline over the suite you committed: it reads no
 traces.*
 
-Your prompt worked on Tuesday. On Thursday it works a little less — not enough
-to break, enough for a user to notice in two weeks. No ordinary test catches it,
-because there is no correct output to compare against, only a better or a worse
-one.
+**Did my change make it worse?**
 
-digline gives you an **approved reference** — the baseline — and on every change
-tells you whether you are below it: which case, which check, by how much. The
-baseline is a JSON file in your repository, so it goes through code review and
-it rolls back with `git`. No server, no account, no network call you have not
-configured yourself.
+You changed a prompt, or a model, or a temperature. Run it twice and you
+get two different answers, so you cannot tell a regression from the
+model's own noise by reading a few outputs.
 
-When a check uses a model to grade, that grader does not always agree with
-itself. Ask digline to sample and it records how much the score moved on its
-own. Declare `floor_standard_errors` on that check and that measurement becomes
-a floor: a drop outside it is reported with the interval on its line, and a drop
-inside it is not a regression — the headline counts it, and `explain` prints the
-interval. Declare nothing and the samples are still recorded, but the tolerance
-decides alone.
+digline records a run and compares the next one against it. It measures
+how much the model varies on its own, and calls a difference a regression
+only when it is bigger than that.
 
-```console suite=support
-$ digline compare --suite suite.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+```python
+from digline.core import Contains
+from digline.run import Case, Response, Suite
 
-how-do-i-return · llm_rubric · Score fell from 1.000000 to 0.700000.
-how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
+suite = Suite(
+    tenant="acme",
+    environment="dev",
+    name="hello",
+    assertions=[Contains(needle="hello")],
+    cases=[Case(id="greet")],
+)
+
+
+def target(case: Case) -> Response:
+    return Response(output="hello world")
 ```
+
+```console suite=hello
+$ digline run --suite suite.py
+digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
+digline: target: 1 call, no counts reported, 0.000000 USD (counted 0 of 1); cost not known for every call
+2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535
+digline: recorded .digline/acme/runs/hello/2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535.json
+digline: next: digline promote --suite suite.py --run latest --replacing none  # keeps this run as the reference
+
+$ digline promote --suite suite.py --run latest --replacing none
+tenant 'acme' · hello baseline set to 2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535
+
+$ digline run --suite suite.py
+digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
+digline: target: 1 call, no counts reported, 0.000000 USD (counted 0 of 1); cost not known for every call
+2026-10-30T10-46-22-444490-00-00-f849e1e676ebb535
+digline: recorded .digline/acme/runs/hello/2026-10-30T10-46-22-444490-00-00-f849e1e676ebb535.json
+digline: next: digline compare --suite suite.py --run latest  # says whether anything got worse
+
+$ digline compare --suite suite.py --run latest
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+tenant 'acme', against baseline 2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535
+```
+
+The reference is a file in your repo, reviewed like any other change. The
+answer is an exit code, so the same commands run in CI.
 
 ## Why digline
 
