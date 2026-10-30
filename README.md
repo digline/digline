@@ -31,9 +31,8 @@ You changed a prompt, or a model, or a temperature. Run it twice and you
 get two different answers, so you cannot tell a regression from the
 model's own noise by reading a few outputs.
 
-digline records a run and compares the next one against it. It measures
-how much the model varies on its own, and calls a difference a regression
-only when it is bigger than that.
+digline freezes a run you approved as the reference, and tells you what
+moved against it.
 
 ```python
 from digline.core import Contains
