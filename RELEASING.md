@@ -2309,17 +2309,20 @@ is the one a quiet log cannot supply.
     them.
   - **No plugin release is owed.** `release-followup` (`41083284511`) reads
     every plugin PyPI serves as admitting 1.0.2.
-  - **Not done at the tag.** Step 7, digline-action's default image. Its
-    `action.yml` defaults to `ghcr.io/digline/digline:1.0.0` on its `main`
-    (`3b9e1da0`) and on `v1` (`a48e1eeb`), read at 15:42Z. 1.0.0, 1.0.1 and 1.0.2 all write schema 22 and `OUTPUT_VERSION` 5,
-    and the action reads only the key `digline run` prints on standard output
-    and the first line of `digline compare`, so a workflow at `@v1` is not
-    broken. It runs two patches behind and prints 1.0.0's lines: after `run`,
-    no line saying where the run went and what to type next (1.0.1); a bill
-    line that reads *0.000000 USD* for a target that states no cost; and *not
-    recorded on both sides* for a rule with no single value on one side, which
-    is false in two of the three ways that row arises (both 1.0.2). It stays
-    undone by the maintainer's decision.
+  - **Step 7, digline-action's default image, as read at 15:42Z, with this
+    repository's `main` at `64093082`: not done.** `action.yml` defaulted to
+    `ghcr.io/digline/digline:1.0.0` on digline-action's `main` (`3b9e1da0`)
+    and on `v1` (`a48e1eeb`). 1.0.0, 1.0.1 and 1.0.2 all write schema 22 and
+    `OUTPUT_VERSION` 5, and the action reads only the key `digline run` prints
+    on standard output and the first line of `digline compare`, so at that
+    reading a workflow at `@v1` was not broken. It ran two patches behind and
+    printed 1.0.0's lines: after `run`, no line saying where the run went and
+    what to type next (1.0.1); a bill line that reads *0.000000 USD* for a
+    target that states no cost; and *not recorded on both sides* for a rule
+    with no single value on one side, which is false in two of the three ways
+    that row arises (both 1.0.2). This entry does not say where the step
+    stands after that reading: #840, the follow-up for v1.0.2, and
+    digline-action's tags do.
 - **v1.0.1 — the race happened inside the smoke build: the wait read the new
   page, and pip, 0.6 seconds later, the old one. Row one of the table,
   per-server luck, confirmed.** `publish` (`41033180217`) passed on attempt 1,
