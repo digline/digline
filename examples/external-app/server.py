@@ -10,7 +10,9 @@ file.
 
 from __future__ import annotations
 
+import itertools
 import json
+import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -24,10 +26,26 @@ ROUTING = {
 }
 
 
+#: The second witness. One line on standard error for every call this stub
+#: receives, and nothing when it receives none, so a sentence such as
+#: "Nothing was called" can be checked against more than digline's word. The
+#: same format in every example's stub; the liveness `HEAD` is not a call.
+_CALLS = itertools.count(1)
+_COUNTING = threading.Lock()
+
+
+def _witness(path: str, field: str, value: str) -> None:
+    with _COUNTING:
+        number = next(_CALLS)
+    sys.stderr.write(f"stub: call {number} POST {path} {field}={value!r}\n")
+    sys.stderr.flush()
+
+
 class _Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802 - the name http.server dispatches on
         length = int(self.headers.get("Content-Length") or 0)
         asked = json.loads(self.rfile.read(length).decode("utf-8"))
+        _witness(self.path, "text", str(asked.get("text", "")))
         text = str(asked.get("text", "")).lower()
         queue, confidence = ROUTING.get(text, ("general", 0.5))
         body = json.dumps(
@@ -43,7 +61,8 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format: str, *args: object) -> None:
-        """Quiet: the suite's output is what the reader is here for."""
+        """`http.server`'s own access log stays off: `_witness` writes the one
+        line per call, in the format every example's stub shares."""
 
 
 def start() -> str:
