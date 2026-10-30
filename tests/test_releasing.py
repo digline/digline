@@ -15,6 +15,7 @@ nobody can trust is worse than none, because it is followed.
 from __future__ import annotations
 
 import ast
+import fnmatch
 import re
 from pathlib import Path
 
@@ -335,7 +336,7 @@ def test_the_readers_are_forbidden_to_skip_where_ci_runs_them() -> None:
     prove nothing about the variable.
     """
     readers = job_body("readers")
-    assert "refs/tags/v0.*:refs/tags/v0.*" in readers
+    assert "git fetch --depth 1 --no-tags origin 'refs/tags/" in readers
     assert "--depth 1" in readers
     assert "DIGLINE_TAGS_REQUIRED" in readers
     steps = [
@@ -348,6 +349,57 @@ def test_the_readers_are_forbidden_to_skip_where_ci_runs_them() -> None:
     assert steps.index(control) == len(steps) - 1, steps
     assert "git tag -d v0.1.0" in readers
     assert "DIGLINE_TAGS_REQUIRED is set, so this check may not skip" in readers
+
+
+def released_versions() -> list[str]:
+    """The keys of `RELEASED` in `tests/test_example_caps.py`, read with `ast`:
+    every core release a reader there reads a tag of."""
+    tree = ast.parse(
+        (ROOT / "tests" / "test_example_caps.py").read_text(encoding="utf-8")
+    )
+    for node in tree.body:
+        if (
+            isinstance(node, ast.AnnAssign | ast.Assign)
+            and isinstance(node.value, ast.Dict)
+            and "RELEASED"
+            in [
+                t.id
+                for t in (
+                    [node.target] if isinstance(node, ast.AnnAssign) else node.targets
+                )
+                if isinstance(t, ast.Name)
+            ]
+        ):
+            return [
+                k.value
+                for k in node.value.keys
+                if isinstance(k, ast.Constant) and isinstance(k.value, str)
+            ]
+    raise AssertionError("tests/test_example_caps.py lost RELEASED")
+
+
+def test_the_readers_fetch_every_core_tag_and_no_plugin_tag() -> None:
+    """The fetch brings the tag of every release `RELEASED` names, and none of
+    the plugins' tags.
+
+    It was `refs/tags/v0.*`, which cannot see `v1.0.0`. Nothing noticed while
+    1.0.0 was the version being cut, because the tag being cut is the one
+    allowed to be missing; the bump to 1.0.1 made `v1.0.0` an old reader's tag,
+    and the job failed on it. So the pattern is held to the table and not
+    written twice.
+    """
+    readers = job_body("readers")
+    found = re.search(r"git fetch --depth 1 --no-tags origin '([^':]+):", readers)
+    assert found is not None, readers
+    pattern = found.group(1)
+    released = released_versions()
+    assert "1.0.0" in released, released
+    outside = [
+        v for v in released if not fnmatch.fnmatchcase(f"refs/tags/v{v}", pattern)
+    ]
+    assert not outside, f"{pattern} does not fetch the tags of {outside}"
+    for plugin_tag in ("digline-mcp-v0.8.0", "pytest-digline-v0.5.1"):
+        assert not fnmatch.fnmatchcase(f"refs/tags/{plugin_tag}", pattern), plugin_tag
 
 
 #: The table's header, which is also its contract: the last column is the one

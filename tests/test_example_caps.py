@@ -225,6 +225,7 @@ RELEASED: dict[str, int] = {
     # does not break a public Python signature, and the schema keeps moving in
     # a minor as before (RELEASING.md, *Choosing the version*).
     "1.0.0": 22,
+    "1.0.1": 22,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
