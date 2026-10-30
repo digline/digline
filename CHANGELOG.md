@@ -29,8 +29,9 @@ notes under them are this file, verbatim.
   Three did neither, because a shell read their placeholder as something else:
   `<key>` is a redirection from a file named `key`, and `…` is passed to digline
   as a suite.
-  - `compare` with no reference now says `digline promote --run KEY --replacing
-    none`, *"with KEY the key of the run you looked at"*.
+  - `compare` with no reference now says `digline promote --suite SUITE --run
+    KEY --replacing none`, *"with SUITE the suite and KEY the key of the run you
+    looked at"*.
   - Deleting the run under the reference says `digline promote --suite SUITE
     --run KEY --replacing …`, *"where SUITE is the suite and KEY another run's
     key"*.
@@ -38,8 +39,7 @@ notes under them are this file, verbatim.
     finishes it with the suite and the options this launch was given, so it
     runs as printed.
 
-  `compare`'s sentence still has no `--suite`. The other commands digline
-  prints without one are unchanged here.
+  The other commands digline prints without `--suite` are unchanged here.
 - **`refuse_unreadable_baseline` returns whether a baseline file stands**, and
   `Measured` carries it as `baseline_found`, `None` where nobody looked. A
   caller that ignores the return is unaffected.
