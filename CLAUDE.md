@@ -221,6 +221,14 @@ artifacts that today exists in none of the audited competitors.
 - How a test is believed (mutation, bytecode off, tests first, fault
   injection) is written once, in `CONTRIBUTING.md` from *A test is not believed
   until a mutation makes it fail*. Read it there; it is not copied here.
+- **A change to a line digline prints that the README quotes owes a row** in
+  `RELEASING.md`'s *Owed to the next version*; what the row says, and how it
+  is closed, is the procedure there (*A merge that changes a printed line the
+  README quotes*), not copied here. To check: `git grep -n -F '<the line as
+  main prints it>' -- README.md`; a red on
+  `tests/test_readme.py::test_every_printed_line_comes_back_out_of_a_real_run[<suite>]`
+  says the same and names the block, and fixing the page for it is the moment
+  the row is owed.
 - `tests/test_layering.py` is a **mandatory gate**, not a style test: it guarantees
   that the core stays pure and importable from Plumbline without dragging storage
   along. It must not be weakened or made optional; if it fails, the change is
