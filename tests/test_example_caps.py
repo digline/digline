@@ -226,6 +226,7 @@ RELEASED: dict[str, int] = {
     # a minor as before (RELEASING.md, *Choosing the version*).
     "1.0.0": 22,
     "1.0.1": 22,
+    "1.0.2": 22,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
