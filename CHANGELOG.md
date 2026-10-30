@@ -21,6 +21,15 @@ notes under them are this file, verbatim.
   that states its cost and no token counts, as the quickstart does, keeps its
   figure, because that cost is known. `--json` is unchanged: `spent_usd` is
   still `0.0` beside `every_cost_known: false`.
+- **A rule whose value cannot be compared now says why, in the words that are
+  true.** `compare`, `explain` and the report printed *"contains.samples not
+  recorded on both sides"* for a rule with no single value on one side. That
+  was wrong in two of the three ways the row arises: a threshold or a declared
+  width that a side's cases disagree on was recorded, only not once. It now
+  reads *"contains.samples has no single value on one side, so whether it
+  moved is not known"*, and the report's cell the same without the name, in
+  English and in Italian. The row, when it appears and what moves it are
+  unchanged.
 - **A reason a cost is not known can cross a projected answer: withheld, and
   counted.** `run_json` takes `mint`, the minter of a front end that projects
   its answers. With one, each sentence of `unpriced` is replaced by

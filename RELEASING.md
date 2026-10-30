@@ -554,6 +554,40 @@ it and deletes it.
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
 
+**A merge that changes a printed line the README quotes owes a row here, and
+the row is closed by capturing the block again before the tag.** *Added
+2026-10-30.* `tests/test_readme.py` replays every ```` ```console ```` block of
+the README against the code of the commit it runs on. So a pull request that
+changes a line `digline` prints, and that a block quotes, has to change the
+page in the same pull request, or the replay is red. Once it merges, the page
+on GitHub, which reads `main`, shows a line that `pip install digline` does not
+print. It stays false for whoever installed until the next release, and the
+replay is green throughout, because it reads the tree and not the index. That
+pull request writes a row: the package `digline`, what it carries (the pull
+request and the line, quoted as the page now shows it), and what the number
+must reflect (the block named by its `suite=` label, to capture again).
+
+**Before the tag, the block is captured again from the tree being tagged, as
+a terminal shows it, and the row is deleted.** That means:
+- each command run with standard output and standard error on one terminal,
+  and the lines written in the order the terminal shows them. The key comes
+  before the lines `run` says after it, though a pipe delivers it last;
+- the replay then held to it, as for any block.
+
+The row is what keeps the window from being forgotten. The capture is what
+makes the page a transcript of the release it describes, not of a commit on
+the way to it.
+
+**Why this is a step and not a gate.** A gate would compare the page with the
+release the index serves. It would be red on exactly the pull request that
+repairs the code and the page together, and red until the release, because
+the release that makes the page true comes after the merge. A check that the
+documented process guarantees to be red is the one `CLAUDE.md` keeps out of
+the required checks, for `docs`. The table and the capture before the tag are
+the step. The measurement that found the window, and the probe that shows the
+replay green while the page and PyPI disagree, are in the maintainers' notes,
+`record-the-readme-replays-the-tree.md`.
+
 **The plugins, after this release.** `digline-mcp` and `pytest-digline` are
 published with caps below this core. Raising the caps in this tree reaches
 nobody: until both are released again, a project that holds them resolves
@@ -4756,6 +4790,70 @@ two are not an inconsistency to reconcile.
   one name, and the field was found by asking before the tag. Measured across
   all 92 public dataclasses between `v0.25.2` and the 0.25.3 tree: that field,
   and nothing else.
+
+**The holes none of the three diffs sees, by name.** *Since 2026-10-30, the
+one list.* A delta-pass report in `private/` points here and keeps no copy of
+it, and a hole has a name and no number. Each is in one of three states:
+**open**, with no probe; **covered in part**, by a probe whose limits are named;
+or **closed**, by a tool in this repository. A probe kept in `private/` is *in
+the notes, not a tool of the repository*: it is how a pass saw the hole, and
+nothing here runs it.
+- **Protocol.** A class that is not a dataclass, and first of all a
+  `Protocol`: a method added to one, or a parameter added to a method, changes
+  what an implementer owes and moves no name and no field. `NameRow`, in
+  `digline.core`, is one. *Covered in part*, by
+  `private/delta-pass-1.0.0-probes/protocols.py`, in the notes, not a tool of
+  the repository. It reads every class under `src/` that names `Protocol` among
+  its bases, with each method's parameters and each annotated attribute. It
+  does not read `packages/`, a method's return type, or a class that is
+  neither a dataclass nor a `Protocol`.
+- **Inside a function.** A change that moves no name, no key and no field. In
+  the JSON contract, what is left once `tests/test_wire_keys.py` holds the keys
+  is the four cases `src/digline/wire/contract.py` names beside the table,
+  under *What this does not catch*; they are read there, not copied here.
+  *Open*, no probe: only the reading of the changelog entry and of the code
+  sees it.
+- **Property.** A property of a listed dataclass, which is read like a field.
+  *Closed*, by `tools/public_fields.py`, which has read properties since
+  2026-10-26, `functools.cached_property` included. Why it closed is the note
+  of that day, below.
+- **Meaning under the same name.** An attribute of a public class whose
+  meaning moves while its name stays. `Explained.reading` is the instance: at
+  0.35.0 it held the facts, at 1.0.0 it holds `"comparison"` or `"run"`, and
+  the fields diff showed `facts` added and `scope` removed, and not this. It is
+  an attribute, not a value in a JSON document, which *Inside a function*
+  covers. *Open*, no probe. The floors meet the same class, in *Before the
+  tag: moving the number*, *Recorded 2026-10-29*.
+- **A package's `__all__`.** `tools/public_fields.py` reads the `__all__` of
+  each package it imports, not of each module. A dataclass listed only in a
+  module's `__all__` has its name in the `__all__` diff and its fields in no
+  diff: digline-mcp's `server.py` and `errors.py` are such modules. *Open*, no
+  probe.
+- **Return type.** A function or method whose return type moves:
+  `refuse_unreadable_baseline` went from `-> None` to `-> bool` in 1.0.1.
+  *Covered in part*, by `private/delta-pass-1.0.1-probes/signatures.py`, in the
+  notes, not a tool of the repository. It reads every function and method under
+  `src/` and `packages/*/src` with `ast`, parameters and return annotation as
+  written, so a return with no annotation reads the same at both tags whatever
+  it returns.
+- **Alias value.** A value added to a public type alias: `WithheldKind` gained
+  `"cost_reason"` in #827, and a consumer that enumerates the kinds meets one
+  more. *Covered in part*, by the same `signatures.py`, which reads a
+  module-level alias: `type X = ...`, `X: TypeAlias = ...`, or a capitalised
+  name bound to a subscript or a union. It does not read an alias inside a
+  class, or a vocabulary held in a dict, such as `WITHHELD_WORDS` beside
+  `WithheldKind`.
+
+**Why names and not numbers.** Until 2026-10-30 five reports in `private/` kept
+a copy each, numbered on their own, and the numbers collided. In the report on
+1.0.1 the fourth declared gap is *Meaning under the same name*, and a paragraph
+of the same report says *"Holes 4 and 5, as numbered in
+`delta-pass-digline-mcp-0.8.0.md`"*, where 4 is *Return type*. Three was
+*Property* in four of the copies and *A package's `__all__`* in two others.
+
+*Replaced 2026-10-30 by the list above, and kept below as written.* It
+declared two holes, and the note of 2026-10-26 a third. The four the list adds
+had been declared only in reports in `private/`.
 
 **Two gaps, declared rather than assumed.** Neither of these three diffs sees
 them:
