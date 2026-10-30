@@ -520,7 +520,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.cell.moved": "{field} {before} → {after}",
         "rules.cell.new": "added",
         "rules.cell.missing": "removed",
-        "rules.cell.unknown": "not recorded on both sides",
+        "rules.cell.unknown": (
+            "no single value on one side, so whether it moved is not known"
+        ),
         "rules.direction.loosened": "looser",
         "rules.direction.tightened": "stricter",
         "rules.terminal": "rules",
@@ -540,7 +542,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.new.new_group": "{name} added, over a group the reference lacked",
         "rules.new.now_grouped": "{name} added, this aggregate is now per group",
         "rules.missing": "{name} removed",
-        "rules.unknown": "{name} not recorded on both sides",
+        "rules.unknown": (
+            "{name} has no single value on one side, so whether it moved is not known"
+        ),
         "rules.unnameable": (
             "the agreement floor is not recorded, so it cannot be compared"
         ),
@@ -1871,7 +1875,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.cell.moved": "{field} {before} → {after}",
         "rules.cell.new": "aggiunta",
         "rules.cell.missing": "rimossa",
-        "rules.cell.unknown": "non registrata su entrambi i lati",
+        "rules.cell.unknown": (
+            "nessun valore unico su uno dei due lati, quindi non si sa se si sia mosso"
+        ),
         "rules.direction.loosened": "più larga",
         "rules.direction.tightened": "più stretta",
         "rules.terminal": "regole",
@@ -1888,7 +1894,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "rules.new.now_grouped": ("{name} aggiunta, questo aggregato ora è per gruppo"),
         "rules.missing": "{name} rimossa",
-        "rules.unknown": "{name} non registrata su entrambi i lati",
+        "rules.unknown": (
+            "{name} non ha un valore unico su uno dei due lati, quindi non si sa "
+            "se si sia mosso"
+        ),
         "rules.unnameable": (
             "la soglia di accordo non è registrata, quindi non è confrontabile"
         ),
