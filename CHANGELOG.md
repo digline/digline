@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.0.1 — unreleased
+## 1.0.1 — 2026-10-30
 
 digline **1.0.1**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
 the version*.** No
@@ -73,6 +73,17 @@ return.
   that the producer does not carry the key. The key itself did not move:
   present on `run --json` and `rejudge --json`, absent from the tool, as in
   1.0.0. ADR 0054 takes a dated note saying why.
+
+### Seen working in a browser — not owed
+
+- **The walkthrough was not owed for 1.0.1, and did not run.** Nothing in the
+  launch key, the hand-over or the promote form changed since 0.34.0, the last
+  release that ran it. 1.0.0's entry measured `src/digline/cli/view.py`,
+  `src/digline/report/pages.py` and `src/digline/host/promotion.py` with no
+  commit between `v0.34.0` and `d783cac5`. Between `d783cac5` and `277ae6b0`,
+  the tree this release is cut from, those three files and
+  `src/digline/report/text.py` have no commit either, measured on 2026-10-30.
+  The same count between `v0.33.0` and `v0.34.0` finds three.
 
 ## 1.0.0 — 2026-10-29
 
