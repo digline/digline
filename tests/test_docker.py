@@ -327,8 +327,7 @@ def test_the_front_page_gives_the_smoke_what_it_needs() -> None:
     assert worse.count(sign_off) == source.count(sign_off) - 1
     assert f'tenant="{module.TENANT}"' in source
     assert (
-        f"$work/.digline/{module.TENANT}/baselines/{module.QUICKSTART}.json"
-        in smoke()
+        f"$work/.digline/{module.TENANT}/baselines/{module.QUICKSTART}.json" in smoke()
     )
 
 
