@@ -183,6 +183,40 @@ def replay_support(workdir: Path) -> tuple[set[str], int]:
     return lines - {""}, compared.returncode
 
 
+def replay_hello(workdir: Path) -> tuple[set[str], int]:
+    """The opening, exactly as the page tells it: a run with no reference, the
+    promotion its `next` line names, a second run beside the reference, and the
+    `compare` that one names. Nothing is made worse, so the arc ends on 0."""
+    printed: list[str] = []
+
+    first = cli(workdir, "run", "--suite", "suite.py")
+    assert first.returncode == EXIT_OK, first.stderr
+    printed.extend((first.stdout, first.stderr))
+
+    promoted = cli(
+        workdir,
+        "promote",
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+        "--replacing",
+        "none",
+    )
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+    printed.extend((promoted.stdout, promoted.stderr))
+
+    second = cli(workdir, "run", "--suite", "suite.py")
+    assert second.returncode == EXIT_OK, second.stderr
+    printed.extend((second.stdout, second.stderr))
+
+    compared = cli(workdir, "compare", "--suite", "suite.py", "--run", "latest")
+    printed.extend((compared.stdout, compared.stderr))
+
+    lines = {normalise(line) for chunk in printed for line in chunk.splitlines()}
+    return lines - {""}, compared.returncode
+
+
 @dataclass(frozen=True)
 class Section:
     """A suite on the page: how it is replayed, the exit its arc ends on, and
@@ -198,8 +232,10 @@ class Section:
 SECTIONS: dict[str, Section] = {
     # The quickstart: a judge, two answers signed, and the second made worse.
     "support": Section(replay=replay_support, exits=EXIT_WORSE, shows_exit=True),
+    # The opening: the smallest suite, run, promoted, run again and compared.
+    "hello": Section(replay=replay_hello, exits=EXIT_OK, shows_exit=False),
 }
-SUITES_ON_THE_PAGE = 1
+SUITES_ON_THE_PAGE = 2
 
 
 @pytest.fixture(params=sorted(SECTIONS))
