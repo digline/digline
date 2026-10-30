@@ -253,12 +253,12 @@ uv sync --all-packages
 
 # 2. The claims written by hand: the seven files LIVE pins, and the plugin's
 #    copy of the skill, which test_claude_plugin.py holds byte for byte to
-#    .claude/skills/operating-digline/SKILL.md. Every occurrence of the old
-#    version in these eight files is a live claim about what is released, so a
-#    plain substitution is right here and nowhere else. On a minor,
-#    docker/README.md's `<major>.<minor>` tag row moves too, and this
-#    substitution does not reach it: edit that row by hand.
-sed -i '' 's/<old>/<new>/g' README.md docker/Dockerfile docker/README.md \
+#    .claude/skills/operating-digline/SKILL.md. List every occurrence of the
+#    old version in these eight files first, and read each line whole: most
+#    are live claims about what is released, and not all of them are (below).
+#    On a minor, docker/README.md's `<major>.<minor>` tag row moves too, and no
+#    substitution reaches it: edit that row by hand.
+grep -n -F '<old>' README.md docker/Dockerfile docker/README.md \
     plugins/digline/.claude-plugin/plugin.json .claude-plugin/marketplace.json \
     AGENTS.md .claude/skills/operating-digline/SKILL.md \
     plugins/digline/skills/operating-digline/SKILL.md
@@ -275,6 +275,28 @@ release has not pushed yet, so between the merge and the tag an install fails;
 it points at a release, never at `main`, on purpose. `test_the_minor_tag_follows_the_release`
 reads a fourth thing in that table — the `<major>.<minor>` tag, which has its
 own shape and went stale unnoticed once already.
+
+**A claim about now, or a record of then: read the sentence, not the
+string.** A version in a sentence is one of the two, and the string is the
+same in both. Ask what the number names. A claim about now names what is
+released, and turns false the day another release ships unless it moves. A
+record of then names a release that happened, and turns false if it moves.
+Only the whole sentence answers that. Move the claims, by substitution where
+every occurrence in a file is one; leave each record as it is, and register it
+in step 3.
+
+Since #807, `README.md` holds one of each. Its *Status* line, `` `1.0.0`. ``,
+said what was released, and moved. *"From 1.0.0 a minor release does not break
+a public Python signature"* says when the promise began, and is history. A
+substitution over the file would have moved the promise's start to every
+release after it. At 1.0.1's bump it was caught by listing the occurrences
+first.
+
+*Corrected 2026-10-30, after 1.0.1's bump.* This step said *"Every occurrence
+of the old version in these eight files is a live claim about what is
+released, so a plain substitution is right here and nowhere else"*, beside a
+`sed` over all eight. That was true until #807 wrote the promise into
+`README.md`.
 
 **3. Register what the old number became.** Every literal of the *previous*
 version left anywhere the sweep reads is now history, and history has to be
