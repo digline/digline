@@ -550,6 +550,7 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
+| `digline` | #834, which changes the bill line; the page now shows `digline: target: 1 call, no counts reported (counted 0 of 1), cost not known` | the block `suite=hello`, captured again from the tree being tagged |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
