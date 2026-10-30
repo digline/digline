@@ -16,9 +16,13 @@ These run in the `gates` job with everything else. No daemon, no network.
 
 from __future__ import annotations
 
+import importlib.util
 import re
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
+from typing import cast
 
 from release_wiring import jobs
 
@@ -264,6 +268,77 @@ def test_the_smoke_test_is_a_script_both_workflows_run() -> None:
 def test_the_smoke_script_is_executable() -> None:
     """Both workflows invoke it as a command, not as `bash smoke.sh`."""
     assert SMOKE.stat().st_mode & 0o111, "docker/smoke.sh is not executable"
+
+
+# --------------------------------------------------------------------------- #
+# The suite the smoke runs, and the page it takes it from
+# --------------------------------------------------------------------------- #
+
+SMOKE_SUITE = ROOT / "docker" / "smoke_suite.py"
+README = ROOT / "README.md"
+
+#: Two suites in the order the page has had them since its opening was
+#: rewritten: the smallest one first, the quickstart after it.
+TWO_SUITES = (
+    "```python\n"
+    'suite = Suite(tenant="acme", name="hello")\n'
+    "```\n\n"
+    "```python\n"
+    'suite = Suite(tenant="northwind", name="support")\n'
+    "```\n"
+)
+
+
+def smoke_suite() -> ModuleType:
+    """`docker/smoke_suite.py`, loaded from its path: it is a script beside
+    `smoke.sh`, run with the runner's `python3`, and no package imports it."""
+    spec = importlib.util.spec_from_file_location("smoke_suite", SMOKE_SUITE)
+    assert spec is not None and spec.loader is not None, f"{SMOKE_SUITE} is gone"
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def quickstart_of(page: str) -> str:
+    return cast(Callable[[str], str], smoke_suite().quickstart)(page)
+
+
+def test_the_smoke_takes_the_quickstart_by_its_name_not_its_place() -> None:
+    """The page holds two suites, and the quickstart is the second. The smoke
+    finds it by the name its `Suite(...)` declares, so the order on the page
+    decides nothing: either way round, the quickstart comes back."""
+    hello, support = TWO_SUITES.split("\n\n")
+    for page in (TWO_SUITES, f"{support}\n{hello}\n"):
+        assert 'name="support"' in quickstart_of(page), page
+
+
+def test_the_front_page_gives_the_smoke_what_it_needs() -> None:
+    """The image job runs only when `docker/` or a workflow moves, so a page
+    that stopped carrying what the smoke needs went unseen by every pull
+    request after #830. This runs in every gate.
+
+    What the smoke needs: one suite named for the quickstart, its sign-off
+    twice so that removing one makes the run worse, and the tenant and name
+    whose baseline it looks for on the mounted volume."""
+    module = smoke_suite()
+    source = quickstart_of(README.read_text(encoding="utf-8"))
+    worse = cast(Callable[[str], str], module.worsen)(source)
+    sign_off = cast(str, module.SIGN_OFF)
+    assert worse.count(sign_off) == source.count(sign_off) - 1
+    assert f'tenant="{module.TENANT}"' in source
+    assert (
+        f"$work/.digline/{module.TENANT}/baselines/{module.QUICKSTART}.json" in smoke()
+    )
+
+
+def test_the_smoke_says_what_holds_the_page() -> None:
+    """Its comment said the page held exactly one runnable block, which stopped
+    being true with the opening that put a second suite on it. The extraction
+    lives in `docker/smoke_suite.py`, and the script names it."""
+    text = smoke()
+    assert "exactly one runnable block" not in text
+    assert "docker/smoke_suite.py" in text
+    assert "```python" not in text, "smoke.sh reads the page itself again"
 
 
 def test_ci_builds_the_image_without_pushing_it() -> None:

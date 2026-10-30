@@ -15,8 +15,8 @@
 # smoke test would drift, and the copy that drifts is always the one guarding
 # the release.
 #
-# Run it from the repository root. It needs `docker`, `python3` and a `README.md`
-# beside it.
+# Run it from the repository root. It needs `docker`, `python3`, a `README.md`
+# beside it, and `docker/smoke_suite.py`.
 set -euo pipefail
 
 IMAGE="${1:-digline:smoke}"
@@ -24,15 +24,12 @@ work="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/digline-smoke"
 rm -rf "$work" && mkdir -p "$work"
 
 # Extracted from README.md rather than copied into this file: a second copy of
-# the suite would drift, and `tests/test_readme.py` already holds the front page
-# to exactly one runnable block.
-WORK="$work" python3 - <<'PY'
-import os, pathlib, re
-text = pathlib.Path("README.md").read_text(encoding="utf-8")
-blocks = re.findall(r"```python\n(.*?)```", text, re.DOTALL)
-assert len(blocks) == 1, f"expected one suite on the front page, found {len(blocks)}"
-pathlib.Path(os.environ["WORK"], "suite.py").write_text(blocks[0], encoding="utf-8")
-PY
+# the suite would drift. The page holds more than one suite, and
+# `tests/test_readme.py` replays each of them; this takes the quickstart by the
+# name its `Suite(...)` declares. `docker/smoke_suite.py` does the taking, and
+# `tests/test_docker.py` runs it against the page in every gate, because this
+# script runs only when `docker/` or a workflow moves.
+python3 docker/smoke_suite.py extract README.md "$work/suite.py"
 
 # `--user`, because the checkout is not owned by the image's uid 1000 — the
 # case README.md documents, run here rather than only described.
@@ -47,15 +44,7 @@ digline promote --suite suite.py --run latest --replacing none
 
 # "Now make it worse": the sign-off leaves the second answer, which is the
 # regression the front page shows.
-WORK="$work" python3 - <<'PY'
-import os, pathlib
-suite = pathlib.Path(os.environ["WORK"], "suite.py")
-source = suite.read_text(encoding="utf-8")
-sign_off = " — Northwind Support"
-assert source.count(sign_off) == 2, source.count(sign_off)
-head, _, tail = source.rpartition(sign_off)
-suite.write_text(head + tail, encoding="utf-8")
-PY
+python3 docker/smoke_suite.py worsen "$work/suite.py"
 
 digline run --suite suite.py
 set +e
