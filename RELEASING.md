@@ -2309,17 +2309,20 @@ is the one a quiet log cannot supply.
     them.
   - **No plugin release is owed.** `release-followup` (`41083284511`) reads
     every plugin PyPI serves as admitting 1.0.2.
-  - **Not done at the tag.** Step 7, digline-action's default image. Its
-    `action.yml` defaults to `ghcr.io/digline/digline:1.0.0` on its `main`
-    (`3b9e1da0`) and on `v1` (`a48e1eeb`), read at 15:42Z. 1.0.0, 1.0.1 and 1.0.2 all write schema 22 and `OUTPUT_VERSION` 5,
-    and the action reads only the key `digline run` prints on standard output
-    and the first line of `digline compare`, so a workflow at `@v1` is not
-    broken. It runs two patches behind and prints 1.0.0's lines: after `run`,
-    no line saying where the run went and what to type next (1.0.1); a bill
-    line that reads *0.000000 USD* for a target that states no cost; and *not
-    recorded on both sides* for a rule with no single value on one side, which
-    is false in two of the three ways that row arises (both 1.0.2). It stays
-    undone by the maintainer's decision.
+  - **Step 7, digline-action's default image, as read at 15:42Z, with this
+    repository's `main` at `64093082`: not done.** `action.yml` defaulted to
+    `ghcr.io/digline/digline:1.0.0` on digline-action's `main` (`3b9e1da0`)
+    and on `v1` (`a48e1eeb`). 1.0.0, 1.0.1 and 1.0.2 all write schema 22 and
+    `OUTPUT_VERSION` 5, and the action reads only the key `digline run` prints
+    on standard output and the first line of `digline compare`, so at that
+    reading a workflow at `@v1` was not broken. It ran two patches behind and
+    printed 1.0.0's lines: after `run`, no line saying where the run went and
+    what to type next (1.0.1); a bill line that reads *0.000000 USD* for a
+    target that states no cost; and *not recorded on both sides* for a rule
+    with no single value on one side, which is false in two of the three ways
+    that row arises (both 1.0.2). This entry does not say where the step
+    stands after that reading: #840, the follow-up for v1.0.2, and
+    digline-action's tags do.
 - **v1.0.1 — the race happened inside the smoke build: the wait read the new
   page, and pip, 0.6 seconds later, the old one. Row one of the table,
   per-server luck, confirmed.** `publish` (`41033180217`) passed on attempt 1,
@@ -2389,16 +2392,14 @@ is the one a quiet log cannot supply.
     `action.yml` defaults to `ghcr.io/digline/digline:1.0.0` on its `main`
     (`3b9e1da0`) and on `v1` (`a48e1eeb`). 1.0.0 and 1.0.1 both write schema
     22, so a workflow at `@v1` runs a release one patch behind and reads and
-    writes the same documents; it is not broken. It stays undone by the
-    maintainer's decision.
+    writes the same documents; it is not broken.
 - **v1.0.0 — no race: every pair the capture wrote agreed, and the waits were
   for an upload not yet made.** `publish` (`40857569689`) and `docker-publish`
   (`40857569851`) passed on attempt 1, every job.
   `tools/tag_names.py "digline 1.0.0"` ran on #808's merge commit, `b4859d93`,
   which was `origin/main`, immediately before the tag: one package, named.
   Every plugin's version was already served, so none rode the tag.
-  - **The gate was a person's click, and this session did not read it.** The
-    approvals endpoint was not read here, by the maintainer's instruction.
+  - **The gate was a person's click, and this session did not read it.**
   - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
     digline 1.0.0's wheel and sdist, and skipped the ten files of the five
     plugins already on the index. `plugins_against_core.py` classified
@@ -2452,16 +2453,14 @@ is the one a quiet log cannot supply.
     environment. pytest-digline's `tag_names.py` was read only once
     digline-mcp 0.8.0 was served.
   - **Not done at the tag.** Step 7, digline-action's default image, which
-    `release-followup` reads as 0.35.0 on its `main` and 0.34.0 on `v1`. It
-    stays undone by the maintainer's decision.
+    `release-followup` reads as 0.35.0 on its `main` and 0.34.0 on `v1`.
 - **v0.35.0 — no race: every pair the capture wrote agreed, and the one wait
   was at the runner, before any build.** `publish` (`40541751806`) and
   `docker-publish` (`40541751578`) passed on attempt 1, every job.
   `tools/tag_names.py "digline 0.35.0"` ran on #761's merge commit, `20df5ddc`,
   which was `origin/main`, immediately before the tag: one package, named.
   Every plugin's version was already served, so none rode the tag.
-  - **The gate was a person's click, and this session did not read it.** The
-    approvals endpoint was not read here, by the maintainer's instruction.
+  - **The gate was a person's click, and this session did not read it.**
     `release-followup` on `5226f5f2` (`40546946536`) reads *"the publish run
     records an approved"*.
   - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
@@ -5118,6 +5117,11 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
+   **An entry states what was measured, with the time and the SHA.** It
+   attributes a decision to a person only where that person's own words are
+   the source, and it says where they are. The state of another repository it
+   does not state: it points to the release's follow-up issue and to that
+   repository's tags.
 5. **The example reports:** re-render every committed `report.html` **whose
    recorded commit is clean** against the tagged release, in the order the
    ritual requires — commit the example, render, commit the report on top,
