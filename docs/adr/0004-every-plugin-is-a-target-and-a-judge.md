@@ -849,6 +849,14 @@ Three things, each found in the writing and ruled on by none of the seven.
    the key stayed absent (ADR 0054, the note of 2026-10-29). The core release
    that adds the kind comes first, and the server carries the key in the
    release of digline-mcp whose floor names it.
+
+   *Added 2026-10-30; the item above is kept as written.* Its sentence that
+   the `run` tool *"answers without `unpriced`"* was true of digline-mcp
+   0.8.0. The core release that adds the kind is digline 1.0.2, and the
+   server now passes `unpriced` and its minter to `run_json`, with its floor
+   at `digline>=1.0.2`: the key is there in clear and withheld under
+   `--names project`, as decided above, and the test that held the tool to
+   the command line's keys minus `unpriced` holds them equal.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.

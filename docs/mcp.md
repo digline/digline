@@ -201,7 +201,7 @@ there is no answer to which one is digline's. What each tool returns today:
 | `diff` | `diff_json`, the full form, its `sentence` in English | `digline diff --json full --locale en`, held equal by a test |
 | `explain` | `explain_json` | `digline explain --json`, held equal by a test |
 | `log` | `log_json` | `digline log --json`, held equal by a test |
-| `run` | `run_json`; `resumed` is always `false`, because the tool has no way to resume | `digline run --json`: a test holds the same keys except `unpriced`, which the tool does not carry. Its sentences name a model in clear, and under `--names project` nothing mints them |
+| `run` | `run_json`; `resumed` is always `false`, because the tool has no way to resume | `digline run --json`, the same keys, held by a test. `unpriced` carries the sentences in clear; under `--names project` each is withheld whole, because it names a model and nothing mints it, and the list keeps its length |
 | `list_runs` | `runs_json` | none: `digline list` has no `--json` |
 | `get_run` | the run document, plus `key` | none |
 | `get_baseline` | the run document, plus `key` | none |

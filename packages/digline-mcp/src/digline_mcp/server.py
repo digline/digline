@@ -563,6 +563,13 @@ def build_server(
             # The count `digline run --json` carries, from the same function,
             # so the two key sets stay equal. (#654)
             errored_checks=len(errored_verdicts(measured.run)),
+            # Why a cost is not known, as the CLI passes it, and this answer's
+            # minter beside it: `run_json` renders the sentences in clear and
+            # withholds each whole under `project`, keeping the count. One
+            # rendering for both front ends; this server writes none of its own.
+            # (ADR 0004 §8.0, item 2; ADR 0011 §6)
+            unpriced=measured.unpriced,
+            mint=table_,
         )
 
     # Registered here rather than through `@server.tool(...)` on each

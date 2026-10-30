@@ -168,7 +168,13 @@ dependencies = [
     # Both were owed at the cut and raised in this package's own release,
     # after the core was on PyPI, because a floor may not name a release that
     # does not exist yet.
-    "digline>=1.0.0,<2",
+    #
+    # Raised to 1.0.2 by signature: the `run` tool passes `mint=` to
+    # `run_json`, which first takes it in 1.0.2, and the word it withholds a
+    # reason as, `WITHHELD_WORDS["cost_reason"]`, is new there too. Against
+    # 1.0.1 the call raises `TypeError`. 1.0.2 was on PyPI before this floor
+    # named it. (ADR 0004 §8.0, item 2)
+    "digline>=1.0.2,<2",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
     # 2.0 release renamed FastMCP, and every example written before it is wrong.

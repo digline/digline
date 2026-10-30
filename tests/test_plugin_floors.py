@@ -403,6 +403,7 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.host.measure", "Measured", "plan"): "0.11.0",
     ("digline.host.measure", "Measured", "ref"): "0.11.0",
     ("digline.host.measure", "Measured", "run"): "0.11.0",
+    ("digline.host.measure", "Measured", "unpriced"): "0.35.0",
     ("digline.host.measure", "Prepared", "plan"): "0.11.0",
     ("digline.host.reading", "Explained", "baseline"): "0.13.0",
     ("digline.host.reading", "Explained", "exit_code"): "0.13.0",
