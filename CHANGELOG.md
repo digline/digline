@@ -6,7 +6,29 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 1.0.2 — unreleased
+
+digline **1.0.2**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
+the version*.** No public name is removed or renamed, no subcommand or option
+is removed or changes meaning, no exit code changes, the schema stays 22 and
+`OUTPUT_VERSION` stays 5. The enumeration governs and adds no case of its own,
+and a value added to a public type alias is none of its cases: `WithheldKind`
+gains `"cost_reason"` beside the two values it had, which is an addition, and
+additions are what the patch number is for. The rest of this release is lines
+that `digline run`, `compare`, `explain` and the report print.
+
+**The new surface, measured against `v1.0.1`** on `main` at `882f1fd5`, with
+the three diffs of the delta-pass and one reading more:
+- the `__all__` of every module: nothing added and nothing removed;
+- the derived JSON contract: no key added, removed or retyped;
+- the fields and properties of every public dataclass: nothing added and
+  nothing removed;
+- every function's signature and every module-level type alias, read with
+  `ast`: `run_json` gains `mint`, and `WithheldKind` gains `"cost_reason"`.
+
+`WITHHELD_WORDS` is a dict, which none of the four reads. Its one new entry,
+`"cost_reason"`, was found by reading the diff. The three are the surface the
+entry below declares by hand, and nothing else moved.
 
 - **A bill line whose cost is not known and whose known costs sum to zero
   prints no figure.** A target that states no cost read *"1 call, no counts
