@@ -116,6 +116,36 @@ Thanks for looking. A few things worth knowing before you open a pull request.
   the wrong one: a test that fails because an import is missing, or a fixture
   does not build, has said nothing about the property, and its status reads the
   same as one that has.
+- **A red on an assertion that holds an ADR's criterion goes back to the
+  criterion before the assertion changes.** A test that stands in the way of a
+  change is a question about what it protects. When the change is right, the
+  answer is often that what the test holds has to move too: the criterion
+  takes a dated note, and the assertion follows it. Changed on its own, the
+  assertion agrees with the new code and holds nothing, and the record it was
+  there for goes stale with nothing red.
+
+  **What makes this hard to keep: the short way appears while you are
+  repairing something right.** The change is the point of the work, the red
+  is in its way, and the edit that clears it is one line that looks like part
+  of the same repair. Nothing about it feels like weakening a test.
+
+  *Observed 2026-10-30*, on #834, which drops the figure from a bill line
+  whose known costs sum to zero. Two command-line tests, of `run` and of
+  `rejudge`, asserted that the line carries *cost not known for every call*.
+  The new line says *cost not known*, and both went red.
+  `c21f4a1033a1e3db45cdeda958c3532dfd5981e2` changed both assertions to
+  `"cost not known"`, a substring of the old clause and of the new words, and
+  did not ask what they held: the first acceptance criterion of ADR 0004
+  §8.9, which names the old clause. From then on the clause could change
+  again and nothing would go red. The stale criterion was found one revision
+  later, by a search for the words across the repository, and took its note
+  then.
+
+  So, before changing an assertion that a right change turns red, **search
+  the asserted string outside `tests/`**: an ADR's criterion, a sentence in
+  `docs/`, a README. Whatever holds it moves first, in the same pull request,
+  and the assertion is rewritten to the new text whole, not to what the old
+  and the new have in common.
 - **To test a failure path, inject a fault and assert a state.** Make the
   thing the code depends on fail — the file unreadable, the target raising —
   and assert what the outcome is: what was written, what was refused, what the
