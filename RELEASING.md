@@ -2254,6 +2254,72 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v1.0.2 — no race: every pair the capture wrote agreed, and the wait at
+  the runner was for the upload and then for the index to show it.**
+  `publish` (`41082535927`) and `docker-publish` (`41082535595`) passed on
+  attempt 1, every job. `tools/tag_names.py "digline 1.0.2"` ran on #839's
+  merge commit, `64093082`, which was `origin/main`, immediately before the
+  tag: one package, named. Every plugin's version was already served, so none
+  rode the tag.
+  - **The gate was a person's click, and this session read its record without
+    touching it.** `approvals` on `41082535927` reads `approved` by `alexpran`
+    on `pypi`, and the environment reads `can_admins_bypass: false`.
+  - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
+    digline 1.0.2's wheel and sdist, and skipped the ten files of the five
+    plugins already on the index. `plugins_against_core.py` excluded none, so
+    `imported 6`, digline and the five plugins, and the quickstart's 3 calls,
+    after TestPyPI and after PyPI. *The core against every plugin PyPI serves*
+    read each of the five as **works**.
+  - **The index**: the `pypi` job's wait saw digline 1.0.2 `after 10s` on
+    `/simple/`, and its version page `after 30s`, on the fourth read.
+  - **The signatures and the release.** The `github-release` job ran: 2
+    bundles, one per file, each `OK` from sigstore, and both `.sigstore.json`
+    are on the release. The `mcp-registry` job planned nothing: *"the registry
+    already holds"* digline-mcp 0.8.0. digline.dev's `docs` run
+    `41083242214`, on the dispatch, built and deployed green.
+  - **The index race, both builds, and the capture's pair for the core's pin
+    (step 6).** The capture ran, the pair was present for every pin, and it
+    had nothing to explain.
+    - **The smoke build waited 241 seconds at the runner**, and the tag was
+      pushed before the upload: eight reads from 15:38:43.5Z to 15:42:14.1Z saw
+      serial 42959555 with no 1.0.2, and the ninth, at 15:42:44.2Z, saw serial
+      42974458 with it. PyPI took the wheel at 15:41:46.9Z, so the last of the
+      eight came after the upload and before the index showed it. Inside the
+      build (`#10`) the wait saw it `after 0s`. The pair agreed: `side=wait`
+      at 15:43:00.0Z and `side=pip` at 15:43:00.5Z both read serial 42974458,
+      etag `HM1YmTEkFWl/QC7FaHFWsg`, through the same shield
+      (`cache-iad-khef600052-IAD`), with a different last hop
+      (`cache-chi-kmdw8640024-CHI` and `cache-dfw-kdfw8210058-DFW`). It
+      installed `digline-1.0.2` beside the three provider plugins.
+    - **The multi-arch build, arm64 (`#17`): the pair agreed.** `side=wait` at
+      15:45:03.6Z and `side=pip` at 15:45:07.7Z both read serial 42974458, the
+      same etag, through the same shield, with a different last hop
+      (`cache-chi-kmdw8640037-CHI` and `cache-dfw-kdfw8210096-DFW`). The leg
+      installed `digline-1.0.2` beside the three provider plugins.
+    - **The amd64 leg was `CACHED`** in every step after the base, the install
+      included, so its log proves nothing about what that leg installed.
+  - **The image**: `1.0.2`, `1.0` and `latest` were pushed as one index,
+    `sha256:85e37c3eee39bb4a4939c1e0290b479f48ee9699d9829317ff640736269908ef`.
+    The `.dist-info` in the layers was not opened.
+  - **The examples**: the `workflow_run` `ci` after `publish` (`41083284522`)
+    ran the eleven legs on the tag's commit, each green, the seven that keep
+    a lock on the 1.0.1 it names. The seven locks moved to 1.0.2 with
+    `--upgrade-package digline`, locked with uv 0.13.6 so that `revision = 5`
+    holds. The dispatch against `main` follows the pull request that lands
+    them.
+  - **No plugin release is owed.** `release-followup` (`41083284511`) reads
+    every plugin PyPI serves as admitting 1.0.2.
+  - **Not done at the tag.** Step 7, digline-action's default image. Its
+    `action.yml` defaults to `ghcr.io/digline/digline:1.0.0` on its `main`
+    (`3b9e1da0`) and on `v1` (`a48e1eeb`), read at 15:42Z. 1.0.0, 1.0.1 and 1.0.2 all write schema 22 and `OUTPUT_VERSION` 5,
+    and the action reads only the key `digline run` prints on standard output
+    and the first line of `digline compare`, so a workflow at `@v1` is not
+    broken. It runs two patches behind and prints 1.0.0's lines: after `run`,
+    no line saying where the run went and what to type next (1.0.1); a bill
+    line that reads *0.000000 USD* for a target that states no cost; and *not
+    recorded on both sides* for a rule with no single value on one side, which
+    is false in two of the three ways that row arises (both 1.0.2). It stays
+    undone by the maintainer's decision.
 - **v1.0.1 — the race happened inside the smoke build: the wait read the new
   page, and pip, 0.6 seconds later, the old one. Row one of the table,
   per-server luck, confirmed.** `publish` (`41033180217`) passed on attempt 1,
