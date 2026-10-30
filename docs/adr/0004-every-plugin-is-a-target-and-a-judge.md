@@ -1120,6 +1120,14 @@ the target alone: `CostBudget` reads the target's cost, and no judge's.
      and the reply's tokens on it;
    - standard error carries the bill's *cost not known for every call* and,
      after it, the sentence, once.
+
+   *Added 2026-10-30; the criterion above is kept as written.* It describes
+   the bill line with *cost not known for every call*. Since #834, a line
+   whose known costs sum to zero, as one does where every reply is unpriced,
+   says *cost not known* in the figure's place, without that clause. A line
+   whose known costs sum above zero keeps its figure and the clause.
+   Criterion 3 stays true as written: a line whose every cost is known says
+   neither form.
 2. **Counts not recorded.** The plugin hands back `usage=None`, as today, and
    it reads as *not recorded* (#629, #739):
    - `counted` is below `calls`;

@@ -471,13 +471,14 @@ def test_the_terminal_says_a_call_was_not_seen() -> None:
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
     assert "not every call seen" in line
-    assert "cost not known for every call" not in line
+    assert "cost not known" not in line
 
 
 def test_the_terminal_says_a_cost_was_not_known() -> None:
     run = execute(suite(), Answering(cost_usd=None), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert "cost not known for every call" in line
+    assert "cost not known" in line
+    assert "USD" not in line
     assert "not every call seen" not in line
 
 
@@ -588,3 +589,64 @@ def test_a_line_with_answered_calls_keeps_its_count_and_figure() -> None:
     assert line.startswith("target: 1 call, ")
     assert "USD" in line
     assert line.endswith("; not every call seen")
+
+
+# --------------------------------------------------------------------------- #
+# A figure only where every cost on the line is known
+# --------------------------------------------------------------------------- #
+
+#: A target that states neither counts nor a cost: the README's first run.
+SILENT = CallTotals(
+    calls=1, counted=0, spent_usd=0.0, every_call_seen=True, every_cost_known=False
+)
+#: A target that states its cost and no counts: the quickstart, the home page.
+STATED = CallTotals(
+    calls=3, counted=0, spent_usd=0.01357, every_call_seen=True, every_cost_known=True
+)
+#: Some calls priced and one not, within the target: Bedrock writing the cache
+#: at one hour on one call and reading it on the others.
+MIXED = CallTotals(
+    calls=3,
+    counted=3,
+    tokens=Usage(300, 30),
+    spent_usd=0.004,
+    every_call_seen=True,
+    every_cost_known=False,
+)
+
+
+def _target_line(line: CallTotals) -> str:
+    (only,) = usage_lines(RunUsage(target=line, judge=NO_CALLS))
+    return only
+
+
+def test_a_line_with_no_known_cost_prints_no_figure() -> None:
+    """`0.000000 USD` beside *cost not known* read as a run that cost nothing.
+    Where a cost on the line is not known and the known ones sum to zero, the
+    line names the calls and says the cost is not known, with no number."""
+    said = _target_line(SILENT)
+    assert "USD" not in said, said
+    assert "cost not known" in said, said
+    assert said.startswith("target: 1 call")
+
+
+def test_a_mixed_line_keeps_its_figure_and_says_it_is_not_the_whole_bill() -> None:
+    """The other side of the same rule: a sum above zero of the costs that are
+    known is a lower bound, and a lower bound above zero says something. So the
+    figure stays, and the clause beside it says not every cost is known."""
+    said = _target_line(MIXED)
+    assert "0.004000 USD" in said, said
+    assert said.endswith("; cost not known for every call"), said
+
+
+def test_a_silent_target_still_says_no_counts_were_reported() -> None:
+    said = _target_line(SILENT)
+    assert "no counts reported" in said, said
+
+
+def test_a_line_whose_every_cost_is_known_keeps_its_figure_without_counts() -> None:
+    """The other way: the quickstart states its cost and no counts, so its
+    figure is the whole bill, and it stays."""
+    said = _target_line(STATED)
+    assert "0.013570 USD" in said, said
+    assert "cost not known" not in said, said

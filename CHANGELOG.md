@@ -8,6 +8,19 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **A bill line whose cost is not known and whose known costs sum to zero
+  prints no figure.** A target that states no cost read *"1 call, no counts
+  reported, 0.000000 USD (counted 0 of 1); cost not known for every call"*,
+  and the figure read as a run that cost nothing. That line now names the
+  calls, says what it counted, and says *cost not known*, with no number:
+  *"1 call, no counts reported (counted 0 of 1), cost not known"*. A sum over
+  nothing, or a lower bound of zero, says nothing about the bill. Where some
+  calls were priced and one was not, as Bedrock's one-hour cache write leaves
+  it, the sum above zero is a lower bound that does say something, and the
+  line keeps it with *cost not known for every call*, as before. A target
+  that states its cost and no token counts, as the quickstart does, keeps its
+  figure, because that cost is known. `--json` is unchanged: `spent_usd` is
+  still `0.0` beside `every_cost_known: false`.
 - **A rule whose value cannot be compared now says why, in the words that are
   true.** `compare`, `explain` and the report printed *"contains.samples not
   recorded on both sides"* for a rule with no single value on one side. That

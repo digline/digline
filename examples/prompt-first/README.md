@@ -51,7 +51,7 @@ of your own run is the measurement.
 **Where your workspace's replies report no geography Anthropic prices**, such
 as `inference_geo: "not_available"`, digline cannot price the run: the
 target's and the judge's cost are not known. The cases are still judged, the
-bill says *cost not known for every call*, and the line after it says why and
+bill says *cost not known*, with no figure, and the line after it says why and
 what to pin. The digline-anthropic this
 example installs carries ADR 0004 §8; the releases below it errored every case
 of such a run instead (#569).
