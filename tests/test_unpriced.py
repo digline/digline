@@ -497,7 +497,8 @@ def test_the_run_prints_the_sentence_once_after_the_bill(tmp_path: Path) -> None
     bill = next(
         i for i, line in enumerate(lines) if line.startswith("digline: target:")
     )
-    assert "cost not known for every call" in lines[bill]
+    assert "cost not known" in lines[bill]
+    assert "USD" not in lines[bill]
     sentence = f"digline: cost not computable: {GEO}"
     assert lines.count(sentence) == 1
     assert lines.index(sentence) > bill
@@ -507,7 +508,7 @@ def test_a_priced_run_prints_neither(tmp_path: Path) -> None:
     """The control: the sentences appear only where their fact holds."""
     code, stderr = _run_cli(tmp_path, cost="0.001", unpriced=None)
     assert code == EXIT_OK, stderr
-    assert "cost not known for every call" not in stderr
+    assert "cost not known" not in stderr
     assert "cost not computable" not in stderr
 
 
@@ -732,7 +733,8 @@ def test_rejudge_prints_the_bill_and_the_sentence_once_after_it(
     lines = stderr.splitlines()
     bill = next(i for i, line in enumerate(lines) if line.startswith("digline: judge:"))
     assert lines[bill].startswith("digline: judge: 2 calls"), lines[bill]
-    assert "cost not known for every call" in lines[bill]
+    assert "cost not known" in lines[bill]
+    assert "USD" not in lines[bill]
     sentence = f"digline: cost not computable: {GEO}"
     assert lines.count(sentence) == 1
     assert lines.index(sentence) > bill
@@ -744,7 +746,7 @@ def test_a_priced_rejudge_prints_the_bill_and_no_sentence(tmp_path: Path) -> Non
     code, _, stderr = _rejudge_cli(tmp_path, unpriced=None)
     assert code == EXIT_OK, stderr
     assert "digline: judge: 2 calls" in stderr
-    assert "cost not known for every call" not in stderr
+    assert "cost not known" not in stderr
     assert "cost not computable" not in stderr
 
 

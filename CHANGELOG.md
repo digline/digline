@@ -8,6 +8,17 @@ notes under them are this file, verbatim.
 
 ## digline — unreleased
 
+- **A bill line prints a figure only where every cost on it is known.** A
+  target that states no cost read *"1 call, no counts reported, 0.000000 USD
+  (counted 0 of 1); cost not known for every call"*, and the figure read as a
+  run that cost nothing. Where a cost on the line is not known, the line now
+  names the calls, says what it counted, and says *cost not known*, with no
+  number: *"1 call, no counts reported (counted 0 of 1), cost not known"*. The
+  same holds where some calls were priced and one was not, as Bedrock's
+  one-hour cache write leaves it: the sum of the known costs is not the bill.
+  A target that states its cost and no token counts, as the quickstart does,
+  keeps its figure, because that cost is known. `--json` is unchanged:
+  `spent_usd` is still `0.0` beside `every_cost_known: false`.
 - **A reason a cost is not known can cross a projected answer: withheld, and
   counted.** `run_json` takes `mint`, the minter of a front end that projects
   its answers. With one, each sentence of `unpriced` is replaced by

@@ -49,9 +49,11 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
 
     **The two incompleteness clauses follow the same rule**: said where a
     marker is false, and nothing where it is true or not recorded. *Not every
-    call seen* is a call that raised and is on no line; *cost not known for
-    every call* is a call on the line whose cost nobody stated. Either says the
-    figure beside it is less than the whole bill. (#563)
+    call seen* is a call that raised and is on no line, and the figure beside
+    it is less than the whole bill. (#563) *Cost not known* is a call on the
+    line whose cost nobody stated, and it **takes the figure's place**: the
+    sum of the costs that are known is not the bill, and for a target that
+    states no cost it is `0.000000 USD`, which read as a run that cost nothing.
 
     **A marker not recorded is said too, on the same line.** It is what a
     judge digline cannot read gives, a judge written as a function: its calls
@@ -99,20 +101,23 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
             else "no counts reported"
         )
         partial = f" (counted {line.counted} of {line.calls})" if line.partial else ""
-        missing = [
-            clause
-            for clause, marker in (
-                ("not every call seen", line.every_call_seen),
-                ("cost not known for every call", line.every_cost_known),
-            )
-            if marker is False
-        ]
+        missing = ["not every call seen"] if line.every_call_seen is False else []
         if None in (line.every_call_seen, line.every_cost_known):
             missing.append("not recorded in full")
         incomplete = f"; {', '.join(missing)}" if missing else ""
+        calls = f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}"
+        # **A figure only where every cost on the line is known.** Where one is
+        # not, `spent_usd` is the sum of the costs that are, and none at all
+        # for a target that states no cost: `0.000000 USD` beside a clause
+        # saying the cost was not known read as a run that cost nothing. So the
+        # line names the calls, says what it counted, and says the cost is not
+        # known, with no number; the parenthesis goes with the counts it
+        # qualifies. A marker not recorded keeps the figure and says so.
+        if line.every_cost_known is False:
+            lines.append(f"{calls}, {counts}{partial}, cost not known{incomplete}")
+            continue
         lines.append(
-            f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}, "
-            f"{counts}, {line.spent_usd:.6f} USD{partial}{incomplete}"
+            f"{calls}, {counts}, {line.spent_usd:.6f} USD{partial}{incomplete}"
         )
     return lines
 

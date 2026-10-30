@@ -471,13 +471,14 @@ def test_the_terminal_says_a_call_was_not_seen() -> None:
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
     assert "not every call seen" in line
-    assert "cost not known for every call" not in line
+    assert "cost not known" not in line
 
 
 def test_the_terminal_says_a_cost_was_not_known() -> None:
     run = execute(suite(), Answering(cost_usd=None), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert "cost not known for every call" in line
+    assert "cost not known" in line
+    assert "USD" not in line
     assert "not every call seen" not in line
 
 
