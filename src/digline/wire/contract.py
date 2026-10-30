@@ -1255,13 +1255,15 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # Added under `OUTPUT_VERSION = 2`: #654.
         "errored_checks": _INT,
         # Why a cost is not known, each sentence once: what `digline run` and
-        # `digline rejudge` print on stderr after the bill. Present on both
-        # commands' `--json`, and empty where there was none: on a producer that
-        # carries the key, empty says it looked and was given no sentence.
-        # Absent from MCP's `run`, and there absent says only that the producer
-        # does not carry the key, not that it did not look: the sentences name a
-        # model in clear, and under `--names project` nothing mints them. In this
-        # envelope, never in the stored run document (ADR 0004 §8.3).
+        # `digline rejudge` print on stderr after the bill. Empty where there
+        # was none: the producer looked and was given no sentence. Under
+        # projection each sentence is withheld whole, as
+        # `WITHHELD_WORDS["cost_reason"]`, and the list keeps its length: the
+        # reasons exist, they cannot be shown, and their number names nothing.
+        # Still a list of strings, so the key's shape did not move. Optional
+        # in the table: both commands' `--json` carry it always, and MCP's
+        # `run` carries it once its floor names a core that takes `mint`. In
+        # this envelope, never in the stored run document (ADR 0004 §8.3).
         # Added on `main` on 2026-10-28, while `main` still wrote
         # `OUTPUT_VERSION = 4`. No release wrote it under 4: 1.0.0, which writes
         # 5, is the first to carry it. ADR 0004 §8.0, item 2.

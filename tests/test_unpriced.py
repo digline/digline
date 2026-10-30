@@ -14,12 +14,14 @@ import importlib
 import json
 import pkgutil
 from pathlib import Path
+from typing import cast
 
 import pytest
 from tests._helpers import cli
 
 from digline.cli import EXIT_OK
 from digline.core import (
+    WITHHELD_WORDS,
     Contains,
     CostBudget,
     EvaluatorInputs,
@@ -27,9 +29,12 @@ from digline.core import (
     LlmRubric,
     Run,
     RunUsage,
+    Withheld,
 )
-from digline.run import Case, Response, Suite, execute
+from digline.core.tokens import Minter
+from digline.run import CallPlan, Case, Response, Suite, execute
 from digline.run.driver import default_mapper, judge_totals
+from digline.store import RunRef
 from digline.targets import Completion, ProviderTarget
 from digline.targets.judge import ScoreJudge
 from digline.targets.pricing import (
@@ -39,7 +44,7 @@ from digline.targets.pricing import (
     Usage,
     free,
 )
-from digline.wire import EXIT_UNJUDGED, run_exit_code
+from digline.wire import EXIT_UNJUDGED, run_exit_code, run_json
 
 COUNTS = Usage(input_tokens=100, output_tokens=10)
 
@@ -816,3 +821,70 @@ def test_a_cost_not_known_can_have_no_sentence(tmp_path: Path) -> None:
     payload = _run_json_cli(tmp_path, cost="None", unpriced=None)
     assert False in _cost_known(payload)
     assert payload["unpriced"] == []
+
+
+# --------------------------------------------------------------------------- #
+# On the wire, under projection: withheld, and counted (ADR 0004 §8.0, item 2)
+# --------------------------------------------------------------------------- #
+
+SENTENCES = (
+    "model 'claude-haiku-4-5' ran in a geography with no rate",
+    "a 1-hour cache write is counted, not priced, for 'eu.anthropic.claude'",
+)
+
+
+def _mint(kind: str, text: str) -> str:
+    return f"tok-{len(text)}"
+
+
+def _unpriced_on_the_wire(mint: Minter | None) -> list[str]:
+    """`unpriced` as `run_json` builds it, with this minter or none."""
+    ref = RunRef(tenant="acme", suite="qa", key="k")
+    plan = CallPlan(cases=1, samples=1, tenant="acme")
+    carried = run_json(
+        ref,
+        plan,
+        errored_checks=0,
+        unpriced=SENTENCES,
+        mint=mint,
+    )["unpriced"]
+    assert isinstance(carried, list)
+    return cast("list[str]", carried)
+
+
+def test_a_reason_a_cost_is_not_known_has_a_withheld_word_of_its_own() -> None:
+    """A plugin's sentence is free text: nothing mints it, so under projection
+    it is kept back whole, and an agent reads which kind of thing was kept
+    back. One word per kind. (ADR 0054 §8)"""
+
+    word = WITHHELD_WORDS["cost_reason"]
+    assert word not in (WITHHELD_WORDS["identity"], WITHHELD_WORDS["run_metadata"])
+    held = Withheld("cost_reason", SENTENCES[0], quoted=False)
+    assert held.rendered(None) == SENTENCES[0]
+    assert held.rendered(_mint) == word
+
+
+def test_in_clear_the_wire_carries_every_sentence_as_given() -> None:
+    """`clear`: no mint, and the list is the sentences, as the command line's
+    `--json` carries them."""
+    assert _unpriced_on_the_wire(None) == list(SENTENCES)
+
+
+def test_under_projection_each_sentence_is_withheld_and_counted() -> None:
+    """`project`: the key is there, every sentence is kept back, and their
+    number shows, because a count is digline's and names nothing. Three
+    states, each honest: absent, nothing said; empty, looked and nobody said
+    why; withheld, the reasons exist and cannot be shown here."""
+
+    carried = _unpriced_on_the_wire(_mint)
+    assert carried == [WITHHELD_WORDS["cost_reason"]] * len(SENTENCES)
+    assert not any("claude" in item for item in carried)
+
+
+def test_under_projection_an_empty_list_stays_empty() -> None:
+
+    ref = RunRef(tenant="acme", suite="qa", key="k")
+    plan = CallPlan(cases=1, samples=1, tenant="acme")
+    assert (
+        run_json(ref, plan, errored_checks=0, unpriced=(), mint=_mint)["unpriced"] == []
+    )

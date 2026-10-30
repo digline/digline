@@ -833,6 +833,22 @@ Three things, each found in the writing and ruled on by none of the seven.
    alone.** Its `run` tool answers without `unpriced`, which says it did not
    look. Its sentence quotes a model, which `--names project` would have to
    mint, so it waits with the server's half of ADR 0054 §8.
+
+   *Decided 2026-10-30, by Alessandro, the paragraph above kept as written:*
+   **under `--names project` the key is there, each sentence is withheld, and
+   their count shows.** Under `--names clear` the sentences cross as given.
+   The reason: minting a free sentence is fragile, and a mint that misses one
+   name is a leak; leaving the key out loses the fact that a reason exists
+   at all. So the three states read true: an empty list says the producer
+   looked and nobody said why, and a list of withheld words says the reasons
+   exist and cannot be shown here, and how many. The count is digline's and
+   names nothing. The word is `WITHHELD_WORDS["cost_reason"]`, a kind added
+   for it, and `run_json` renders it from the minter it is handed, so both
+   front ends go through one rendering (ADR 0011 §6). The waiting condition
+   above was never the one: digline-mcp 0.8.0 shipped the server's half and
+   the key stayed absent (ADR 0054, the note of 2026-10-29). The core release
+   that adds the kind comes first, and the server carries the key in the
+   release of digline-mcp whose floor names it.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.
