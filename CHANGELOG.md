@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.0.2 — unreleased
+## 1.0.2 — 2026-10-30
 
 digline **1.0.2**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
 the version*.** No public name is removed or renamed, no subcommand or option
@@ -77,6 +77,19 @@ entry below declares by hand, and nothing else moved.
   A consumer that enumerates `WithheldKind` or `WITHHELD_WORDS` meets one more
   kind. Nothing is removed or renamed, and no signature gains a required
   parameter.
+
+### Seen working in a browser — not owed
+
+- **The walkthrough was not owed for 1.0.2, and did not run.** Nothing in the
+  launch key, the hand-over or the promote form changed since 0.34.0, the last
+  release that ran it. Between `v1.0.1` and `b19743de`, the tree this release
+  is cut from, `src/digline/cli/view.py`, `src/digline/report/pages.py` and
+  `src/digline/host/promotion.py` have no commit, measured on 2026-10-30.
+  `src/digline/report/text.py` has one, `6f376949`, which rewords the two
+  phrases of a rule whose value cannot be compared.
+  `src/digline/report/render.py` reads them, for the report's rules row and
+  its sentence, and none of the three files above does. The same count
+  between `v0.33.0` and `v0.34.0` finds three.
 
 ## 1.0.1 — 2026-10-30
 
