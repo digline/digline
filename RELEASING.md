@@ -2392,8 +2392,7 @@ is the one a quiet log cannot supply.
     `action.yml` defaults to `ghcr.io/digline/digline:1.0.0` on its `main`
     (`3b9e1da0`) and on `v1` (`a48e1eeb`). 1.0.0 and 1.0.1 both write schema
     22, so a workflow at `@v1` runs a release one patch behind and reads and
-    writes the same documents; it is not broken. It stays undone by the
-    maintainer's decision.
+    writes the same documents; it is not broken.
 - **v1.0.0 — no race: every pair the capture wrote agreed, and the waits were
   for an upload not yet made.** `publish` (`40857569689`) and `docker-publish`
   (`40857569851`) passed on attempt 1, every job.
