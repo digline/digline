@@ -197,10 +197,10 @@ def run_json(
     #   its length. A sentence is a plugin's free text, which names a model and
     #   which nothing mints, so it cannot cross; that reasons exist, and how
     #   many, is digline's own count and names nothing.
-    # The contract keeps the key optional. The front ends that build this
-    # envelope all pass it: the command line from 1.0.0, and `digline-mcp`'s
-    # `run` from 0.8.1, the release this keyword is for.
-    # (ADR 0004 §8.0, item 2, and §8.3)
+    # The contract keeps the key optional, and the command line always passes
+    # it. `digline-mcp`'s `run` is the one front end that does not, until its
+    # floor names a core that takes `mint`: a floor may not name a release
+    # before the index serves it. (ADR 0004 §8.0, item 2, and §8.3)
     if unpriced is not None:
         payload["unpriced"] = [
             Withheld("cost_reason", sentence, quoted=False).rendered(mint)

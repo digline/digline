@@ -1261,9 +1261,9 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
         # `WITHHELD_WORDS["cost_reason"]`, and the list keeps its length: the
         # reasons exist, they cannot be shown, and their number names nothing.
         # Still a list of strings, so the key's shape did not move. Optional
-        # in the table, and every producer carries it: both commands' `--json`,
-        # and MCP's `run` from digline-mcp 0.8.1. In this envelope, never in the
-        # stored run document (ADR 0004 §8.3).
+        # in the table: both commands' `--json` carry it always, and MCP's
+        # `run` carries it once its floor names a core that takes `mint`. In
+        # this envelope, never in the stored run document (ADR 0004 §8.3).
         # Added on `main` on 2026-10-28, while `main` still wrote
         # `OUTPUT_VERSION = 4`. No release wrote it under 4: 1.0.0, which writes
         # 5, is the first to carry it. ADR 0004 §8.0, item 2.

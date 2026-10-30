@@ -846,8 +846,9 @@ Three things, each found in the writing and ruled on by none of the seven.
    for it, and `run_json` renders it from the minter it is handed, so both
    front ends go through one rendering (ADR 0011 §6). The waiting condition
    above was never the one: digline-mcp 0.8.0 shipped the server's half and
-   the key stayed absent (ADR 0054, the note of 2026-10-29). digline-mcp 0.8.1
-   carries it, on a floor of the core release that adds the kind.
+   the key stayed absent (ADR 0054, the note of 2026-10-29). The core release
+   that adds the kind comes first, and the server carries the key in the
+   release of digline-mcp whose floor names it.
 3. **The target side of §8.6's repair.** The false line was measured on the
    judge (§8.6). A target whose price list raises after an answer was not
    measured, and what its line says is not decided here.
