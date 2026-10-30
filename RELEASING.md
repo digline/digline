@@ -2399,8 +2399,7 @@ is the one a quiet log cannot supply.
   `tools/tag_names.py "digline 1.0.0"` ran on #808's merge commit, `b4859d93`,
   which was `origin/main`, immediately before the tag: one package, named.
   Every plugin's version was already served, so none rode the tag.
-  - **The gate was a person's click, and this session did not read it.** The
-    approvals endpoint was not read here, by the maintainer's instruction.
+  - **The gate was a person's click, and this session did not read it.**
   - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
     digline 1.0.0's wheel and sdist, and skipped the ten files of the five
     plugins already on the index. `plugins_against_core.py` classified
@@ -2454,16 +2453,14 @@ is the one a quiet log cannot supply.
     environment. pytest-digline's `tag_names.py` was read only once
     digline-mcp 0.8.0 was served.
   - **Not done at the tag.** Step 7, digline-action's default image, which
-    `release-followup` reads as 0.35.0 on its `main` and 0.34.0 on `v1`. It
-    stays undone by the maintainer's decision.
+    `release-followup` reads as 0.35.0 on its `main` and 0.34.0 on `v1`.
 - **v0.35.0 — no race: every pair the capture wrote agreed, and the one wait
   was at the runner, before any build.** `publish` (`40541751806`) and
   `docker-publish` (`40541751578`) passed on attempt 1, every job.
   `tools/tag_names.py "digline 0.35.0"` ran on #761's merge commit, `20df5ddc`,
   which was `origin/main`, immediately before the tag: one package, named.
   Every plugin's version was already served, so none rode the tag.
-  - **The gate was a person's click, and this session did not read it.** The
-    approvals endpoint was not read here, by the maintainer's instruction.
+  - **The gate was a person's click, and this session did not read it.**
     `release-followup` on `5226f5f2` (`40546946536`) reads *"the publish run
     records an approved"*.
   - **Counts**: 16 `twine check` `PASSED`. TestPyPI and PyPI each uploaded
@@ -5120,6 +5117,11 @@ names.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.
+   **An entry states what was measured, with the time and the SHA.** It
+   attributes a decision to a person only where that person's own words are
+   the source, and it says where they are. The state of another repository it
+   does not state: it points to the release's follow-up issue and to that
+   repository's tags.
 5. **The example reports:** re-render every committed `report.html` **whose
    recorded commit is clean** against the tagged release, in the order the
    ritual requires — commit the example, render, commit the report on top,
