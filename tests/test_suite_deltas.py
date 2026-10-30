@@ -657,34 +657,95 @@ def _unknown_samples() -> tuple[Run, Run]:
     return now, before
 
 
+def _cases(*verdicts: Verdict, config_hash: str = "hash-a") -> Run:
+    """One case per verdict, so the cases of one side can disagree."""
+    return Run(
+        tenant="acme",
+        environment="staging",
+        suite="qa",
+        config_hash=config_hash,
+        created_at=CREATED,
+        results=tuple(
+            CaseResult(f"c{i}", (v,)) for i, v in enumerate(verdicts, start=1)
+        ),
+    )
+
+
+def _unknown_threshold() -> tuple[Run, Run]:
+    """Rule 3's other way in: values stated on one side that disagree between
+    its cases, so the side has no single value."""
+    now = _cases(verdict("contains", threshold=0.5), verdict("contains", threshold=0.7))
+    before = _cases(verdict("contains"), verdict("contains"))
+    assert rows(now, before) == [("contains", "threshold", "unknown", "")]
+    return now, before
+
+
+def _unknown_width() -> tuple[Run, Run]:
+    """`_width_moved`'s: the cases of one side declare different widths."""
+    now = _cases(
+        replace(verdict("contains"), floor_standard_errors=2.0),
+        replace(verdict("contains"), floor_standard_errors=3.0),
+    )
+    before = _cases(
+        replace(verdict("contains"), floor_standard_errors=2.0),
+        replace(verdict("contains"), floor_standard_errors=2.0),
+    )
+    assert rows(now, before) == [("contains", "floor_standard_errors", "unknown", "")]
+    return now, before
+
+
+#: The three ways a row reaches `unknown` with a field, each with the name the
+#: sentence carries. One sentence serves all three, so it is held in all three:
+#: "no single value" covers a side with none and a side with more than one.
+UNKNOWN = {
+    "samples, every verdict errored": (_unknown_samples, "contains.samples"),
+    "threshold, the cases disagree": (_unknown_threshold, "contains.threshold"),
+    "width, the cases disagree": (_unknown_width, "contains.floor_standard_errors"),
+}
+
+UNKNOWN_SENTENCE = {
+    "en": "{name} has no single value on one side, so whether it moved is not known",
+    "it": "{name} non ha un valore unico su uno dei due lati, quindi non si sa se "
+    "si sia mosso",
+}
+
+UNKNOWN_CELL = {
+    "en": "no single value on one side, so whether it moved is not known",
+    "it": "nessun valore unico su uno dei due lati, quindi non si sa se si sia mosso",
+}
+
+
+@pytest.mark.parametrize("producer", list(UNKNOWN))
 @pytest.mark.parametrize("locale", ["en", "it"])
-def test_the_terminal_says_an_unknown_field_is_not_recorded(locale: str) -> None:
+def test_the_terminal_says_an_unknown_field_has_no_single_value(
+    locale: str, producer: str
+) -> None:
     """`samples of contains 2 → —` read as a declaration that moved to nothing,
-    under a sentence saying the suite is unchanged."""
-    now, before = _unknown_samples()
+    under a sentence saying the suite is unchanged. And *not recorded on both
+    sides*, which it said until 1.0.2, was false for two of the three: a
+    threshold or a width the cases disagree on was recorded."""
+    build, name = UNKNOWN[producer]
+    now, before = build()
     (line,) = rule_lines(compare(now, before), locale=locale)  # type: ignore[arg-type]
     assert "→" not in line
-    expected = {
-        "en": "contains.samples not recorded on both sides",
-        "it": "contains.samples non registrata su entrambi i lati",
-    }
-    assert expected[locale] in line
+    assert UNKNOWN_SENTENCE[locale].format(name=name) in line
 
 
+@pytest.mark.parametrize("producer", list(UNKNOWN))
 @pytest.mark.parametrize("locale", ["en", "it"])
-def test_the_report_says_an_unknown_field_is_not_recorded(locale: str) -> None:
+def test_the_report_says_an_unknown_field_has_no_single_value(
+    locale: str, producer: str
+) -> None:
     """The HTML table's own branch on `field`, which the terminal's does not
     share: one test for each, or one of them is green by not being looked at."""
     from digline.report import render_html
 
-    now, before = _unknown_samples()
+    build, name = UNKNOWN[producer]
+    now, before = build()
     html = render_html(compare(now, before), now, before, locale=locale, declared=None)  # type: ignore[arg-type]
-    cell = {
-        "en": "not recorded on both sides",
-        "it": "non registrata su entrambi i lati",
-    }[locale]
-    assert f"<td><code>contains.samples</code></td><td>{cell}</td>" in html
-    assert "2 → —" not in html
+    cell = UNKNOWN_CELL[locale]
+    assert f"<td><code>{name}</code></td><td>{cell}</td>" in html
+    assert " → —" not in html
 
 
 ADR_0028 = (
