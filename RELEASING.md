@@ -554,6 +554,40 @@ it and deletes it.
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
 
+**A merge that changes a printed line the README quotes owes a row here, and
+the row is closed by capturing the block again before the tag.** *Added
+2026-10-30.* `tests/test_readme.py` replays every ```` ```console ```` block of
+the README against the code of the commit it runs on. So a pull request that
+changes a line `digline` prints, and that a block quotes, has to change the
+page in the same pull request, or the replay is red. Once it merges, the page
+on GitHub, which reads `main`, shows a line that `pip install digline` does not
+print. It stays false for whoever installed until the next release, and the
+replay is green throughout, because it reads the tree and not the index. That
+pull request writes a row: the package `digline`, what it carries (the pull
+request and the line, quoted as the page now shows it), and what the number
+must reflect (the block named by its `suite=` label, to capture again).
+
+**Before the tag, the block is captured again from the tree being tagged, as
+a terminal shows it, and the row is deleted.** That means:
+- each command run with standard output and standard error on one terminal,
+  and the lines written in the order the terminal shows them. The key comes
+  before the lines `run` says after it, though a pipe delivers it last;
+- the replay then held to it, as for any block.
+
+The row is what keeps the window from being forgotten. The capture is what
+makes the page a transcript of the release it describes, not of a commit on
+the way to it.
+
+**Why this is a step and not a gate.** A gate would compare the page with the
+release the index serves. It would be red on exactly the pull request that
+repairs the code and the page together, and red until the release, because
+the release that makes the page true comes after the merge. A check that the
+documented process guarantees to be red is the one `CLAUDE.md` keeps out of
+the required checks, for `docs`. The table and the capture before the tag are
+the step. The measurement that found the window, and the probe that shows the
+replay green while the page and PyPI disagree, are in the maintainers' notes,
+`record-the-readme-replays-the-tree.md`.
+
 **The plugins, after this release.** `digline-mcp` and `pytest-digline` are
 published with caps below this core. Raising the caps in this tree reaches
 nobody: until both are released again, a project that holds them resolves
