@@ -194,7 +194,14 @@ def replay_hello(workdir: Path) -> tuple[set[str], int]:
     printed.extend((first.stdout, first.stderr))
 
     promoted = cli(
-        workdir, "promote", "--suite", "suite.py", "--run", "latest", "--replacing", "none"
+        workdir,
+        "promote",
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+        "--replacing",
+        "none",
     )
     assert promoted.returncode == EXIT_OK, promoted.stderr
     printed.extend((promoted.stdout, promoted.stderr))
