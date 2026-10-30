@@ -236,7 +236,7 @@ def test_the_cli_resolves_latest_through_the_fake() -> None:
 
 
 def test_resume_asks_only_the_journal_protocol() -> None:
-    assert _resume(_NoJournals(), SUITE_OBJ, None) is None
+    assert _resume(_NoJournals(), SUITE_OBJ, None, finishing=str) is None
 
 
 def test_the_view_serves_the_runs_screen_from_the_fake() -> None:

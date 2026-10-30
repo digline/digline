@@ -48,7 +48,9 @@ nothing is filed under 2026-10-07T07-00-58-179965-00-00-c8a84850c6fd7289 in suit
   the run without its answers, so it would outlive the run with its verdicts,
   reasons and artifacts, and a delete that reached it would pull a reference
   from under a gate. Promote another run first, with
-  `digline promote --suite … --run <key> --replacing <this key>`, then delete.
+  `digline promote --suite SUITE --run KEY --replacing THIS`, where SUITE is
+  the suite, KEY another run's key and THIS the key of the run you are
+  deleting, then delete.
   The refusal holds even when the run under the baseline is already gone.
 - **A file under the key that cannot be shown to be that run**: not JSON, not
   a document, without `created_at` or `config_hash`, or filed under a name that

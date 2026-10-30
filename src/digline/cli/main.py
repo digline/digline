@@ -32,7 +32,7 @@ import os
 import shlex
 import sys
 import traceback
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -300,7 +300,9 @@ def cmd_run(args: argparse.Namespace) -> int:
         root=Path(args.root),
         artifacts=artifacts,
     )
-    resume = _resume(store, suite, args.resume)
+    resume = _resume(
+        store, suite, args.resume, finishing=lambda key: _finishing(args, key)
+    )
 
     try:
         prepared = prepare(
@@ -435,27 +437,52 @@ def _next_command(args: argparse.Namespace, baseline_found: bool) -> str:
 
     It can be pasted whole: the words are quoted as a shell splits them, and
     the comment is a comment there. It repeats the options that move where the
-    next command looks or what it signs: `--root`, `--tenant` and `--env` on
-    both, and `--target` on `promote`, which signs the system the run measured
-    (ADR 0022 §5); `compare` takes no target. The rest describe how this run
-    was made, and the next command takes none of them.
+    next command looks or what it signs (`_where`): `--target` on `promote`,
+    which signs the system the run measured (ADR 0022 §5); `compare` and
+    `migrate` take no target. The rest describe how this run was made, and the
+    next command takes none of them.
+
+    A run let through with `--accepting-baseline-schema` is followed by
+    `migrate`, not `compare`. That is not `run` judging the reference: the
+    person declared its schema with the flag, and `compare` refuses a reference
+    at an older schema until it is migrated.
     """
-    if baseline_found:
+    if baseline_found and args.accepting_baseline_schema is not None:
+        words = ["digline", "migrate", "--suite", args.suite]
+        does = "brings the store to this digline's schema"
+    elif baseline_found:
         words = ["digline", "compare", "--suite", args.suite, "--run", "latest"]
         does = "says whether anything got worse"
     else:
         words = ["digline", "promote", "--suite", args.suite, "--run", "latest"]
         words += ["--replacing", "none"]
         does = "keeps this run as the reference"
+    words += _where(args, target=not baseline_found)
+    return f"{shlex.join(words)}  # {does}"
+
+
+def _finishing(args: argparse.Namespace, key: str) -> str:
+    """The command that finishes the journalled run `key`, as this launch was
+    given its suite and the options that move where it looks or what it calls."""
+    words = ["digline", "run", "--suite", args.suite, "--resume", key]
+    return shlex.join(words + _where(args, target=True))
+
+
+def _where(args: argparse.Namespace, *, target: bool) -> list[str]:
+    """The options a printed command repeats so that it looks where this one
+    looked and signs what this one would: `--root` when it is not `.`,
+    `--tenant` and `--env` when given, and `--target` when given and `target`
+    says the command takes one."""
+    words: list[str] = []
     if args.root != ".":
         words += ["--root", args.root]
     if args.tenant is not None:
         words += ["--tenant", args.tenant]
     if args.env is not None:
         words += ["--env", args.env]
-    if not baseline_found and args.target is not None:
+    if target and args.target is not None:
         words += ["--target", args.target]
-    return f"{shlex.join(words)}  # {does}"
+    return words
 
 
 def _retry_note(retrying: Mapping[str, str]) -> str:
@@ -498,7 +525,11 @@ def _whose(item: Pending) -> str:
 
 
 def _resume(
-    store: SupportsJournal, suite: Suite, requested: str | None
+    store: SupportsJournal,
+    suite: Suite,
+    requested: str | None,
+    *,
+    finishing: Callable[[str], str],
 ) -> Pending | None:
     """The journal this launch continues, or `None`, with a word either way.
 
@@ -528,7 +559,7 @@ def _resume(
             say(
                 f"note: run {item.key} was started and never written "
                 f"({len(item.done)} case(s) journalled). {_whose(item)} "
-                f"Finish it with `digline run --suite … --resume {item.key}`",
+                f"Finish it with `{finishing(item.key)}`",
                 err=True,
             )
         return None

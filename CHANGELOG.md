@@ -17,11 +17,29 @@ notes under them are this file, verbatim.
   next: <command>  # <what it does>`, which pastes whole and runs. With no
   reference the command is `digline promote … --run latest --replacing none`;
   beside a reference it is `digline compare … --run latest`, whether or not
-  that reference is one `compare` can read, which is `compare`'s to say. It
-  repeats `--suite` as given, `--root`, `--tenant` and `--env`, and `--target`
-  on `promote`. A run that judged nothing says `recorded` and no `next`, and a
+  that reference is one `compare` can read, which is `compare`'s to say.
+  After a run let through with `--accepting-baseline-schema` it is `digline
+  migrate …`: the person declared the reference's schema with the flag, and
+  `compare` refuses such a reference until it is migrated. It repeats
+  `--suite` as given, `--root`, `--tenant` and `--env`, and `--target` on
+  `promote`. A run that judged nothing says `recorded` and no `next`, and a
   refusal before the run is written says neither. Standard output is still the
-  key alone, and no existing sentence changes.
+  key alone.
+- **A command digline prints runs as printed, or declares its placeholder.**
+  Three did neither, because a shell read their placeholder as something else:
+  `<key>` is a redirection from a file named `key`, and `…` is passed to digline
+  as a suite.
+  - `compare` with no reference now says `digline promote --suite SUITE --run
+    KEY --replacing none`, *"with SUITE the suite and KEY the key of the run you
+    looked at"*.
+  - Deleting the run under the reference says `digline promote --suite SUITE
+    --run KEY --replacing …`, *"where SUITE is the suite and KEY another run's
+    key"*.
+  - The note on a run started and never written names the command that
+    finishes it with the suite and the options this launch was given, so it
+    runs as printed.
+
+  The other commands digline prints without `--suite` are unchanged here.
 - **`refuse_unreadable_baseline` returns whether a baseline file stands**, and
   `Measured` carries it as `baseline_found`, `None` where nobody looked. A
   caller that ignores the return is unaffected.

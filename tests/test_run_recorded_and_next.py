@@ -9,23 +9,27 @@ output:
 The `# …` is a shell comment on purpose: the line without its prefix can be
 pasted whole and it runs.
 
-Five states, and a fixed count of each line in each:
+Six states, and a fixed count of each line in each:
 
-| state                                  | recorded | next    |
-|----------------------------------------|----------|---------|
-| 1. no reference                        | 1        | promote |
-| 2. a reference present                 | 1        | compare |
-| 3. written, nothing judged             | 1        | none    |
-| 4. refused on the reference's schema   | 0        | none    |
-| 5. failed before writing               | 0        | none    |
+| state                                           | recorded | next    |
+|-------------------------------------------------|----------|---------|
+| 1. no reference                                 | 1        | promote |
+| 2. a reference present                          | 1        | compare |
+| 3. a reference accepted on its schema, by flag  | 1        | migrate |
+| 4. written, nothing judged                      | 1        | none    |
+| 5. refused on the reference's schema            | 0        | none    |
+| 6. failed before writing                        | 0        | none    |
 
 - `recorded` comes out if and only if a document was written, and it names a
   path that exists.
-- `next` names a command that uses what this run produced. State 3 produced
+- `next` names a command that uses what this run produced. State 4 produced
   nothing to use, so it says none, with a reference present too.
-- States 4 and 5 carry their instruction in the refusal.
+- States 5 and 6 carry their instruction in the refusal.
 - `run` says nothing about whether the reference is any good: a file there is
-  enough to name `compare`, and `compare` judges it.
+  enough to name `compare`, and `compare` judges it. State 3 is not a
+  judgement either: it is what the person declared with
+  `--accepting-baseline-schema`, that the reference is at an older schema, and
+  `compare` refuses such a reference until it is migrated.
 """
 
 from __future__ import annotations
@@ -45,6 +49,7 @@ RECORDED = "digline: recorded "
 NEXT = "digline: next: "
 PROMOTE_SAYS = "  # keeps this run as the reference"
 COMPARE_SAYS = "  # says whether anything got worse"
+MIGRATE_SAYS = "  # brings the store to this digline's schema"
 
 SUITE = """
 from digline.core import Contains
@@ -89,7 +94,7 @@ def recorded_path(root: Path, line: str) -> Path:
 
 
 # --------------------------------------------------------------------------- #
-# The five rows
+# The six rows
 # --------------------------------------------------------------------------- #
 
 
@@ -115,6 +120,68 @@ def test_a_reference_present_says_recorded_and_next_compare(tmp_path: Path) -> N
     assert lines(ran.stderr, NEXT) == [
         f"digline: next: digline compare --suite suite.py --run latest{COMPARE_SAYS}"
     ]
+
+
+def older_reference(root: Path) -> int:
+    """Promote a run, then mark the reference one schema older: what a store
+    an earlier digline wrote looks like to this one. The schema it now says."""
+    assert cli(root, "run", "--suite", "suite.py").returncode == EXIT_OK
+    promote(root)
+    (baseline,) = (root / ".digline").glob("*/baselines/hello.json")
+    document = json.loads(baseline.read_text(encoding="utf-8"))
+    document["schema_version"] = SCHEMA_VERSION - 1
+    baseline.write_text(json.dumps(document), encoding="utf-8")
+    return SCHEMA_VERSION - 1
+
+
+def test_a_reference_accepted_on_its_schema_says_next_migrate(tmp_path: Path) -> None:
+    """The run went through because the person named the reference's schema.
+    `compare` refuses that reference until it is migrated, so the command after
+    the run is `migrate`, and pasted, it lets `compare` read the reference."""
+    root = repo(tmp_path)
+    older = older_reference(root)
+    ran = cli(
+        root, "run", "--suite", "suite.py", "--accepting-baseline-schema", str(older)
+    )
+    assert ran.returncode == EXIT_OK, ran.stderr
+    assert len(lines(ran.stderr, RECORDED)) == 1
+    assert lines(ran.stderr, NEXT) == [
+        f"digline: next: digline migrate --suite suite.py{MIGRATE_SAYS}"
+    ]
+    pasted(root, lines(ran.stderr, NEXT)[0])
+    compared = cli(root, "compare", "--suite", "suite.py", "--run", "latest")
+    assert compared.returncode == EXIT_OK, compared.stderr
+
+
+def test_the_migrate_line_repeats_the_options_that_move_where_it_looks(
+    tmp_path: Path,
+) -> None:
+    """`migrate` takes `--root`, `--tenant` and `--env`, and no target."""
+    store = tmp_path / "store"
+    store.mkdir()
+    repo(tmp_path)
+    given = ("--root", "store", "--tenant", "acme", "--env", "dev")
+    assert cli(tmp_path, "run", "--suite", "suite.py", *given).returncode == EXIT_OK
+    promoted = cli(
+        tmp_path, "promote", "--suite", "suite.py", "--run", "latest",
+        "--replacing", "none", *given,
+    )  # fmt: skip
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+    (baseline,) = store.glob(".digline/*/baselines/hello.json")
+    document = json.loads(baseline.read_text(encoding="utf-8"))
+    document["schema_version"] = SCHEMA_VERSION - 1
+    baseline.write_text(json.dumps(document), encoding="utf-8")
+    ran = cli(
+        tmp_path, "run", "--suite", "suite.py", *given,
+        "--target", "suite.py:target",
+        "--accepting-baseline-schema", str(SCHEMA_VERSION - 1),
+    )  # fmt: skip
+    assert ran.returncode == EXIT_OK, ran.stderr
+    assert lines(ran.stderr, NEXT) == [
+        "digline: next: digline migrate --suite suite.py "
+        f"--root store --tenant acme --env dev{MIGRATE_SAYS}"
+    ]
+    pasted(tmp_path, lines(ran.stderr, NEXT)[0])
 
 
 def test_nothing_judged_says_recorded_and_no_next(tmp_path: Path) -> None:
