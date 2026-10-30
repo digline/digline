@@ -359,6 +359,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "1.0.1": (
+            "the release before 1.0.2, told as history: what its bump caught "
+            "and corrected in step 2, its paragraph in the Status block, the "
+            "return type that moved in it, the directory of its delta-pass's "
+            "probes, and the report on it that numbered the holes"
+        ),
         "1.0.0": (
             "the release the promise starts at, and the first whose plugins "
             "cap at `<2`: *Choosing the version*, step 5 and the plugins' caps "
