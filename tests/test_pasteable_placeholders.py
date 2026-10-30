@@ -77,21 +77,23 @@ def key_of(document: Path) -> str:
     return document.name.removesuffix(".json")
 
 
-def test_compare_without_a_reference_declares_the_key_it_cannot_know(
+def test_compare_without_a_reference_declares_suite_and_key(
     tmp_path: Path,
 ) -> None:
-    """R3: `compare` with no reference names the promote to make, and the run's
-    key is the reader's to fill in."""
+    """R3: `compare` with no reference names the promote to make. The suite
+    and the run's key are the reader's to fill in, and filled in, the command
+    runs."""
     root = repo(tmp_path)
     assert cli(root, "run", "--suite", "suite.py").returncode == EXIT_OK
+    (run,) = (root / ".digline").glob("*/runs/hello/*.json")
     refused = cli(root, "compare", "--suite", "suite.py", "--run", "latest")
     (command,) = re.findall(r"'(digline promote [^']*)'", refused.stderr)
     assert "<" not in command and ">" not in command, command
-    assert "KEY" in command.split()
-    assert "with KEY the key of the run" in refused.stderr, refused.stderr
-    pasted = in_bash(root, command)
-    assert "No such file or directory" not in pasted.stderr, pasted.stderr
-    assert pasted.stderr.startswith("digline") or "digline" in pasted.stderr
+    assert {"SUITE", "KEY"} <= set(command.split()), command
+    assert "with SUITE the suite and KEY the key of the run" in refused.stderr
+    filled = command.replace("SUITE", "suite.py").replace("KEY", key_of(run))
+    pasted = in_bash(root, filled)
+    assert pasted.returncode == EXIT_OK, pasted.stderr
 
 
 def test_delete_of_the_reference_declares_suite_and_key(tmp_path: Path) -> None:
