@@ -567,6 +567,19 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             unpriced=("model 'm' ran in a geography with no rate",),
         ),
     )
+    # Under projection the sentences are withheld one by one, and the key keeps
+    # its shape: a list of strings. (ADR 0004 §8.0, item 2)
+    yield (
+        "run_json withheld",
+        "run",
+        run_json(
+            ref,
+            plan,
+            errored_checks=0,
+            unpriced=("model 'm' ran in a geography with no rate",),
+            mint=lambda kind, text: "tok",
+        ),
+    )
 
     yield (
         "runs_json",
