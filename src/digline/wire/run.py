@@ -11,10 +11,12 @@ from collections.abc import Mapping, Sequence
 
 from digline.core import (
     Disclosure,
+    Minter,
     Run,
     RunUsage,
     SystemConfig,
     Verdict,
+    Withheld,
     crossing_refusal,
 )
 from digline.run import CallPlan
@@ -126,6 +128,7 @@ def run_json(
     notes: Sequence[str] = (),
     errored_checks: int,
     unpriced: Sequence[str] | None = None,
+    mint: Minter | None = None,
 ) -> dict[str, object]:
     """The written run, named, with what it cost to make.
 
@@ -147,6 +150,10 @@ def run_json(
     say, so that an empty list is a suite that was read and not a digline that
     did not look. Sentences and not their facts, as `runs.note` is. (#396;
     ADR 0011 §4, ADR 0024 §6.4)
+
+    `mint` is the minter of a front end that projects its answers, `None` in
+    clear. It is read by `unpriced` alone: the plan's sentence is named by the
+    caller, which hands over the plan already projected.
 
     `resumed` and `reused` are facts about *this launch*, not about the run:
     the stored document carries no marker for having been resumed, because a
@@ -183,15 +190,22 @@ def run_json(
         payload["usage"] = _usage_document(usage)
     # Why a cost is not known, the sentences `digline run` prints on stderr
     # after the bill, once each: in this envelope and never in the stored run
-    # document, which §8.3 keeps them out of. Present and empty where there was
-    # none, because the caller looked. Absent only where a caller passes
-    # nothing, which is `digline-mcp`'s `run`: absent there says that producer
-    # does not carry the key, not that it did not look. Its run collects the
-    # sentences as the command line's does, and leaves them out: they name a
-    # model in clear, and under `--names project` nothing mints them.
+    # document, which §8.3 keeps them out of. Three states, each honest:
+    # - empty: the caller looked, and nobody said why;
+    # - the sentences, as given, where the answer is read in clear;
+    # - under projection, each sentence withheld whole and the list keeping
+    #   its length. A sentence is a plugin's free text, which names a model and
+    #   which nothing mints, so it cannot cross; that reasons exist, and how
+    #   many, is digline's own count and names nothing.
+    # The contract keeps the key optional. The front ends that build this
+    # envelope all pass it: the command line from 1.0.0, and `digline-mcp`'s
+    # `run` from 0.8.1, the release this keyword is for.
     # (ADR 0004 §8.0, item 2, and §8.3)
     if unpriced is not None:
-        payload["unpriced"] = list(unpriced)
+        payload["unpriced"] = [
+            Withheld("cost_reason", sentence, quoted=False).rendered(mint)
+            for sentence in unpriced
+        ]
     return neutralised(payload)
 
 

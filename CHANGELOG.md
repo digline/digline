@@ -6,6 +6,34 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A reason a cost is not known can cross a projected answer: withheld, and
+  counted.** `run_json` takes `mint`, the minter of a front end that projects
+  its answers. With one, each sentence of `unpriced` is replaced by
+  `WITHHELD_WORDS["cost_reason"]`, and the list keeps its length: the reasons
+  exist, they cannot be shown, and their number is digline's and names
+  nothing. A sentence is a plugin's free text, which names a model and which
+  nothing mints, so it is kept back whole. In clear, and on the command line,
+  which passes no minter, nothing changes. The key is still a list of
+  strings, so the JSON contract did not move, measured against the table.
+  This is what lets digline-mcp's `run` tool carry `unpriced` under `--names
+  project`; that is digline-mcp's own release, on a floor of this one.
+
+  **Declared by hand, because none of the three diffs of the delta-pass sees
+  them:**
+  - `WithheldKind`, a public type alias in `digline.core`, gains the value
+    `"cost_reason"`. A value added to an alias is not a name, a key or a
+    field;
+  - `WITHHELD_WORDS` gains the entry `"cost_reason"`: *"a reason a cost is not
+    known, withheld: it is a plugin's sentence, and nothing mints it"*;
+  - `run_json` gains the keyword `mint`, `None` by default. A parameter is not
+    a name, a key or a field either.
+
+  A consumer that enumerates `WithheldKind` or `WITHHELD_WORDS` meets one more
+  kind. Nothing is removed or renamed, and no signature gains a required
+  parameter.
+
 ## 1.0.1 — 2026-10-30
 
 digline **1.0.1**. **A patch, by the enumeration in `RELEASING.md`, *Choosing

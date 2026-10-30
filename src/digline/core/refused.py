@@ -72,8 +72,11 @@ class NameRef:
 #: What a refusal may keep back from an agent: a value the projection lets
 #: through neither as a token nor in clear, by what it is. A run's own
 #: metadata is payload, which a projection drops (decision 9); an identity
-#: that is not a digest makes the projection refuse the whole document.
-type WithheldKind = Literal["run_metadata", "identity"]
+#: that is not a digest makes the projection refuse the whole document. A
+#: reason a cost is not known is a plugin's free sentence, which names a model
+#: and which nothing mints, so it is kept back whole wherever an answer is
+#: projected, a refusal or not (ADR 0004 §8.0, item 2).
+type WithheldKind = Literal["run_metadata", "identity", "cost_reason"]
 
 #: What an agent reads in place of each kind: which thing was kept back, never
 #: the thing. One per kind, because "something was withheld" and "an identity
@@ -81,6 +84,8 @@ type WithheldKind = Literal["run_metadata", "identity"]
 WITHHELD_WORDS: Mapping[WithheldKind, str] = {
     "run_metadata": "keys withheld: a run's own metadata does not cross",
     "identity": "an identity withheld",
+    "cost_reason": "a reason a cost is not known, withheld: it is a plugin's "
+    "sentence, and nothing mints it",
 }
 
 
