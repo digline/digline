@@ -6,7 +6,27 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 1.0.1 — unreleased
+
+digline **1.0.1**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
+the version*.** No
+public name is removed or renamed, no subcommand or option is removed or
+changes meaning, no exit code changes, the schema stays 22 and
+`OUTPUT_VERSION` stays 5. What this release brings is two lines that `digline
+run` prints, sentences rewritten so that the command they name runs, and a
+field with a default: additions, which the patch number is for.
+
+**The new surface, measured against `v1.0.0`** with the three diffs of the
+delta-pass, run on this tree:
+- the `__all__` of every module: nothing added and nothing removed;
+- the derived JSON contract: no key added, removed or retyped;
+- the fields and properties of every public dataclass: one field,
+  `digline.host.Measured.baseline_found`, below.
+
+A return type is in none of the three, so one change is named here by reading
+the code: `refuse_unreadable_baseline` returns a `bool` where it returned
+`None`. It gains no parameter, and both plugins that call it ignore the
+return.
 
 - **The release delta-pass over 1.0.0, and the delta-pass over 0.35.0 that
   was still owed, came back clean.** Nothing in either earns an advisory or
@@ -33,8 +53,9 @@ notes under them are this file, verbatim.
     KEY --replacing none`, *"with SUITE the suite and KEY the key of the run you
     looked at"*.
   - Deleting the run under the reference says `digline promote --suite SUITE
-    --run KEY --replacing …`, *"where SUITE is the suite and KEY another run's
-    key"*.
+    --run KEY --replacing` and that run's own key, *"where SUITE is the suite
+    and KEY another run's key"*. The `delete` page of the documentation writes
+    the same command, with `THIS` for the run being deleted.
   - The note on a run started and never written names the command that
     finishes it with the suite and the options this launch was given, so it
     runs as printed.
@@ -43,6 +64,15 @@ notes under them are this file, verbatim.
 - **`refuse_unreadable_baseline` returns whether a baseline file stands**, and
   `Measured` carries it as `baseline_found`, `None` where nobody looked. A
   caller that ignores the return is unaffected.
+- **What an absent `unpriced` means on the MCP `run` tool is now said as it
+  is.** The record of the key in `src/digline/wire/contract.py`, the comment
+  in `run_json` and the table in `docs/mcp.md` said that absent meant the
+  producer had not looked. The tool's run collects the sentences as the
+  command line's does and leaves them out, because they name a model in clear
+  and under `--names project` nothing mints them. So absent there says only
+  that the producer does not carry the key. The key itself did not move:
+  present on `run --json` and `rejudge --json`, absent from the tool, as in
+  1.0.0. ADR 0054 takes a dated note saying why.
 
 ## 1.0.0 — 2026-10-29
 
