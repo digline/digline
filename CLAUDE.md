@@ -229,6 +229,10 @@ artifacts that today exists in none of the audited competitors.
   `tests/test_readme.py::test_every_printed_line_comes_back_out_of_a_real_run[<suite>]`
   says the same and names the block, and fixing the page for it is the moment
   the row is owed.
+  **What makes this hard to keep: the short way presents itself as the
+  finish.** The red replay is the trigger. Repairing the page is half the
+  work and the row is the other half, and whoever repairs the page and moves
+  on has done exactly what was done on 2026-10-30.
 - `tests/test_layering.py` is a **mandatory gate**, not a style test: it guarantees
   that the core stays pure and importable from Plumbline without dragging storage
   along. It must not be weakened or made optional; if it fails, the change is
