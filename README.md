@@ -388,7 +388,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 ## Status
 
-`1.0.2`. The offline cycle — write the suite, run, compare, promote,
+`1.0.3`. The offline cycle — write the suite, run, compare, promote,
 report, and commit what a person decided — is complete, covered by tests, and
 used daily on a real project, and
 since 0.5.0 the suite may be written as data as well as in Python. From 1.0.0 a

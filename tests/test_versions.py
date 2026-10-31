@@ -261,6 +261,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "it dates the change, not the current version",
     },
     "src/digline/wire/run.py": {
+        "1.0.2": (
+            "the delta-pass over 1.0.2, whose finding F-1 this file now "
+            "answers, told as history. Moving the number would say a later "
+            "pass found it"
+        ),
         "0.19.0": (
             "the 0.19.0 delta-pass, which found what this file now does, told as "
             "history. Moving the number would claim a later pass audited its own "
@@ -341,6 +346,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "src/digline/report/text.py": {
+        "1.0.2": (
+            "the delta-pass over 1.0.2, whose finding F-2 this file now "
+            "answers, told as history. Moving the number would say a later "
+            "pass found it"
+        ),
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "
             "what this file now does, told as history. There were two passes "
@@ -359,6 +369,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "1.0.2": (
+            "the release before 1.0.3, told as history: its paragraph in the "
+            "Status block, with the capture, the index, the image and the "
+            "locks it moved, and what its follow-up read"
+        ),
         "1.0.1": (
             "the release before 1.0.2, told as history: what its bump caught "
             "and corrected in step 2, its paragraph in the Status block, the "
@@ -1255,6 +1270,11 @@ RECORDED: dict[str, dict[str, str]] = {
     # that closes the finding, so a reader knows which stored documents and
     # which terminals the sentence is about.
     "src/digline/report/render.py": {
+        "1.0.2": (
+            "the delta-pass over 1.0.2, whose finding F-2 this file now "
+            "answers, told as history. Moving the number would say a later "
+            "pass found it"
+        ),
         "0.17.0": (
             "the second delta-pass over 0.17.0 — which release's pass found "
             "what this file now does, told as history. There were two passes "
