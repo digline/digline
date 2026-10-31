@@ -54,6 +54,7 @@ from digline.core import (
     unreconciled,
     within,
 )
+from digline.core.compare import WIDTH_FIELD
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -457,6 +458,20 @@ def _with_field(delta: SuiteDelta) -> str:
     return f"{delta.rule}.{delta.field}"
 
 
+def _unknown_key(key: str, delta: SuiteDelta) -> str:
+    """The sentence for a field whose movement is not known.
+
+    A threshold, a tolerance or a count of samples is `unknown` where exactly
+    one side has no single value, none or more than one: `_moved` gives no row
+    where both lack one. A width is `unknown` where the cases of one side **or
+    of both** declare different widths, so both sides have values, and *no
+    single value on one side* was false of the second. Its sentence says what
+    is true of both; the row carries nothing that tells the two apart. (F-2,
+    the delta-pass over 1.0.2)
+    """
+    return f"{key}.width" if delta.field == WIDTH_FIELD else key
+
+
 def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
     """One rule in the terminal's grammar, with the direction in a suffix.
 
@@ -473,8 +488,11 @@ def _rule_change(delta: SuiteDelta, locale: Locale) -> str:
     if delta.outcome == "unknown" and delta.field:
         # Before the `field` branch, which would print an unknown value in the
         # grammar of a change: `samples of contains 2 → —`. The name carries
-        # the field, as `explain` composes it. (#671)
-        return phrase(locale, "rules.unknown", name=_with_field(delta))
+        # the field, as `explain` composes it. (#671) A width has a sentence
+        # of its own: both sides have values there (F-2).
+        return phrase(
+            locale, _unknown_key("rules.unknown", delta), name=_with_field(delta)
+        )
     if not delta.field:
         key = f"rules.{delta.outcome}"
         if delta.expansion:
@@ -2580,10 +2598,11 @@ def _rule_row(delta: SuiteDelta, locale: Locale) -> str:
     not recorded rather than drawing an arrow to nothing. (#671)
     """
     if delta.outcome == "unknown" and delta.field:
+        cell = _unknown_key("rules.cell.unknown", delta)
         return (
             "<tr>"
             f"<td><code>{escape(_with_field(delta))}</code></td>"
-            f"<td>{escape(phrase(locale, 'rules.cell.unknown'))}</td>"
+            f"<td>{escape(phrase(locale, cell))}</td>"
             "<td></td>"
             "</tr>"
         )

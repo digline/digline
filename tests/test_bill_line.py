@@ -47,38 +47,84 @@ TOKENS = Usage(120, 40)
 FORMS = [
     # The counts: the totals are the fact, how many calls they are from is
     # what qualifies them, and only when it is not all of them.
-    (line(calls=3, counted=3, tokens=TOKENS, spent_usd=0.00899),
-     "target: 3 calls · counts: 120 in / 40 out · cost: 0.008990 USD"),
-    (line(calls=3, counted=2, tokens=TOKENS, spent_usd=0.00899),
-     "target: 3 calls · counts: 120 in / 40 out, from 2 of 3 calls · cost: 0.008990 USD"),
-    (line(calls=2, counted=0, spent_usd=0.00899),
-     "target: 2 calls · counts: none · cost: 0.008990 USD"),
+    (
+        line(calls=3, counted=3, tokens=TOKENS, spent_usd=0.00899),
+        "target: 3 calls · counts: 120 in / 40 out · cost: 0.008990 USD",
+    ),
+    (
+        line(calls=3, counted=2, tokens=TOKENS, spent_usd=0.00899),
+        (
+            "target: 3 calls · counts: 120 in / 40 out, from 2 of 3 calls"
+            " · cost: 0.008990 USD"
+        ),
+    ),
+    (
+        line(calls=2, counted=0, spent_usd=0.00899),
+        "target: 2 calls · counts: none · cost: 0.008990 USD",
+    ),
     # The cost, every call priced.
-    (line(calls=2, spent_usd=4e-7),
-     "target: 2 calls · counts: none · cost: under 0.000001 USD"),
-    (line(calls=2, spent_usd=0.0),
-     "target: 2 calls · counts: none · cost: 0.000000 USD"),
+    (
+        line(calls=2, spent_usd=4e-7),
+        "target: 2 calls · counts: none · cost: under 0.000001 USD",
+    ),
+    (
+        line(calls=2, spent_usd=0.0),
+        "target: 2 calls · counts: none · cost: 0.000000 USD",
+    ),
     # The cost, not every call priced: a known sum is a lower bound.
-    (line(calls=3, spent_usd=0.00899, every_cost_known=False),
-     "target: 3 calls · counts: none · cost: at least 0.008990 USD, not every call priced"),
-    (line(calls=2, spent_usd=4e-7, every_cost_known=False),
-     "target: 2 calls · counts: none · cost: under 0.000001 USD, not every call priced"),
-    (line(calls=2, spent_usd=0.0, every_cost_known=False),
-     "target: 2 calls · counts: none · cost: not known"),
+    (
+        line(calls=3, spent_usd=0.00899, every_cost_known=False),
+        (
+            "target: 3 calls · counts: none"
+            " · cost: at least 0.008990 USD, not every call priced"
+        ),
+    ),
+    (
+        line(calls=2, spent_usd=4e-7, every_cost_known=False),
+        (
+            "target: 2 calls · counts: none"
+            " · cost: under 0.000001 USD, not every call priced"
+        ),
+    ),
+    (
+        line(calls=2, spent_usd=0.0, every_cost_known=False),
+        "target: 2 calls · counts: none · cost: not known",
+    ),
     # The cost, completeness not recorded: a third state, about the record.
-    (line(calls=2, spent_usd=0.00899, every_cost_known=None),
-     "target: 2 calls · counts: none · cost: 0.008990 USD, completeness not recorded"),
-    (line(calls=2, spent_usd=4e-7, every_cost_known=None),
-     "target: 2 calls · counts: none · cost: under 0.000001 USD, completeness not recorded"),
-    (line(calls=2, spent_usd=0.0, every_cost_known=None),
-     "target: 2 calls · counts: none · cost: completeness not recorded"),
+    (
+        line(calls=2, spent_usd=0.00899, every_cost_known=None),
+        (
+            "target: 2 calls · counts: none"
+            " · cost: 0.008990 USD, completeness not recorded"
+        ),
+    ),
+    (
+        line(calls=2, spent_usd=4e-7, every_cost_known=None),
+        (
+            "target: 2 calls · counts: none"
+            " · cost: under 0.000001 USD, completeness not recorded"
+        ),
+    ),
+    (
+        line(calls=2, spent_usd=0.0, every_cost_known=None),
+        "target: 2 calls · counts: none · cost: completeness not recorded",
+    ),
     # The calls: the marker of whether every call was seen goes beside them.
-    (line(calls=3, spent_usd=0.00899, every_call_seen=False),
-     "target: 3 calls, not every call seen · counts: none · cost: 0.008990 USD"),
-    (line(calls=3, spent_usd=0.00899, every_call_seen=None),
-     "target: 3 calls, completeness not recorded · counts: none · cost: 0.008990 USD"),
-    (line(calls=1, counted=1, tokens=TOKENS, spent_usd=0.00899),
-     "target: 1 call · counts: 120 in / 40 out · cost: 0.008990 USD"),
+    (
+        line(calls=3, spent_usd=0.00899, every_call_seen=False),
+        "target: 3 calls, not every call seen · counts: none · cost: 0.008990 USD",
+    ),
+    (
+        line(calls=3, spent_usd=0.00899, every_call_seen=None),
+        (
+            "target: 3 calls, completeness not recorded · counts: none"
+            " · cost: 0.008990 USD"
+        ),
+    ),
+    (
+        line(calls=1, counted=1, tokens=TOKENS, spent_usd=0.00899),
+        "target: 1 call · counts: 120 in / 40 out · cost: 0.008990 USD",
+    ),
 ]
 
 
@@ -99,7 +145,9 @@ def test_the_judge_line_takes_the_same_forms(totals: CallTotals, expected: str) 
     [1e-12, 1e-7, 4e-7, 4.9e-7, 5e-7],
 )
 @pytest.mark.parametrize("known", [True, False, None])
-def test_a_figure_that_cannot_be_shown_says_so(spent: float, known: bool | None) -> None:
+def test_a_figure_that_cannot_be_shown_says_so(
+    spent: float, known: bool | None
+) -> None:
     """F-1, and its other half. Where the known sum is above zero and reads
     `0.000000` at six decimals, the line says `under 0.000001 USD` instead
     of printing a zero that is not one, whether or not every call was

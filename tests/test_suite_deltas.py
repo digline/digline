@@ -694,24 +694,68 @@ def _unknown_width() -> tuple[Run, Run]:
     return now, before
 
 
-#: The three ways a row reaches `unknown` with a field, each with the name the
-#: sentence carries. One sentence serves all three, so it is held in all three:
-#: "no single value" covers a side with none and a side with more than one.
+def _unknown_width_both() -> tuple[Run, Run]:
+    """F-2 of the delta-pass over 1.0.2: the cases of **each** side declare
+    different widths. Neither side has one value, and both have values."""
+    disagreeing = (
+        replace(verdict("contains"), floor_standard_errors=2.0),
+        replace(verdict("contains"), floor_standard_errors=3.0),
+    )
+    now, before = _cases(*disagreeing), _cases(*disagreeing)
+    assert rows(now, before) == [("contains", "floor_standard_errors", "unknown", "")]
+    return now, before
+
+
+#: The ways a row reaches `unknown` with a field, each with the name the
+#: sentence carries and the sentence that is true of it. A threshold, a
+#: tolerance or a count of samples reaches it with exactly one side lacking a
+#: single value, none or more than one: `_moved` gives no row where both do.
+#: A width reaches it where the cases of one side **or of both** declare
+#: different widths, and both sides then have values: "no single value on one
+#: side" was false of the second (F-2), so the width has a sentence of its
+#: own, true of both, and nothing in the row says which of the two it is.
 UNKNOWN = {
-    "samples, every verdict errored": (_unknown_samples, "contains.samples"),
-    "threshold, the cases disagree": (_unknown_threshold, "contains.threshold"),
-    "width, the cases disagree": (_unknown_width, "contains.floor_standard_errors"),
+    "samples, every verdict errored": (_unknown_samples, "contains.samples", "one"),
+    "threshold, the cases disagree": (_unknown_threshold, "contains.threshold", "one"),
+    "width, one side's cases disagree": (
+        _unknown_width,
+        "contains.floor_standard_errors",
+        "width",
+    ),
+    "width, both sides' cases disagree": (
+        _unknown_width_both,
+        "contains.floor_standard_errors",
+        "width",
+    ),
 }
 
 UNKNOWN_SENTENCE = {
-    "en": "{name} has no single value on one side, so whether it moved is not known",
-    "it": "{name} non ha un valore unico su uno dei due lati, quindi non si sa se "
-    "si sia mosso",
+    "one": {
+        "en": "{name} has no single value on one side, so whether it moved is "
+        "not known",
+        "it": "{name} non ha un valore unico su uno dei due lati, quindi non si sa se "
+        "si sia mosso",
+    },
+    "width": {
+        "en": "{name} is declared differently by the cases of one side or of both, "
+        "so whether it moved is not known",
+        "it": "{name} è dichiarato in modo diverso dai casi di un lato o di entrambi, "
+        "quindi non si sa se si sia mosso",
+    },
 }
 
 UNKNOWN_CELL = {
-    "en": "no single value on one side, so whether it moved is not known",
-    "it": "nessun valore unico su uno dei due lati, quindi non si sa se si sia mosso",
+    "one": {
+        "en": "no single value on one side, so whether it moved is not known",
+        "it": "nessun valore unico su uno dei due lati, quindi non si sa se si "
+        "sia mosso",
+    },
+    "width": {
+        "en": "declared differently by the cases of one side or of both, so whether "
+        "it moved is not known",
+        "it": "dichiarato in modo diverso dai casi di un lato o di entrambi, quindi "
+        "non si sa se si sia mosso",
+    },
 }
 
 
@@ -724,11 +768,13 @@ def test_the_terminal_says_an_unknown_field_has_no_single_value(
     under a sentence saying the suite is unchanged. And *not recorded on both
     sides*, which it said until 1.0.2, was false for two of the three: a
     threshold or a width the cases disagree on was recorded."""
-    build, name = UNKNOWN[producer]
+    build, name, sentence = UNKNOWN[producer]
     now, before = build()
     (line,) = rule_lines(compare(now, before), locale=locale)  # type: ignore[arg-type]
     assert "→" not in line
-    assert UNKNOWN_SENTENCE[locale].format(name=name) in line
+    assert UNKNOWN_SENTENCE[sentence][locale].format(name=name) in line
+    if sentence == "width":
+        assert "one side," not in line and "uno dei due lati" not in line, line
 
 
 @pytest.mark.parametrize("producer", list(UNKNOWN))
@@ -740,10 +786,10 @@ def test_the_report_says_an_unknown_field_has_no_single_value(
     share: one test for each, or one of them is green by not being looked at."""
     from digline.report import render_html
 
-    build, name = UNKNOWN[producer]
+    build, name, sentence = UNKNOWN[producer]
     now, before = build()
     html = render_html(compare(now, before), now, before, locale=locale, declared=None)  # type: ignore[arg-type]
-    cell = UNKNOWN_CELL[locale]
+    cell = UNKNOWN_CELL[sentence][locale]
     assert f"<td><code>{name}</code></td><td>{cell}</td>" in html
     assert " → —" not in html
 

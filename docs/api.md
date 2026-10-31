@@ -560,11 +560,17 @@ judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line
 nobody recorded claims nothing. `NO_CALLS` is the line of no call at all,
 complete on both. In the run file a marker that is `None` is absent, and on
-the wire it is `null`. The terminal's line adds *not every call seen* or *cost
-not known for every call* where a marker is `False`. Where a marker is `None`
-the line ends *not recorded in full*, and a line with no call on it reads
-*not recorded*, with no figure: a judge written as a function made its calls,
-and `0.000000 USD` would say it cost nothing (#569). A line on which no call
+the wire it is `null`. The terminal's line says three facts, each with its
+qualifier beside it: `target: 3 calls · counts: 120 in / 40 out, from 2 of 3
+calls · cost: at least 0.008990 USD, not every call priced`. Where
+`every_call_seen` is `False` the calls read *not every call seen*; where
+`every_cost_known` is `False` the cost is a lower bound, *at least*, with *not
+every call priced*, and a lower bound of zero reads *not known*, with no
+figure. Where a marker is `None` its fact reads *completeness not recorded*,
+and a line with no call on it reads *not recorded*, with no figure: a judge
+written as a function made its calls, and `0.000000 USD` would say it cost
+nothing (#569). A known sum that six decimals cannot show reads *under
+0.000001 USD*. A line on which no call
 answered while digline knows calls were made, because every one raised, reads
 *no call answered, calls made and cost not recorded; not every call seen*,
 with no count and no figure. `calls` counts the calls that answered, how many

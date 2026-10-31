@@ -471,13 +471,14 @@ def test_the_terminal_says_a_call_was_not_seen() -> None:
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
     assert "not every call seen" in line
-    assert "cost not known" not in line
+    assert "not every call priced" not in line
+    assert "not known" not in line
 
 
 def test_the_terminal_says_a_cost_was_not_known() -> None:
     run = execute(suite(), Answering(cost_usd=None), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert "cost not known" in line
+    assert line.endswith("cost: not known"), line
     assert "USD" not in line
     assert "not every call seen" not in line
 
@@ -486,7 +487,9 @@ def test_the_terminal_says_nothing_of_a_complete_line() -> None:
     run = execute(suite(), Answering(), created_at=CREATED)
     (line,) = usage_lines(run.usage)
     assert "not every call seen" not in line
-    assert "cost not known" not in line
+    assert "not every call priced" not in line
+    assert "not known" not in line
+    assert "completeness not recorded" not in line
 
 
 def test_the_terminal_says_a_judge_it_cannot_read_is_not_recorded() -> None:
@@ -521,7 +524,10 @@ def test_a_bill_with_an_unread_judge_beside_it_says_it_is_not_whole() -> None:
     )
     _, judge_line = usage_lines(run.usage)
     assert "USD" in judge_line
-    assert judge_line.endswith("; not recorded in full")
+    assert judge_line.startswith("judge: 2 calls, completeness not recorded · "), (
+        judge_line
+    )
+    assert judge_line.endswith(" USD, completeness not recorded"), judge_line
 
 
 # --------------------------------------------------------------------------- #
@@ -586,9 +592,8 @@ def test_a_line_with_answered_calls_keeps_its_count_and_figure() -> None:
     sum of the call that answered, with the marker beside them."""
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert line.startswith("target: 1 call, ")
+    assert line.startswith("target: 1 call, not every call seen · "), line
     assert "USD" in line
-    assert line.endswith("; not every call seen")
 
 
 # --------------------------------------------------------------------------- #
@@ -626,8 +631,7 @@ def test_a_line_with_no_known_cost_prints_no_figure() -> None:
     line names the calls and says the cost is not known, with no number."""
     said = _target_line(SILENT)
     assert "USD" not in said, said
-    assert "cost not known" in said, said
-    assert said.startswith("target: 1 call")
+    assert said == "target: 1 call · counts: none · cost: not known", said
 
 
 def test_a_mixed_line_keeps_its_figure_and_says_it_is_not_the_whole_bill() -> None:
@@ -635,18 +639,16 @@ def test_a_mixed_line_keeps_its_figure_and_says_it_is_not_the_whole_bill() -> No
     known is a lower bound, and a lower bound above zero says something. So the
     figure stays, and the clause beside it says not every cost is known."""
     said = _target_line(MIXED)
-    assert "0.004000 USD" in said, said
-    assert said.endswith("; cost not known for every call"), said
+    assert said.endswith("cost: at least 0.004000 USD, not every call priced"), said
 
 
 def test_a_silent_target_still_says_no_counts_were_reported() -> None:
     said = _target_line(SILENT)
-    assert "no counts reported" in said, said
+    assert "counts: none" in said, said
 
 
 def test_a_line_whose_every_cost_is_known_keeps_its_figure_without_counts() -> None:
     """The other way: the quickstart states its cost and no counts, so its
     figure is the whole bill, and it stays."""
     said = _target_line(STATED)
-    assert "0.013570 USD" in said, said
-    assert "cost not known" not in said, said
+    assert said == "target: 3 calls · counts: none · cost: 0.013570 USD", said

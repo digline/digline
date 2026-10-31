@@ -74,7 +74,7 @@ def test_the_install_section_carries_the_imports_and_the_calls() -> None:
         "imported 6: digline, digline_anthropic, digline_bedrock, digline_mcp, "
         "digline_openai, pytest_digline\n",
         "digline: tenant 'northwind' · 3 cases × 1 sample = 3 calls to the target\n"
-        "digline: target: 3 calls, no counts reported, 0.015720 USD (counted 0 of 3)\n"
+        "digline: target: 3 calls · counts: none · cost: 0.015720 USD\n"
         "some other line\n",
     )
     assert "**imported 6**" in section
