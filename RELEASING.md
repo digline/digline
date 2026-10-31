@@ -2254,6 +2254,70 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v1.0.3 — no race: every pair the capture wrote agreed, and the wait at
+  the runner was for the gate and the upload.**
+  `publish` (`41207011755`) and `docker-publish` (`41207011665`) passed on
+  attempt 1, every job; `publish` read `completed` at 13:59:50Z and
+  `docker-publish` at 14:04:27Z. `tools/tag_names.py "digline 1.0.3"` ran on
+  #848's merge commit, `6134f231`, which was `origin/main`, immediately
+  before the tag: one package, named. Every plugin's version was already
+  served, so none rode the tag.
+  - **The gate.** `publish` read `waiting`, on its `PyPI` job, from
+    13:48:43Z to at least 13:52:37Z, and `completed` at 13:59:50Z. This
+    session did not read the run's `approvals` record, so this entry says
+    nothing about who approved: #849, the follow-up for v1.0.3, reads it.
+  - **Counts**: 16 `twine check` `PASSED`, 12 in the build and 2 in each
+    upload job. TestPyPI and PyPI each uploaded digline 1.0.3's wheel and
+    sdist, and skipped the ten files of the five plugins already on the
+    index. `imported 6`, digline and the five plugins, and the quickstart's 3
+    calls, after TestPyPI and after PyPI. *The core against every plugin
+    PyPI serves* read each of the five as **works**.
+  - **The index**: the `pypi` job's wait saw digline 1.0.3 `after 10s`, and
+    its version page `after 40s`, on the fifth read.
+  - **The signatures and the release.** The `github-release` job ran: 2
+    bundles, one per file, each `OK` from sigstore. The `mcp-registry` job
+    planned nothing: *"the registry already holds"* digline-mcp 0.8.0.
+    digline.dev's `docs` run `41208019254`, on the dispatch, built and
+    deployed green.
+  - **The index race, both builds, and the capture's pair for the core's pin
+    (step 6).** The capture ran, the pair was present for every pin, and it
+    had nothing to explain.
+    - **The smoke build waited 781 seconds at the runner**, because the tag
+      was pushed before the gate: from 13:45:47.4Z every read saw serial
+      42974458, and the read at 13:58:48.4Z saw serial 43011336 with 1.0.3.
+      Inside the build (`#10`) the wait saw it `after 15s`. The pair agreed:
+      `side=wait` at 13:59:18.8Z and `side=pip` at 13:59:19.1Z both read
+      serial 43011336, etag `uRc9aewGo4BgpsmfNBescQ`, through the same shield
+      (`cache-iad-khef600056-IAD`), with a different last hop
+      (`cache-hhr-khhr2060051-HHR` and `cache-phx1710116-PHX`). It installed
+      `digline-1.0.3` beside the three provider plugins.
+    - **The multi-arch build, arm64 (`#17`): the pair agreed.** `side=wait` at
+      14:01:49.6Z and `side=pip` at 14:01:55.1Z both read serial 43011336,
+      the same etag, through the same shield, with a different last hop
+      (`cache-dfw-kdfw8210080-DFW` and `cache-chi-kmdw8640047-CHI`). The leg
+      installed `digline-1.0.3` beside the three provider plugins.
+    - **The amd64 leg was `CACHED`** in the steps after the base, the
+      install included, so its log proves nothing about what that leg
+      installed.
+  - **The image**: `1.0.3`, `1.0` and `latest` read one digest at 14:07:17Z,
+    `sha256:e9f5c8beb57d5279e91fed56cdafa5288546b9c76c4a84ac1a308f33509f19e3`;
+    `1.0.2` reads its own, as recorded below. The `.dist-info` in the layers
+    was not opened.
+  - **The examples**: the `workflow_run` `ci` after `publish` (`41208037009`)
+    ran on the tag's commit, 19 jobs green and one skipped. The seven locks
+    moved to 1.0.3 with `--upgrade-package digline`, locked with uv 0.13.6
+    so that `revision = 5` holds. The ten reports inside step 5's perimeter
+    were rendered against 1.0.3, each from a clean tree, each naming its
+    parent commit; `prompt-first` is held by judgement. The dispatch against
+    `main` follows the pull request that lands them.
+  - **No plugin release is owed.** `release-followup` (`41208036985`) reads
+    every plugin PyPI serves as admitting 1.0.3.
+  - **Step 7, digline-action's default image, as read at 14:00:47Z, with
+    this repository's `main` at `6134f231`: not done.** `action.yml`
+    defaulted to `ghcr.io/digline/digline:1.0.2` on digline-action's `main`
+    (`999f6811`), which `v1` also points at. This entry does not
+    say where the step stands after that reading: #849, the follow-up for
+    v1.0.3, and digline-action's tags do.
 - **v1.0.2 — no race: every pair the capture wrote agreed, and the wait at
   the runner was for the upload and then for the index to show it.**
   `publish` (`41082535927`) and `docker-publish` (`41082535595`) passed on
