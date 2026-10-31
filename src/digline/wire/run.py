@@ -109,20 +109,38 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
 #: down whether. (#569)
 _UNRECORDED = "completeness not recorded"
 
+#: The decimals a cost is printed to, and the smallest figure they can show.
+_DECIMALS = 6
+_SMALLEST = f"{10**-_DECIMALS:.{_DECIMALS}f}"
+
+
+def _incomplete(marker: bool | None, missing: str) -> str | None:
+    """The clause for a fact whose completeness is not known to be true, or
+    `None` where it is: the fact is then exact, and says nothing more.
+
+    **The rule of the line, for each of its facts.** A number whose
+    completeness is known and true is stated exact. A number whose
+    completeness is false or not recorded is a lower bound, and is said as
+    one, with this clause beside it. (P-1206b)
+    """
+    if marker is True:
+        return None
+    return missing if marker is False else _UNRECORDED
+
 
 def _calls(line: CallTotals) -> str:
-    """The calls, and whether every call made is among them."""
+    """The calls that answered: exact where every call made was seen, and a
+    lower bound where one was not, or where that was not recorded."""
     calls = f"{line.calls} call{'s' if line.calls != 1 else ''}"
-    if line.every_call_seen is False:
-        return f"{calls}, not every call seen"
-    if line.every_call_seen is None:
-        return f"{calls}, {_UNRECORDED}"
-    return calls
+    clause = _incomplete(line.every_call_seen, "not every call seen")
+    return calls if clause is None else f"at least {calls}, {clause}"
 
 
 def _counts(line: CallTotals) -> str:
     """The token totals, and how many calls they are from where it is not
-    all of them. The totals are the fact; the share qualifies them."""
+    all of them. The totals are the fact; the share qualifies them. The calls
+    they are from can be counted, so the scope is named rather than a bound
+    declared."""
     if not line.counted:
         return "none"
     totals = f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
@@ -132,35 +150,29 @@ def _counts(line: CallTotals) -> str:
 
 
 def _cost(line: CallTotals) -> str:
-    """The sum of the known costs, and what it is a sum of.
+    """The sum of the known costs, exact or as a lower bound.
 
-    **A figure six decimals cannot show is said to be under the smallest one
-    they can**, rather than printed as `0.000000`, which reads as a run that
-    cost nothing. The threshold is the line's own precision: the figure is
-    printed exactly when its six decimals are not all zero. A sum of exactly
-    zero over calls that were all priced is a zero, and is printed as one.
-    (F-1, the delta-pass over 1.0.2)
+    **A figure the line's precision would print as zero is not printed**,
+    because `0.000000` reads as a run that cost nothing. Where every call was
+    priced the bill's ceiling is known, and it reads *under* the smallest
+    figure the precision can show. Where not every call was priced, or that
+    was not recorded, the sum is a lower bound with no known ceiling, and it
+    reads *more than zero*. A sum of exactly zero over calls that were all
+    priced is a zero, and is printed as one. (F-1, the delta-pass over 1.0.2)
 
-    Where not every call was priced, the sum is a lower bound and says so,
-    *at least*, and the bill has no known ceiling. So a floor six decimals
-    cannot show reads *more than zero*, with no figure: *under 0.000001 USD*
-    would state a ceiling nobody knows. A lower bound of zero says nothing
-    about the bill, so the line says the cost is not known and gives no
-    number (#834). Where
-    whether every call was priced was not recorded, the clause says that,
-    and a sum of zero gives no number either.
+    **A lower bound of exactly zero gives no number**, because it says
+    nothing about the bill: *not known* where not every call was priced
+    (#834), and the clause alone where that was not recorded.
     """
-    figure = f"{line.spent_usd:.6f} USD"
-    tiny = line.spent_usd > 0 and figure == "0.000000 USD"
-    shown = "under 0.000001 USD" if tiny else figure
-    if line.every_cost_known is True:
-        return shown
+    figure = f"{line.spent_usd:.{_DECIMALS}f} USD"
+    unshowable = line.spent_usd > 0 and float(f"{line.spent_usd:.{_DECIMALS}f}") == 0
+    clause = _incomplete(line.every_cost_known, "not every call priced")
+    if clause is None:
+        return f"under {_SMALLEST} USD" if unshowable else figure
     if line.spent_usd == 0:
-        return "not known" if line.every_cost_known is False else _UNRECORDED
-    if line.every_cost_known is False:
-        floor = "more than zero" if tiny else f"at least {figure}"
-        return f"{floor}, not every call priced"
-    return f"{shown}, {_UNRECORDED}"
+        return "not known" if line.every_cost_known is False else clause
+    bound = "more than zero" if unshowable else f"at least {figure}"
+    return f"{bound}, {clause}"
 
 
 def run_json(

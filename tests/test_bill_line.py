@@ -90,34 +90,39 @@ FORMS = [
         line(calls=2, spent_usd=0.0, every_cost_known=False),
         "target: 2 calls · counts: none · cost: not known",
     ),
-    # The cost, completeness not recorded: a third state, about the record.
+    # The cost, completeness not recorded: a lower bound, as where it is
+    # false, with the clause about the record.
     (
         line(calls=2, spent_usd=0.00899, every_cost_known=None),
         (
             "target: 2 calls · counts: none"
-            " · cost: 0.008990 USD, completeness not recorded"
+            " · cost: at least 0.008990 USD, completeness not recorded"
         ),
     ),
     (
         line(calls=2, spent_usd=4e-7, every_cost_known=None),
         (
             "target: 2 calls · counts: none"
-            " · cost: under 0.000001 USD, completeness not recorded"
+            " · cost: more than zero, completeness not recorded"
         ),
     ),
     (
         line(calls=2, spent_usd=0.0, every_cost_known=None),
         "target: 2 calls · counts: none · cost: completeness not recorded",
     ),
-    # The calls: the marker of whether every call was seen goes beside them.
+    # The calls: where not every call was seen, or that was not recorded,
+    # the count is a lower bound, with its clause beside it.
     (
         line(calls=3, spent_usd=0.00899, every_call_seen=False),
-        "target: 3 calls, not every call seen · counts: none · cost: 0.008990 USD",
+        (
+            "target: at least 3 calls, not every call seen · counts: none"
+            " · cost: 0.008990 USD"
+        ),
     ),
     (
         line(calls=3, spent_usd=0.00899, every_call_seen=None),
         (
-            "target: 3 calls, completeness not recorded · counts: none"
+            "target: at least 3 calls, completeness not recorded · counts: none"
             " · cost: 0.008990 USD"
         ),
     ),
@@ -144,33 +149,35 @@ def test_the_judge_line_takes_the_same_forms(totals: CallTotals, expected: str) 
     # and six decimals round it to zero.
     [1e-12, 1e-7, 4e-7, 4.9e-7, 5e-7],
 )
-@pytest.mark.parametrize("known", [True, None])
-def test_a_figure_that_cannot_be_shown_says_so(
-    spent: float, known: bool | None
-) -> None:
-    """The other half of F-1. Where the known sum is above zero and reads
-    `0.000000` at six decimals, the line says `under 0.000001 USD` instead
-    of printing a zero that is not one. The threshold is the line's own
-    precision: the figure is shown exactly when its six decimals are not
-    all zero."""
-    text = said(line(calls=2, spent_usd=spent, every_cost_known=known))
+def test_a_figure_that_cannot_be_shown_says_so(spent: float) -> None:
+    """The other half of F-1. Every call was priced, so the bill's ceiling is
+    known: where the sum is above zero and reads `0.000000` at six decimals,
+    the line says `under 0.000001 USD` instead of printing a zero that is not
+    one. The threshold is the line's own precision: the figure is shown
+    exactly when its six decimals are not all zero."""
+    text = said(line(calls=2, spent_usd=spent))
     assert "cost: under 0.000001 USD" in text, text
     assert "0.000000" not in text, text
 
 
 @pytest.mark.parametrize(
+    ("known", "clause"),
+    [(False, "not every call priced"), (None, "completeness not recorded")],
+)
+@pytest.mark.parametrize(
     "spent",
     [1e-12, 1e-7, 4e-7, 4.9e-7, 5e-7],
 )
 def test_an_unshowable_sum_beside_an_unpriced_call_states_no_ceiling(
-    spent: float,
+    spent: float, known: bool | None, clause: str
 ) -> None:
-    """F-1. Not every call was priced, so the bill has a floor and no known
-    ceiling: *under 0.000001 USD* would state one. Six decimals cannot show
-    the floor, so the line says the cost is more than zero, with no figure,
-    and never `0.000000`, which reads as a run that cost nothing."""
-    text = said(line(calls=2, spent_usd=spent, every_cost_known=False))
-    assert text.endswith("cost: more than zero, not every call priced"), text
+    """F-1. Not every call was priced, or that was not recorded, so the bill
+    has a floor and no known ceiling: *under 0.000001 USD* would state one.
+    Six decimals cannot show the floor, so the line says the cost is more
+    than zero, with no figure, and never `0.000000`, which reads as a run
+    that cost nothing."""
+    text = said(line(calls=2, spent_usd=spent, every_cost_known=known))
+    assert text.endswith(f"cost: more than zero, {clause}"), text
     assert "USD" not in text, text
 
 

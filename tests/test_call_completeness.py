@@ -524,9 +524,10 @@ def test_a_bill_with_an_unread_judge_beside_it_says_it_is_not_whole() -> None:
     )
     _, judge_line = usage_lines(run.usage)
     assert "USD" in judge_line
-    assert judge_line.startswith("judge: 2 calls, completeness not recorded · "), (
-        judge_line
-    )
+    assert judge_line.startswith(
+        "judge: at least 2 calls, completeness not recorded · "
+    ), judge_line
+    assert " · cost: at least " in judge_line, judge_line
     assert judge_line.endswith(" USD, completeness not recorded"), judge_line
 
 
@@ -592,7 +593,7 @@ def test_a_line_with_answered_calls_keeps_its_count_and_figure() -> None:
     sum of the call that answered, with the marker beside them."""
     run = execute(suite(), RaisingOn("c1"), created_at=CREATED)
     (line,) = usage_lines(run.usage)
-    assert line.startswith("target: 1 call, not every call seen · "), line
+    assert line.startswith("target: at least 1 call, not every call seen · "), line
     assert "USD" in line
 
 
