@@ -114,65 +114,90 @@ _DECIMALS = 6
 _SMALLEST = f"{10**-_DECIMALS:.{_DECIMALS}f}"
 
 
-def _incomplete(marker: bool | None, missing: str) -> str | None:
-    """The clause for a fact whose completeness is not known to be true, or
-    `None` where it is: the fact is then exact, and says nothing more.
+#: What the line says of a fact where no figure can be printed: the state,
+#: one per value of its marker, and not the reason. (P-1206d, rule 6)
+_STATE = {False: "not known", None: _UNRECORDED}
 
-    **The rule of the line, for each of its facts.** A number whose
-    completeness is known and true is stated exact. A number whose
-    completeness is false or not recorded is a lower bound, and is said as
-    one, with this clause beside it. (P-1206b)
+#: The scope a figure is exact on, where only the calls' marker makes it
+#: incomplete: the calls on the line are the calls seen. (P-1206d, rule 4)
+_ON_SEEN = "on the calls seen"
+
+
+def _incomplete(marker: bool | None, missing: str) -> str | None:
+    """The reason a fact's own marker makes it incomplete, or `None` where
+    the marker is true.
+
+    **The rules of the line** (P-1206d, decided by P-1206e). A number whose
+    completeness is known and true is exact. Its completeness is its own
+    marker and that of the set it sums over: the counts and the cost sum
+    over the calls. Incompleteness from its own marker is a lower bound,
+    *at least <figure>, <reason>*, because which calls are missing is not
+    known; incompleteness inherited alone is a figure exact on a scope that
+    can be named, *<figure> on the calls seen*; where both, its own marker
+    wins. A scope already named is not joined by a second.
     """
     if marker is True:
         return None
     return missing if marker is False else _UNRECORDED
 
 
+def _inherited(line: CallTotals) -> bool:
+    """Whether the set the counts and the cost sum over is incomplete."""
+    return line.every_call_seen is not True
+
+
 def _calls(line: CallTotals) -> str:
     """The calls that answered: exact where every call made was seen, and a
     lower bound where one was not, or where that was not recorded."""
     calls = f"{line.calls} call{'s' if line.calls != 1 else ''}"
-    clause = _incomplete(line.every_call_seen, "not every call seen")
-    return calls if clause is None else f"at least {calls}, {clause}"
+    reason = _incomplete(line.every_call_seen, "not every call seen")
+    return calls if reason is None else f"at least {calls}, {reason}"
 
 
 def _counts(line: CallTotals) -> str:
-    """The token totals, and how many calls they are from where it is not
-    all of them. The totals are the fact; the share qualifies them. The calls
-    they are from can be counted, so the scope is named rather than a bound
-    declared."""
+    """The token totals, with the scope they are exact on.
+
+    `none` is the absence of a measurement, not the number zero: no call
+    reported counts, and no bound touches it. Where some calls did not
+    report, the scope is named, *from 2 of 3 calls*, and a second scope is
+    not added; where every call on the line reported and not every call was
+    seen, the totals are exact *on the calls seen*.
+    """
     if not line.counted:
         return "none"
     totals = f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
     if line.partial:
         return f"{totals}, from {line.counted} of {line.calls} calls"
-    return totals
+    return f"{totals} {_ON_SEEN}" if _inherited(line) else totals
 
 
 def _cost(line: CallTotals) -> str:
-    """The sum of the known costs, exact or as a lower bound.
+    """The sum of the known costs: exact, exact on a named scope, or a lower
+    bound.
 
-    **A figure the line's precision would print as zero is not printed**,
-    because `0.000000` reads as a run that cost nothing. Where every call was
-    priced the bill's ceiling is known, and it reads *under* the smallest
-    figure the precision can show. Where not every call was priced, or that
-    was not recorded, the sum is a lower bound with no known ceiling, and it
-    reads *more than zero*. A sum of exactly zero over calls that were all
-    priced is a zero, and is printed as one. (F-1, the delta-pass over 1.0.2)
+    **A figure the declared precision would print as zero is not printed as
+    zero**, because `0.000000` reads as a run that cost nothing. Where the
+    ceiling is known it reads *under* the smallest figure the precision can
+    show; a named scope makes the whole statement relative to it, so its
+    ceiling is known there too. Otherwise the expression of the bound is
+    *more than zero*, which is already a lower bound. (F-1, the delta-pass
+    over 1.0.2; P-1206e)
 
-    **A lower bound of exactly zero gives no number**, because it says
-    nothing about the bill: *not known* where not every call was priced
-    (#834), and the clause alone where that was not recorded.
+    **Where no figure can be printed, the line says the state, not the
+    reason**: *not known* where not every call was priced and the known
+    costs sum to zero (#834), *completeness not recorded* where that was not
+    recorded. With a figure, the clause gives the reason.
     """
     figure = f"{line.spent_usd:.{_DECIMALS}f} USD"
     unshowable = line.spent_usd > 0 and float(f"{line.spent_usd:.{_DECIMALS}f}") == 0
-    clause = _incomplete(line.every_cost_known, "not every call priced")
-    if clause is None:
-        return f"under {_SMALLEST} USD" if unshowable else figure
+    reason = _incomplete(line.every_cost_known, "not every call priced")
+    if reason is None:
+        exact = f"under {_SMALLEST} USD" if unshowable else figure
+        return f"{exact} {_ON_SEEN}" if _inherited(line) else exact
     if line.spent_usd == 0:
-        return "not known" if line.every_cost_known is False else clause
+        return _STATE[line.every_cost_known]
     bound = "more than zero" if unshowable else f"at least {figure}"
-    return f"{bound}, {clause}"
+    return f"{bound}, {reason}"
 
 
 def run_json(

@@ -43,104 +43,132 @@ def said(totals: CallTotals, side: str = "target") -> str:
 
 TOKENS = Usage(120, 40)
 
-#: Every form the line takes where calls answered, by the facts that make it.
-FORMS = [
-    # The counts: the totals are the fact, how many calls they are from is
-    # what qualifies them, and only when it is not all of them.
-    (
-        line(calls=3, counted=3, tokens=TOKENS, spent_usd=0.00899),
-        "target: 3 calls · counts: 120 in / 40 out · cost: 0.008990 USD",
-    ),
-    (
-        line(calls=3, counted=2, tokens=TOKENS, spent_usd=0.00899),
-        (
-            "target: 3 calls · counts: 120 in / 40 out, from 2 of 3 calls"
-            " · cost: 0.008990 USD"
-        ),
-    ),
-    (
-        line(calls=2, counted=0, spent_usd=0.00899),
-        "target: 2 calls · counts: none · cost: 0.008990 USD",
-    ),
-    # The cost, every call priced.
-    (
-        line(calls=2, spent_usd=4e-7),
-        "target: 2 calls · counts: none · cost: under 0.000001 USD",
-    ),
-    (
-        line(calls=2, spent_usd=0.0),
-        "target: 2 calls · counts: none · cost: 0.000000 USD",
-    ),
-    # The cost, not every call priced: a known sum is a lower bound.
-    (
-        line(calls=3, spent_usd=0.00899, every_cost_known=False),
-        (
-            "target: 3 calls · counts: none"
-            " · cost: at least 0.008990 USD, not every call priced"
-        ),
-    ),
-    (
-        line(calls=2, spent_usd=4e-7, every_cost_known=False),
-        (
-            "target: 2 calls · counts: none"
-            " · cost: more than zero, not every call priced"
-        ),
-    ),
-    (
-        line(calls=2, spent_usd=0.0, every_cost_known=False),
-        "target: 2 calls · counts: none · cost: not known",
-    ),
-    # The cost, completeness not recorded: a lower bound, as where it is
-    # false, with the clause about the record.
-    (
-        line(calls=2, spent_usd=0.00899, every_cost_known=None),
-        (
-            "target: 2 calls · counts: none"
-            " · cost: at least 0.008990 USD, completeness not recorded"
-        ),
-    ),
-    (
-        line(calls=2, spent_usd=4e-7, every_cost_known=None),
-        (
-            "target: 2 calls · counts: none"
-            " · cost: more than zero, completeness not recorded"
-        ),
-    ),
-    (
-        line(calls=2, spent_usd=0.0, every_cost_known=None),
-        "target: 2 calls · counts: none · cost: completeness not recorded",
-    ),
-    # The calls: where not every call was seen, or that was not recorded,
-    # the count is a lower bound, with its clause beside it.
-    (
-        line(calls=3, spent_usd=0.00899, every_call_seen=False),
-        (
-            "target: at least 3 calls, not every call seen · counts: none"
-            " · cost: 0.008990 USD"
-        ),
-    ),
-    (
-        line(calls=3, spent_usd=0.00899, every_call_seen=None),
-        (
-            "target: at least 3 calls, completeness not recorded · counts: none"
-            " · cost: 0.008990 USD"
-        ),
-    ),
-    (
-        line(calls=1, counted=1, tokens=TOKENS, spent_usd=0.00899),
-        "target: 1 call · counts: 120 in / 40 out · cost: 0.008990 USD",
-    ),
+# --------------------------------------------------------------------------- #
+# The table (P-1206d, its two open cells decided by P-1206e), cell by cell
+# --------------------------------------------------------------------------- #
+#
+# The strings below are the specification, written out by hand: the test does
+# not derive them, so a rule the code gets wrong cannot agree with itself here.
+# T, F and N are a marker true, false and not recorded.
+
+Marker = bool | None
+MARKERS: dict[str, Marker] = {"T": True, "F": False, "N": None}
+
+#: The calls: their own marker only.
+CALLS = {
+    "T": "3 calls",
+    "F": "at least 3 calls, not every call seen",
+    "N": "at least 3 calls, completeness not recorded",
+}
+
+#: How many calls reported counts, out of the 3.
+COUNTED = {"all": 3, "part": 2, "none": 0}
+
+#: The counts: inherited from the calls, and a scope already named is not
+#: joined by a second. `none` is the absence of a measurement.
+COUNTS = {
+    ("all", "T"): "120 in / 40 out",
+    ("all", "F"): "120 in / 40 out on the calls seen",
+    ("all", "N"): "120 in / 40 out on the calls seen",
+    ("part", "T"): "120 in / 40 out, from 2 of 3 calls",
+    ("part", "F"): "120 in / 40 out, from 2 of 3 calls",
+    ("part", "N"): "120 in / 40 out, from 2 of 3 calls",
+    ("none", "T"): "none",
+    ("none", "F"): "none",
+    ("none", "N"): "none",
+}
+
+#: The three states of the figure.
+SPENT = {"shown": 0.00899, "unshown": 4e-7, "zero": 0.0}
+
+#: The cost where every call was seen, by its own marker and the figure.
+_COST_SEEN = {
+    ("T", "shown"): "0.008990 USD",
+    ("T", "unshown"): "under 0.000001 USD",
+    ("T", "zero"): "0.000000 USD",
+    ("F", "shown"): "at least 0.008990 USD, not every call priced",
+    ("F", "unshown"): "more than zero, not every call priced",
+    ("F", "zero"): "not known",
+    ("N", "shown"): "at least 0.008990 USD, completeness not recorded",
+    ("N", "unshown"): "more than zero, completeness not recorded",
+    ("N", "zero"): "completeness not recorded",
+}
+
+#: The cost whose only incompleteness is the calls': exact on a named scope.
+_COST_INHERITED = {
+    "shown": "0.008990 USD on the calls seen",
+    "unshown": "under 0.000001 USD on the calls seen",
+    "zero": "0.000000 USD on the calls seen",
+}
+
+#: The cost, by its own marker, the calls' marker and the figure's state.
+#: Where both are incomplete, its own marker wins.
+COST = {
+    (own, seen, state): (
+        _COST_SEEN[(own, state)]
+        if seen == "T" or own != "T"
+        else _COST_INHERITED[state]
+    )
+    for own in ("T", "F", "N")
+    for seen in ("T", "F", "N")
+    for state in ("shown", "unshown", "zero")
+}
+
+CELLS = [
+    (seen, own, counted, state)
+    for seen in MARKERS
+    for own in MARKERS
+    for counted in COUNTED
+    for state in SPENT
 ]
 
 
-@pytest.mark.parametrize(("totals", "expected"), FORMS, ids=[e for _, e in FORMS])
-def test_each_form_of_the_line(totals: CallTotals, expected: str) -> None:
-    assert said(totals) == expected
+def _cell(seen: str, own: str, counted: str, state: str) -> CallTotals:
+    return CallTotals(
+        calls=3,
+        counted=COUNTED[counted],
+        tokens=TOKENS if COUNTED[counted] else Usage(0, 0),
+        spent_usd=SPENT[state],
+        every_call_seen=MARKERS[seen],
+        every_cost_known=MARKERS[own],
+    )
 
 
-@pytest.mark.parametrize(("totals", "expected"), FORMS, ids=[e for _, e in FORMS])
-def test_the_judge_line_takes_the_same_forms(totals: CallTotals, expected: str) -> None:
-    assert said(totals, side="judge") == expected.replace("target:", "judge:", 1)
+@pytest.mark.parametrize("side", ["target", "judge"])
+@pytest.mark.parametrize(
+    ("seen", "own", "counted", "state"),
+    CELLS,
+    ids=[f"seen={s}-cost={o}-counted={c}-{f}" for s, o, c, f in CELLS],
+)
+def test_every_cell_of_the_table(
+    side: str, seen: str, own: str, counted: str, state: str
+) -> None:
+    """Each combination of the three markers, the counts and the figure, on
+    both sides, against the string the table gives it."""
+    expected = (
+        f"{side}: {CALLS[seen]} · counts: {COUNTS[(counted, seen)]}"
+        f" · cost: {COST[(own, seen, state)]}"
+    )
+    assert said(_cell(seen, own, counted, state), side=side) == expected
+
+
+def test_the_table_is_whole() -> None:
+    """Every cell has a string: 3 x 3 x 3 x 3."""
+    assert len(CELLS) == 81
+    assert len(COST) == 27 and len(COUNTS) == 9 and len(CALLS) == 3
+
+
+def test_a_line_with_one_call_says_call() -> None:
+    assert said(_cell("T", "T", "all", "shown")).startswith("target: 3 calls ")
+    one = CallTotals(
+        calls=1,
+        counted=1,
+        tokens=TOKENS,
+        spent_usd=0.00899,
+        every_call_seen=True,
+        every_cost_known=True,
+    )
+    assert said(one) == "target: 1 call · counts: 120 in / 40 out · cost: 0.008990 USD"
 
 
 @pytest.mark.parametrize(
