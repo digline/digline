@@ -142,8 +142,11 @@ def _cost(line: CallTotals) -> str:
     (F-1, the delta-pass over 1.0.2)
 
     Where not every call was priced, the sum is a lower bound and says so,
-    *at least*; a lower bound of zero says nothing about the bill, so the
-    line says the cost is not known and gives no number (#834). Where
+    *at least*, and the bill has no known ceiling. So a floor six decimals
+    cannot show reads *more than zero*, with no figure: *under 0.000001 USD*
+    would state a ceiling nobody knows. A lower bound of zero says nothing
+    about the bill, so the line says the cost is not known and gives no
+    number (#834). Where
     whether every call was priced was not recorded, the clause says that,
     and a sum of zero gives no number either.
     """
@@ -155,7 +158,8 @@ def _cost(line: CallTotals) -> str:
     if line.spent_usd == 0:
         return "not known" if line.every_cost_known is False else _UNRECORDED
     if line.every_cost_known is False:
-        return f"{shown if tiny else f'at least {figure}'}, not every call priced"
+        floor = "more than zero" if tiny else f"at least {figure}"
+        return f"{floor}, not every call priced"
     return f"{shown}, {_UNRECORDED}"
 
 

@@ -13,12 +13,13 @@ notes under them are this file, verbatim.
   *"target: 2 calls, no counts reported, 0.000000 USD (counted 0 of 2); cost
   not known for every call"*, where the parenthesis was the counts' and stood
   by the cost, and the figure was a sum six decimals could not show. It now
-  reads *"target: 2 calls · counts: none · cost: under 0.000001 USD, not every
+  reads *"target: 2 calls · counts: none · cost: more than zero, not every
   call priced"*. The calls carry *not every call seen*; the counts carry *from
   2 of 3 calls* where they are not from every call; the cost reads *at least*
-  where not every call was priced, *not known* where that bound is zero, and
-  *under 0.000001 USD* where a sum above zero cannot be shown at six decimals
-  (F-1 of the delta-pass over 1.0.2). A marker not recorded reads
+  where not every call was priced, *more than zero* where that bound is above
+  zero and six decimals cannot show it (F-1 of the delta-pass over 1.0.2),
+  and *not known* where it is zero. Where every call was priced, a sum six
+  decimals cannot show reads *under 0.000001 USD*. A marker not recorded reads
   *completeness not recorded* beside its fact. The README's run reads
   *"target: 1 call · counts: none · cost: not known"*. `--json` is unchanged.
 - **A declared width whose cases disagree says so, on one side or on both.**
@@ -92,8 +93,8 @@ entry below declares by hand, and nothing else moved.
   line keeps it with *cost not known for every call*, as before. *Corrected
   2026-10-31:* not below half a millionth of a dollar, where six decimals
   print the sum as `0.000000 USD` beside the clause, which reads as a run
-  that cost nothing (F-1 of the delta-pass over 1.0.2; 1.0.3 says *under
-  0.000001 USD*). A target
+  that cost nothing (F-1 of the delta-pass over 1.0.2; 1.0.3 says *more
+  than zero, not every call priced*). A target
   that states its cost and no token counts, as the quickstart does, keeps its
   figure, because that cost is known. `--json` is unchanged: `spent_usd` is
   still `0.0` beside `every_cost_known: false`.

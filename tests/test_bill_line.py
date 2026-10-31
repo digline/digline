@@ -83,7 +83,7 @@ FORMS = [
         line(calls=2, spent_usd=4e-7, every_cost_known=False),
         (
             "target: 2 calls · counts: none"
-            " · cost: under 0.000001 USD, not every call priced"
+            " · cost: more than zero, not every call priced"
         ),
     ),
     (
@@ -144,18 +144,34 @@ def test_the_judge_line_takes_the_same_forms(totals: CallTotals, expected: str) 
     # and six decimals round it to zero.
     [1e-12, 1e-7, 4e-7, 4.9e-7, 5e-7],
 )
-@pytest.mark.parametrize("known", [True, False, None])
+@pytest.mark.parametrize("known", [True, None])
 def test_a_figure_that_cannot_be_shown_says_so(
     spent: float, known: bool | None
 ) -> None:
-    """F-1, and its other half. Where the known sum is above zero and reads
+    """The other half of F-1. Where the known sum is above zero and reads
     `0.000000` at six decimals, the line says `under 0.000001 USD` instead
-    of printing a zero that is not one, whether or not every call was
-    priced. The threshold is the line's own precision: the figure is shown
-    exactly when its six decimals are not all zero."""
+    of printing a zero that is not one. The threshold is the line's own
+    precision: the figure is shown exactly when its six decimals are not
+    all zero."""
     text = said(line(calls=2, spent_usd=spent, every_cost_known=known))
     assert "cost: under 0.000001 USD" in text, text
     assert "0.000000" not in text, text
+
+
+@pytest.mark.parametrize(
+    "spent",
+    [1e-12, 1e-7, 4e-7, 4.9e-7, 5e-7],
+)
+def test_an_unshowable_sum_beside_an_unpriced_call_states_no_ceiling(
+    spent: float,
+) -> None:
+    """F-1. Not every call was priced, so the bill has a floor and no known
+    ceiling: *under 0.000001 USD* would state one. Six decimals cannot show
+    the floor, so the line says the cost is more than zero, with no figure,
+    and never `0.000000`, which reads as a run that cost nothing."""
+    text = said(line(calls=2, spent_usd=spent, every_cost_known=False))
+    assert text.endswith("cost: more than zero, not every call priced"), text
+    assert "USD" not in text, text
 
 
 @pytest.mark.parametrize("spent", [5.0000001e-7, 6e-7, 1e-6])
@@ -206,6 +222,5 @@ def test_the_f1_probe_does_not_read_as_a_run_that_cost_nothing() -> None:
     assert usage.target.every_cost_known is False
     (text,) = usage_lines(usage)
     assert text == (
-        "target: 2 calls · counts: none · cost: under 0.000001 USD, "
-        "not every call priced"
+        "target: 2 calls · counts: none · cost: more than zero, not every call priced"
     )

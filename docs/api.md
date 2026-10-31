@@ -570,7 +570,8 @@ figure. Where a marker is `None` its fact reads *completeness not recorded*,
 and a line with no call on it reads *not recorded*, with no figure: a judge
 written as a function made its calls, and `0.000000 USD` would say it cost
 nothing (#569). A known sum that six decimals cannot show reads *under
-0.000001 USD*. A line on which no call
+0.000001 USD* where every call was priced, and *more than zero* where not
+every call was: there the bill has no known ceiling. A line on which no call
 answered while digline knows calls were made, because every one raised, reads
 *no call answered, calls made and cost not recorded; not every call seen*,
 with no count and no figure. `calls` counts the calls that answered, how many
