@@ -562,16 +562,18 @@ nobody recorded claims nothing. `NO_CALLS` is the line of no call at all,
 complete on both. In the run file a marker that is `None` is absent, and on
 the wire it is `null`. The terminal's line says three facts, each with its
 qualifier beside it: `target: 3 calls · counts: 120 in / 40 out, from 2 of 3
-calls · cost: at least 0.008990 USD, not every call priced`. Where
-`every_call_seen` is `False` the calls read *not every call seen*; where
-`every_cost_known` is `False` the cost is a lower bound, *at least*, with *not
-every call priced*, and a lower bound of zero reads *not known*, with no
-figure. Where a marker is `None` its fact reads *completeness not recorded*,
-and a line with no call on it reads *not recorded*, with no figure: a judge
-written as a function made its calls, and `0.000000 USD` would say it cost
-nothing (#569). A known sum that six decimals cannot show reads *under
-0.000001 USD* where every call was priced, and *more than zero* where not
-every call was: there the bill has no known ceiling. A line on which no call
+calls · cost: at least 0.008990 USD, not every call priced`. A fact whose
+marker is `True` is exact; one whose marker is `False` or `None` is a lower
+bound, *at least*, with its clause beside it. Where `every_call_seen` is
+`False` the calls read *at least 3 calls, not every call seen*; where
+`every_cost_known` is `False` the cost reads *at least …, not every call
+priced*, and a lower bound of zero reads *not known*, with no figure. Where a
+marker is `None` the clause is *completeness not recorded*, and a cost of
+zero gives the clause alone. A line with no call on it reads *not recorded*,
+with no figure: a judge written as a function made its calls, and `0.000000
+USD` would say it cost nothing (#569). A sum that six decimals cannot show
+reads *under 0.000001 USD* where every call was priced, and *more than zero*
+where not: there the bill has no known ceiling. A line on which no call
 answered while digline knows calls were made, because every one raised, reads
 *no call answered, calls made and cost not recorded; not every call seen*,
 with no count and no figure. `calls` counts the calls that answered, how many

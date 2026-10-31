@@ -14,13 +14,17 @@ notes under them are this file, verbatim.
   not known for every call"*, where the parenthesis was the counts' and stood
   by the cost, and the figure was a sum six decimals could not show. It now
   reads *"target: 2 calls · counts: none · cost: more than zero, not every
-  call priced"*. The calls carry *not every call seen*; the counts carry *from
-  2 of 3 calls* where they are not from every call; the cost reads *at least*
-  where not every call was priced, *more than zero* where that bound is above
-  zero and six decimals cannot show it (F-1 of the delta-pass over 1.0.2),
-  and *not known* where it is zero. Where every call was priced, a sum six
+  call priced"*. One rule holds for each fact: a number whose completeness is
+  known and true is exact, and one whose completeness is false or not
+  recorded is a lower bound, with its clause beside it. So the calls read
+  *at least 3 calls, not every call seen*; the counts carry *from 2 of 3
+  calls* where they are not from every call; the cost reads *at least* where
+  not every call was priced, *more than zero* where that bound is above zero
+  and six decimals cannot show it (F-1 of the delta-pass over 1.0.2), and
+  *not known* where it is zero. Where every call was priced, a sum six
   decimals cannot show reads *under 0.000001 USD*. A marker not recorded reads
-  *completeness not recorded* beside its fact. The README's run reads
+  *completeness not recorded* beside its fact, and its fact is a lower bound
+  too. The README's run reads
   *"target: 1 call · counts: none · cost: not known"*. `--json` is unchanged.
 - **A declared width whose cases disagree says so, on one side or on both.**
   *"has no single value on one side"* was false where the cases of each side
