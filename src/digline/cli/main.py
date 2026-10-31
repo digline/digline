@@ -113,6 +113,7 @@ from digline.store import (
     RunRef,
     SupportsJournal,
     migrate_paths,
+    refusals_for,
 )
 from digline.wire import (
     EXIT_INTERNAL,
@@ -406,7 +407,18 @@ def cmd_run(args: argparse.Namespace) -> int:
     shown = _as_typed(store.run_path(measured.ref), args.root)
     say(f"digline: recorded {shown}", err=True)
     if not judged_nothing and measured.baseline_found is not None:
-        say(f"digline: next: {_next_command(args, measured.baseline_found)}", err=True)
+        # `promote` is named only where it will take this run: the refusals
+        # are asked of the function `promote` itself asks, against the
+        # configuration this run was made under, which is the one in force.
+        # A run that judged nothing never reaches here. (#844)
+        promotable = not refusals_for(
+            measured.run, measured.run.config_hash, declared=suite.declared()
+        )
+        say(
+            f"digline: next: "
+            f"{_next_command(args, measured.baseline_found, promotable=promotable)}",
+            err=True,
+        )
     # `0` asserts that a measurement was made, and a run that judged none of
     # the cases its suite measures made none. The run is written and its key
     # printed all the same: the document is real, the measurement is missing.
@@ -432,7 +444,9 @@ def _as_typed(path: Path, root: str) -> Path:
     return Path(os.path.relpath(path))
 
 
-def _next_command(args: argparse.Namespace, baseline_found: bool) -> str:
+def _next_command(
+    args: argparse.Namespace, baseline_found: bool, *, promotable: bool
+) -> str:
     """The command after this run, with a shell comment saying what it does.
 
     It can be pasted whole: the words are quoted as a shell splits them, and
@@ -446,6 +460,12 @@ def _next_command(args: argparse.Namespace, baseline_found: bool) -> str:
     `migrate`, not `compare`. That is not `run` judging the reference: the
     person declared its schema with the flag, and `compare` refuses a reference
     at an older schema until it is migrated.
+
+    **With no reference, `promote` is named only where it will take the run**
+    (`promotable`): a run with a case that could not be judged, or any other
+    refusal the document carries, is followed by `explain`, which reads the
+    run back and says which checks could not be judged. `run` printed a
+    `promote` that `promote` refused with exit 64 until #844.
     """
     if baseline_found and args.accepting_baseline_schema is not None:
         words = ["digline", "migrate", "--suite", args.suite]
@@ -453,11 +473,14 @@ def _next_command(args: argparse.Namespace, baseline_found: bool) -> str:
     elif baseline_found:
         words = ["digline", "compare", "--suite", args.suite, "--run", "latest"]
         does = "says whether anything got worse"
-    else:
+    elif promotable:
         words = ["digline", "promote", "--suite", args.suite, "--run", "latest"]
         words += ["--replacing", "none"]
         does = "keeps this run as the reference"
-    words += _where(args, target=not baseline_found)
+    else:
+        words = ["digline", "explain", "--suite", args.suite, "--run", "latest"]
+        does = "reads this run back; promote would refuse it"
+    words += _where(args, target=not baseline_found and promotable)
     return f"{shlex.join(words)}  # {does}"
 
 

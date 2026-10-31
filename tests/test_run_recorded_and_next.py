@@ -9,11 +9,12 @@ output:
 The `# …` is a shell comment on purpose: the line without its prefix can be
 pasted whole and it runs.
 
-Six states, and a fixed count of each line in each:
+Seven states, and a fixed count of each line in each:
 
 | state                                           | recorded | next    |
 |-------------------------------------------------|----------|---------|
 | 1. no reference                                 | 1        | promote |
+| 1b. no reference, a run `promote` would refuse  | 1        | explain |
 | 2. a reference present                          | 1        | compare |
 | 3. a reference accepted on its schema, by flag  | 1        | migrate |
 | 4. written, nothing judged                      | 1        | none    |
@@ -24,6 +25,9 @@ Six states, and a fixed count of each line in each:
   path that exists.
 - `next` names a command that uses what this run produced. State 4 produced
   nothing to use, so it says none, with a reference present too.
+- `next` never names a command this run's own state will make refused. State
+  1b is a run with a case that could not be judged, or any refusal its
+  document carries: `promote` refuses it, so `next` names `explain`. (#844)
 - States 5 and 6 carry their instruction in the refusal.
 - `run` says nothing about whether the reference is any good: a file there is
   enough to name `compare`, and `compare` judges it. State 3 is not a
@@ -40,6 +44,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from tests._helpers import cli
 
 from digline.cli import EXIT_OK, EXIT_UNJUDGED, EXIT_USAGE
@@ -334,3 +339,118 @@ def test_a_reference_compare_would_refuse_still_names_compare(tmp_path: Path) ->
     assert lines(ran.stderr, NEXT) == [
         f"digline: next: digline compare --suite suite.py --run latest{COMPARE_SAYS}"
     ]
+
+
+# --------------------------------------------------------------------------- #
+# #844: `next` never names a command this run's own state will refuse
+# --------------------------------------------------------------------------- #
+
+EXPLAIN_SAYS = "  # reads this run back; promote would refuse it"
+
+#: #844's suite: a judge that raises on the cases named, and a `Contains` that
+#: passes on every case, so the run is never one that judged nothing.
+JUDGED = """
+from digline.core import Contains, JudgeReply, LlmRubric
+from digline.run import Case, Response, Suite
+
+RAISE_ON = %s
+
+
+def judge(prompt):
+    if any(f"[{case}]" in prompt for case in RAISE_ON):
+        raise RuntimeError("judge unavailable")
+    return JudgeReply(score=0.9, reason="fine")
+
+
+def target(case):
+    return Response(output=f"hello world [{case.id}]")
+
+
+suite = Suite(
+    tenant="t",
+    environment="e",
+    name="lent",
+    assertions=[
+        LlmRubric(rubric="is it good", judge=judge, threshold=0.5, tolerance=0.1),
+        Contains("hello"),
+    ],
+    cases=[Case(id=f"c{i}") for i in range(1, 5)],
+)
+"""
+
+#: The judge raises on no case, on one, and on all four: the issue measured
+#: the last, and named the second as not measured.
+RAISING = {
+    "no case errored": "set()",
+    "one case errored": '{"c1"}',
+    "every case errored": '{"c1", "c2", "c3", "c4"}',
+}
+
+
+def promote_as_typed(root: Path) -> subprocess.CompletedProcess[str]:
+    return cli(
+        root, "promote", "--suite", "suite.py", "--run", "latest", "--replacing", "none"
+    )
+
+
+def run_judged(root: Path, raising: str) -> str:
+    repo(root, JUDGED % RAISING[raising])
+    ran = cli(root, "run", "--suite", "suite.py")
+    assert ran.returncode == EXIT_OK, ran.stderr
+    (line,) = lines(ran.stderr, NEXT)
+    return line
+
+
+def test_a_run_promote_would_refuse_is_not_told_to_promote(tmp_path: Path) -> None:
+    """#844, as the issue measured it: every judge call raised, `run` said
+    `next: digline promote …`, and that command, typed as printed, exited 64
+    with `ErroredRunError`. The line names `explain` instead."""
+    line = run_judged(tmp_path, "every case errored")
+    assert line == (
+        f"digline: next: digline explain --suite suite.py --run latest{EXPLAIN_SAYS}"
+    )
+
+
+def test_one_errored_case_is_enough_to_name_explain(tmp_path: Path) -> None:
+    """The case the issue did not measure: one case errored beside three
+    judged. `promote` refuses that run too, so `run` may not name it."""
+    line = run_judged(tmp_path, "one case errored")
+    assert "digline promote" not in line, line
+    assert "digline explain" in line, line
+
+
+def test_a_run_promote_accepts_is_still_told_to_promote(tmp_path: Path) -> None:
+    """The control: the judge answers, and the line names `promote`."""
+    line = run_judged(tmp_path, "no case errored")
+    assert line == (
+        "digline: next: digline promote --suite suite.py --run latest "
+        f"--replacing none{PROMOTE_SAYS}"
+    )
+
+
+@pytest.mark.parametrize("raising", list(RAISING))
+def test_next_never_names_a_command_this_run_will_refuse(
+    tmp_path: Path, raising: str
+) -> None:
+    """The closing criterion of #844, which can fail: the `next` line, typed as
+    printed, is never refused. `promote` is typed as well, in every state, so
+    each state says which side of the criterion it is on: where `promote`
+    refuses, the line names something else, and what it names runs."""
+    line = run_judged(tmp_path, raising)
+    words = shlex.split(line.removeprefix(NEXT), comments=True)
+    done = subprocess.run(
+        [sys.executable, "-m", "digline.cli", *words[1:]],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # A verdict is not a refusal: `explain` says 2 about a run with a case that
+    # could not be judged, and 0, 1 and 2 each mean digline ran.
+    assert done.returncode in (EXIT_OK, EXIT_UNJUDGED), done.stderr
+    assert "Error:" not in done.stderr, done.stderr
+    if words[1] == "explain":
+        assert "could not be judged" in done.stdout, done.stdout
+        assert promote_as_typed(tmp_path).returncode == EXIT_USAGE
+    else:
+        assert words[1] == "promote"
