@@ -6,7 +6,19 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 1.0.3 — unreleased
+
+digline **1.0.3**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
+the version*.** No public name is removed or renamed, no subcommand or option
+is removed or changes meaning, no exit code changes, the schema stays 22 and
+`OUTPUT_VERSION` stays 5. What changes is lines that `digline run`, `rejudge`,
+`compare`, `explain` and the report print, and the command `run` names next.
+
+**The surface, measured against `v1.0.2`** on `main` at `ac36714b`: the
+derived JSON contract (`tools/contract_diff.py`) prints nothing, and its
+control, `v0.35.0..v1.0.0`, prints 18 lines. In `src/` no `__all__`, class or
+field is added or removed: the five files that moved add private functions
+and change a private one's signature.
 
 - **The bill is three facts, each with its own qualifier, said only where it
   carries information.** `digline run` and `digline rejudge` printed
