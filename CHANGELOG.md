@@ -67,7 +67,12 @@ and change a private one's signature.
   none of the three files above reads it. The same count between `v0.33.0`
   and `v0.34.0` finds three.
 
-## digline-mcp — unreleased
+## digline-mcp 0.8.1 — 2026-10-31
+
+Published by its own tag, `digline-mcp-v0.8.1`, after digline 1.0.3 was on
+PyPI. **A patch**, by the enumeration in `RELEASING.md`, *Choosing the
+version*, which holds for each package: a key added to one tool's answer, and
+a floor that 1.0.2 and 1.0.3 both meet.
 
 - **The `run` tool says why a cost is not known, as `unpriced`.** It used to
   collect the sentences a plugin wrote for a reply it could not price and
@@ -82,9 +87,7 @@ and change a private one's signature.
   `mint=` to `run_json` and relies on `WITHHELD_WORDS["cost_reason"]`, both
   new in 1.0.2; against 1.0.1 the call raises `TypeError`.
 
-Nothing that worked stops working: a key added to one tool's answer, and a
-floor. By the enumeration in `RELEASING.md`, *Choosing the version*, which
-holds for each package, that is a patch, as digline-mcp 0.6.3 was.
+Nothing that worked stops working, as for digline-mcp 0.6.3.
 
 ## 1.0.2 — 2026-10-30
 
