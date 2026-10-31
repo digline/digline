@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.0.3 — unreleased
+## 1.0.3 — 2026-10-31
 
 digline **1.0.3**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
 the version*.** No public name is removed or renamed, no subcommand or option
@@ -54,6 +54,18 @@ and change a private one's signature.
   asks the refusals `promote` asks and names `digline explain --suite … --run
   latest` there, which reads the run back and says which checks could not be
   judged.
+
+### Seen working in a browser — not owed
+
+- **The walkthrough was not owed for 1.0.3, and did not run.** Nothing in the
+  launch key, the hand-over or the promote form changed since 0.34.0, the last
+  release that ran it. Between `v1.0.2` and `7af6da7c`, the tree this release
+  is cut from, `src/digline/cli/view.py`, `src/digline/report/pages.py` and
+  `src/digline/host/promotion.py` have no commit, measured on 2026-10-31.
+  `src/digline/report/text.py` and `src/digline/report/render.py` have one,
+  `ea85a222`, which gives a width whose cases disagree a sentence of its own;
+  none of the three files above reads it. The same count between `v0.33.0`
+  and `v0.34.0` finds three.
 
 ## digline-mcp — unreleased
 

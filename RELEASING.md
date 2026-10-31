@@ -550,7 +550,6 @@ it and deletes it.
 
 | Package | What it carries | What the number must reflect |
 |---|---|---|
-| `digline` | #846: the README quotes `digline: target: 1 call · counts: none · cost: not known` | the block `suite=hello`, captured again before the tag |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
