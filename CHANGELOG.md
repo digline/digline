@@ -71,8 +71,8 @@ and change a private one's signature.
 
 Published by its own tag, `digline-mcp-v0.8.1`, after digline 1.0.3 was on
 PyPI. **A patch**, by the enumeration in `RELEASING.md`, *Choosing the
-version*, which holds for each package: a key added to one tool's answer, and
-a floor that 1.0.2 and 1.0.3 both meet.
+version*, which holds for each package: a key added to one tool's answer, a
+floor that 1.0.2 and 1.0.3 both meet, and a description's text.
 
 - **The `run` tool says why a cost is not known, as `unpriced`.** It used to
   collect the sentences a plugin wrote for a reply it could not price and
@@ -86,6 +86,14 @@ a floor that 1.0.2 and 1.0.3 both meet.
 - **The dependency is `digline>=1.0.2,<2`.** The floor: the `run` tool passes
   `mint=` to `run_json` and relies on `WITHHELD_WORDS["cost_reason"]`, both
   new in 1.0.2; against 1.0.1 the call raises `TypeError`.
+- **`server.json` says what `--names project` does with what it cannot
+  mint.** Its description of `--names` said *"every answer carries tokens
+  where it carried names"*. Some content is withheld whole instead: the
+  `list_runs` scan, which holds file names; parts of a refusal; and now each
+  sentence of `unpriced`. It now reads *"an answer carries a token where the
+  projection mints a name, and withholds whole what it cannot mint"*. The
+  registry entry is made from this file, and cannot be changed once
+  published.
 
 Nothing that worked stops working, as for digline-mcp 0.6.3.
 
