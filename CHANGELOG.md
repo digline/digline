@@ -6,6 +6,37 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **The bill is three facts, each with its own qualifier, said only where it
+  carries information.** `digline run` and `digline rejudge` printed
+  *"target: 2 calls, no counts reported, 0.000000 USD (counted 0 of 2); cost
+  not known for every call"*, where the parenthesis was the counts' and stood
+  by the cost, and the figure was a sum six decimals could not show. It now
+  reads *"target: 2 calls · counts: none · cost: under 0.000001 USD, not every
+  call priced"*. The calls carry *not every call seen*; the counts carry *from
+  2 of 3 calls* where they are not from every call; the cost reads *at least*
+  where not every call was priced, *not known* where that bound is zero, and
+  *under 0.000001 USD* where a sum above zero cannot be shown at six decimals
+  (F-1 of the delta-pass over 1.0.2). A marker not recorded reads
+  *completeness not recorded* beside its fact. The README's run reads
+  *"target: 1 call · counts: none · cost: not known"*. `--json` is unchanged.
+- **A declared width whose cases disagree says so, on one side or on both.**
+  *"has no single value on one side"* was false where the cases of each side
+  declare different widths, and both sides have values (F-2). The width's
+  row now reads *"contains.floor_standard_errors is declared differently by
+  the cases of one side or of both, so whether it moved is not known"*, and
+  the report's cell the same without the name, in English and in Italian.
+  The threshold, the tolerance and the count of samples keep their sentence,
+  which is true of them: they reach the row with exactly one side lacking a
+  value. A threshold both sides' cases disagree on still gives no row.
+- **`run` no longer tells you to promote a run `promote` refuses.** After a
+  first run with a case that could not be judged, `next:` named `digline
+  promote … --replacing none`, which exits 64 on that run (#844). It now
+  asks the refusals `promote` asks and names `digline explain --suite … --run
+  latest` there, which reads the run back and says which checks could not be
+  judged.
+
 ## digline-mcp — unreleased
 
 - **The `run` tool says why a cost is not known, as `unpriced`.** It used to
@@ -58,7 +89,11 @@ entry below declares by hand, and nothing else moved.
   nothing, or a lower bound of zero, says nothing about the bill. Where some
   calls were priced and one was not, as Bedrock's one-hour cache write leaves
   it, the sum above zero is a lower bound that does say something, and the
-  line keeps it with *cost not known for every call*, as before. A target
+  line keeps it with *cost not known for every call*, as before. *Corrected
+  2026-10-31:* not below half a millionth of a dollar, where six decimals
+  print the sum as `0.000000 USD` beside the clause, which reads as a run
+  that cost nothing (F-1 of the delta-pass over 1.0.2; 1.0.3 says *under
+  0.000001 USD*). A target
   that states its cost and no token counts, as the quickstart does, keeps its
   figure, because that cost is known. `--json` is unchanged: `spent_usd` is
   still `0.0` beside `every_cost_known: false`.

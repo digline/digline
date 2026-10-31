@@ -659,8 +659,9 @@ class Verdict:
     #: `None` is *declared none*. Recorded here for `tolerance`'s reason, so a
     #: document carries what reading it needs. Copied off the assertion, like
     #: the tolerance, and outside `identity`; inside `config_hash` only where it
-    #: is declared. **Nothing reads it to decide anything yet**: in phase 1 of
-    #: #496 the floor is still the range. (ADR 0050)
+    #: is declared. **`compare()` decides on it**: `_floor` reads it as the
+    #: width of the floor a sampled check's movement is held against, and the
+    #: rules row names it where it moved between the two runs. (ADR 0050)
     floor_standard_errors: float | None = field(default=None, kw_only=True)
     #: Who wrote the metadata keys: `builtin`, `foreign`, or `None` for *not
     #: recorded*, a verdict written before schema 22 or built by hand. Stamped
