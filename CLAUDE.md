@@ -298,6 +298,20 @@ artifacts that today exists in none of the audited competitors.
     refuses a checkout ahead of `origin/main`. Run 40332689482, on a
     Dependabot branch, is the instance. It is a known red of the technique,
     and the same job on the pull request's own run is the one to read.
+- **Six rules of working, one line each.** *Added 2026-10-31 (P-1201).*
+  - An identifier is read from the tool that emitted it, never from a shell
+    variable: in zsh `$R:r` is a modifier, and a broken variable makes a
+    command succeed on nothing.
+  - Errors are not silenced on a step that writes: no `2>/dev/null` and no
+    `|| true` where the step changes something.
+  - A local subset is not a gate: whoever runs one says what it excluded,
+    because the exclusion is the finding.
+  - An exit code is not read behind a pipe (the second of the three ways
+    above), and when it is lost, the state is measured, not the action
+    repeated.
+  - A prompt is closed by a report, not by doing the work.
+  - The destructive part can sit in a flag, not only in the verb: `--force`,
+    `-D`, `--hard`.
 - **When a public sentence dictated to a session disagrees with what the
   session measured, the measurement wins, and the session says so.** The
   sentence goes out as measured, and the disagreement is reported beside it,

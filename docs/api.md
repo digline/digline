@@ -560,11 +560,25 @@ judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line
 nobody recorded claims nothing. `NO_CALLS` is the line of no call at all,
 complete on both. In the run file a marker that is `None` is absent, and on
-the wire it is `null`. The terminal's line adds *not every call seen* or *cost
-not known for every call* where a marker is `False`. Where a marker is `None`
-the line ends *not recorded in full*, and a line with no call on it reads
-*not recorded*, with no figure: a judge written as a function made its calls,
-and `0.000000 USD` would say it cost nothing (#569). A line on which no call
+the wire it is `null`. The terminal's line says three facts, each with its
+qualifier beside it: `target: 3 calls · counts: 120 in / 40 out, from 2 of 3
+calls · cost: at least 0.008990 USD, not every call priced`. A fact whose
+completeness is known and true is exact. The calls are a lower bound where
+`every_call_seen` is `False` or `None`: *at least 3 calls, not every call
+seen*, or *…, completeness not recorded*. The counts and the cost sum over the
+calls and inherit that marker: where only it makes them incomplete, the
+figure is exact *on the calls seen*. Where the cost's own marker is `False` or
+`None` the cost is a lower bound, *at least …, not every call priced* or *…,
+completeness not recorded*, whatever the calls' marker. Counts from only some
+calls name that scope, *from 2 of 3 calls*, and take no second one; *counts:
+none* is no measurement, not a zero. A sum that six decimals cannot show
+reads *under 0.000001 USD* where its ceiling is known, with every call priced
+or on the calls seen, and *more than zero* where it is not. Where no figure
+can be printed the line says the state: *not known* where not every call was
+priced and the known costs sum to zero, *completeness not recorded* where
+that was not recorded. A line with no call on it reads *not recorded*, with
+no figure: a judge written as a function made its calls, and `0.000000 USD`
+would say it cost nothing (#569). A line on which no call
 answered while digline knows calls were made, because every one raised, reads
 *no call answered, calls made and cost not recorded; not every call seen*,
 with no count and no figure. `calls` counts the calls that answered, how many

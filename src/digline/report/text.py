@@ -523,6 +523,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.cell.unknown": (
             "no single value on one side, so whether it moved is not known"
         ),
+        # A width reaches `unknown` where the cases of one side or of both
+        # declare different widths, so both sides have values and the row does
+        # not say which of the two it is. (F-2, the delta-pass over 1.0.2)
+        "rules.cell.unknown.width": (
+            "declared differently by the cases of one side or of both, so "
+            "whether it moved is not known"
+        ),
         "rules.direction.loosened": "looser",
         "rules.direction.tightened": "stricter",
         "rules.terminal": "rules",
@@ -544,6 +551,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.missing": "{name} removed",
         "rules.unknown": (
             "{name} has no single value on one side, so whether it moved is not known"
+        ),
+        "rules.unknown.width": (
+            "{name} is declared differently by the cases of one side or of both, "
+            "so whether it moved is not known"
         ),
         "rules.unnameable": (
             "the agreement floor is not recorded, so it cannot be compared"
@@ -1878,6 +1889,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.cell.unknown": (
             "nessun valore unico su uno dei due lati, quindi non si sa se si sia mosso"
         ),
+        "rules.cell.unknown.width": (
+            "dichiarato in modo diverso dai casi di un lato o di entrambi, quindi "
+            "non si sa se si sia mosso"
+        ),
         "rules.direction.loosened": "più larga",
         "rules.direction.tightened": "più stretta",
         "rules.terminal": "regole",
@@ -1897,6 +1912,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "rules.unknown": (
             "{name} non ha un valore unico su uno dei due lati, quindi non si sa "
             "se si sia mosso"
+        ),
+        "rules.unknown.width": (
+            "{name} è dichiarato in modo diverso dai casi di un lato o di "
+            "entrambi, quindi non si sa se si sia mosso"
         ),
         "rules.unnameable": (
             "la soglia di accordo non è registrata, quindi non è confrontabile"

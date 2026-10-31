@@ -509,7 +509,7 @@ def test_the_parenthesis_appears_only_when_the_total_is_partial() -> None:
             judge=NO_CALLS,
         )
     )
-    assert whole == ["target: 2 calls, 10 in / 5 out, 0.000000 USD"]
+    assert whole == ["target: 2 calls · counts: 10 in / 5 out · cost: 0.000000 USD"]
 
     partial = usage_lines(
         RunUsage(
@@ -517,7 +517,10 @@ def test_the_parenthesis_appears_only_when_the_total_is_partial() -> None:
             judge=NO_CALLS,
         )
     )
-    assert partial == ["target: 2 calls, 10 in / 5 out, 0.000000 USD (counted 1 of 2)"]
+    assert partial == [
+        "target: 2 calls · counts: 10 in / 5 out, from 1 of 2 calls"
+        " · cost: 0.000000 USD"
+    ]
 
 
 def test_a_document_with_no_bill_prints_no_line() -> None:

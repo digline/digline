@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 
 from digline.core import (
+    CallTotals,
     Disclosure,
     Minter,
     Run,
@@ -39,31 +40,30 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
     like every other line the CLI prints, not a document with a recipient who
     did not choose the language.
 
-    **The `counted` clause appears only when the totals are partial.** A
-    parenthesis on every run is one a reader learns to skip, taking the rare one
-    with it — and the rare one is the whole point, because it says the figure
-    beside it is not the whole bill.
+    **Three facts, each with its own qualifier, said only where it carries
+    information**: *calls*, *counts* and *cost*, as
+    `target: 3 calls · counts: 120 in / 40 out, from 2 of 3 calls · cost: at
+    least 0.008990 USD, not every call priced`. A qualifier on every run is one
+    a reader learns to skip, taking the rare one with it, and the rare one is
+    the whole point. So a whole line reads `target: 2 calls · counts: none ·
+    cost: 0.008990 USD`, with no *of* and no clause. Each marker qualifies the
+    fact it is about (#563): *not every call seen*, a call that raised and is
+    on no line, goes with the calls; *not every call priced*, a call on the
+    line whose cost nobody stated, goes with the cost, which is then a lower
+    bound, *at least*. `_cost` has the figure's own rules.
 
     `None` — a document that recorded no bill — produces no lines at all rather
     than a row of zeros, which would be a claim it never made.
 
-    **The two incompleteness clauses follow the same rule**: said where a
-    marker is false, and nothing where it is true or not recorded. *Not every
-    call seen* is a call that raised and is on no line; *cost not known for
-    every call* is a call on the line whose cost nobody stated. Either says the
-    figure beside it is less than the whole bill. (#563) **Where the costs
-    that are known sum to zero, *cost not known* takes the figure's place**:
-    a sum over nothing, or a lower bound of zero, says nothing about the bill,
-    and `0.000000 USD` read as a run that cost nothing. A sum above zero is a
-    lower bound that does say something, so it stays, with the clause.
-
-    **A marker not recorded is said too, on the same line.** It is what a
+    **A marker not recorded is a third state, and is said as one**:
+    *completeness not recorded*, beside the fact it is about. It is what a
     judge digline cannot read gives, a judge written as a function: its calls
-    were made and none of them is on the line. A line with no call and that
-    marker reads *not recorded*, with no figure, because `0.000000 USD` would
-    say the judging cost nothing; a line with calls ends *not recorded in
-    full*, because its figure is only what digline could read. A line built
-    by hand claims nothing, so it reads the same. (#569)
+    were made and none of them is on the line. It speaks of the record, not of
+    the calls, and stays apart from *not known*, which is the cost looked at
+    and found to be a lower bound of zero. A line with no call and that marker
+    reads *not recorded*, with no figure, because `0.000000 USD` would say the
+    judging cost nothing. A line built by hand claims nothing, so it reads the
+    same. (#569)
 
     **A line where no call answered and digline knows calls were made states
     no count and no sum.** Every call raised: `calls` is zero because it
@@ -97,36 +97,107 @@ def usage_lines(usage: RunUsage | None) -> list[str]:
                 "not every call seen"
             )
             continue
-        counts = (
-            f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
-            if line.counted
-            else "no counts reported"
-        )
-        partial = f" (counted {line.counted} of {line.calls})" if line.partial else ""
-        # **No figure where a cost is not known and the known ones sum to
-        # zero.** `spent_usd` is then a sum over nothing, as for a target that
-        # states no cost, or a lower bound of zero: neither says anything
-        # about the bill, and `0.000000 USD` beside a clause saying the cost
-        # was not known read as a run that cost nothing. So the line names the
-        # calls, says what it counted, and says the cost is not known, with no
-        # number; the parenthesis goes with the counts it qualifies. A sum
-        # above zero is a lower bound that does say something, and keeps its
-        # figure with the clause; a marker not recorded keeps it and says so.
-        no_figure = line.every_cost_known is False and line.spent_usd == 0
-        missing = ["not every call seen"] if line.every_call_seen is False else []
-        if line.every_cost_known is False and not no_figure:
-            missing.append("cost not known for every call")
-        if None in (line.every_call_seen, line.every_cost_known):
-            missing.append("not recorded in full")
-        incomplete = f"; {', '.join(missing)}" if missing else ""
-        calls = f"{side}: {line.calls} call{'s' if line.calls != 1 else ''}"
-        if no_figure:
-            lines.append(f"{calls}, {counts}{partial}, cost not known{incomplete}")
-            continue
         lines.append(
-            f"{calls}, {counts}, {line.spent_usd:.6f} USD{partial}{incomplete}"
+            f"{side}: {_calls(line)} · counts: {_counts(line)} · cost: {_cost(line)}"
         )
     return lines
+
+
+#: Where a marker on the line was not recorded: a judge digline cannot read,
+#: or a line built by hand. It is about the record, not about the calls — it
+#: does not say a call was missed or a cost unknown, only that nobody wrote
+#: down whether. (#569)
+_UNRECORDED = "completeness not recorded"
+
+#: The decimals a cost is printed to, and the smallest figure they can show.
+_DECIMALS = 6
+_SMALLEST = f"{10**-_DECIMALS:.{_DECIMALS}f}"
+
+
+#: What the line says of a fact where no figure can be printed: the state,
+#: one per value of its marker, and not the reason. (P-1206d, rule 6)
+_STATE = {False: "not known", None: _UNRECORDED}
+
+#: The scope a figure is exact on, where only the calls' marker makes it
+#: incomplete: the calls on the line are the calls seen. (P-1206d, rule 4)
+_ON_SEEN = "on the calls seen"
+
+
+def _incomplete(marker: bool | None, missing: str) -> str | None:
+    """The reason a fact's own marker makes it incomplete, or `None` where
+    the marker is true.
+
+    **The rules of the line** (P-1206d, decided by P-1206e). A number whose
+    completeness is known and true is exact. Its completeness is its own
+    marker and that of the set it sums over: the counts and the cost sum
+    over the calls. Incompleteness from its own marker is a lower bound,
+    *at least <figure>, <reason>*, because which calls are missing is not
+    known; incompleteness inherited alone is a figure exact on a scope that
+    can be named, *<figure> on the calls seen*; where both, its own marker
+    wins. A scope already named is not joined by a second.
+    """
+    if marker is True:
+        return None
+    return missing if marker is False else _UNRECORDED
+
+
+def _inherited(line: CallTotals) -> bool:
+    """Whether the set the counts and the cost sum over is incomplete."""
+    return line.every_call_seen is not True
+
+
+def _calls(line: CallTotals) -> str:
+    """The calls that answered: exact where every call made was seen, and a
+    lower bound where one was not, or where that was not recorded."""
+    calls = f"{line.calls} call{'s' if line.calls != 1 else ''}"
+    reason = _incomplete(line.every_call_seen, "not every call seen")
+    return calls if reason is None else f"at least {calls}, {reason}"
+
+
+def _counts(line: CallTotals) -> str:
+    """The token totals, with the scope they are exact on.
+
+    `none` is the absence of a measurement, not the number zero: no call
+    reported counts, and no bound touches it. Where some calls did not
+    report, the scope is named, *from 2 of 3 calls*, and a second scope is
+    not added; where every call on the line reported and not every call was
+    seen, the totals are exact *on the calls seen*.
+    """
+    if not line.counted:
+        return "none"
+    totals = f"{line.tokens.input_tokens} in / {line.tokens.output_tokens} out"
+    if line.partial:
+        return f"{totals}, from {line.counted} of {line.calls} calls"
+    return f"{totals} {_ON_SEEN}" if _inherited(line) else totals
+
+
+def _cost(line: CallTotals) -> str:
+    """The sum of the known costs: exact, exact on a named scope, or a lower
+    bound.
+
+    **A figure the declared precision would print as zero is not printed as
+    zero**, because `0.000000` reads as a run that cost nothing. Where the
+    ceiling is known it reads *under* the smallest figure the precision can
+    show; a named scope makes the whole statement relative to it, so its
+    ceiling is known there too. Otherwise the expression of the bound is
+    *more than zero*, which is already a lower bound. (F-1, the delta-pass
+    over 1.0.2; P-1206e)
+
+    **Where no figure can be printed, the line says the state, not the
+    reason**: *not known* where not every call was priced and the known
+    costs sum to zero (#834), *completeness not recorded* where that was not
+    recorded. With a figure, the clause gives the reason.
+    """
+    figure = f"{line.spent_usd:.{_DECIMALS}f} USD"
+    unshowable = line.spent_usd > 0 and float(f"{line.spent_usd:.{_DECIMALS}f}") == 0
+    reason = _incomplete(line.every_cost_known, "not every call priced")
+    if reason is None:
+        exact = f"under {_SMALLEST} USD" if unshowable else figure
+        return f"{exact} {_ON_SEEN}" if _inherited(line) else exact
+    if line.spent_usd == 0:
+        return _STATE[line.every_cost_known]
+    bound = "more than zero" if unshowable else f"at least {figure}"
+    return f"{bound}, {reason}"
 
 
 def run_json(

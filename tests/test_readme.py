@@ -484,3 +484,62 @@ def test_the_status_version_is_the_version_in_pyproject() -> None:
         "sentence is written by hand and has fallen behind twice. Update the "
         "Status line."
     )
+
+
+#: Where the opening is: from the question to the first suite under it.
+QUESTION = "**Did my change make it worse?**"
+
+#: The claims F-3 found false of the page's own suite, by their stems: that
+#: digline *measures* how much the model varies, and calls a difference a
+#: regression *only when* it is bigger than that. Narrower than every way of
+#: saying it, and said so: this holds the sentence the delta-pass found, not
+#: every wording a later edit could reach for.
+NOISE_CLAIMS = ("measur", "only when")
+
+
+def opening() -> str:
+    start = TEXT.index(QUESTION)
+    return TEXT[start : TEXT.index("```python", start)]
+
+
+def test_the_opening_claims_nothing_its_own_suite_does_not_show(
+    tmp_path: Path,
+) -> None:
+    """F-3 of the delta-pass over 1.0.2. The opening said digline *"measures
+    how much the model varies on its own, and calls a difference a regression
+    only when it is bigger than that"*, over a suite with one sample, in which
+    nothing about how the model varies is measured and a single changed answer
+    is a regression.
+
+    So the arc the page runs is run with its answer changed once, as
+    `readme_arc.sh` did: `compare` calls it worse and exits 1. While the
+    page's suite declares no `samples`, the opening may not claim the noise
+    is measured."""
+    suite = suites()["hello"]
+    assert "samples" not in suite, "the opening's suite is sampled: re-read this test"
+    (tmp_path / "suite.py").write_text(suite, encoding="utf-8")
+    first = cli(tmp_path, "run", "--suite", "suite.py")
+    assert first.returncode == EXIT_OK, first.stderr
+    promoted = cli(
+        tmp_path,
+        "promote",
+        "--suite",
+        "suite.py",
+        "--run",
+        "latest",
+        "--replacing",
+        "none",
+    )
+    assert promoted.returncode == EXIT_OK, promoted.stderr
+    changed = suite.replace('"hello world"', '"goodbye world"')
+    assert changed != suite
+    (tmp_path / "suite.py").write_text(changed, encoding="utf-8")
+    second = cli(tmp_path, "run", "--suite", "suite.py")
+    assert second.returncode == EXIT_OK, second.stderr
+    compared = cli(tmp_path, "compare", "--suite", "suite.py", "--run", "latest")
+    assert compared.returncode == EXIT_WORSE, compared.stdout + compared.stderr
+
+    said = " ".join(opening().split()).lower()
+    assert said.startswith(QUESTION.lower())
+    for claim in NOISE_CLAIMS:
+        assert claim not in said, f"the opening says {claim!r}: {said}"

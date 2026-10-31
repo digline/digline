@@ -1136,6 +1136,17 @@ the target alone: `CostBudget` reads the target's cost, and no judge's.
    whose known costs sum above zero keeps its figure and the clause.
    Criterion 3 stays true as written: a line whose every cost is known says
    neither form.
+
+   *Corrected 2026-10-31.* The sentence *"A line whose known costs sum above
+   zero keeps its figure and the clause"* was not true below half a
+   millionth of a dollar, where six decimals printed the figure as
+   `0.000000 USD` (F-1 of the delta-pass over 1.0.2). And from 1.0.3 the
+   clause is worded otherwise: the cost reads *at least 0.008990 USD, not
+   every call priced*, *more than zero, not every call priced* where six
+   decimals cannot show the sum, and *not known* where it is zero. So the
+   criterion's *cost not known for every call* is now *not every call
+   priced*, beside the cost. Criterion 3 stays true: a line whose every cost
+   is known says neither.
 2. **Counts not recorded.** The plugin hands back `usage=None`, as today, and
    it reads as *not recorded* (#629, #739):
    - `counted` is below `calls`;

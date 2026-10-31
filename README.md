@@ -54,7 +54,7 @@ def target(case: Case) -> Response:
 ```console suite=hello
 $ digline run --suite suite.py
 digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
-digline: target: 1 call, no counts reported (counted 0 of 1), cost not known
+digline: target: 1 call · counts: none · cost: not known
 2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535
 digline: recorded .digline/acme/runs/hello/2026-10-30T10-46-22-155484-00-00-f849e1e676ebb535.json
 digline: next: digline promote --suite suite.py --run latest --replacing none  # keeps this run as the reference
@@ -64,7 +64,7 @@ tenant 'acme' · hello baseline set to 2026-10-30T10-46-22-155484-00-00-f849e1e6
 
 $ digline run --suite suite.py
 digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
-digline: target: 1 call, no counts reported (counted 0 of 1), cost not known
+digline: target: 1 call · counts: none · cost: not known
 2026-10-30T10-46-22-444490-00-00-f849e1e676ebb535
 digline: recorded .digline/acme/runs/hello/2026-10-30T10-46-22-444490-00-00-f849e1e676ebb535.json
 digline: next: digline compare --suite suite.py --run latest  # says whether anything got worse
