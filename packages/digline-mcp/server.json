@@ -9,12 +9,12 @@
     "source": "github",
     "subfolder": "packages/digline-mcp"
   },
-  "version": "0.8.0",
+  "version": "0.8.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "digline-mcp",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "transport": {
         "type": "stdio"
       },
@@ -29,7 +29,7 @@
         {
           "type": "named",
           "name": "--names",
-          "description": "Whether the store's names may leave in clear: clear, or project, under which every answer carries tokens where it carried names. No default.",
+          "description": "Whether the store's names may leave in clear: clear, or project, under which an answer carries a token where the projection mints a name, and withholds whole what it cannot mint. No default.",
           "isRequired": true
         },
         {
