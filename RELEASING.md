@@ -2254,6 +2254,40 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-mcp-v0.8.1 — a named tag after the core, one package, `unpriced`
+  on the `run` tool.** `publish` (`41217962673`) passed on attempt 1 and read
+  `completed`, `success`, at 16:11:20Z, with `github-release` and the site
+  jobs skipped, as on any plugin tag, and no `docker-publish`, which fires on
+  `v*` only. `tools/tag_names.py "digline-mcp 0.8.1"` ran on #851's merge
+  commit, `51970388`, which was `origin/main`, immediately before the tag:
+  one package, named. `server.json` there named 0.8.1 in both `version`
+  fields, read at 16:03:56Z. The tag object is `adce76c6`.
+  - **The gate.** `publish` read `waiting`, on its `PyPI` job, at 16:07:54Z,
+    and `completed` at 16:11:20Z. This session did not read the run's
+    `approvals` record, so this entry says nothing about who approved. No
+    follow-up issue names this tag: `release-followup` (`41218426435`), started
+    by this `publish`, read `success` and opened none.
+  - **Counts**: 16 `twine check` `PASSED`, 12 in the build and 2 in each
+    upload job. TestPyPI's selection, and PyPI's read before the gate, gave 2
+    `publish` and 10 `skip`, the two being digline-mcp 0.8.1's wheel and
+    sdist. `imported 6`, and the quickstart's 3 calls, after TestPyPI and
+    after PyPI.
+  - **The index**: the `pypi` job ran 16:09:19Z to 16:10:48Z, with uploads at
+    16:09:37Z and 16:09:38Z. Its wait on `/simple/` saw digline-mcp 0.8.1
+    `after 0s`, at 16:09:41Z. The next step read
+    `/pypi/digline-mcp/0.8.1/json`, the page the registry validates against:
+    five reads of `404` and a sixth of `200`, `after 50s`. The six lines were
+    printed together when the step ended, at 16:10:31Z, so the log gives the
+    end and the length, not the time of each read.
+  - **The MCP registry**: the job published `dev.digline/digline-mcp` 0.8.1,
+    `isLatest: true`, `publishedAt` 16:10:57Z, and 0.8.0 became `false`. Read
+    at 16:14:10Z, the entry matches `server.json` at the tag in every value,
+    the description of `--names` word for word; the registry drops
+    `"isRequired": false` and adds its `_meta`.
+  - **The delta-pass** is `private/delta-pass-digline-mcp-0.8.1.md`
+    (`88ce28e6`).
+  - **Not done:** the check in a clean environment that earlier plugin tags
+    record.
 - **v1.0.3 — no race: every pair the capture wrote agreed, and the wait at
   the runner was for the gate and the upload.**
   `publish` (`41207011755`) and `docker-publish` (`41207011665`) passed on
