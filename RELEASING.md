@@ -2286,8 +2286,16 @@ is the one a quiet log cannot supply.
     `"isRequired": false` and adds its `_meta`.
   - **The delta-pass** is `private/delta-pass-digline-mcp-0.8.1.md`
     (`88ce28e6`).
-  - **Not done:** the check in a clean environment that earlier plugin tags
-    record.
+  - **The check in a clean environment**, at 08:40Z on 2026-11-01: a new
+    venv on Python 3.13.11, and `pip install --no-cache-dir --index-url
+    https://pypi.org/simple digline-mcp==0.8.1`, exit 0. It resolved
+    `digline_mcp-0.8.1-py3-none-any.whl` and `digline-1.0.3-py3-none-any.whl`
+    from `files.pythonhosted.org`, with no cache, and both installed with
+    `direct_url` absent. The import exits 0, from the venv's
+    `site-packages`. The quickstart, from the tag, ran through `digline run`
+    with exit 0 and its 3 calls. Through the server, at 08:41Z: 8 tools, the
+    `run` tool asked `acknowledge_calls=3` and then made the 3 calls with
+    `unpriced: []`, and `list_runs` answered.
 - **v1.0.3 — no race: every pair the capture wrote agreed, and the wait at
   the runner was for the gate and the upload.**
   `publish` (`41207011755`) and `docker-publish` (`41207011665`) passed on
