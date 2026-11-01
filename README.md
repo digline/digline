@@ -269,6 +269,10 @@ One card each — parameters, typical values, what to watch out for — in
   spanned instead. It never rescues a flip and never invents an interval it does
   not have, so you see one once you have promoted a sampled baseline and
   declared a width.
+- **Measuring is mechanical; approving is not.** An agent can run the suite and
+  tell you what moved, but the MCP server exposes no tool that promotes, and a
+  probe among the examples proves each cycle that `promote` is still absent.
+  `promote` is a signature, and a signature is a person's.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
