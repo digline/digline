@@ -16,15 +16,6 @@ pip install digline
 
 ---
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
-  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in a coding agent's flow: the agent edits the repository, digline gates the change before it goes further" width="960">
-</picture>
-
-*The agent above is the one editing your code, not one running in production.
-digline runs in your pipeline over the suite you committed: it reads no
-traces.*
-
 **Did my change make it worse?**
 
 You changed a prompt, or a model, or a temperature. Run it twice and you
@@ -254,6 +245,11 @@ One card each — parameters, typical values, what to watch out for — in
 
 ## How it thinks
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
+  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in a coding agent's flow: the agent edits the repository, digline gates the change before it goes further" width="960">
+</picture>
+
 - **The judge is yours.** The core never calls a model API: you inject a
   function or a provider plugin's judge, and in your tests a deterministic one.
 - **Three states, not two** — `pass`, `fail`, `error`. An error is neither green
@@ -273,6 +269,10 @@ One card each — parameters, typical values, what to watch out for — in
   spanned instead. It never rescues a flip and never invents an interval it does
   not have, so you see one once you have promoted a sampled baseline and
   declared a width.
+- **Measuring is mechanical; approving is not.** An agent can run the suite and
+  tell you what moved, but the MCP server exposes no tool that promotes, and a
+  probe among the examples proves each cycle that `promote` is still absent.
+  `promote` is a signature, and a signature is a person's.
 - **An alias is a pointer, and pointers roll.** `compare` names the model the
   provider said answered when it changes, `digline log` reads that down every
   stored run, and a `Case(canary=True)` watches behaviour where the provider
