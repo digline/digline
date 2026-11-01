@@ -2287,7 +2287,7 @@ is the one a quiet log cannot supply.
   - **The delta-pass** is `private/delta-pass-digline-mcp-0.8.1.md`
     (`88ce28e6`).
   - **The check in a clean environment**, at 08:40Z on 2026-11-01: a new
-    venv on Python 3.13.11, and `pip install --no-cache-dir --index-url
+    venv on Python 3.13, and `pip install --no-cache-dir --index-url
     https://pypi.org/simple digline-mcp==0.8.1`, exit 0. It resolved
     `digline_mcp-0.8.1-py3-none-any.whl` and `digline-1.0.3-py3-none-any.whl`
     from `files.pythonhosted.org`, with no cache, and both installed with
