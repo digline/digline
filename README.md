@@ -16,15 +16,6 @@ pip install digline
 
 ---
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
-  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in a coding agent's flow: the agent edits the repository, digline gates the change before it goes further" width="960">
-</picture>
-
-*The agent above is the one editing your code, not one running in production.
-digline runs in your pipeline over the suite you committed: it reads no
-traces.*
-
 **Did my change make it worse?**
 
 You changed a prompt, or a model, or a temperature. Run it twice and you
@@ -253,6 +244,11 @@ One card each — parameters, typical values, what to watch out for — in
 `AssertionBase`, or `RunAssertionBase` for an aggregate: [`docs/api.md`](docs/api.md).
 
 ## How it thinks
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flow/digline-flow.svg">
+  <img src="docs/assets/flow/digline-flow-light.svg" alt="digline in a coding agent's flow: the agent edits the repository, digline gates the change before it goes further" width="960">
+</picture>
 
 - **The judge is yours.** The core never calls a model API: you inject a
   function or a provider plugin's judge, and in your tests a deterministic one.
