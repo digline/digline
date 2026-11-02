@@ -24,7 +24,8 @@
   `src/digline/store/file_store.py:145-146` extended**, or it becomes false:
   *"Nothing digline writes can land here, because every other path in the
   layout goes through `baselines/`, `runs/` or `register/`."* **The generated
-  `.gitignore`** (`file_store.py:117-123`) ignores `*/recordings/`
+  `.gitignore`** (`file_store.py:117-123`) ignores `*/recordings/` and
+  `*/recorder.toml`
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §2 (the payload stays where it is born) and §5 (a
   case born outside world 1 gets a generated id);
@@ -46,8 +47,10 @@
   **addition to the list** of what `.digline/<tenant>/` holds, in the shape of
   *"Added to the list 2026-09-29 (ADR 0036 §2)"*: the recordings of a tenant,
   one subdirectory per process, and the file that switches the recorder on for
-  that tenant (§4, §10). **It is an addition and not an exception**: both sit
-  inside the layout, and the decision's reason stays whole
+  that tenant (§4, §10). Both are ignored by git, as `runs/` is, and neither is
+  versioned the way `baselines/` is. **It is an addition and not an
+  exception**: both sit inside the layout, and the decision's reason stays
+  whole
 - Names, and does not amend: ADR 0023. The import of §4 elects cases under its
   rules, and where the import this record foresees would go further than they
   allow, that is declared *Not decided here* rather than ruled. ADR 0034 §1 and
@@ -202,6 +205,8 @@ promotion (§7).
 **Redaction is foreseen in the format and implemented at deployment**, not in
 1.1: the format has room for a response withheld as `RecordedResponse` already
 writes one (`withheld`), and §10 refuses to start without a declared redaction.
+**So in 1.1, in production, the recorder starts only where `redact = "none"` is
+written**: no other declaration has an implementation behind it to honour.
 
 ### 5. The episode, and nesting
 
@@ -282,7 +287,9 @@ the target already uses.
   `Case.label` before the case exists: the person's yes or no at the import in
   1.1, a label given downstream later, or a labelled archive someone already
   has. At promotion it becomes `Case.label`. Labels are consumed, never
-  collected by digline.
+  collected by digline. The yes or no at the import is not a collection: it is
+  the person's own label, given once, by the person, and digline never infers
+  a label from anything else.
 
 *Decided here, the name:* `label`, singular, of type `Label | None`: the same
 name and the same type as the field it becomes. The collision between the
@@ -322,7 +329,10 @@ the one thing §2 says must be explicit.
 
 **Switched outside the code, and off by default.** Off, the wrapper passes the
 call through. On, it records. It is switched on by a file,
-`.digline/<tenant>/recorder.toml`, or by an environment variable.
+`.digline/<tenant>/recorder.toml`, or by an environment variable. **The file
+is ignored by git, in the generated `.gitignore`, like `*/recordings/`**: a
+switch that was committed would switch recording on for everyone who clones the
+repository.
 
 **A status command** says whether the recorder is recording, where, and how many
 recordings each suite has gained since the last import.
@@ -381,8 +391,10 @@ of #869. A finish nobody normalised is not read as one of `Finish`'s words.
 
 ### 13. The order of the work
 
-*Decided here, a declared limit and not a gap:* the wrapper is built in three
-pieces, and 1.1 holds the first.
+*Ruled by Alessandro Prandini on 2026-11-02:* 1.1 carries all three pieces
+below, and they are built **in this order**. The order is the declared limit,
+not the boundary of 1.1: whatever is built, is built after what comes before it
+in the list.
 
 1. **The narrow piece**: the wrapper around the synchronous, non-streaming
    client of each of the three plugins; the episode with nesting inside one
@@ -394,13 +406,18 @@ pieces, and 1.1 holds the first.
 3. **The rich import**: proposing an assertion from the shape of the output
    and sampling by output (*Not decided here*).
 
+At the end of November 2026 what exists is looked at, and whether anything of
+it moves to a later release is decided then, not here.
+
 ## Consequences
 
 **No run document changes.** No step, no key, no reader of runs is touched.
 
 **The layout gains two entries per tenant**, `recordings/` and
-`recorder.toml`, and the generated `.gitignore` gains `*/recordings/`, because
-a recording is payload and is never committed.
+`recorder.toml`, and the generated `.gitignore` gains both: `*/recordings/`,
+because a recording is payload and is never committed, and `*/recorder.toml`,
+because a switch that was committed would switch recording on for whoever
+clones.
 
 **Three plugin minors ride 1.1**, one per provider.
 
