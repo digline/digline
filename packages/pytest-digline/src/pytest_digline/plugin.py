@@ -638,14 +638,16 @@ class DiglineSuite(pytest.File):
         for delta in self.opened.comparison.deltas:
             name = _name_of(delta)
             # The nodeid is written out, and it is the string pytest would
-            # build: `<suite>::<case>::<check>`. Built by pytest 9.2.0, a row's
-            # structured id is the suite's plus one name, `case::check`, while
-            # `--lf` reads its cache back by splitting that same string on every
-            # `::`, so the two never matched and `--lf` reran every row. Given
-            # as a string, the id is parsed the way the cache is, and the
-            # string, the name and every line a person reads stay as they were.
-            # pytest 9.2.0 accepts an explicit nodeid "for now", and its error
-            # for a wrong one says not to pass it. The other shape, a node per
+            # build: `<suite>::<case>::<check>`. Left to pytest, a row's
+            # structured id is built from its parent's id and its own name, so
+            # the suite's plus the one name `case::check`, while `--lf` reads
+            # its cache back by splitting that same string on every `::`: the
+            # two did not match, and `--lf` reran every row. Given as a string,
+            # the id is parsed the way the cache is, and the string, the name
+            # and every line a person reads stay as they were. pytest accepts
+            # an explicit nodeid "for now", and its error for a wrong one says
+            # not to pass it; which pytest moved what, and when, is in
+            # `_from_where_pytest_started`. The other shape, a node per
             # case with its checks as children, needs no explicit nodeid; it
             # changes `reportinfo`, so the FAILURES headers, and what `-k`
             # matches on, and it was not measured.
@@ -1061,11 +1063,11 @@ def _from_where_pytest_started(
     read in pytest 8.0.0 it took a `str` and joined the whole of it to the
     rootdir; in 9.1.1 a `str`, split on `::` first; in 9.2.0 a `NodeId`, with
     no deprecation in between, and `NodeId` lives in `_pytest.nodeid`, a
-    private module the `pytest` namespace does not export. 0.5.1 passed the
-    `str` it holds, and under 9.2.0 a session that compared a suite and started
-    away from its rootdir ended in `AttributeError`, with this summary empty and
-    a green suite exiting 1. A path relative to another is the standard
-    library's to compute, and does not move.
+    private module the `pytest` namespace does not export. Passed the `str`
+    this plugin holds, the 9.2.0 contract ended a session that compared a suite
+    and started away from its rootdir in `AttributeError`, with this summary
+    empty and a green suite exiting 1. A path relative to another is the
+    standard library's to compute, and does not move.
     """
     if started == rootpath:
         return nodeid

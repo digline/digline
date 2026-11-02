@@ -1361,6 +1361,18 @@ RECORDED: dict[str, dict[str, str]] = {
         "plugin's own terminal output began going through the shared "
         "sanitiser. One finding, three paths out of a document and into a "
         "terminal, each named where it is closed",
+        "8.0.0": "not a digline version: the pytest whose "
+        "`Config.cwd_relative_nodeid` took a `str` and joined the whole of it "
+        "to the rootdir, the first of the three contracts that method has had. "
+        "They are why this plugin computes its prefix itself rather than "
+        "calling it, so the numbers are what the sentence says, not a detail",
+        "9.1.1": "not a digline version: the pytest whose "
+        "`Config.cwd_relative_nodeid` took a `str` split on `::`, the second of "
+        "the three contracts that make this plugin compute its prefix itself",
+        "9.2.0": "not a digline version: the pytest whose "
+        "`Config.cwd_relative_nodeid` takes a `NodeId`, with no deprecation, "
+        "the third of the three contracts that make this plugin compute its "
+        "prefix itself",
     },
 }
 
