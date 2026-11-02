@@ -66,7 +66,15 @@ def test_a_suspended_case_is_skipped_and_carries_its_reason(
 
     result.stdout.fnmatch_lines(["SKIPPED*the refund API is down, ticket 412*"])
     # Located at the suite that declared it, never at this plugin's own source.
-    assert "plugin.py" not in result.stdout.str()
+    # Read on the skip's own line, `SKIPPED [1] <path>:<line>: <reason>`: the
+    # rest of stdout may name another plugin's `plugin.py` in a warning.
+    (skipped,) = [
+        line
+        for line in result.stdout.lines
+        if line.startswith("SKIPPED") and "the refund API is down" in line
+    ]
+    location = skipped.split("] ", 1)[1].split(": ", 1)[0]
+    assert location.startswith(f"{path.name}:"), skipped
 
 
 def test_an_error_is_never_reported_as_a_regression(

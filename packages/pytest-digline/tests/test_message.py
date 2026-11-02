@@ -8,6 +8,7 @@ with nothing binding it to the other three.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -22,6 +23,36 @@ from digline.store import FileResultStore
 Baseline = Callable[[dict[str, str], dict[str, str]], Path]
 
 FINE = {"alpha": "Acme, SATISFIED", "beta": "Acme, SATISFIED"}
+
+#: A row's header in the FAILURES or ERRORS section, `___ alpha::llm_rubric ___`
+#: or `___ ERROR at setup of alpha::llm_rubric ___`; a block ends at the next
+#: row's header or at the next section's `=== … ===`.
+_ROW_HEADER = re.compile(r"^_{3,} (?P<title>.+?) _{3,}$")
+_SECTION = re.compile(r"^={3,} .+ ={3,}$")
+
+
+def _row_message(text: str, title: str) -> str:
+    """What pytest printed for one row: the lines under its header, up to the
+    next header or section.
+
+    The traceback rule is about the row's message, so it is read there and not
+    in the whole of stdout, where another plugin's warning may name `_pytest`
+    or a file called `plugin.py` with nothing leaking from this one.
+    """
+    lines = text.splitlines()
+    starts = [
+        i
+        for i, line in enumerate(lines)
+        if (m := _ROW_HEADER.match(line)) and m["title"] == title
+    ]
+    assert len(starts) == 1, f"no single row headed {title!r} in:\n{text}"
+    block: list[str] = []
+    for line in lines[starts[0] + 1 :]:
+        if _ROW_HEADER.match(line) or _SECTION.match(line):
+            break
+        block.append(line)
+    assert block, f"the row {title!r} printed nothing under its header:\n{text}"
+    return "\n".join(block)
 
 
 def _compared(path: Path, root: Path):
@@ -61,10 +92,10 @@ def test_a_failing_row_carries_no_traceback(
     path = baseline(FINE, {**FINE, "alpha": "Acme, unhappy"})
     result = pytester.runpytest_subprocess("--digline-suite", str(path))
 
-    text = result.stdout.str()
-    assert "Traceback" not in text
-    assert "_pytest" not in text
-    assert "plugin.py" not in text
+    message = _row_message(result.stdout.str(), "alpha::llm_rubric")
+    assert "Traceback" not in message, message
+    assert "_pytest" not in message, message
+    assert "plugin.py" not in message, message
 
 
 def test_an_errored_row_carries_no_traceback_either(
@@ -82,9 +113,10 @@ def test_an_errored_row_carries_no_traceback_either(
 
     text = result.stdout.str()
     assert "ERROR at setup" in text, "the fixture produced no errored check"
-    assert "Traceback" not in text
-    assert "_pytest" not in text
-    assert "CouldNotJudge" not in text, (
+    message = _row_message(text, "ERROR at setup of alpha::llm_rubric")
+    assert "Traceback" not in message, message
+    assert "_pytest" not in message, message
+    assert "CouldNotJudge" not in message, (
         "the exception class leaked into the report: the reader is being shown "
         "this plugin's internals instead of what happened to their check"
     )
