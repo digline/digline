@@ -28,12 +28,13 @@ these sources to keep it that way.
 
 from __future__ import annotations
 
+import os
 import sys
 import traceback
 import warnings
 from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -635,8 +636,28 @@ class DiglineSuite(pytest.File):
 
     def collect(self) -> Iterator[pytest.Item]:
         for delta in self.opened.comparison.deltas:
+            name = _name_of(delta)
+            # The nodeid is written out, and it is the string pytest would
+            # build: `<suite>::<case>::<check>`. Left to pytest, a row's
+            # structured id is built from its parent's id and its own name, so
+            # the suite's plus the one name `case::check`, while `--lf` reads
+            # its cache back by splitting that same string on every `::`: the
+            # two did not match, and `--lf` reran every row. Given as a string,
+            # the id is parsed the way the cache is, and the string, the name
+            # and every line a person reads stay as they were. pytest accepts
+            # an explicit nodeid "for now", and its error for a wrong one says
+            # not to pass it; which pytest moved what, and when, is in
+            # `_from_where_pytest_started`. The other shape, a node per
+            # case with its checks as children, needs no explicit nodeid; it
+            # changes `reportinfo`, so the FAILURES headers, and what `-k`
+            # matches on, and it was not measured.
             yield _child(
-                self, Check, name=_name_of(delta), delta=delta, opened=self.opened
+                self,
+                Check,
+                name=name,
+                nodeid=f"{self.nodeid}::{name}",
+                delta=delta,
+                opened=self.opened,
             )
         # Suspended cases come from the *run*, not from the comparison: a case
         # set aside produces no verdicts, so it produces no deltas, so the
@@ -993,14 +1014,16 @@ def pytest_terminal_summary(
     for nodeid, opened in suites:
         # Named the way pytest names the suite's rows: its path relative to
         # the directory pytest was started from, which is what
-        # `cwd_relative_nodeid` computes and what the progress lines and the
-        # short test summary print. A path, and not the suite's name: the name
-        # appears nowhere in pytest's report, and the path is the string the
+        # `_from_where_pytest_started` computes and what the progress lines and
+        # the short test summary print. A path, and not the suite's name: the
+        # name appears nowhere in pytest's report, and the path is the string the
         # reader already has beside every row. Every line carries it, one
         # suite or several, so a line is always joined to its rows by name.
         # Two suites from one file are told apart by the attribute their
         # nodeid carries, so the prefix carries it too: `both.py:support`.
-        prefix = config.cwd_relative_nodeid(nodeid)
+        prefix = _from_where_pytest_started(
+            config.rootpath, config.invocation_params.dir, nodeid
+        )
         lines = [opened.headline]
         if opened.note:
             lines.append(f"note: {opened.note}")
@@ -1023,6 +1046,36 @@ def pytest_terminal_summary(
                     )
                 )
             )
+
+
+def _from_where_pytest_started(
+    rootpath: PurePath, started: PurePath, nodeid: str
+) -> str:
+    """`nodeid`, a path from `rootpath`, as a path from where pytest started.
+
+    Unchanged when pytest started at its rootdir. Otherwise the path from
+    `started` to `rootpath / nodeid`, and the destination as it is where no
+    relative path exists: `os.path.relpath` raises for two drives on Windows,
+    where pytest's own `bestrelpath` gives the destination, so this does too.
+
+    **Computed here rather than asked of `Config.cwd_relative_nodeid`,** which
+    computes the same path and whose contract has moved under this plugin. As
+    read in pytest 8.0.0 it took a `str` and joined the whole of it to the
+    rootdir; in 9.1.1 a `str`, split on `::` first; in 9.2.0 a `NodeId`, with
+    no deprecation in between, and `NodeId` lives in `_pytest.nodeid`, a
+    private module the `pytest` namespace does not export. Passed the `str`
+    this plugin holds, the 9.2.0 contract ended a session that compared a suite
+    and started away from its rootdir in `AttributeError`, with this summary
+    empty and a green suite exiting 1. A path relative to another is the
+    standard library's to compute, and does not move.
+    """
+    if started == rootpath:
+        return nodeid
+    destination = rootpath / nodeid
+    try:
+        return os.path.relpath(destination, started)
+    except ValueError:
+        return str(destination)
 
 
 @pytest.hookimpl(trylast=True)
