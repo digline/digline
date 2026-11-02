@@ -1,6 +1,7 @@
 # ADR 0058 — The recorder: a call recorded where the application makes it
 
-- Status: proposed 2026-11-02. **Its decisions were ruled before it was
+- Status: accepted 2026-11-02, by Alessandro Prandini, the text first.
+  Proposed 2026-11-02. **Its decisions were ruled before it was
   written**, by Alessandro Prandini on 2026-11-02, in a design discussion that
   produced ten numbered decisions, and three of them were corrected by him the
   same evening. They are stated here as ruled, in this record's own words: the
