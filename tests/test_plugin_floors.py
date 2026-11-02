@@ -477,15 +477,41 @@ def version_tuple(text: str) -> tuple[int, ...]:
     return tuple(int(part) for part in text.split("."))
 
 
-def floor(plugin: Path) -> str:
-    """The `digline>=X` a plugin's metadata declares."""
+def requirement(plugin: Path) -> list[str]:
+    """The `digline>=` requirement a plugin's metadata declares, split at its
+    commas: the floor first, then whatever bounds follow it."""
     with (plugin / "pyproject.toml").open("rb") as handle:
         project = tomllib.load(handle)["project"]
     for dependency in project["dependencies"]:
         text = str(dependency).replace(" ", "")
         if text.startswith("digline>="):
-            return text.removeprefix("digline>=").split(",")[0]
+            return text.removeprefix("digline>=").split(",")
     pytest.fail(f"{plugin.name} declares no `digline>=` floor at all")
+
+
+def floor(plugin: Path) -> str:
+    """The `digline>=X` a plugin's metadata declares."""
+    return requirement(plugin)[0]
+
+
+@pytest.mark.parametrize("plugin", plugins(), ids=lambda p: p.name)
+def test_every_plugin_caps_digline_below_the_next_major(plugin: Path) -> None:
+    """The rule in RELEASING.md, *Choosing the version*, in the paragraph that
+    opens *"The plugins' caps depend on this sentence"* (lines 38–40 on
+    2026-11-02): from 1.0.0 each plugin declares `digline<2`, and every minor
+    of 1.x installs under it. Until this test the rule was prose, and three of
+    the five packages under `packages/` declared no cap at all. A cap reaches
+    nobody until its package is released, which is a row in the table owed at
+    the cut, not something this test can see."""
+    bounds = requirement(plugin)[1:]
+    assert bounds == ["<2"], (
+        f"{plugin.name} declares `digline>={floor(plugin)}` with "
+        f"{bounds or 'no cap'} after it, and every package under packages/ caps "
+        "digline at `<2` from 1.0.0 (RELEASING.md, *Choosing the version*). A "
+        "cap added or moved here owes a release of the package, because the "
+        "only reader of caps reads them from PyPI: write its row in the table "
+        "owed at the cut."
+    )
 
 
 def imported_from_digline(plugin: Path) -> set[str]:

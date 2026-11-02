@@ -387,6 +387,14 @@ pull request leaves both plugins untouched, and each cap moves from `<0.36` to
 `<2` in that plugin's own cut, digline-mcp's with its floor owed at the cut,
 in the table below.
 
+*Note of 2026-11-02.* The two names above were the two plugins that held
+a cap when 1.0.0 was cut. From this date every package under `packages/`
+holds `digline<2`: `digline-anthropic`, `digline-openai` and
+`digline-bedrock` gained it here, and a test now reads the cap of every
+package instead of this prose. The sentences about the workspace and the
+floors gate hold for all of them: each takes digline from the workspace,
+and the floors gate drops everything after the comma for every package.
+
 **Then one more, which no test reddens: say which decisions this release
 ships.** Every record in `docs/adr/` carries `- Shipped:`, a core version or
 `unreleased`:
@@ -449,6 +457,9 @@ tag.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
+| `digline-anthropic` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-anthropic on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
+| `digline-openai` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-openai on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
+| `digline-bedrock` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-bedrock on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -595,6 +606,12 @@ the previous core, and is not told. So a release that moves the caps owes a
 release of each plugin that holds one. With the caps at `<2` that is a major,
 and 1.0.0 itself, whose caps move from `<0.36` to `<2`. A minor of 1.x moves
 no cap, and owes the plugins nothing on this account.
+
+*Note of 2026-11-02.* The obligation above now counts five plugins, not
+two: every package under `packages/` holds a cap. And adding a cap owes
+the same release as moving one, because the only reader of caps reads
+`requires_dist` from PyPI: until each provider is released, its cap
+reaches nobody. Those three releases are rows in the owed table.
 
 ### The six that stay red until you have done all four
 
