@@ -282,7 +282,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "never-language widening reaches past. History, not the current "
             "version"
         ),
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -321,13 +321,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
     },
     "src/digline/wire/text.py": {
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -419,8 +419,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "seven locks); the delta-pass over 0.34.0 that corrected the "
             "contract diff and found the dataclass properties; the core the "
             "owed digline-mcp floor's imports raise against, and the core whose "
-            "tools answer with the keys `output_version` 4 renamed: history, "
-            "told as such now that 0.35.0 is the tree's version"
+            "tools answer with the keys `output_version` 4 renamed: history"
         ),
         "0.33.0": (
             "the release whose `within_noise` changed meaning under "
@@ -428,23 +427,21 @@ RECORDED: dict[str, dict[str, str]] = {
             "against, in the table of floors owed at the cut; the release whose "
             "home recapture moved the start page's count; the wheel whose "
             "publish time is recorded beside 0.32.1's; and the tag `79b38cc` "
-            "the image job and the home check were measured on: history, told "
-            "as such now that 0.35.0 is the tree's version"
+            "the image job and the home check were measured on: history"
         ),
         "0.32.1": (
             "the release whose index-race status is recorded (the gate, the "
             "counts, the index waits, the check in a clean environment, the "
             "smoke build's wait, the image read from the registry, the "
             "delta-pass and the seven locks), beside digline-mcp 0.6.1's: "
-            "history, told as such now that 0.35.0 is the tree's version"
+            "history"
         ),
         "0.32.0": (
             "the release whose index-race status is recorded (the gate approved "
             "seven seconds in, the counts, the smoke build's wait, the tags on "
             "one digest and the image read from the registry afterwards), the "
             "three deviations noted while cutting it, the release that shipped "
-            "without running the served plugins, and its delta-pass: history, "
-            "told as such now that 0.35.0 is the tree's version"
+            "without running the served plugins, and its delta-pass: history"
         ),
         "0.31.0": (
             "the release whose index-race status is recorded (the smoke build's "
@@ -452,8 +449,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "installed versions, the tags on one digest, the capture and the "
             "seven locks), the floor pytest-digline 0.2.4 and digline-mcp 0.5.0 "
             "were owed to in their own entries and declared on PyPI, which the "
-            "note on the plugins PyPI serves quotes: history, told as such now "
-            "that 0.34.0 is the tree's version"
+            "note on the plugins PyPI serves quotes: history"
         ),
         "0.9.0": (
             "the digline image `digline/digline-action@v1` still defaulted to "
@@ -466,8 +462,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "waits, the installed versions, the tags on one digest and the "
             "seven locks), and the release against which digline-mcp's and "
             "pytest-digline's import of `suite_notes` raises `ImportError` in "
-            "the table of floors owed: history, told as such now that 0.32.0 "
-            "is the tree's version"
+            "the table of floors owed: history"
         ),
         "0.4.6": (
             "digline-mcp's version and the tag it was published by, in the "
@@ -491,7 +486,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "cancelled and re-run, the tag message, the counts, the installed "
             "versions, the tags on one digest and the seven locks), and the "
             "release whose floors digline-mcp and pytest-digline once owed: "
-            "history, told as such now that 0.35.0 is the tree's version"
+            "history"
         ),
         "0.2.2": (
             "pytest-digline's version in v0.29.0's tag message and in the "
@@ -505,8 +500,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.28.0": (
             "the release whose index-race status is recorded (the first tag "
             "with the counts in the job summary, the tag message, the installed "
-            "versions, the tags on one digest and the seven locks): history, "
-            "told as such now that 0.35.0 is the tree's version"
+            "versions, the tags on one digest and the seven locks): history"
         ),
         "0.27.0": (
             "the release whose index-race status is recorded (the pair agreeing "
@@ -526,8 +520,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "for every pin, the tag message checked before the tag, the installed "
             "versions and the seven locks), the release the approval order was "
             "ruled at, and the core version digline-bedrock-v0.6.0's run skipped "
-            "as already on the index: history, told as such now that 0.28.0 is "
-            "the tree's version"
+            "as already on the index: history"
         ),
         "9.9.9": (
             "not a digline version: the version no package has, asked of PyPI's "
@@ -735,7 +728,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "points at, the 1471s wait behind the reviewer gate, and the amd64 "
         "build that served and installed it in one RUN. Timings and all, like "
         "the 0.7.1 entries below. History",
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -839,7 +832,7 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/explain.md": {
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -1137,7 +1130,7 @@ RECORDED: dict[str, dict[str, str]] = {
     # The rest of the 0.13.0 delta-pass, in the same shape: the pass named
     # where each finding is closed, history from the moment 0.13.1 shipped.
     "src/digline/cli/output.py": {
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -1229,7 +1222,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "says the field was mistaken for shipped in 0.16.0, and CallTotals' "
         "finite guard says when a non-finite bill began reaching a run-level "
         "total. Both date a lesson and neither claims what digline is at now",
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",
@@ -1360,7 +1353,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "delta, named twice in `_failing`: once as the release that opened "
         "the drift, once as the release the headline clause arrives in. Both "
         "are statements about a shipped version, not about this one",
-        "0.15.0": "told as history now that 0.15.3 is the tree's version: "
+        "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
         "audited its own output",

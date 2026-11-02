@@ -5207,8 +5207,10 @@ thing that can verify it is the person doing it.
 **In order, after every tag.** Each step is explained below or in the section it
 names.
 
-1. **The reviewer gate:** read the approvals endpoint, not the run's green. See
-   the last paragraph of this section.
+1. **The reviewer gate:** the approval on PyPI is Alessandro's click, and
+   whether the gate held is the finding `release-followup` reports, not the
+   run's green. A session does not call the approvals endpoint. See *Whether
+   the reviewer gate actually held*, below.
 2. **`docker-publish`:** read its log, not its green. That means the `served`
    lines and a clean `pip install` of the released versions in the same `RUN`,
    and all three image tags on one digest. See *The index race*.
@@ -5477,7 +5479,7 @@ not done by a person, with nothing turning red:
 
 | Step | Read from the fact | What no check reads |
 |---|---|---|
-| 1, the reviewer gate | whole: the approvals record an `approved` | nothing |
+| 1, the reviewer gate | whole: `release-followup` reads whether the approvals record an `approved`; no session reads them | nothing |
 | 2, `docker-publish` | in part: the three image tags are one digest | the `served` lines and the clean `pip install` in its log |
 | 3, the example locks | in part: each lock names the release | the dispatch of `ci.yml` and what it found |
 | 4, the Status block | in part: the block names the release | what the block says about it |
@@ -5740,8 +5742,8 @@ would interact with its required reviewer. The next release is the test of
 both.
 
 The ruling below stands for what it rules: a session still reads the counts
-from the logs once the approval is recorded, and records them. As written on
-2026-10-02:
+from the logs of the finished `build` and `testpypi` jobs, which end before the
+`pypi` job starts waiting, and records them. As written on 2026-10-02:
 
 They are read from the finished jobs' logs. That takes longer than the click,
 so they reach the approver after it, and the session does not hold the gate
@@ -5753,6 +5755,12 @@ does not match what the tag was meant to publish is read as a finding, as it
 would have been before the click: the upload is spent by then, and that is the
 same as on every release before this rule.
 
+*Corrected 2026-11-02, the paragraph above kept as written.* Its clause *"once
+the approval is recorded"* is restated: the session reads the counts from the
+logs of the `build` and `testpypi` jobs, which end before the `pypi` job starts
+waiting (`publish.yml:278`, `pypi` needs `testpypi`; `:143`, `testpypi` needs
+`build`). It does not read the approvals record.
+
 Ruled on 2026-10-02, at v0.26.0, after three releases in a row where the
 approval came before the counts could. It came in an 11-second window that a
 20-second poll never saw (v0.25.2), about 4 seconds after the wait (v0.25.3),
@@ -5763,16 +5771,21 @@ worked was recording the same thing three times. The order changed instead.
 A fast approval passes through `waiting` in seconds — on 0.7.1 it was **16** —
 so any poll can miss it entirely, and a gate that fails open looks exactly the
 same from the outside. That matters because it *has* failed open once, on
-v0.5.0. The retrospective record is the one to read:
+v0.5.0. The retrospective record answers it, and `release-followup` is what
+reads it: `approvals_finding` in `.github/release_followup.py` reports whether
+the `publish` run records an `approved`, beside a run with no gated environment
+that must record none. The finding is printed in the job summary of every
+`release-followup` run, and in the release's follow-up issue whenever the run
+opens, rewrites or comments on one. The approval is Alessandro's click. **A
+session does not call the approvals endpoint**, in any form and at any
+release: it reads the gate's state from the run and its jobs.
+The release's entry in *Status: what each path has proven* does not name who
+approved, and does not point to a follow-up issue, which is opened only when a
+check does not pass, so a release may have none.
 
-```sh
-gh api repos/digline/digline/actions/runs/<run-id>/approvals
-```
-
-Expect `state: approved`, the approver's login, and `can_admins_bypass: false`
-on the `pypi` environment. `pending_deployments` only answers while the run is
-still sitting there; `approvals` answers afterwards, which is when you are
-asking.
+*Changed 2026-11-02.* Until then this paragraph told the reader to read the
+record with `gh api repos/digline/digline/actions/runs/<run-id>/approvals` and
+to expect the approver's login.
 
 **Unless the run was re-run.** `approvals` answers for the run's **latest
 attempt**, and `gh run rerun --failed` makes a new attempt that has nothing to
