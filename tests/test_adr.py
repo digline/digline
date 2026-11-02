@@ -235,6 +235,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "is 22; the repair is meant for 1.1 with its schema, and this record "
         "comes first"
     ),
+    "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
+        "no recorder exists: `digline.episode`, `RecordedStep`, "
+        "`RECORDING_VERSION` and `recordings/` are in no file; it is meant for "
+        "1.1, and this record comes first"
+    ),
 }
 
 
