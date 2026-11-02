@@ -12,10 +12,12 @@ measurement wearing the declared suite's name.
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +56,7 @@ from digline.run import (
     rejudge,
 )
 from digline.store import FileResultStore, ReplayedRunError
+from digline.targets import Completion
 
 CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
@@ -653,6 +656,171 @@ def test_an_omitted_status_still_means_success() -> None:
     assert call is not None
     assert call[0].status == "success"
     assert call[0].result_absence is None
+
+
+# --------------------------------------------------------------------------- #
+# The replay is the same measurement, held on the answers that disagree
+# --------------------------------------------------------------------------- #
+#
+# ADR 0018 promises it three times: `tools` is rebuilt "so that `ToolsCalled`
+# re-judges identically" (§4), "a replayed `ToolsCalled` judges what the live
+# one judged", and "the replay is the same measurement … the same scores case
+# for case". The tests above hold it on answers whose two lists agree, where it
+# cannot fail. These hold it where it can: a trajectory assertion reads
+# `Response.metadata`, which is not persisted, so whatever the replay rebuilds
+# instead is the thing under test. Covered: `ToolsCalled` and `ToolCalledWith`,
+# the two shipped assertions that read it. Every other shipped assertion reads
+# the answer, the question, the case or the cost and latency, which the
+# document records as they were.
+#
+# A pair that diverges today is an `xfail(strict=True)` naming the defect, so
+# the repair turns it into a pass and the marker has to come off with it.
+
+
+def live_then_replayed(
+    reported: Mapping[str, object], check: object
+) -> tuple[list[tuple[str, float | None]], list[tuple[str, float | None]]]:
+    """Each verdict's status and score, measured live and re-judged from the
+    document — written and read back, so the replay sees what a store keeps."""
+
+    def target(case: Case) -> Response:
+        return Response(output="Done.", input=f"do {case.id}", metadata=reported)
+
+    declared = suite(record_responses=True, assertions=[check])
+    source = execute(declared, target, created_at=CREATED)
+    stored = run_from_json(run_to_json(source))
+    again = rejudge(declared, stored, key="src-key", created_at=LATER)
+
+    def verdicts(run: Run) -> list[tuple[str, float | None]]:
+        return [(v.status, v.score.score) for c in run.results for v in c.verdicts]
+
+    return verdicts(source), verdicts(again)
+
+
+def _calls(*names: str | None, arguments: object = None) -> list[dict[str, object]]:
+    return [{"tool": name, "arguments": arguments} for name in names]
+
+
+_FINISH_NOT_RECORDED = (
+    "a reply that ends on `tool_use` and names no call is `error` live and "
+    "`fail` replayed: `ToolsCalled` reads `finish`, which reaches "
+    "`Response.metadata` and is not recorded, so the replay judges without it. "
+    "Measured 2026-11-02 at 83be8a52, through digline-anthropic with an "
+    "injected client. Passes when the replay hands `ToolsCalled` what the live "
+    "run handed it"
+)
+_NAMES_FROM_CALLS = (
+    "live `ToolsCalled` reads `tools` and the replay rebuilds `tools` from the "
+    "recorded `tool_calls`, so a function target whose two lists name different "
+    "calls is judged on one trajectory live and another replayed. `Completion` "
+    "and `HttpTarget` refuse the disagreement; a function target is not held to "
+    "it. Measured 2026-11-02 at 83be8a52. Passes when the replay judges the "
+    "`tools` the live run judged"
+)
+
+
+@pytest.mark.parametrize(
+    ("reported", "check"),
+    [
+        pytest.param(
+            {"tools": ["lookup", "refund"], "tool_calls": _calls("lookup", "refund")},
+            ToolsCalled(expected=["lookup", "refund"]),
+            id="tools-agreeing-pass",
+        ),
+        pytest.param(
+            {"tools": ["lookup", "refund"], "tool_calls": _calls("lookup", "refund")},
+            ToolsCalled(expected=["refund"]),
+            id="tools-agreeing-fail",
+        ),
+        pytest.param(
+            {"tools": [], "tool_calls": []},
+            ToolsCalled(expected=["lookup"]),
+            id="tools-zero-calls",
+        ),
+        pytest.param(
+            {"tools": [None], "tool_calls": _calls(None)},
+            ToolsCalled(expected=["lookup"]),
+            id="tools-unnamed-call",
+        ),
+        pytest.param(
+            # The shipped plugin's own record, built with the shipped code: a
+            # reply that stopped on `tool_use` with no call in it.
+            Completion(
+                text="", usage=None, finish="tool_use", tools=(), tool_calls=()
+            ).as_metadata(),
+            ToolsCalled(expected=["lookup"]),
+            id="tools-finish-tool-use-no-calls",
+            marks=pytest.mark.xfail(
+                raises=AssertionError, strict=True, reason=_FINISH_NOT_RECORDED
+            ),
+        ),
+        pytest.param(
+            {"tools": ["lookup", "refund"], "tool_calls": _calls("refund", "lookup")},
+            ToolsCalled(expected=["lookup", "refund"]),
+            id="tools-and-calls-disagree",
+            marks=pytest.mark.xfail(
+                raises=AssertionError, strict=True, reason=_NAMES_FROM_CALLS
+            ),
+        ),
+        pytest.param(
+            {"tools": ["lookup"], "tool_calls": _calls("lookup", arguments={"id": 7})},
+            ToolCalledWith(tool="lookup", arguments={"id": 7}),
+            id="arguments-mapping",
+        ),
+        pytest.param(
+            {
+                "tools": ["lookup"],
+                "tool_calls": _calls("lookup", arguments='{"id": 7}'),
+            },
+            ToolCalledWith(tool="lookup", arguments={"id": 7}),
+            id="arguments-json-text",
+        ),
+        pytest.param(
+            {"tools": ["lookup"], "tool_calls": _calls("lookup", arguments="{id: 7")},
+            ToolCalledWith(tool="lookup", arguments={"id": 7}),
+            id="arguments-not-decodable",
+        ),
+        pytest.param(
+            # `canonical` writes both sides as "<datetime>". Live and replayed
+            # agree — both pass on two different dates, which is a different
+            # defect and not this test's: here the claim is only that the
+            # replay judges what the live run judged.
+            {
+                "tools": ["book"],
+                "tool_calls": _calls(
+                    "book", arguments={"when": datetime.datetime(2026, 1, 1)}
+                ),
+            },
+            ToolCalledWith(
+                tool="book", arguments={"when": datetime.datetime(1999, 9, 9)}
+            ),
+            id="arguments-collapse-to-type-name",
+        ),
+    ],
+)
+def test_a_replay_judges_what_the_live_run_judged(
+    reported: Mapping[str, object], check: object
+) -> None:
+    live, replayed = live_then_replayed(reported, check)
+    assert replayed == live
+
+
+def test_a_trajectory_reported_without_its_calls_is_refused_by_name() -> None:
+    """`tools` with no `tool_calls` records no trajectory, so there is nothing
+    for the replay to hand back. The claim here is not equality: it is that the
+    replay says so, and names the check it would otherwise have errored."""
+
+    def target(case: Case) -> Response:
+        return Response(output="Done.", metadata={"tools": ["lookup"]})
+
+    declared = suite(
+        record_responses=True, assertions=[ToolsCalled(expected=["lookup"])]
+    )
+    source = execute(declared, target, created_at=CREATED)
+    assert [v.status for c in source.results for v in c.verdicts] == ["pass", "pass"]
+    stored = run_from_json(run_to_json(source))
+    with pytest.raises(ReplayError, match="reported no trajectory.*'tools_called'"):
+        rejudge(declared, stored, key="src-key", created_at=LATER)
 
 
 # --------------------------------------------------------------------------- #
