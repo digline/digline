@@ -42,6 +42,7 @@ from digline.core.resolution import (
 from digline.core.run import CrossingRefusedError, DocumentRefusedError
 from digline.core.types import UnidentifiedVerdictError
 from digline.host.errors import UsageError
+from digline.recorder import RecorderStartError
 from digline.run.driver import TargetShapeError
 from digline.run.replay import ReplayError
 from digline.store.migrate import NonAdditiveError
@@ -85,6 +86,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     DifferentTenantsError,
     DocumentRefusedError,
     RecordingRefusedError,
+    RecorderStartError,
     ProjectionRefusedError,
     NotProjectedError,
     NothingResolvedError,

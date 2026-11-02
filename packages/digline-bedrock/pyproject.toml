@@ -76,6 +76,12 @@ Issues = "https://github.com/digline/digline/issues"
 [project.entry-points."digline.providers"]
 bedrock = "digline_bedrock:PROVIDER"
 
+# How digline's recorder finds the map for this provider's client, without
+# importing it: the name says which client class and which of its methods is
+# the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
+[project.entry-points."digline.recording_maps"]
+"botocore.BedrockRuntime:converse" = "digline_bedrock.recording:MAP"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

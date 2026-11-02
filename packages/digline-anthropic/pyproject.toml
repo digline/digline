@@ -76,6 +76,12 @@ Issues = "https://github.com/digline/digline/issues"
 [project.entry-points."digline.providers"]
 anthropic = "digline_anthropic:PROVIDER"
 
+# How digline's recorder finds the map for this provider's client, without
+# importing it: the name says which client class and which of its methods is
+# the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
+[project.entry-points."digline.recording_maps"]
+"anthropic.Anthropic:messages.create" = "digline_anthropic.recording:MAP"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

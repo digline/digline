@@ -103,7 +103,9 @@ def test_the_response_compartment_is_what_a_run_document_writes(name: str) -> No
 
 @pytest.mark.parametrize("name", sorted(RESPONSES))
 def test_a_recording_comes_back_as_it_was_written(name: str) -> None:
-    recording = a_recording(RESPONSES[name], episode="ep-1", label="positive")
+    recording = a_recording(
+        RESPONSES[name], episode="ep-1", label="positive", call_site="app:answer"
+    )
     document = json.loads(json.dumps(recording_to_dict(recording)))
     assert recording_from_dict(document) == recording
 
@@ -149,6 +151,7 @@ def test_a_value_json_cannot_carry_is_refused_not_collapsed() -> None:
         ("suite", ""),
         ("setup_digest", ""),
         ("episode", ""),
+        ("call_site", ""),
         ("label", "yes"),
     ],
 )
