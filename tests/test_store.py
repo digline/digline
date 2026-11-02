@@ -78,7 +78,12 @@ def test_it_creates_the_layout_and_the_gitignore(tmp_path: Path) -> None:
     rules = [
         r.strip() for r in ignored.splitlines() if r.strip() and not r.startswith("#")
     ]
-    assert rules == ["*/runs/", "*/name-table/"]
+    assert rules == [
+        "*/runs/",
+        "*/name-table/",
+        "*/recordings/",
+        "*/recorder.toml",
+    ]
 
 
 def test_it_does_not_overwrite_an_edited_gitignore(tmp_path: Path) -> None:

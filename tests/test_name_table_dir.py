@@ -109,6 +109,8 @@ def test_no_path_digline_builds_lands_under_it(tmp_path: Path, suite: str) -> No
         store.run_path(RunRef(tenant="acme", suite=suite, key="k")),
         store.register_path("acme", suite),
         store.journal_dir("acme", suite),
+        store.recordings_dir("acme"),
+        store.recorder_path("acme"),
     )
     for path in built:
         assert not path.is_relative_to(reserved), path
