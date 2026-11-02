@@ -315,6 +315,21 @@ def _suite_node(
     return named
 
 
+class DiglineWarning(pytest.PytestWarning):
+    """Every warning this plugin emits, and only those.
+
+    A category of its own, so that a person or a test can ask for this
+    plugin's warnings alone: `-W error::pytest_digline.plugin.DiglineWarning`
+    stops a session on ours and on nobody else's. A subclass of
+    `pytest.PytestWarning`, so a filter written for that, as every one was
+    before this class, still takes ours. `PytestWarning` alone cannot tell the
+    two apart: pytest's own deprecations derive from it, and a third party's
+    plugin that imports a deprecated name of pytest's emits one at load.
+    Reached by its module path and not exported, as nothing in this package
+    is.
+    """
+
+
 def _warn_on_stale_deselects(
     config: pytest.Config, renamed: dict[str, list[str]]
 ) -> None:
@@ -324,7 +339,7 @@ def _warn_on_stale_deselects(
     nothing, so a value naming a row by its old nodeid would let the row it
     was meant to exclude run again in silence. The warning names, for that
     value, the nodeids that replaced it. It does not honour the old form: it
-    says the form changed. A `PytestWarning`, so `-W error` stops the session,
+    says the form changed. A `DiglineWarning`, so `-W error` stops the session,
     which is what whoever passed it asked for, as a usage error. The value is
     the user's own text, so it passes through `visible()` like every line this
     plugin prints.
@@ -345,7 +360,7 @@ def _warn_on_stale_deselects(
         ]
         if not replacements:
             continue
-        stale = pytest.PytestWarning(
+        stale = DiglineWarning(
             visible(
                 f"--deselect {value} names a row by the nodeid it had before a "
                 "suite named as file.py:attribute carried its attribute. It "
@@ -359,7 +374,7 @@ def _warn_on_stale_deselects(
             # not a call. No `stacklevel` reaches the user, so none is tried;
             # the message carries the value and its replacements instead.
             warnings.warn(stale, stacklevel=1)
-        except pytest.PytestWarning as exc:
+        except DiglineWarning as exc:
             # `-W error` turned it into an exception. Refused as a usage error,
             # as every refusal of the request is here, and not let through as
             # INTERNALERROR, which reads as a crash of pytest or of this plugin.

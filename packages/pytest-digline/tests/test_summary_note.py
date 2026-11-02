@@ -26,9 +26,16 @@ def test_the_note_follows_the_headline_in_the_summary(
     (gone,) = (pytester.path / ".digline").glob(f"*/runs/**/{newer}.json")
     gone.unlink()
 
-    # `-W error` too: the note is not a warning, so it cannot fail a session
-    # that turns warnings into errors.
-    result = pytester.runpytest_subprocess("--digline-suite", str(path), "-W", "error")
+    # `-W error` on this plugin's warnings too: the note is not a warning, so it
+    # cannot fail a session that turns them into errors. Ours alone, because a
+    # whole-session `-W error` is also stopped by any other plugin that warns at
+    # load, and then this would test that plugin.
+    result = pytester.runpytest_subprocess(
+        "--digline-suite",
+        str(path),
+        "-W",
+        "error::pytest_digline.plugin.DiglineWarning",
+    )
 
     expected = (
         f"note: the baseline was promoted from run {newer}, newer than {older}, "

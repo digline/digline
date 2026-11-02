@@ -72,6 +72,23 @@ def suites(*specs: str) -> list[str]:
     return [arg for spec in specs for arg in ("--digline-suite", spec)]
 
 
+#: This plugin's warnings, and only them: what `-W error` is asked to raise on.
+#: Every other plugin installed beside this one is free to warn.
+OURS = ["-W", "error::pytest_digline.plugin.DiglineWarning"]
+
+
+def stale_warnings(text: str, value: str) -> int:
+    """How many of this plugin's warnings name the stale `--deselect` value.
+
+    Read off the warnings summary, where each one is printed as
+    `<location>: DiglineWarning: --deselect <value> names a row…`: the category
+    is ours, and the value is the one the test passed. A count of every
+    warning in the session would count whatever else is installed.
+    """
+    marker = f"DiglineWarning: --deselect {value} names a row"
+    return sum(marker in line for line in text.splitlines())
+
+
 def test_each_suite_from_one_file_has_its_own_nodeids(
     pytester: pytest.Pytester, both: tuple[str, str]
 ) -> None:
@@ -150,8 +167,9 @@ def test_a_deselect_written_for_the_old_nodeid_warns_with_the_new_one(
     text = result.stdout.str()
     assert "both.py:support::alpha::contains" in text, text
     assert "both.py:billing::alpha::contains" in text, text
+    assert stale_warnings(text, "both.py::alpha::contains") == 1, text
     # Not excluded: the warning says the value is stale, it does not honour it.
-    result.assert_outcomes(passed=3, failed=1, warnings=1)
+    result.assert_outcomes(passed=3, failed=1)
 
 
 def test_one_warning_per_stale_value_not_one_per_suite(
@@ -166,22 +184,29 @@ def test_one_warning_per_stale_value_not_one_per_suite(
         "--deselect",
         "both.py::beta::contains",
     )
+    # One for each stale value, though each names a row of two suites.
+    text = result.stdout.str()
+    assert stale_warnings(text, "both.py::alpha::contains") == 1, text
+    assert stale_warnings(text, "both.py::beta::contains") == 1, text
     # Neither value deselects anything now, so all four rows run.
-    result.assert_outcomes(passed=3, failed=1, warnings=2)
+    result.assert_outcomes(passed=3, failed=1)
 
 
 def test_under_w_error_a_stale_deselect_stops_the_session(
     pytester: pytest.Pytester, both: tuple[str, str]
 ) -> None:
-    """Whoever asked for warnings to be errors asked to be stopped by this."""
+    """Whoever asked for warnings to be errors asked to be stopped by this.
+
+    Asked of this plugin's category alone: a whole-session `-W error` is also
+    stopped by any other plugin that warns at load, before this one is reached.
+    """
     result = pytester.runpytest_subprocess(
         "-p",
         "no:cacheprovider",
         *suites(*both),
         "--deselect",
         "both.py::alpha::contains",
-        "-W",
-        "error",
+        *OURS,
     )
     printed = result.stdout.str() + result.stderr.str()
     # A usage error, as every refusal of the request is in this plugin: not

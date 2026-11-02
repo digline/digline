@@ -10,10 +10,21 @@ variable in the experiment.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+
+#: What this plugin prints, recognised by its own two marks rather than by the
+#: word: the `digline` section's separator, and the `digline: ` prefix that its
+#: report header, its rows, its refusals and every line it writes to stderr
+#: begin with. The prefix counts at the start of a line or after a space, so
+#: `ERROR: digline: …` is ours. A path cannot produce either: inside a path the
+#: word follows a `/`, and pytest writes a location as `<path>:<line>`, never
+#: with a space after the colon. The bare word was the test before, and a
+#: checkout named `digline` put it in every warning's location.
+_OURS = re.compile(r"^=+ digline =+$|(?:^|\s)digline: ")
 
 
 def test_a_run_with_no_suite_named_collects_the_same_items(
@@ -37,16 +48,14 @@ def test_a_run_with_no_suite_named_prints_nothing_of_its_own(
     A header line, a section separator or a summary line from a plugin nobody
     asked for is noise in every pytest run on the machine.
 
-    pytest's own `plugins:` banner is excluded, and only that line: naming what
-    is installed is pytest's job and is how a reader knows what is loaded. Every
-    other mention would be ours.
+    pytest's own `plugins:` banner is not ours: naming what is installed is
+    pytest's job and is how a reader knows what is loaded. It carries neither
+    of this plugin's marks, so it needs no exception.
     """
     pytester.makepyfile(test_ordinary="def test_one(): assert True")
     result = pytester.runpytest_subprocess()
     ours = [
-        line
-        for line in result.stdout.lines + result.stderr.lines
-        if "digline" in line.lower() and not line.startswith("plugins:")
+        line for line in result.stdout.lines + result.stderr.lines if _OURS.search(line)
     ]
     assert not ours, ours
 
