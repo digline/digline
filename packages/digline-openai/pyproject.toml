@@ -77,6 +77,12 @@ Issues = "https://github.com/digline/digline/issues"
 [project.entry-points."digline.providers"]
 openai = "digline_openai:PROVIDER"
 
+# How digline's recorder finds the map for this provider's client, without
+# importing it: the name says which client class and which of its methods is
+# the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
+[project.entry-points."digline.recording_maps"]
+"openai.OpenAI:chat.completions.create" = "digline_openai.recording:MAP"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

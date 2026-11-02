@@ -110,6 +110,9 @@ class Recording:
     response: RecordedResponse
     episode: str | None = None
     label: Label | None = None
+    #: `module:function` of the call that named no suite, so a person can
+    #: assign it (ADR 0058 §2). `None` where the call named its suite.
+    call_site: str | None = None
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -118,6 +121,10 @@ class Recording:
                 raise RecordingRefusedError(
                     f"Recording.{name} must be a non-empty string"
                 )
+        if self.call_site == "":
+            raise RecordingRefusedError(
+                "Recording.call_site must be a non-empty string, or None"
+            )
         if self.episode == "":
             raise RecordingRefusedError(
                 "Recording.episode must be a non-empty string, or None for a "
@@ -167,6 +174,8 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["episode"] = recording.episode
     if recording.label is not None:
         payload["label"] = recording.label
+    if recording.call_site is not None:
+        payload["call_site"] = recording.call_site
     return payload
 
 
@@ -210,6 +219,7 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             response=recorded_response_from_dict(cast(Mapping[str, Any], response)),
             episode=_optional_text(document, "episode"),
             label=cast(Label | None, _optional_text(document, "label")),
+            call_site=_optional_text(document, "call_site"),
         )
     except RecordingRefusedError:
         raise
