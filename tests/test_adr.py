@@ -230,6 +230,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
         "`tests/test_migration_steps.py`, run on a transforming step built there"
     ),
+    "0057-the-replay-reads-the-trajectory-the-live-run-read": (
+        "`RecordedResponse` has no `finish` and no `tools`, and `SCHEMA_VERSION` "
+        "is 22; the repair is meant for 1.1 with its schema, and this record "
+        "comes first"
+    ),
 }
 
 
