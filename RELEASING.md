@@ -5743,18 +5743,23 @@ both.
 
 The ruling below stands for what it rules: a session still reads the counts
 from the logs of the finished `build` and `testpypi` jobs, which end before the
-`pypi` job starts waiting, and records them. As written on 2026-10-02, with
-the clause that said when restated on 2026-11-02:
+`pypi` job starts waiting, and records them. As written on 2026-10-02:
 
 They are read from the finished jobs' logs. That takes longer than the click,
 so they reach the approver after it, and the session does not hold the gate
 open to read them first. **They are still owed.** The session reads them once
-those jobs have finished and gives them to the approver. They then go into the
+the approval is recorded and gives them to the approver. They then go into the
 release's paragraph in *Status: what each path has proven*. A count that never
 arrives is the failure, not a count that arrives after the click. A count that
 does not match what the tag was meant to publish is read as a finding, as it
 would have been before the click: the upload is spent by then, and that is the
 same as on every release before this rule.
+
+*Corrected 2026-11-02, the paragraph above kept as written.* Its clause *"once
+the approval is recorded"* is restated: the session reads the counts from the
+logs of the `build` and `testpypi` jobs, which end before the `pypi` job starts
+waiting (`publish.yml:278`, `pypi` needs `testpypi`; `:143`, `testpypi` needs
+`build`). It does not read the approvals record.
 
 Ruled on 2026-10-02, at v0.26.0, after three releases in a row where the
 approval came before the counts could. It came in an 11-second window that a
