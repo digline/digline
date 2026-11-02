@@ -46,6 +46,7 @@ is never taken on trust.
 
 from __future__ import annotations
 
+import ast
 import json
 import re
 import subprocess
@@ -234,17 +235,40 @@ RELEASED: dict[str, int] = {
 #: different promise and `test_plugin_floors.py` is where floors are judged.
 CAP = re.compile(r"^digline>=[\d.]+,<([\d.]+)$")
 
-STANDALONE = (
-    "classifier",
-    "prompt-first",
-    "rag",
-    "external-app",
-    "langchain4j",
-    "langchain",
-    "langgraph",
-    "llamaindex",
-    "quickstart-toml",
-    "operator",
+
+def examples_with_a_baseline(root: Path) -> tuple[str, ...]:
+    """Every example that ships a baseline, in a fixed order.
+
+    Read from the tree, as `pinned_examples` in `.github/release_followup.py`
+    reads the examples that carry a lock, so that a new example joins the
+    gates below by committing its baseline rather than by somebody remembering.
+    """
+    found = root.glob("examples/*/.digline/*/baselines/*.json")
+    return tuple(sorted({path.relative_to(root).parts[1] for path in found}))
+
+
+#: Examples with a baseline that are deliberately outside the gates below, each
+#: with the reason it is out. **Absent by decision has to be distinguishable
+#: from absent by oversight**, as `PYPI_EXCLUDED` in `test_examples.py` says of
+#: its own job: an entry here is a sentence somebody wrote.
+#:
+#: Empty today, and that is a fact rather than a placeholder: every example
+#: that ships a baseline declares a cap and is held to it.
+CAPS_EXCLUDED: dict[str, str] = {}
+
+#: This was the third hand-written list of the examples, and it went stale the
+#: way the other two did. It was written on 2026-09-09 with seven names and
+#: extended by hand three times, to ten, by 2026-09-13; `mcp-tools`, which
+#: arrived on 2026-09-20 with its own baseline and its own cap, was never
+#: added, and the three gates below ran on ten of eleven, green because they
+#: were not looking that way. The `examples-from-pypi` matrix
+#: missed the same example (`test_examples.py`, `PYPI_JOB`), and so did the
+#: hand-written tuple `release_followup` once read its locks from
+#: (`test_release_followup.py`). Now it is derived: an example is checked
+#: because its baseline is committed, and an exclusion is a reason written in
+#: `CAPS_EXCLUDED`, not a name nobody typed.
+STANDALONE = tuple(
+    name for name in examples_with_a_baseline(ROOT) if name not in CAPS_EXCLUDED
 )
 
 
@@ -532,4 +556,59 @@ def test_every_example_commits_something_for_the_gate_to_check(name: str) -> Non
         f"examples/{name} commits no run document at all, so the schema gates "
         "have nothing to judge. Every example ships the baseline its README "
         "compares against."
+    )
+
+
+# --------------------------------------------------------------------------- #
+# The list, and what keeps it the same list
+# --------------------------------------------------------------------------- #
+
+
+def projects_meant_to_leave() -> set[str]:
+    """`STANDALONE` in `tests/test_examples.py`, read with `ast` and not
+    imported: the two files each hold a list of the examples, and a comparison
+    that imported one into the other would be one list compared with itself."""
+    tree = ast.parse((ROOT / "tests" / "test_examples.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "STANDALONE"
+                for target in node.targets
+            )
+            and isinstance(node.value, ast.Tuple)
+        ):
+            return {
+                element.value
+                for element in node.value.elts
+                if isinstance(element, ast.Constant) and isinstance(element.value, str)
+            }
+    raise AssertionError("tests/test_examples.py lost STANDALONE")
+
+
+def test_the_examples_with_a_baseline_are_the_projects_meant_to_leave() -> None:
+    """Two lists of the examples that have to be one list.
+
+    `test_examples.py` names the projects meant to leave by hand, and holds its
+    `examples-from-pypi` matrix to that tuple. This file derives its own from
+    the committed baselines. Each example that leaves ships the baseline its
+    README compares against, so the two are the same set, and the day they
+    are not, one of them is wrong: a new example that only one list knows, or
+    a name left behind by a directory that moved.
+    """
+    derived, named = set(examples_with_a_baseline(ROOT)), projects_meant_to_leave()
+    assert derived == named, (
+        "the examples with a committed baseline and the projects "
+        "`tests/test_examples.py` names as meant to leave are not the same set.\n"
+        f"  with a baseline only: {sorted(derived - named) or '-'}\n"
+        f"  named only: {sorted(named - derived) or '-'}"
+    )
+
+
+def test_every_declared_exclusion_is_an_example_with_a_baseline() -> None:
+    """A declaration nobody checks decays into a comment: an entry naming an
+    example that is gone excludes nothing and still reads as a decision."""
+    unknown = sorted(set(CAPS_EXCLUDED) - set(examples_with_a_baseline(ROOT)))
+    assert not unknown, (
+        f"CAPS_EXCLUDED names {', '.join(unknown)}, which ships no baseline."
     )
