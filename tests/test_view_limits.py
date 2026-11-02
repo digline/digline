@@ -95,11 +95,17 @@ def exchange(
     """Send `sent`, then read until the **server** closes; the answer and how
     long that took. A client timeout raises rather than returning, so every
     answer returned here is one the server chose to end."""
+    # Before the connection, not after the send. A lower bound on wall time is
+    # sound only if the window holds the whole of the server's wait: connecting,
+    # sending, closing and delivering the close can only lengthen it. Started
+    # after `sendall`, the window could open after the server's timer had
+    # already started, and a merge-queue run on 2026-11-02 failed on exactly
+    # that: `assert 0.5 <= 0.49933138500000496`.
+    started = time.monotonic()
     with socket.create_connection(("127.0.0.1", port), timeout=CLIENT_WAIT_S) as sock:
         sock.sendall(sent)
         if close_writing:
             sock.shutdown(socket.SHUT_WR)
-        started = time.monotonic()
         chunks: list[bytes] = []
         while chunk := sock.recv(65536):
             chunks.append(chunk)
