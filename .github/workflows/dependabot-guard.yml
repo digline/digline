@@ -1,0 +1,103 @@
+name: dependabot-guard
+
+# Two things a Dependabot pull request can carry that no gate reads, and that
+# a reviewer has had to look for by hand on every one.
+#
+# **A major inside a group.** A grouped pull request is titled by the group,
+# and a major bump in it reads like the patches beside it. #206 on digline.dev
+# carried four majors under one title. The update types come from
+# `dependabot/fetch-metadata`, which reads the metadata block Dependabot writes
+# into its commit message, not the diff: on that same pull request the block
+# and the diff named different versions of one action. So the versions printed
+# here are said to be as Dependabot declares them.
+#
+# **A closing word.** A Dependabot body quotes release notes written for
+# another repository's tracker, and GitHub reads a closing keyword in a pull
+# request's body or commit message as one about this repository's: #857
+# carried `Fixes #6665` on 2026-11-02. `.github/closing_words.py` has the rule
+# and what it reads.
+#
+# Both jobs run only on a pull request Dependabot opened: on any other they are
+# skipped. Neither is a required check. Dependabot's runs get a read-only
+# token, and this workflow asks for nothing more.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  major:
+    name: A major hides in this group
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Refuse a major, and a group nobody could classify
+        env:
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCIES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        # `update-type` is the highest change in the pull request; the JSON has
+        # one entry per dependency, which is how a major is named. An empty
+        # `update-type` is what the action gives when a version is missing or
+        # the two are equal: that is "not known", and it does not pass.
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          highest = os.environ.get("UPDATE_TYPE", "")
+          try:
+              entries = json.loads(os.environ.get("DEPENDENCIES") or "[]")
+          except json.JSONDecodeError as exc:
+              print(f"could not read updated-dependencies-json: {exc}")
+              sys.exit(1)
+
+          def line(entry):
+              return (
+                  f"{entry.get('dependencyName')}: "
+                  f"{entry.get('prevVersion') or '?'} -> {entry.get('newVersion') or '?'} "
+                  f"({entry.get('updateType') or 'unclassified'}), "
+                  "as Dependabot declares them"
+              )
+
+          print(f"update-type: {highest or '(empty)'}")
+          for entry in entries:
+              print("  " + line(entry))
+          if not entries:
+              print("no dependency was read from the metadata: nothing to classify")
+              sys.exit(1)
+          if not highest:
+              print("could not classify this pull request: an empty update-type is not 'no major'")
+              sys.exit(1)
+          majors = [e for e in entries if e.get("updateType") == "version-update:semver-major"]
+          if highest == "version-update:semver-major" or majors:
+              print(f"{len(majors)} major bump(s) in this pull request:")
+              for entry in majors:
+                  print("  " + line(entry))
+              sys.exit(1)
+          print("no major bump")
+          PY
+
+  closing:
+    name: A closing word points at this tracker
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: The matcher, on cases it must and must not match
+        run: python3 .github/closing_words.py --selftest
+
+      - name: The body and every commit message, against the tracker
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: python3 .github/closing_words.py check --repo "$GITHUB_REPOSITORY" --pr "$PR" --event "$GITHUB_EVENT_PATH"
