@@ -5742,13 +5742,14 @@ would interact with its required reviewer. The next release is the test of
 both.
 
 The ruling below stands for what it rules: a session still reads the counts
-from the logs once the approval is recorded, and records them. As written on
-2026-10-02:
+from the logs of the finished `build` and `testpypi` jobs, which end before the
+`pypi` job starts waiting, and records them. As written on 2026-10-02, with
+the clause that said when restated on 2026-11-02:
 
 They are read from the finished jobs' logs. That takes longer than the click,
 so they reach the approver after it, and the session does not hold the gate
 open to read them first. **They are still owed.** The session reads them once
-the approval is recorded and gives them to the approver. They then go into the
+those jobs have finished and gives them to the approver. They then go into the
 release's paragraph in *Status: what each path has proven*. A count that never
 arrives is the failure, not a count that arrives after the click. A count that
 does not match what the tag was meant to publish is read as a finding, as it
