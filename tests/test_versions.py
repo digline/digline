@@ -369,6 +369,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "1.0.3": (
+            "the release before 1.1.0, told as history: its paragraph in the "
+            "Status block, with the capture, the index, the image, the locks and "
+            "the reports it moved, and the follow-up that read it"
+        ),
         "1.0.2": (
             "the release before 1.0.3, told as history: its paragraph in the "
             "Status block, with the capture, the index, the image and the "

@@ -6,6 +6,28 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## 1.1.0 — unreleased
+
+- **Schema 23: a replay reads the trajectory the live run read** (ADR 0057).
+  `ToolsCalled` reads two keys of the target's report that the document did
+  not keep, so a replay could judge another trajectory than the live run. A
+  reply that ended on a tool call and named none was `error` live and `fail`
+  replayed, and a target whose two lists disagreed was judged on one live and
+  on the other replayed. A recorded response now carries both:
+  - **`RecordedResponse.finish`**, why the reply ended, and
+    **`RecordedResponse.tools`**, the names the target reported. Each is
+    written where the target reported it, under `record_responses`, with no
+    switch of its own, and an absent key is *not recorded*.
+  - The replay hands back what was recorded. Where `tools` was not recorded,
+    it derives the names from `tool_calls`, as before.
+  - **The replay's refusal narrows.** A target that reported names and no calls
+    is re-judged for `ToolsCalled`, where it was refused. `ToolCalledWith`
+    reads the arguments, which only `tool_calls` carries, and is still refused.
+
+  A document written before 23 records neither, and **no stored document
+  changes its verdict**: absent is *not recorded*, so it replays exactly as it
+  did. The 22 -> 23 step writes nothing. A schema that moves is a minor.
+
 ## 1.0.3 — 2026-10-31
 
 digline **1.0.3**. **A patch, by the enumeration in `RELEASING.md`, *Choosing

@@ -268,6 +268,14 @@ __all__ = [
 #    recorded none of the three. Outside `config_hash`: each is something a
 #    run measured, not something the suite declared (ADR 0014 §1).
 #
+# 22: two passengers, additive, and the step writes nothing for either: the
+#    provenance a projection reads. `origin` on a verdict, stamped by the
+#    driver, says who wrote its metadata (#711), and `named` on a
+#    configuration says which of its keys are digline's words (#323). Each is
+#    absent where not recorded, and a projection never reads an absent one as
+#    digline's: every configuration key and every non-builtin metadata key is
+#    a token. (ADR 0034 §17)
+#
 # 23: two passengers on a recorded response, additive, and the step writes
 #    nothing for either: `finish` and `tools`, the two keys `ToolsCalled` reads
 #    live and the document did not keep, so a replay judged a reply that ended
