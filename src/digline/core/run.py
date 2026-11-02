@@ -3235,6 +3235,15 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
         raise ValueError(f"recorded response: {exc}") from exc
 
 
+#: The serializer of a recorded response and its inverse, under names another
+#: module may import: a recording's response compartment is written and read
+#: by these and by no second pair (ADR 0058 §11). Bound, not wrapped, so each
+#: public name *is* the function a run document uses, and a test says so with
+#: `is`.
+recorded_response_to_dict = _response_to_dict
+recorded_response_from_dict = _response_from_dict
+
+
 def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
     """The inverse, and public for the same reason: a journal is read back."""
     where = "case result"

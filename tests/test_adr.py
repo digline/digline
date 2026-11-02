@@ -236,9 +236,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "comes first"
     ),
     "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
-        "no recorder exists: `digline.episode`, `RecordedStep`, "
-        "`RECORDING_VERSION` and `recordings/` are in no file; it is meant for "
-        "1.1, and this record comes first"
+        "only the recording's document and its place in the layout exist "
+        "(`RECORDING_VERSION`, `recordings/`); no wrapper records a call, and "
+        "`digline.episode` and `RecordedStep` are in no file. Meant for 1.1"
     ),
 }
 
