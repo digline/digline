@@ -236,15 +236,40 @@ RELEASED: dict[str, int] = {
 CAP = re.compile(r"^digline>=[\d.]+,<([\d.]+)$")
 
 
-def examples_with_a_baseline(root: Path) -> tuple[str, ...]:
-    """Every example that ships a baseline, in a fixed order.
+def examples_with_a_baseline(root: Path) -> tuple[str, ...] | None:
+    """Every example that ships a committed baseline, in a fixed order, or
+    `None` where `root` is not a git checkout and nothing can be called
+    committed.
 
-    Read from the tree, as `pinned_examples` in `.github/release_followup.py`
-    reads the examples that carry a lock, so that a new example joins the
-    gates below by committing its baseline rather than by somebody remembering.
+    Derived rather than written, as `pinned_examples` in
+    `.github/release_followup.py` derives the examples that carry a lock, so a
+    new example joins the gates below by committing its baseline rather than by
+    somebody remembering. And read from git, as `committed_documents` below
+    reads an example's documents, for its reason: a baseline created locally
+    and never committed is not *committed*, no reader receives it, and the list
+    has to come in by the same door as the check it feeds.
     """
-    found = root.glob("examples/*/.digline/*/baselines/*.json")
-    return tuple(sorted({path.relative_to(root).parts[1] for path in found}))
+    listed = subprocess.run(  # noqa: S603
+        ["git", "ls-files", "-z", "--", "examples"],  # noqa: S607
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if listed.returncode != 0:
+        return None
+    names: set[str] = set()
+    for entry in listed.stdout.split("\0"):
+        # `examples/<name>/.digline/<tenant>/baselines/<file>.json`, exactly.
+        parts = entry.split("/")
+        if (
+            len(parts) == 6
+            and parts[2] == ".digline"
+            and parts[4] == "baselines"
+            and parts[5].endswith(".json")
+        ):
+            names.add(parts[1])
+    return tuple(sorted(names))
 
 
 #: Examples with a baseline that are deliberately outside the gates below, each
@@ -268,7 +293,7 @@ CAPS_EXCLUDED: dict[str, str] = {}
 #: because its baseline is committed, and an exclusion is a reason written in
 #: `CAPS_EXCLUDED`, not a name nobody typed.
 STANDALONE = tuple(
-    name for name in examples_with_a_baseline(ROOT) if name not in CAPS_EXCLUDED
+    name for name in examples_with_a_baseline(ROOT) or () if name not in CAPS_EXCLUDED
 )
 
 
@@ -551,7 +576,15 @@ def test_every_committed_document_is_the_schema_this_workspace_writes(
 def test_every_example_commits_something_for_the_gate_to_check(name: str) -> None:
     """An example with no committed run makes both tests above vacuous — they
     would pass on an empty directory. What each one ships is a baseline, which
-    is what `compare` reads."""
+    is what `compare` reads.
+
+    The list is now derived from the committed baselines, so every name here
+    has one, and what this still checks is narrower: that the baseline is a
+    run document `committed_schemas` can read a schema from, a JSON object with
+    an integer `schema_version`. A committed baseline without one passes the
+    schema gate above, which only judges the documents that declare a schema,
+    and is refused by `run_from_json` all the same; this is the test that
+    names it."""
     assert committed_schemas(name), (
         f"examples/{name} commits no run document at all, so the schema gates "
         "have nothing to judge. Every example ships the baseline its README "
@@ -562,6 +595,15 @@ def test_every_example_commits_something_for_the_gate_to_check(name: str) -> Non
 # --------------------------------------------------------------------------- #
 # The list, and what keeps it the same list
 # --------------------------------------------------------------------------- #
+
+
+def committed_baselines() -> set[str]:
+    """`examples_with_a_baseline` for a test, skipping as `committed_documents`
+    does where there is no git checkout to ask."""
+    names = examples_with_a_baseline(ROOT)
+    if names is None:
+        pytest.skip("not a git checkout, so nothing here can be called committed")
+    return set(names)
 
 
 def projects_meant_to_leave() -> set[str]:
@@ -596,7 +638,7 @@ def test_the_examples_with_a_baseline_are_the_projects_meant_to_leave() -> None:
     are not, one of them is wrong: a new example that only one list knows, or
     a name left behind by a directory that moved.
     """
-    derived, named = set(examples_with_a_baseline(ROOT)), projects_meant_to_leave()
+    derived, named = committed_baselines(), projects_meant_to_leave()
     assert derived == named, (
         "the examples with a committed baseline and the projects "
         "`tests/test_examples.py` names as meant to leave are not the same set.\n"
@@ -608,7 +650,7 @@ def test_the_examples_with_a_baseline_are_the_projects_meant_to_leave() -> None:
 def test_every_declared_exclusion_is_an_example_with_a_baseline() -> None:
     """A declaration nobody checks decays into a comment: an entry naming an
     example that is gone excludes nothing and still reads as a decision."""
-    unknown = sorted(set(CAPS_EXCLUDED) - set(examples_with_a_baseline(ROOT)))
+    unknown = sorted(set(CAPS_EXCLUDED) - committed_baselines())
     assert not unknown, (
         f"CAPS_EXCLUDED names {', '.join(unknown)}, which ships no baseline."
     )
