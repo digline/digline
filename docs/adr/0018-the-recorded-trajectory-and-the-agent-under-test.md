@@ -538,6 +538,27 @@ The answers ADR 0004 asked this assertion to bring:
   undecodable value is a different problem from a mismatched one, and conflating
   them makes the diff unreadable.
 
+*Note of 2026-11-02, the list above kept as written.* What *"after
+canonicalisation"* does, read from `canonical` in `digline/core/types.py` on
+digline at `83be8a52`, and unchanged at `272e8c14`. The declared arguments and
+the ones the model sent both go through it, the second after a string is
+decoded as JSON, so two values that differ can match:
+
+- a float is rounded to six decimals, the storage precision, so two floats that
+  round to the same six decimals match even where they differ past the sixth;
+- `nan` and the infinities become text, so a declared `nan` matches the string
+  `"nan"` sent;
+- `bytes` and `bytearray` become hexadecimal, so each matches its own
+  hexadecimal string;
+- a mapping's keys go through `str`, so `{1: "a"}` matches `{"1": "a"}`;
+- a set's elements go through `str` and are sorted;
+- any other value becomes `"<TypeName>"`: anything that is not `None`, a
+  `bool`, an `int`, a `str`, a `float`, `bytes` or `bytearray`, a `Mapping`, an
+  `AbstractSet`, a `Sequence`, or a dataclass instance. So a declared argument
+  of a type that collapses does not discriminate: against an object of the same
+  type it always matches, and against a value decoded from JSON it matches only
+  the string `"<TypeName>"` itself.
+
 **What reaches `Score.metadata` is a measurement and never a value:**
 
     {"arguments_matched": int, "arguments_expected": int}

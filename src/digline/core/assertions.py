@@ -1378,6 +1378,21 @@ class ToolCalledWith(AssertionBase):
     precedent: they differ by one comparison and every rule around them would
     otherwise be written twice.
 
+    **Canonicalisation is `canonical` in `core/types.py`, and two values that
+    differ can match through it** (read at `83be8a52`). Both sides go through
+    it, what was sent after a string is decoded as JSON. A float is rounded to
+    six decimals, so two that round to the same six match. `nan` and the
+    infinities become text, so a declared `nan` matches the string `"nan"`.
+    `bytes` and `bytearray` become hexadecimal and match their own hex string.
+    A mapping's keys go through `str`, so `{1: "a"}` matches `{"1": "a"}`, and a
+    set's elements go through `str` and are sorted. Any other value — not
+    `None`, `bool`, `int`, `str`, `float`, `bytes` or `bytearray`, a `Mapping`,
+    an `AbstractSet`, a `Sequence`, or a dataclass instance — becomes
+    `"<TypeName>"`. So a declared argument of such a type does not
+    discriminate: against an object of the same type it always matches, and
+    against a value decoded from JSON it matches only the string
+    `"<TypeName>"`.
+
     Nothing the model sent reaches `Score.metadata` — only how much of what was
     declared matched. An argument is the end company's data by construction, and
     the bag this writes into is the one projected onto the wire. (ADR 0018 §5)

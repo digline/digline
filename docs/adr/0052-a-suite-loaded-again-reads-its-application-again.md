@@ -315,6 +315,12 @@ proposes the field, and the ADR says so in its own words"*. Here they are.
    unchecked too. ADR 0034 is not amended here: naming a field in its
    enumeration changes an accepted record, and it belongs to the gate.
 
+   *Note of 2026-11-02.* The sentence above says class (b). The projection
+   gate holds module names in class (c), as `$.modules_unchecked[]`, and
+   ADR 0034's note of 2026-10-26 holds them there too, as tokens. The gate is
+   what runs, so (c) is what the estate does; the (b) above is superseded and
+   was never recorded as moved. Measured on digline at `83be8a52`.
+
 ## Its price
 
 **A suite that counts on module state persisting between runs in one process
