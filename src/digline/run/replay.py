@@ -94,6 +94,15 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     `tool_calls` what `ToolCalledWith` reads; writing one without the other
     would answer one assertion and error the other over the same recording.
 
+    **From schema 23, what was recorded is handed back as recorded.** `tools`
+    comes from the document where it was recorded, and `finish` beside it, so a
+    reply that ended on a tool call and named none, or whose two lists
+    disagreed, is judged on the trajectory the live run judged. Where `tools`
+    was not recorded — every document before 23 — the names are derived from
+    `tool_calls` as before, so an older document replays exactly as it did.
+    `tools` may now arrive without `tool_calls`: the one assertion that reads
+    the calls is refused that replay by `_check`. (ADR 0057)
+
     **`()` is not `None`, and collapsing them was a defect.** A recorded
     response carrying no calls is a target that reported *the model called
     nothing* — a real measurement, which `ToolsCalled` scores rather than
@@ -115,11 +124,13 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     # universal invariant when the refusal is conditional on the suite, so every
     # replay of a plain-function target died with `AssertionError`. The guard
     # belongs where the fact is known, which is `_check`.
-    if answer.tool_calls is None:
-        return {}
-    return {
-        "tools": [call.tool for call in answer.tool_calls],
-        "tool_calls": [
+    found: dict[str, object] = {}
+    if answer.tools is not None:
+        found["tools"] = list(answer.tools)
+    elif answer.tool_calls is not None:
+        found["tools"] = [call.tool for call in answer.tool_calls]
+    if answer.tool_calls is not None:
+        found["tool_calls"] = [
             {
                 "tool": call.tool,
                 "arguments": call.arguments,
@@ -128,8 +139,10 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
                 "result_absence": call.result_absence,
             }
             for call in answer.tool_calls
-        ],
-    }
+        ]
+    if answer.finish is not None:
+        found["finish"] = answer.finish
+    return found
 
 
 def _check(suite: Suite, source: Run) -> None:
@@ -212,13 +225,26 @@ def _check(suite: Suite, source: Run) -> None:
                 "measurement wearing the suite's name: set `samples` to what "
                 "was recorded, or produce a new run"
             )
-        if trajectory_checks and not all(
-            r.replayable_trajectory for r in stored.responses
-        ):
+        # Each check asks for what it reads. `ToolCalledWith` reads the calls,
+        # which only `tool_calls` carries. `ToolsCalled` reads the names, which
+        # schema 23 records as `tools` and which `tool_calls` can still give,
+        # so a target that reported names and no calls is re-judged on them
+        # rather than refused. (ADR 0057)
+        unserved = [
+            check
+            for check in trajectory_checks
+            if not all(
+                r.replayable_tools
+                if isinstance(check, ToolsCalled)
+                else r.replayable_trajectory
+                for r in stored.responses
+            )
+        ]
+        if unserved:
             raise ReplayError(
                 f"case {case.id!r} has a recorded answer from a target that "
                 f"reported no trajectory, and this suite holds "
-                f"{trajectory_checks[0].name!r}, which judges one. The run was "
+                f"{unserved[0].name!r}, which judges one. The run was "
                 "produced before trajectories were recorded, or by a target "
                 "that does not report them — so re-judging it would error that "
                 "check rather than measure it, which is a declared gate "

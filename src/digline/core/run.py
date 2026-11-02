@@ -74,7 +74,9 @@ __all__ = [
     "config_from_dict",
     "config_hash",
     "config_to_dict",
+    "record_finish",
     "record_output",
+    "record_tools",
     "record_trajectory",
     "totals_from_dict",
     "totals_to_dict",
@@ -265,7 +267,16 @@ __all__ = [
 #    absent is *not recorded*, never `null`, because a document before 21
 #    recorded none of the three. Outside `config_hash`: each is something a
 #    run measured, not something the suite declared (ADR 0014 §1).
-SCHEMA_VERSION = 22
+#
+# 23: two passengers on a recorded response, additive, and the step writes
+#    nothing for either: `finish` and `tools`, the two keys `ToolsCalled` reads
+#    live and the document did not keep, so a replay judged a reply that ended
+#    on a tool call and named none, or whose two lists disagreed, on another
+#    trajectory than the live run. Written only where the target reported them,
+#    under `record_responses`, on `usage`'s model; absent is *not recorded*, and
+#    the replay then derives the names from `tool_calls` as before. Outside
+#    `config_hash`: each is something a run measured (ADR 0014 §1). (ADR 0057)
+SCHEMA_VERSION = 23
 
 
 class DocumentRefusedError(ValueError):
@@ -886,6 +897,40 @@ def record_trajectory(
     return tuple(calls)
 
 
+def record_finish(metadata: Mapping[str, object]) -> str | None:
+    """Why the reply ended, as the document will hold it, or `None`.
+
+    Reads `metadata["finish"]`, which `ToolsCalled` reads live (ADR 0057). A
+    string is kept as written; anything else is *not recorded*, because no
+    other value can equal the `"tool_use"` that assertion compares against, so
+    leaving it out changes no verdict a replay can give. Not strict about shape
+    the way `record_trajectory` is: a refusal here would stop a run that
+    recorded fine before schema 23, over a key it never wrote.
+    """
+    found = metadata.get("finish")
+    return found if isinstance(found, str) else None
+
+
+def record_tools(metadata: Mapping[str, object]) -> tuple[str | None, ...] | None:
+    """The names `ToolsCalled` reads live, as the document will hold them, or
+    `None`.
+
+    Reads `metadata["tools"]` (ADR 0057). Kept when it is a list of names, each
+    a string or `None` — an empty string included, so the replay errors it as
+    the live run did. Anything else is *not recorded*: a malformed list is one
+    `ToolsCalled` errors live, and refusing it here would stop a run that
+    recorded fine before schema 23. Where it is not recorded, the replay derives
+    the names from `tool_calls`, as before.
+    """
+    found = metadata.get("tools")
+    if not isinstance(found, list | tuple):
+        return None
+    names = cast("Sequence[object]", found)
+    if not all(name is None or isinstance(name, str) for name in names):
+        return None
+    return tuple(cast("Sequence[str | None]", names))
+
+
 def _reported_tool(item: Mapping[str, object]) -> str | None:
     """The tool a target named, or `None` where it said it named none.
 
@@ -1087,6 +1132,21 @@ class RecordedResponse:
     usage: Usage | None = None
     withheld: bool = False
     oversize: bool = False
+    #: Why the reply ended, as the target reported it: `"tool_use"`, `"stop"`
+    #: and the rest of `Finish`, or whatever text a function target wrote.
+    #: `ToolsCalled` reads it live, to error a reply that ended on a tool call
+    #: and named none, so the replay hands it back. `None` is *not recorded*:
+    #: a target that reported no finish, or a document before schema 23.
+    #: Recorded under `record_responses`, beside `tool_calls`, on `usage`'s
+    #: model: no switch of its own. Last in the field order, so a positional
+    #: construction of this public class keeps meaning what it meant. (ADR 0057)
+    finish: str | None = None
+    #: The names `ToolsCalled` reads live, as the target reported them under
+    #: `tools`, `None` where it named none. Recorded, not rebuilt from
+    #: `tool_calls`, because a target may report the two apart, or `tools`
+    #: alone. `None` is *not recorded*, and the replay then derives the names
+    #: from `tool_calls`, as every replay did before schema 23. (ADR 0057)
+    tools: tuple[str | None, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.withheld and self.oversize:
@@ -1097,6 +1157,8 @@ class RecordedResponse:
             )
         if self.withheld and (
             self.tool_calls is not None
+            or self.tools is not None
+            or self.finish is not None
             or any(
                 value is not None
                 for value in (
@@ -1122,6 +1184,10 @@ class RecordedResponse:
             self.output is not None
             or self.input is not None
             or self.tool_calls is not None
+            # The trajectory is kept whole or not at all, and these are half of
+            # what a trajectory assertion reads. (ADR 0057)
+            or self.tools is not None
+            or self.finish is not None
         ):
             raise ValueError(
                 "RecordedResponse declares itself oversize but carries text: "
@@ -1163,8 +1229,22 @@ class RecordedResponse:
         would have to invent `tools: []` — claiming the model called nothing
         about a target that never said so, which is the vacuous green this
         product refuses. (0.12.1)
+
+        This is what `ToolCalledWith` needs, because only `tool_calls` carries
+        the arguments. `ToolsCalled` needs less: see `replayable_tools`.
         """
         return self.tool_calls is not None
+
+    @property
+    def replayable_tools(self) -> bool:
+        """Whether `ToolsCalled` can be handed this answer again: the names it
+        reads were recorded, or can be derived from the recorded calls.
+
+        Narrower than nothing and wider than `replayable_trajectory`: a target
+        that reported `tools` and no `tool_calls` can be re-judged on its names
+        from schema 23, where before it was refused. (ADR 0057)
+        """
+        return self.tools is not None or self.tool_calls is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3013,6 +3093,13 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
     # calling anything records that it did. (0.12.1)
     if response.tool_calls is not None:
         payload["tool_calls"] = [_tool_call_to_dict(c) for c in response.tool_calls]
+    # Absent where not recorded, which is every document before schema 23, and
+    # a target that reported neither. A name nobody gave is `null` inside the
+    # list, as `ToolsCalled` reads it live. (ADR 0057)
+    if response.tools is not None:
+        payload["tools"] = list(response.tools)
+    if response.finish is not None:
+        payload["finish"] = response.finish
     return payload
 
 
@@ -3190,6 +3277,44 @@ def _recorded_calls(raw: Mapping[str, Any]) -> tuple[RecordedToolCall, ...] | No
     return tuple(_tool_call_from_dict(c) for c in cast("Sequence[object]", calls))
 
 
+def _recorded_tools(raw: Mapping[str, Any]) -> tuple[str | None, ...] | None:
+    """The names, absent as *not recorded*, a null refused like every other
+    null here, and each entry a string or `null`. (ADR 0057)"""
+    if "tools" not in raw:
+        return None
+    names = raw["tools"]
+    if names is None:
+        raise ValueError(
+            "recorded response: 'tools' is null: a response whose target named "
+            "no tools omits the key"
+        )
+    if isinstance(names, str) or not isinstance(names, Sequence):
+        raise ValueError(
+            f"recorded response: 'tools' is a {type(names).__name__}, not a list "
+            "of names"
+        )
+    entries = cast("Sequence[object]", names)
+    if not all(name is None or isinstance(name, str) for name in entries):
+        raise ValueError(
+            "recorded response: 'tools' holds an entry that is neither a name nor null"
+        )
+    return tuple(cast("Sequence[str | None]", entries))
+
+
+def _recorded_finish(raw: Mapping[str, Any]) -> str | None:
+    """Why the reply ended, absent as *not recorded*, a null or a non-string
+    refused. (ADR 0057)"""
+    if "finish" not in raw:
+        return None
+    found = raw["finish"]
+    if not isinstance(found, str):
+        raise ValueError(
+            f"recorded response: 'finish' is {type(found).__name__}, not a string: "
+            "a response whose target reported no finish omits the key"
+        )
+    return found
+
+
 def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
     """Straight into the value, which does the checking — `_config_from_dict`'s
     rule, for the same reason: a document is written by whoever holds it."""
@@ -3227,6 +3352,8 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             ),
             withheld=withheld,
             oversize=oversize,
+            finish=_recorded_finish(raw),
+            tools=_recorded_tools(raw),
         )
     except DocumentRefusedError:
         # Already says where it is: `declared_integer` was told. (#379)

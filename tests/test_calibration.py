@@ -804,7 +804,9 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     # `error_kind` are *not recorded* (#563, #425).
     # 21 -> 22 writes nothing either: an absent `origin` on a verdict and
     # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
-    assert SCHEMA_VERSION == 22
+    # 22 -> 23 writes nothing either: an absent `finish` and an absent `tools`
+    # on a recorded response are *not recorded* (ADR 0057).
+    assert SCHEMA_VERSION == 23
     assert upgrade_document(at_eleven) == current
 
 

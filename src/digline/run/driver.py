@@ -58,6 +58,7 @@ from digline.core import (
 )
 from digline.core.protocols import DeclaresPrice
 from digline.core.refused import RefusedError, Written
+from digline.core.run import record_finish, record_tools
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -609,10 +610,15 @@ def recorded(response: Response) -> RecordedResponse:
     """
     text, kind = record_output(response.output)
     calls = record_trajectory(response.metadata)
+    # Read beside the calls, because `ToolsCalled` reads them beside the calls,
+    # and kept or dropped with them as one trajectory. (ADR 0057)
+    finish = record_finish(response.metadata)
+    tools = record_tools(response.metadata)
     if (
         len(text) > MAX_RECORDED_CHARS
         or (response.input is not None and len(response.input) > MAX_RECORDED_CHARS)
-        or trajectory_chars(calls or ()) > MAX_RECORDED_CHARS
+        or trajectory_chars(calls or ()) + sum(len(name or "") for name in tools or ())
+        > MAX_RECORDED_CHARS
     ):
         return RecordedResponse(
             oversize=True,
@@ -630,6 +636,8 @@ def recorded(response: Response) -> RecordedResponse:
         latency_ms=response.latency_ms,
         tool_calls=calls,
         usage=response.usage,
+        finish=finish,
+        tools=tools,
     )
 
 
