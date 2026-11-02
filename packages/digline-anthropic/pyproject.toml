@@ -44,7 +44,19 @@ dependencies = [
     # overrides `Pricing.why_unpriced` (#569), and the plugin's half of #629
     # hands over `Completion(usage=None)`. All three are new in 0.35.0, which
     # is on PyPI. (ADR 0004 §8)
-    "digline>=0.35.0",
+    #
+    # And a cap, `<2`, from 2026-11-02. From 1.0.0 a minor does not break a
+    # public Python signature, nor rename a name this plugin imports or a
+    # method it calls: that waits for the next major (RELEASING.md, *Choosing
+    # the version*). So the cap is the next major, and every 1.x installs under
+    # it. Every package under `packages/` holds one, and
+    # `tests/test_plugin_floors.py` reads it.
+    #
+    # **Owed at the cut: a release of this package, with the floor unchanged.**
+    # The cap reaches nobody until this package is released: the only reader
+    # of caps, `.github/plugins_against_core.py`, reads `requires_dist` from
+    # PyPI. RELEASING.md, *Owed at the cut*, holds the row.
+    "digline>=0.35.0,<2",
     "anthropic>=0.40",
 ]
 
