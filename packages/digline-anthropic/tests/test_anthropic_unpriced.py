@@ -10,7 +10,7 @@ not known, and the sentence is handed to the person who ran the command.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +20,7 @@ from digline.core import Contains, CostBudget, LlmRubric, Run, RunUsage
 from digline.run import Case, Response, Suite, execute
 from digline.targets import Usage
 from digline_anthropic import AnthropicJudge, AnthropicTarget
+from digline_anthropic.client import completion_of
 
 CREATED = "2026-01-01T00:00:00+00:00"
 
@@ -70,7 +71,9 @@ class FakeClient:
         self.messages = FakeMessages(text, usage)
 
 
-GEO = FakeUsage(inference_geo="not_available")
+#: A geography `GEO_MULTIPLIERS` has no rate for. It was `"not_available"`
+#: until that string was priced, as a model without the parameter.
+GEO = FakeUsage(inference_geo="eu")
 ONE_HOUR = FakeUsage(
     cache_creation_input_tokens=1500,
     cache_creation=FakeCacheCreation(
@@ -84,6 +87,7 @@ UNPRICED = [
 PRICED = [
     pytest.param(FakeUsage(inference_geo="global"), id="global"),
     pytest.param(FakeUsage(inference_geo="us"), id="us"),
+    pytest.param(FakeUsage(inference_geo="not_available"), id="not_available"),
 ]
 
 
@@ -238,6 +242,33 @@ def test_us_is_priced_at_its_multiplier_on_the_line(prompt: Path) -> None:
     assert spent("us") == pytest.approx(spent("global") * 1.1)
 
 
+def test_not_available_is_a_model_without_the_parameter_at_the_standard_rate() -> None:
+    """A model that takes no `inference_geo` reports `"not_available"`, and
+    Anthropic prices it at the standard rate: the figure is the list's, read
+    through `completion_of` and through a judge, as for `"global"`.
+
+    The rate is claude-haiku-4-5's in `pricing.py`, 1 USD per million input
+    tokens and 5 per million output tokens, and the figure below is worked
+    from it rather than read back from the code under test.
+    """
+    usage = FakeUsage(
+        input_tokens=1234, output_tokens=567, inference_geo="not_available"
+    )
+    expected = 1234 * 1.0 / 1_000_000 + 567 * 5.0 / 1_000_000  # 0.004069
+
+    reply = FakeReply(content=[FakeBlock("yes")], usage=usage, model="claude-haiku-4-5")
+    assert completion_of(reply).unpriced is None
+
+    def spent(geo: str) -> float:
+        judge = a_judge(replace(usage, inference_geo=geo))
+        judge("Output to judge:\nyes")
+        assert judge.unpriced_calls == 0
+        return judge.spent_usd
+
+    assert spent("not_available") == pytest.approx(expected)
+    assert spent("not_available") == pytest.approx(spent("global"))
+
+
 # --------------------------------------------------------------------------- #
 # 4. A `CostBudget` over an unpriced cost
 # --------------------------------------------------------------------------- #
@@ -261,3 +292,17 @@ def test_a_budget_over_an_unpriced_reply_errors_and_says_why(
         assert budget.status == "error"
         assert "cost_usd is not computable" in budget.reason
         assert issue in budget.reason
+
+
+def test_a_budget_over_a_model_without_the_parameter_is_judged(prompt: Path) -> None:
+    """The brief project's report: every `cost_budget` of a suite errored on
+    claude-haiku-4-5, whose replies say `"not_available"`. It is judged."""
+    run = execute(
+        suite(
+            Contains(needle="yes", threshold=1.0),
+            CostBudget(max_usd=1.0, tolerance=0.0),
+        ),
+        a_target(prompt, FakeUsage(inference_geo="not_available")),
+        created_at=CREATED,
+    )
+    assert statuses(run) == ["pass", "pass", "pass", "pass"]

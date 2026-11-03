@@ -1147,6 +1147,16 @@ the target alone: `CostBudget` reads the target's cost, and no judge's.
    criterion's *cost not known for every call* is now *not every call
    priced*, beside the cost. Criterion 3 stays true: a line whose every cost
    is known says neither.
+
+   *Added 2026-11-03; the criterion above is kept as written.* Its first
+   example, `inference_geo: "not_available"`, is no longer a reply
+   digline-anthropic cannot price. A model that does not take the parameter
+   reports it, and Anthropic's data-residency page says standard pricing
+   applies to such models, so `GEO_MULTIPLIERS` prices it at 1.0, as
+   `"global"`. The brief project reported it on claude-haiku-4-5-20251001,
+   where every `cost_budget` of a suite errored. The criterion's case is a
+   geography with no rate, and its tests now take one, `"eu"`. Criterion 3
+   now covers `"not_available"` as well.
 2. **Counts not recorded.** The plugin hands back `usage=None`, as today, and
    it reads as *not recorded* (#629, #739):
    - `counted` is below `calls`;
