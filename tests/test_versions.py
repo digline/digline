@@ -1036,7 +1036,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "day' — the release a dated measurement of the judge's line was made "
         "on, named with what it printed: history",
         "0.6.1": "not a digline version: the digline-anthropic that first read "
-        'the geography and errored a case over one with no rate; history',
+        "the geography and errored a case over one with no rate; history",
         "0.7.0": "not a digline version: the last digline-anthropic that could "
         'not price `"not_available"`; history',
         "0.8.0": "not a digline version: the digline-anthropic that prices "
