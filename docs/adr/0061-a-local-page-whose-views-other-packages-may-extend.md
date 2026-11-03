@@ -7,7 +7,10 @@
   *decided here***: the flag that serves the two writes, where the contract of
   an extension lives, and the shape of an extension's name. Each is proposed,
   and acceptance takes it or removes it, item by item. Acceptance is
-  Alessandro Prandini's
+  Alessandro Prandini's. *Revised 2026-11-03, the same day, after a mockup
+  in two variants:* the maintainer chose a stylesheet of digline's own over a
+  vendored framework, and §4.4, §5 and §7 carry what that choice ruled. The
+  mockup was built outside the repository and is not part of this record
 - Shipped: unreleased
 - Date: 2026-11-03
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
@@ -45,7 +48,8 @@
   listing)
 - Touches: nothing in `CLAUDE.md`'s *fixed* section moves. Decision 5 is
   upheld: the page makes no network call and loads nothing from outside the
-  installed package. Decision 9 is upheld and narrowed: the one option that
+  installed package, and the one library it serves is shipped inside that
+  package (§7). Decision 9 is upheld and narrowed: the one option that
   moved `view` out of world 1 goes (§4). Decision 2 is not touched: the page
   reads and writes `.digline/<tenant>/` through the functions that already do
 - Number: 0061. Swept on 2026-11-03, before a line was written, across
@@ -131,6 +135,14 @@ answers counted, the setup in force, what is not a case and why) move into a
 function outside `digline.cli` that both the command and the page render
 from.
 
+**Two pieces of shape, ruled.** The recorder's page opens with four figures
+for the tenant: the size of its recordings and the ceiling (`size` and
+`ceiling` in `TenantRecorder`), the recordings held (the calls and episodes
+`SuiteRecordings` counts), and those still to import (`since_last_import`,
+which is read only for a suite whose draft was read, and otherwise says *not
+read* rather than a number). And the menu shows, beside each view another
+package added (§5), the name of the package that added it.
+
 ### 2. The two writes
 
 *Ruled.* The page writes two things, and only these:
@@ -199,13 +211,28 @@ whatever the server prints.
    second secret set as an `HttpOnly`, `SameSite=Strict` cookie (ADR 0033 §2,
    §11). A POST without that cookie is refused. There is no option to pass a
    key, and none to turn it off (§4 there).
-4. **No script, and a strict policy that says so.** The page carries no
-   JavaScript of its own and loads none: every button is a `<form
-   method="post">`. Each response carries `Content-Security-Policy:
-   default-src 'none'; style-src 'unsafe-inline'; form-action 'self';
-   frame-ancestors 'none'`, with `X-Content-Type-Options: nosniff` and
-   `Referrer-Policy: no-referrer`. With no script on the page, the policy can
-   forbid all of it.
+4. **Nothing inline, and a strict policy that says so.** *Revised the same
+   day, ruled.* Every response carries
+   `Content-Security-Policy: default-src 'none'; style-src 'self';
+   script-src 'self'; form-action 'self'; frame-ancestors 'none'`, with
+   `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+   - **Styles and scripts come from the server's own files** (§7), and from
+     nowhere else: no `style` attribute, no `<style>` element, and no
+     `<script>` with a body that runs. The one `<script>` without a `src` that
+     a page may carry is a data block of `type="application/json"`, which a
+     browser does not run and the policy does not govern. It carries numbers
+     and setup identifiers, with `<` written `<`.
+   - **No `img-src`.** No page shows an image: `<img`, `<svg`, `data:image`
+     and `url(` occur zero times in `render.py` and `pages.py`, read at
+     `80cf7557`. The chart draws on a canvas, which needs none.
+   - **Every button is a `<form method="post">`**, and it writes with
+     JavaScript disabled. The script of §7 is progressive: without it, every
+     page still reads and every form still writes.
+   - **The rule is a test.** It parses every HTML response the server sends,
+     with `html.parser`, and finds no `style` attribute, no `<style>`, and no
+     `<script>` that has neither a `src` nor `type="application/json"`. It
+     parses rather than searches, because an answer a model gave can hold the
+     characters `style=`, and the page shows it escaped as text.
 
 **The launch key is how ADR 0023's rule holds at a page.** *A person, never an
 agent* is kept on the command line by who types the command. At a page it is
@@ -263,8 +290,9 @@ only when it is needed.
   `digline.report`, beside `pages`, as a `Protocol` and a frozen dataclass for
   the context. `CLAUDE.md` forbids any package under `packages/` to import
   `digline.cli`, and `view.py` is there.
-- **digline wraps what the view returns** in its own document: the report's
-  stylesheet, the navigation, and the headers of §4. The view returns a body,
+- **digline wraps what the view returns** in its own document: the sheet of
+  §7, the navigation, and the headers of §4. An extension brings no
+  stylesheet and no script, and the policy of §4.4 refuses one it inlines. The view returns a body,
   and escapes what it puts in it, with the `escape` that `digline.report`
   exports.
 - **The dispatch becomes a table.** Today `do_GET` dispatches on literals
@@ -290,7 +318,10 @@ only when it is needed.
   - without `--allow-record`, the forms are absent and their routes answer
     404;
   - a POST to an extension's address answers 404;
-  - every response carries the policy of §4.4;
+  - every response carries the policy of §4.4, and no HTML response carries
+    anything inline (§4.4, the rule as a test);
+  - the command line served under each form is the command for the values
+    the form is served with;
 - **each write against its command.** A test runs the form and the command on
   two copies of one store, and the two stores come out identical;
 - **each command line printed under a button is parsed by digline's own
@@ -301,6 +332,79 @@ only when it is needed.
   `tests/test_registry.py` replaces `digline.targets.registry._entry_points`;
 - **each refusal held by a mutation** that makes its test fail, as
   `CONTRIBUTING.md` requires of every test.
+
+**What the gate does not run: the script of §7.** With no browser, nothing in
+the gate executes it. What is tested is what it reads: the data block, and the
+flag each field names. That bound is why the script holds no flag name and no
+number of its own.
+
+### 7. One stylesheet, one chart, one script
+
+*Ruled, the same day, after the mockup.*
+
+**One stylesheet of digline's own, shared by the HTML report and the page.**
+- **What it holds.** System fonts and no web font, tabular figures in every
+  column of numbers, and a light and a dark theme from
+  `prefers-color-scheme`. Each setup has one colour, and that colour is the
+  same in a table, in the chart and in the rows that name the setup.
+- **Where it lives.** It is one string in `digline.report`, where `CSS` is
+  today, so the report's functions stay pure. It replaces `CSS` and
+  `VIEW_CSS` both.
+- **How each document carries it.**
+  - The report written to a file carries it inline. A file opened from disk
+    has no server to fetch from and no policy.
+  - The server serves the same string at an address of its own, and every
+    page it sends, the report screen included, links to it instead. That is
+    what lets §4.4 say `style-src 'self'`.
+
+**uPlot, vendored, in the comparison across setups and nowhere else.**
+- **The library.** uPlot 1.6.31 (MIT), the series of one case over time, one
+  colour per setup. It is shipped in the package as one file, with its
+  licence beside it.
+- **Its stylesheet is absorbed into the sheet above.** It is 1 857 bytes of
+  rules for the legend and the cursor, and the sheet has to restyle them for
+  the dark theme anyway. Absorbed, there is one stylesheet. The rules keep
+  uPlot's copyright line in a comment that names the version. A test holds
+  that version equal to the one in the vendored file's header, so an upgrade
+  of one is a red until the other follows.
+- **What it does to styles.** It sets styles through the CSSOM (`.style.width`
+  and the like), and never through a `style` attribute, `cssText` or
+  `innerHTML`. That was read in the minified file, not measured in a browser
+  under the policy.
+- **Who updates it.** Dependabot does not see a vendored file, so an upgrade
+  is by hand.
+
+**The glue: one script of digline's own, served from the same origin.** It
+does two things:
+- **(a) It gives uPlot the numbers.** It reads them from the page's data block
+  (§4.4), and it reads the colours from the sheet.
+- **(b) It keeps the command line under each form equal to the form's
+  fields as they are edited.**
+  - **The line is the command the button will run.** Each field names the
+    flag it fills, in an attribute the server writes, and the script holds
+    no flag name of its own. It joins what the page names.
+  - **What the server guarantees.** The line it serves is the command for the
+    values the form is served with (§6).
+  - **Without the script, the line can lag the form.** An edited field leaves
+    the line as served until the form is posted, and the page that answers
+    the POST shows the command that ran.
+
+**Weights**, measured with `wc -c` and `gzip -c` on 2026-11-03, on the mockup
+and on the vendored files:
+
+| File | Bytes | Gzip | Licence | Served on |
+|---|---|---|---|---|
+| uPlot 1.6.31, `uPlot.iife.min.js` | 50 312 | 21 730 | MIT, Copyright (c) 2022 Leon Sorokin, the file beside it | the comparison across setups |
+| uPlot 1.6.31, `uPlot.min.css` | 1 857 | 772 | the same | absorbed into the sheet |
+| the glue, digline's | 1 969 | 935 | digline's | the comparison across setups, and every page with a form |
+| the sheet, digline's | 10 843 | 3 077 | digline's | every page, and inline in the report |
+
+- **The glue's figure is the mockup's,** and it covers (a) alone. (b) is not
+  written yet.
+- **The sheet's figure is the mockup's**, before `CSS` and `VIEW_CSS` are
+  folded into it.
+- **The other variant, Pico.css 2.0.6** (82 194 bytes, 11 618 gzip), is not
+  shipped.
 
 ## What does not change
 
@@ -324,6 +428,16 @@ Under `RELEASING.md`'s *Choosing the version*, a CLI option removed moves the
 minor and not the major, and the CHANGELOG says so at the release that carries
 the code. Anyone who served `view` beyond loopback loses that, and it is the
 case ADR 0032 §4a filed as decision 9's question.
+
+**The HTML report adopts the sheet of §7 in the release that ships the
+page**: the report's look changes with it. Its content, its order and its
+self-contained file do not: the sheet travels inline in it, and the report
+still has no script.
+
+**The page carries JavaScript for the first time**: uPlot on one view and the
+glue. What changes for a reader without it is the chart, which is absent, and
+the command line, which can lag an edited field. The policy of §4.4 names the
+server as the one source of both.
 
 **Installed packages can put pages on a developer's local server.** They are
 read-only, served under their own prefix and wrapped in digline's policy. What
