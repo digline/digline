@@ -132,7 +132,10 @@ async with recorder.episode(client, suite="order-agent", case={"ticket": t}) as 
   is a small file, written beside its place and linked into it, so no reader
   sees half of one. It is durable at the operating system's pace: a crash of
   the machine may lose the last recordings written before it. A recording is
-  a sample, not a ledger. **The first recording
+  a sample, not a ledger. Writing one holds the caller, and an event loop
+  with it, under 2 ms on the CI's Linux runner, the least of three launches
+  on each of three Pythons (measured on 2026-11-03), so it is not moved to a
+  thread. **The first recording
   imports digline's core**, about 90 ms where it was measured, which holds
   the loop when the client is asynchronous. So when the recorder is on as the
   client is wrapped, `wrap()` imports the core then, at the application's
