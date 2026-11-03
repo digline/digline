@@ -539,5 +539,6 @@ def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
     # were recorded, so the stall measured is a recording's.
     assert measured["cold"] is True
     assert measured["recorded"] == 2
-    assert measured["ready"] is True
     assert measured["first"] < FIRST_CALL_STALL_MS, measured
+    # And why: the core was imported by `wrap()`, before any call.
+    assert measured["ready"] is True
