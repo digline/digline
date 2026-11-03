@@ -22,6 +22,7 @@ from pathlib import Path
 
 from digline.recorder import SWITCH_KEYS, RecorderStartError, Switch, parse_switch
 from digline.store.file_store import (
+    COUNTS_FILENAME,
     RECORDER_FILENAME,
     RECORDINGS_DIRNAME,
     STORE_DIRNAME,
@@ -50,6 +51,10 @@ def switch_on(
     path = store.recorder_path(tenant)
     values = _declared(path)
     values["on"] = True
+    if production:
+        # Said in the file, so the file is held to production wherever it is
+        # read, and the status can say so. (ADR 0058 §10)
+        values["production"] = True
     for key, value in (
         ("sample", sample),
         ("redact", redact),
@@ -149,21 +154,45 @@ def recorder_status(
     return tuple(_tenant(store, name, imports or {}) for name in names)
 
 
+def _not_recorded(directory: Path) -> dict[str, dict[str, int]]:
+    """Per suite and reason, what every process said it did not record:
+    the sum of the counts file each process keeps in its subdirectory. A
+    file that does not read as counts is left out."""
+    found: dict[str, dict[str, int]] = {}
+    for path in sorted(directory.glob(f"*/{COUNTS_FILENAME}")):
+        try:
+            document = json.loads(path.read_text(encoding="utf-8"))
+            suites = document["suites"]
+            for name, counts in suites.items():
+                reasons = found.setdefault(str(name), {})
+                for reason, n in counts["not_recorded"].items():
+                    if type(n) is int:
+                        reasons[str(reason)] = reasons.get(str(reason), 0) + n
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return found
+
+
 def _suite(
-    name: str, counts: list[int], imported: tuple[int | None, int] | None
+    name: str,
+    counts: list[int],
+    imported: tuple[int | None, int] | None,
+    missed: Mapping[str, int],
 ) -> SuiteRecordings:
-    if imported is None:
-        return SuiteRecordings(
-            suite=name, calls=counts[0], episodes=counts[1], orphans=counts[2]
-        )
-    since, total = imported
+    since, total = imported if imported is not None else (None, 0)
     return SuiteRecordings(
         suite=name,
         calls=counts[0],
         episodes=counts[1],
         orphans=counts[2],
-        imported=since is not None,
-        since_last_import=total if since is None else since,
+        inside_episodes=counts[3],
+        not_recorded=dict(sorted(missed.items())),
+        imported=None if imported is None else since is not None,
+        since_last_import=None
+        if imported is None
+        else total
+        if since is None
+        else since,
     )
 
 
@@ -187,6 +216,7 @@ def _tenant(
         except RecorderStartError as exc:
             refusal = str(exc)
     directory = store.recordings_dir(tenant)
+    # calls, episodes, orphans, calls inside an episode
     suites: dict[str, list[int]] = {}
     unreadable = 0
     size = 0
@@ -200,12 +230,16 @@ def _tenant(
         except (ValueError, OSError):
             unreadable += 1
             continue
-        counts = suites.setdefault(recording.suite, [0, 0, 0])
+        counts = suites.setdefault(recording.suite, [0, 0, 0, 0])
         if recording.steps is None:
             counts[0] += 1
             counts[2] += recording.orphan
+            counts[3] += recording.episode is not None
         else:
             counts[1] += 1
+    missed = _not_recorded(directory)
+    for name in missed:
+        suites.setdefault(name, [0, 0, 0, 0])
     return TenantRecorder(
         tenant=tenant,
         switch_path=str(path),
@@ -226,7 +260,7 @@ def _tenant(
         production_refusal=production_refusal,
         recordings_path=str(directory),
         suites=tuple(
-            _suite(name, counts, imports.get(name))
+            _suite(name, counts, imports.get(name), missed.get(name, {}))
             for name, counts in sorted(suites.items())
         ),
         unreadable=unreadable,

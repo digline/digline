@@ -218,6 +218,12 @@ the case is the message that started it; the setup is the digest of its
 children's setups (§8); the response is the final output, with the trajectory
 derived from the children in ADR 0057's form.
 
+*Noted 2026-11-03: the public names are `digline.recorder.wrap`, around the
+provider's client, and `digline.recorder.episode`, with `digline.recorder.attach`
+beside it. `digline.episode`, as this record writes it, does not exist: the
+top-level package does not import the recorder, so that importing `digline`
+costs nothing while the recorder is off.*
+
 It is compared by `ToolsCalled`, which exists. **No new assertion on the
 trajectory comes with it.**
 

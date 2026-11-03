@@ -183,6 +183,12 @@ RECORDER_FILENAME = "recorder.toml"
 #: one. (ADR 0058 §10)
 CEILING_MARKER_FILENAME = "ceiling-reached.json"
 
+#: Each process's counts of what it recorded and, by reason, did not, kept in
+#: its own subdirectory of `recordings/` for `digline record status` to sum.
+#: JSON, named with a dot first and no `.json`, so that no reader of
+#: recordings, nor a `*.json` glob, takes it for one.
+COUNTS_FILENAME = ".counts"
+
 
 def _check_name(value: str, kind: str) -> str:
     """Reject anything that is not a single safe path segment.
@@ -1951,24 +1957,35 @@ class RecordingWriter:
         #: the last number used there.
         self._places: dict[str, tuple[int, Path, int]] = {}
 
+    def place(self, tenant: str) -> Path:
+        """This process's subdirectory for `tenant`, chosen now if it was not:
+        where its recordings and its counts go."""
+        with self._lock:
+            return self._choose(_check_name(tenant, "tenant"))[1]
+
     def _next_path(self, tenant: str) -> Path:
         with self._lock:
-            pid = os.getpid()
-            place = self._places.get(tenant)
-            if place is None or place[0] != pid:
-                # Before the first recording lands: the generated
-                # `.gitignore` is what keeps `*/recordings/` out of git, and
-                # a recording is payload. `run` lays it out the same way.
-                self._store.ensure_layout(tenant)
-                directory = (
-                    self._store.recordings_dir(tenant)
-                    / f"p{pid}-{secrets.token_hex(4)}"
-                )
-                directory.mkdir(parents=True, exist_ok=False)
-                place = (pid, directory, 0)
+            place = self._choose(tenant)
             number = place[2] + 1
-            self._places[tenant] = (pid, place[1], number)
+            self._places[tenant] = (place[0], place[1], number)
             return place[1] / f"{number:06d}.json"
+
+    def _choose(self, tenant: str) -> tuple[int, Path, int]:
+        """The place for `tenant` in this process; the caller holds the lock."""
+        pid = os.getpid()
+        place = self._places.get(tenant)
+        if place is None or place[0] != pid:
+            # Before the first recording lands: the generated `.gitignore` is
+            # what keeps `*/recordings/` out of git, and a recording is
+            # payload. `run` lays it out the same way.
+            self._store.ensure_layout(tenant)
+            directory = (
+                self._store.recordings_dir(tenant) / f"p{pid}-{secrets.token_hex(4)}"
+            )
+            directory.mkdir(parents=True, exist_ok=False)
+            place = (pid, directory, 0)
+            self._places[tenant] = place
+        return place
 
     def write(self, recording: Recording) -> Path:
         """Write one recording where it belongs, and say where."""

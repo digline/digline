@@ -250,10 +250,37 @@ def test_a_switch_file_that_is_wrong_is_refused_by_name(text: str, match: str) -
         parse_switch(text, where="recorder.toml", production=False)
 
 
-def test_an_invalid_file_is_refused_when_the_client_is_wrapped(tmp_path: Path) -> None:
+def test_in_production_an_invalid_file_is_refused_when_the_client_is_wrapped(
+    tmp_path: Path,
+) -> None:
+    switch(tmp_path, "acme", PRODUCTION + "sampel = 1\n")
+    with pytest.raises(RecorderStartError, match="does not read: sampel"):
+        wrap(an_anthropic(), app="support", tenant=production(), root=tmp_path)
+
+
+def test_in_development_an_invalid_file_warns_once_and_records_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], clock: list[float]
+) -> None:
     switch(tmp_path, "acme", 'on = true\nredact = "hash"\n')
-    with pytest.raises(RecorderStartError, match="is not implemented"):
-        wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    ask(client)
+    clock[0] += recorder.DEFAULT_INTERVAL + 1
+    ask(client)
+    err = capsys.readouterr().err
+    assert err.count("digline recorder: not recording for this tenant:") == 1
+    assert "redact = 'hash' is not implemented" in err
+    assert recordings(tmp_path) == []
+    assert counts(client)["not_recorded"] == {"config invalid": 1}
+
+
+def test_a_file_that_declares_production_is_held_to_it_in_development(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    switch(tmp_path, "acme", "on = true\nproduction = true\n")
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    ask(client)
+    assert "no declared redaction" in capsys.readouterr().err
+    assert recordings(tmp_path) == []
 
 
 # -- the file and the environment --------------------------------------------- #
@@ -535,7 +562,7 @@ def test_record_on_in_production_with_all_three_is_what_wrap_accepts(
         tmp_path, "acme", production=True, sample=0.5, redact="none", ceiling=1000
     )
     assert path.read_text(encoding="utf-8") == (
-        'on = true\nsample = 0.5\nredact = "none"\nceiling = 1000\n'
+        'on = true\nsample = 0.5\nredact = "none"\nceiling = 1000\nproduction = true\n'
     )
     wrap(an_anthropic(), app="support", tenant=production(), root=tmp_path)
 
@@ -578,6 +605,8 @@ def test_record_status_counts_by_suite_and_orphans(
             "calls": 0,
             "episodes": 1,
             "orphans": 0,
+            "inside_episodes": 0,
+            "not_recorded": {},
             "imported": None,
             "since_last_import": None,
         },
@@ -586,6 +615,8 @@ def test_record_status_counts_by_suite_and_orphans(
             "calls": 2,
             "episodes": 0,
             "orphans": 0,
+            "inside_episodes": 1,
+            "not_recorded": {},
             "imported": None,
             "since_last_import": None,
         },
@@ -600,8 +631,82 @@ def test_record_status_counts_by_suite_and_orphans(
     text = capsys.readouterr().out
     assert "tenant 'acme' · recording on" in text
     assert "sample 1.0 (default)" in text
-    assert "suite triage: 2 calls, 0 episodes, 0 orphans" in text
+    assert "suite triage: 2 calls, 1 inside episodes, 0 episodes, 0 orphans" in text
     assert "since the last import: not read (pass --suite)" in text
+    # A development file: what production would refuse is not printed.
+    assert "production" not in text
+
+
+def test_record_on_prints_the_values_the_file_holds(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["record", "on", "--tenant", "acme", "--root", str(tmp_path)]
+    assert main([*argv, "--sample", "0.5"]) == 0
+    assert main(["record", "off", "--tenant", "acme", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()
+    # On again, with no option: the sample left from before is kept, and said.
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert (
+        "values: on true, sample 0.5, redact none (default), "
+        "ceiling 104857600 bytes (default), interval 5.0 s (default)"
+    ) in out
+
+
+def test_the_counts_are_written_at_the_tick_never_per_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: list[float]
+) -> None:
+    def out() -> float:
+        return 0.99
+
+    monkeypatch.setattr(recorder, "_draw", out)
+    switch(tmp_path, "acme", "on = true\nsample = 0.5\n")
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    counts_files = list((tmp_path / ".digline").glob("acme/recordings/*/.counts"))
+    for _ in range(100):
+        ask(client)
+    assert counts(client)["not_recorded"] == {"sampled out": 100}
+    # A hundred outcomes inside one interval, and not one write.
+    assert (
+        list((tmp_path / ".digline").glob("acme/recordings/*/.counts"))
+        == counts_files
+        == []
+    )
+    clock[0] += recorder.DEFAULT_INTERVAL + 1
+    ask(client)  # the tick: the look writes what the hundred counted
+    [written] = (tmp_path / ".digline").glob("acme/recordings/*/.counts")
+    document = json.loads(written.read_text(encoding="utf-8"))
+    assert document["suites"]["triage"]["not_recorded"] == {"sampled out": 100}
+
+
+def test_the_counts_outlive_the_process_and_status_reads_them(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    switch(tmp_path, "acme", "on = true\n")
+    program = (
+        "import datetime, anthropic, httpx2\n"
+        "import digline.recorder as r\n"
+        f"body = {ANSWER!r}\n"
+        "http = httpx2.Client(transport=httpx2.MockTransport("
+        "lambda q: httpx2.Response(200, json=body)))\n"
+        "c = r.wrap(anthropic.Anthropic(api_key='t', http_client=http), "
+        f"app='a', tenant='acme', root={str(tmp_path)!r})\n"
+        "c.messages.create(model='m', max_tokens=5, suite='triage', messages=["
+        "{'role': 'user', 'content': 'q', 'when': datetime.date(2026, 11, 3)}])\n"
+        "c.messages.create(model='m', max_tokens=5, suite='triage', messages=["
+        "{'role': 'user', 'content': 'q'}])\n"
+    )
+    import subprocess
+
+    done = subprocess.run(
+        [sys.executable, "-c", program], capture_output=True, text=True, check=False
+    )
+    assert done.returncode == 0, done.stderr
+    [status] = recorder_status(tmp_path, "acme")
+    [triage] = status.suites
+    assert (triage.calls, dict(triage.not_recorded)) == (1, {"not JSON": 1})
+    assert main(["record", "status", "--root", str(tmp_path)]) == 0
+    assert "    not recorded: not JSON 1" in capsys.readouterr().out
 
 
 def test_record_status_counts_an_orphan(tmp_path: Path) -> None:

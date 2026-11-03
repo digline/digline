@@ -129,6 +129,7 @@ from digline.wire import (
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
+    TenantRecorder,
     ahead_note,
     compare_json,
     diff_json,
@@ -1323,6 +1324,7 @@ def cmd_record(args: argparse.Namespace) -> int:
     if args.action == "off":
         path = switch_off(Path(args.root), args.tenant)
         say(f"recording off for tenant {args.tenant!r}: {path}")
+        _say_values(Path(args.root), args.tenant)
         return EXIT_OK
     path = switch_on(
         Path(args.root),
@@ -1334,6 +1336,9 @@ def cmd_record(args: argparse.Namespace) -> int:
         interval=args.interval,
     )
     say(f"recording on for tenant {args.tenant!r}: {path}")
+    # The file is the truth, and `on` prints it: a value left from before, a
+    # sample of 0.5 among them, is seen here and not in what is recorded.
+    _say_values(Path(args.root), args.tenant)
     if not args.production:
         say(
             "  development: what the file leaves out is a default; an "
@@ -1348,6 +1353,33 @@ def _record_suite(args: argparse.Namespace) -> tuple[Suite, Loaded]:
     a `suite.toml` cannot declare where captured cases go. (ADR 0023 §3)"""
     refuse_data_suite(args.suite)
     return load_suite(args.suite, root=Path(args.root))
+
+
+def _values_line(tenant: TenantRecorder) -> str:
+    """The switch's values as the recorder will use them, each one a default
+    where the file does not declare it."""
+    declared = set(tenant.declared)
+
+    def shown(key: str, value: object, unit: str = "") -> str:
+        mark = "" if key in declared else " (default)"
+        return f"{key} {value}{unit}{mark}"
+
+    values = [
+        f"on {'true' if tenant.on else 'false'}",
+        shown("sample", tenant.sample),
+        shown("redact", tenant.redact),
+        shown("ceiling", tenant.ceiling, " bytes"),
+        shown("interval", tenant.interval, " s"),
+    ]
+    if "production" in declared:
+        values.append("production")
+    return ", ".join(values)
+
+
+def _say_values(root: Path, tenant: str) -> None:
+    [status] = recorder_status(root, tenant)
+    if status.switch == "valid":
+        say(f"  values: {_values_line(status)}")
 
 
 def cmd_record_import(args: argparse.Namespace) -> int:
@@ -1378,7 +1410,7 @@ def cmd_record_import(args: argparse.Namespace) -> int:
         f"tenant {found.tenant!r} · suite {found.suite} · writes to "
         f"{found.cases_file} ({found.repository})"
     )
-    say(f"  setup in force: {found.setup or 'none'}")
+    say(f"  setup in force: {(found.setup or 'none')[:8]}")
     for case in found.cases:
         attached = (
             f", {case.attached} recordings attached" if case.kind == "episode" else ""
@@ -1393,8 +1425,13 @@ def cmd_record_import(args: argparse.Namespace) -> int:
         say("")
         say(f"case {case.id} · {case.kind}{attached} · {state}")
         say(f"  input:  {json.dumps(case.vars, ensure_ascii=False, sort_keys=True)}")
+        # Identical answers under the setup in force are one line, counted:
+        # the same setup answering the same way is one fact, said once.
+        tally: dict[str, int] = {}
         for answer in case.answers:
-            say(f"  answer: {answer}")
+            tally[answer] = tally.get(answer, 0) + 1
+        for answer, times in tally.items():
+            say(f"  answer: {answer}" + (f"  (×{times})" if times > 1 else ""))
         if case.earlier:
             say(
                 f"  earlier: {case.earlier} recordings under "
@@ -1413,7 +1450,7 @@ def cmd_record_import(args: argparse.Namespace) -> int:
             'repository = "public": this lists, and an election is refused, '
             "because a recorded case is third-party text (ADR 0023 §8)"
         )
-    else:
+    elif any(case.electable for case in found.cases):
         say(
             "to write cases, name each one with its label: --positive ID, "
             "--negative ID. A case not named stays out"
@@ -1466,27 +1503,10 @@ def cmd_record_status(args: argparse.Namespace) -> int:
                 "DIGLINE_RECORD=1, and only in development"
             )
         if tenant.switch == "valid":
-            declared = set(tenant.declared)
-
-            def shown(
-                key: str, value: object, unit: str = "", declared: set[str] = declared
-            ) -> str:
-                mark = "" if key in declared else " (default)"
-                return f"{key} {value}{unit}{mark}"
-
-            say(
-                "  values:     "
-                + ", ".join(
-                    (
-                        shown("sample", tenant.sample),
-                        shown("redact", tenant.redact),
-                        shown("ceiling", tenant.ceiling, " bytes"),
-                        shown("interval", tenant.interval, " s"),
-                    )
-                )
-            )
-            if tenant.production_refusal is not None:
-                say(f"  production: refused: {tenant.production_refusal}")
+            # No line on what production would refuse: a file that declares
+            # production is held to it and shows as refused above, and one
+            # that does not is a development file, where it is noise.
+            say(f"  values:     {_values_line(tenant)}")
         say(f"  writes to:  {tenant.recordings_path}")
         ceiling = "" if tenant.ceiling is None else f" of {tenant.ceiling}"
         stopped = "; stopped at the ceiling" if tenant.stopped_at_ceiling else ""
@@ -1498,10 +1518,20 @@ def cmd_record_status(args: argparse.Namespace) -> int:
                 since = f"{suite.since_last_import} since the last import"
             else:
                 since = f"never imported, {suite.since_last_import} in all"
-            say(
-                f"  suite {suite.suite}: {suite.calls} calls, {suite.episodes} "
-                f"episodes, {suite.orphans} orphans; {since}"
+            inside = (
+                f", {suite.inside_episodes} inside episodes"
+                if suite.inside_episodes
+                else ""
             )
+            say(
+                f"  suite {suite.suite}: {suite.calls} calls{inside}, "
+                f"{suite.episodes} episodes, {suite.orphans} orphans; {since}"
+            )
+            if suite.not_recorded:
+                missed = ", ".join(
+                    f"{reason} {n}" for reason, n in suite.not_recorded.items()
+                )
+                say(f"    not recorded: {missed}")
         if tenant.unreadable:
             say(f"  unreadable: {tenant.unreadable} files that are not recordings")
     return EXIT_OK

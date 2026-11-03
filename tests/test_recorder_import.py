@@ -205,7 +205,9 @@ def test_a_data_suite_cannot_import(
     toml.write_text("[suite]\n", encoding="utf-8")
     argv = ["record", "import", "--tenant", "acme", "--suite", str(toml)]
     assert main([*argv, "--root", str(root)]) == EXIT_USAGE
-    assert "ADR 0023 §3" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "ADR 0023 §3" in err
+    assert "Write a suite.py with Suite.capture = CaptureSource(" in err
 
 
 def test_a_data_suite_cannot_declare_capture(tmp_path: Path) -> None:
@@ -327,6 +329,7 @@ def test_the_listing_writes_nothing(
         p for p in before if "__pycache__" not in p.parts
     ]
     text = capsys.readouterr().out
+    assert f"setup in force: {S2[:8]}\n" in text
     assert f"case {capture_id(A)} · call · electable" in text
     assert "answer: new answer about refunds" in text
     assert "old answer about refunds" not in text
@@ -423,6 +426,33 @@ def test_a_public_regime_lists_and_refuses_to_write(
     ):
         import_elect(found, positive=[capture_id(A)])
     assert not (root / "captured.json").exists()
+
+
+def test_identical_answers_are_one_line_and_nothing_left_says_nothing(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    RecordingWriter(FileResultStore(root)).write(recording(C, S2, "Via Roma 1", "12"))
+    argv = [
+        "record",
+        "import",
+        "--tenant",
+        "acme",
+        "--suite",
+        str(root / "suite.py"),
+        "--root",
+        str(root),
+    ]
+    assert main(argv) == 0
+    out = capsys.readouterr().out
+    assert "answer: Via Roma 1  (×2)" in out
+    assert "--positive ID, --negative ID" in out
+    found = listed(root)
+    import_elect(
+        found,
+        positive=[c.id for c in found.cases if c.electable],
+    )
+    assert main(argv) == 0
+    assert "--positive ID, --negative ID" not in capsys.readouterr().out
 
 
 def test_the_command_writes_the_named_cases(
