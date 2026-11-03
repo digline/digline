@@ -492,6 +492,12 @@ its cost is unknown, and counting it at zero is the undercount that reads as
 good news. `Response.cost_usd` is the *target's* call and does not include any
 of this (ADR 0004 §3).
 
+`judge.every_cost_known` says whether `spent_usd` is the whole of it. It is
+`False` from the first call whose usage was not read or whose cost could not
+be computed, which `uncounted_calls` and `unpriced_calls` count, and stays
+`False` for the life of the object. Such a call adds nothing to `spent_usd`,
+so a `0.0` beside `False` is a cost not known, not a cost of nothing (#569).
+
 Since 0.16.0 the run **does** carry it: `execute()` reads these counters before
 the first case and after the last, and writes the difference as the judge line
 of `Run.usage` — which is why the delta is the shape, and why a suite that

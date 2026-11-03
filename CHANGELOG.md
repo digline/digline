@@ -6,6 +6,17 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **A judge says whether `spent_usd` is the whole of its cost**:
+  `JudgeBase.every_cost_known`, new and additive. It is `False` from the
+  first call whose usage was not read or whose cost could not be computed,
+  read off `uncounted_calls` and `unpriced_calls` as a run's judge line reads
+  them, and stays `False` for the life of the judge. Such a call adds nothing
+  to `spent_usd`, so a `0.0` could be a judge that cost nothing or one none
+  of whose calls could be priced, and outside a run nothing told the two
+  apart (#569; reported by the brief project). `spent_usd` does not change.
+
 ## digline-anthropic — unreleased
 
 - **A reply that reports `inference_geo: "not_available"` is priced at the

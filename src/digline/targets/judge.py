@@ -296,6 +296,25 @@ class JudgeBase(ABC):
         #: version of the problem §9 exists for.
         self.observed = ObservedIdentity(model)
 
+    @property
+    def every_cost_known(self) -> bool:
+        """Whether every call this judge has answered was priced: `False` from
+        the first call whose usage was not read (`uncounted_calls`) or whose
+        cost could not be computed (`unpriced_calls`), and for the life of the
+        object after it, like the counts it is read from.
+
+        **`spent_usd` alone cannot say it.** A call that was not priced adds
+        nothing to it, so a `0.0` is both a judge that cost nothing and a judge
+        none of whose calls could be priced, and whoever reads the figure has
+        to be able to tell the two apart (#569). The run's judge line has said
+        so since schema 21. This says it on the judge itself, for a caller that
+        reads the judge outside a run, and by the same reading: the two counts
+        `_knew_every_cost` in `digline.run.driver` reads, `True` only where
+        both are zero. A call that raised is not here: its cost is unknown for
+        another reason, which a run's `every_call_seen` says (ADR 0004 §3).
+        """
+        return self.uncounted_calls == 0 and self.unpriced_calls == 0
+
     def _ask(self, prompt: str) -> Mapping[str, Any]:
         """One judging call: timed, priced, counted, parsed.
 
