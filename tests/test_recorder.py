@@ -346,7 +346,29 @@ def test_the_digest_follows_the_setup_and_nothing_else(tmp_path: Path) -> None:
 
 
 @pytest.mark.usefixtures("on")
+def test_the_first_recording_lays_out_the_generated_gitignore(tmp_path: Path) -> None:
+    # An empty directory and the variable alone: no `digline record on` and
+    # no run has laid `.digline/` out. A defect of #874, found in the next
+    # piece: the recording landed with no `.gitignore` beside it.
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    client.messages.create(
+        model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
+    )
+    gitignore = (tmp_path / ".digline" / ".gitignore").read_text(encoding="utf-8")
+    assert "*/recordings/" in gitignore.splitlines()
+    assert "*/recorder.toml" in gitignore.splitlines()
+    assert len(recordings(tmp_path)) == 1
+
+
+@pytest.mark.usefixtures("off")
 def test_a_tenant_function_decides_each_recordings_directory(tmp_path: Path) -> None:
+    # A function is production, switched on per tenant by its file.
+    for name in ("acme", "globex"):
+        (tmp_path / ".digline" / name).mkdir(parents=True)
+        (tmp_path / ".digline" / name / "recorder.toml").write_text(
+            'on = true\nsample = 1\nredact = "none"\nceiling = 1000000\n',
+            encoding="utf-8",
+        )
     served = iter(["acme", "globex"])
     client = wrap(
         an_anthropic(), app="support", tenant=lambda: next(served), root=tmp_path
@@ -420,8 +442,14 @@ def test_a_value_json_cannot_carry_lets_the_call_through_and_counts(
     assert recordings(tmp_path) == []
 
 
-@pytest.mark.usefixtures("on")
+@pytest.mark.usefixtures("off")
 def test_a_tenant_function_that_raises_lets_the_call_through(tmp_path: Path) -> None:
+    (tmp_path / ".digline" / "acme").mkdir(parents=True)
+    (tmp_path / ".digline" / "acme" / "recorder.toml").write_text(
+        'on = true\nsample = 1\nredact = "none"\nceiling = 1000000\n',
+        encoding="utf-8",
+    )
+
     def tenant() -> str:
         raise LookupError("no customer on this request")
 

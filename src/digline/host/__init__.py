@@ -75,6 +75,7 @@ from digline.host.reading import (
     instant,
     reported,
 )
+from digline.host.recording import recorder_status, switch_off, switch_on
 from digline.host.refusals import NOT_REFUSALS, REFUSALS
 from digline.host.register import entry_for, record
 from digline.host.resolve import (
@@ -134,11 +135,14 @@ __all__ = [
     "read_pinned",
     "read_run",
     "record",
+    "recorder_status",
     "replacing",
     "reported",
     "resolve_key",
     "seed_observed",
     "suite_runs",
+    "switch_off",
+    "switch_on",
     "utc_now_iso",
     "unignored",
     "unignored_notes",

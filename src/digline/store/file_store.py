@@ -12,8 +12,11 @@
       <tenant>/recordings/<process>/*.json ignored    <- the calls an application
                                                          made, one subdirectory per
                                                          process (ADR 0058)
-      <tenant>/recorder.toml               ignored    <- the recorder's switch; named,
-                                                         not yet read or written
+      <tenant>/recordings/ceiling-reached.json
+                                           ignored    <- the recorder stopped at the
+                                                         tenant's ceiling
+      <tenant>/recorder.toml               ignored    <- the recorder's switch, written
+                                                         by `digline record`
       .gitignore                           generated, contains "*/runs/",
                                            "*/name-table/", "*/recordings/" and
                                            "*/recorder.toml"
@@ -169,10 +172,16 @@ NAME_TABLE_DIRNAME = "name-table"
 #: by git, like `runs/`: a recording is payload. (ADR 0058 §4, §5)
 RECORDINGS_DIRNAME = "recordings"
 
-#: The file that switches the recorder on for a tenant. Named here so that the
-#: generated `.gitignore` keeps it out of git; nothing in this version reads or
-#: writes it. (ADR 0058 §10)
+#: The file that switches the recorder on for a tenant: written by `digline
+#: record`, read by the recorder, and kept out of git by the generated
+#: `.gitignore`. (ADR 0058 §10)
 RECORDER_FILENAME = "recorder.toml"
+
+#: The marker the recorder leaves in a tenant's `recordings/` when it stops at
+#: the ceiling, for `digline record status` to read from another process. It
+#: is not a recording: it sits beside the process subdirectories, never in
+#: one. (ADR 0058 §10)
+CEILING_MARKER_FILENAME = "ceiling-reached.json"
 
 
 def _check_name(value: str, kind: str) -> str:
@@ -496,9 +505,14 @@ class FileResultStore:
         return self.tenant_dir(tenant) / RECORDINGS_DIRNAME
 
     def recorder_path(self, tenant: str) -> Path:
-        """`.digline/<tenant>/recorder.toml`, the recorder's switch. Named and
-        ignored by git; nothing reads or writes it yet. (ADR 0058 §10)"""
+        """`.digline/<tenant>/recorder.toml`, the recorder's switch. Ignored by
+        git. (ADR 0058 §10)"""
         return self.tenant_dir(tenant) / RECORDER_FILENAME
+
+    def ceiling_marker_path(self, tenant: str) -> Path:
+        """`.digline/<tenant>/recordings/ceiling-reached.json`, where the
+        recorder says it stopped at the tenant's ceiling. (ADR 0058 §10)"""
+        return self.recordings_dir(tenant) / CEILING_MARKER_FILENAME
 
     def read_recording(self, path: Path) -> Recording:
         """One recording, read back from inside this store, or a refusal by
@@ -1913,6 +1927,11 @@ class RecordingWriter:
     random half keeps apart two processes that were given the same id at
     different times.
 
+    **The layout is made before the first recording of a tenant**, with
+    `ensure_layout`, as a run's is: the generated `.gitignore` keeps
+    `*/recordings/` out of git, and without it a repository whose `.digline/`
+    was never laid out would offer the recordings to `git add`.
+
     **Each recording is `<n>.json`**, `n` counting from 1 inside its
     subdirectory, six digits wide so that a listing sorts in the order written.
     It is written to a temporary file and linked into place with `os.link`,
@@ -1937,6 +1956,10 @@ class RecordingWriter:
             pid = os.getpid()
             place = self._places.get(tenant)
             if place is None or place[0] != pid:
+                # Before the first recording lands: the generated
+                # `.gitignore` is what keeps `*/recordings/` out of git, and
+                # a recording is payload. `run` lays it out the same way.
+                self._store.ensure_layout(tenant)
                 directory = (
                     self._store.recordings_dir(tenant)
                     / f"p{pid}-{secrets.token_hex(4)}"

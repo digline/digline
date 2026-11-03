@@ -72,11 +72,14 @@ from digline.host import (
     read_pinned,
     read_run,
     record,
+    recorder_status,
     refuse_unreadable_baseline,
     refused_exit,
     reported,
     resolve_key,
     suite_runs,
+    switch_off,
+    switch_on,
     unignored,
     unignored_notes,
     utc_now_iso,
@@ -128,6 +131,7 @@ from digline.wire import (
     exit_code,
     explain_json,
     log_json,
+    recorder_status_json,
     run_json,
     usage_lines,
 )
@@ -1275,6 +1279,128 @@ def cmd_report(args: argparse.Namespace) -> int:
     return result.exit_code
 
 
+def cmd_record(args: argparse.Namespace) -> int:
+    """`digline record on|off|status`: the recorder's switch, per tenant, and
+    what it has kept. (ADR 0058 §10)
+
+    One subcommand with its action as an argument, so it reads like every
+    other: the options that belong to one action are refused, by name, with
+    another, rather than ignored.
+    """
+    belongs = {
+        "production": "on",
+        "sample": "on",
+        "redact": "on",
+        "ceiling": "on",
+        "interval": "on",
+        "json": "status",
+    }
+    for option, action in belongs.items():
+        given = getattr(args, option)
+        if given not in (None, False) and args.action != action:
+            raise UsageError(
+                f"--{option} belongs to `digline record {action}`, not "
+                f"`digline record {args.action}`"
+            )
+    if args.action == "status":
+        return cmd_record_status(args)
+    if args.tenant is None:
+        raise UsageError(f"`digline record {args.action}` needs --tenant")
+    if args.action == "off":
+        path = switch_off(Path(args.root), args.tenant)
+        say(f"recording off for tenant {args.tenant!r}: {path}")
+        return EXIT_OK
+    path = switch_on(
+        Path(args.root),
+        args.tenant,
+        production=args.production,
+        sample=args.sample,
+        redact=args.redact,
+        ceiling=args.ceiling,
+        interval=args.interval,
+    )
+    say(f"recording on for tenant {args.tenant!r}: {path}")
+    if not args.production:
+        say(
+            "  development: what the file leaves out is a default; an "
+            "application that names its tenant with a function is production, "
+            "and refuses this file unless it declares sample, redact and ceiling"
+        )
+    return EXIT_OK
+
+
+def cmd_record_status(args: argparse.Namespace) -> int:
+    """Whether each tenant records, where, how much, and whether it stopped at
+    its ceiling. Not a gate: it exits 0 whenever it could read the store."""
+    tenants = recorder_status(Path(args.root), args.tenant)
+    if args.json:
+        emit(
+            json.dumps(
+                recorder_status_json(tenants),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+    if not tenants:
+        say(
+            f"no tenant under {Path(args.root) / '.digline'} has a recorder "
+            "switch or recordings"
+        )
+        return EXIT_OK
+    for tenant in tenants:
+        state = {
+            "absent": "no switch file",
+            "invalid": "switch file invalid",
+            "valid": "recording on" if tenant.on else "recording off",
+        }[tenant.switch]
+        say(f"tenant {tenant.tenant!r} · {state}")
+        say(f"  switch:     {tenant.switch_path}")
+        if tenant.refusal is not None:
+            say(f"  refused:    {tenant.refusal}")
+        if tenant.switch == "absent":
+            say(
+                "  without a file, an application records only with "
+                "DIGLINE_RECORD=1, and only in development"
+            )
+        if tenant.switch == "valid":
+            declared = set(tenant.declared)
+
+            def shown(
+                key: str, value: object, unit: str = "", declared: set[str] = declared
+            ) -> str:
+                mark = "" if key in declared else " (default)"
+                return f"{key} {value}{unit}{mark}"
+
+            say(
+                "  values:     "
+                + ", ".join(
+                    (
+                        shown("sample", tenant.sample),
+                        shown("redact", tenant.redact),
+                        shown("ceiling", tenant.ceiling, " bytes"),
+                        shown("interval", tenant.interval, " s"),
+                    )
+                )
+            )
+            if tenant.production_refusal is not None:
+                say(f"  production: refused: {tenant.production_refusal}")
+        say(f"  writes to:  {tenant.recordings_path}")
+        ceiling = "" if tenant.ceiling is None else f" of {tenant.ceiling}"
+        stopped = "; stopped at the ceiling" if tenant.stopped_at_ceiling else ""
+        say(f"  size:       {tenant.size}{ceiling} bytes{stopped}")
+        for suite in tenant.suites:
+            say(
+                f"  suite {suite.suite}: {suite.calls} calls, {suite.episodes} "
+                f"episodes, {suite.orphans} orphans"
+            )
+        if tenant.unreadable:
+            say(f"  unreadable: {tenant.unreadable} files that are not recordings")
+        say("  since the last import: not kept; the import is not built yet")
+    return EXIT_OK
+
+
 #: Where `_Once` keeps every value an option was given while a command line is
 #: read. `_Parser.parse_known_args` removes it before the namespace is
 #: returned, so no reader ever sees it.
@@ -1685,6 +1811,53 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit the reading the lines are rendered from, instead of the lines",
     )
     log_p.set_defaults(func=cmd_log)
+
+    rec_p = subparsers.add_parser(
+        "record",
+        help="switch the recorder on or off for a tenant, or read its status",
+    )
+    rec_p.add_argument(
+        "action",
+        choices=("on", "off", "status"),
+        help=(
+            "on and off write .digline/<tenant>/recorder.toml; status reads it "
+            "and the tenant's recordings, and is never a gate"
+        ),
+    )
+    rec_p.add_argument(
+        "--tenant", help="the tenant; required by on and off, every tenant for status"
+    )
+    rec_p.add_argument("--root", default=".", help="directory holding .digline/")
+    rec_p.add_argument(
+        "--production",
+        action="store_true",
+        help=(
+            "on only: the application names its tenant with a function; refuse "
+            "the file unless it declares --sample, --redact and --ceiling"
+        ),
+    )
+    rec_p.add_argument(
+        "--sample",
+        type=float,
+        help="on only: the share of calls recorded, above 0 and at most 1",
+    )
+    rec_p.add_argument(
+        "--redact", help="on only: the redaction; 'none' is the one implemented"
+    )
+    rec_p.add_argument(
+        "--ceiling", type=int, help="on only: bytes the tenant's recordings may reach"
+    )
+    rec_p.add_argument(
+        "--interval",
+        type=float,
+        help="on only: seconds between two looks at the file",
+    )
+    rec_p.add_argument(
+        "--json",
+        action="store_true",
+        help="status only: emit the status the lines are rendered from",
+    )
+    rec_p.set_defaults(func=cmd_record)
 
     rep_p = subparsers.add_parser("report", help="render the report")
     common(rep_p)
