@@ -1,12 +1,15 @@
 # ADR 0059 — The import of recordings: a reviewed answer, a grouped listing, a source declared as data
 
-- Status: proposed 2026-11-03. **Its decisions were ruled before this record
+- Status: accepted 2026-11-03, by Alessandro Prandini, the text first, as it
+  stands at `c1cfa94a`: every item marked *decided here* taken, with the
+  recommended names (`ReviewedAnswer`, `--good` and `--bad`).
+  Proposed 2026-11-03. **Its decisions were ruled before this record
   was written**, on 2026-11-03, in the conversation of the session that wrote
   it, after a pass as a user over `digline record import`. They are stated
   here as ruled. **What this record adds is marked *decided here***: the name
   of a new kind of case, the names of two flags, a suite field and two details
-  of the import. Each is proposed, and acceptance takes it or removes it, item
-  by item. Acceptance is Alessandro Prandini's
+  of the import. Each was proposed, for acceptance to take or remove item by
+  item
 - Shipped: unreleased
 - Date: 2026-11-03
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no

@@ -241,11 +241,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "the layout, the wrapper of a single synchronous call, the episode "
         "with `RecordedStep`, the switch file with its refusals, interval, "
         "sample and ceiling, `digline record` and the narrow import. "
-        "Streaming, asynchronous clients and the rich import are in no file. "
-        "Meant for 1.1"
+        "Streaming and asynchronous clients are in files since #883 and #885; "
+        "the rich import is in no file. Meant for 1.1"
     ),
     "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
-        "proposed, and before any code: no reviewed answer, no grouped listing, "
+        "accepted, and before any code: no reviewed answer, no grouped listing, "
         "no `[capture]` table and no `--good` or `--bad` exist; the import still "
         "writes `Case.label` from `--positive` and `--negative`"
     ),
