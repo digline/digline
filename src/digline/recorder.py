@@ -17,7 +17,7 @@ one turn of an agent, whose calls are attached to it.
 
 A synchronous, non-streaming client. Streaming and asynchronous clients are
 not recorded yet. The recordings become cases with `digline record import`,
-and `docs/recorder.md` walks through the whole of it.
+and `docs/record.md` walks through the whole of it.
 
 **How a provider is found, without importing it.** A plugin declares, under the
 entry point group `digline.recording_maps`, a name that says which client it
@@ -390,6 +390,8 @@ class _State:
         #: its counts file holds it; the tenants whose file exists.
         self.tallies: dict[str, dict[str, dict[str, Any]]] = {}
         self.tallied: set[str] = set()
+        #: The tenants counted since their file was last written.
+        self.dirty: set[str] = set()
         self.tally_lock = threading.Lock()
 
     def count(self, reason: str | None) -> None:
@@ -599,39 +601,63 @@ _LAST = threading.local()
 def _tally(
     state: _State, tenant: str | None, suite: object, reason: str | None
 ) -> None:
-    """Count one outcome under its tenant and suite, in this process's counts
-    file, for `digline record status` to read from any process.
+    """Count one outcome under its tenant and suite, in memory, for this
+    process's counts file, which `digline record status` reads from any
+    process.
 
-    Written at every outcome that is not a recording, and at the first
-    recording of the tenant in this process; a recording after that is
-    counted and written with the next outcome. Not tallied: an outcome whose
-    tenant is not known (a tenant function that raised, or a call refused
-    before its tenant was asked, in production), and *off for this tenant*,
-    which would make a directory for a tenant that records nothing. Never
-    raises.
+    **Never a write per outcome.** The file is written at the first
+    recording of the tenant in this process, so that it exists; at each look
+    at the switch, the interval's tick; and when the process exits. Between
+    two of those the counts are in memory, and a crash loses them since the
+    last tick: they are counts, and a count a little short is accepted where
+    a write per call is not.
+
+    Not tallied: an outcome whose tenant is not known (a tenant function that
+    raised, or a call refused before its tenant was asked, in production),
+    and *off for this tenant*, which would make a directory for a tenant that
+    records nothing. Never raises.
     """
     if tenant is None or reason == "off for this tenant":
         return
     name = suite if isinstance(suite, str) and suite else UNASSIGNED
     with state.tally_lock:
+        if not state.tallies:
+            import atexit
+
+            atexit.register(_flush, state)
         suites = state.tallies.setdefault(tenant, {})
         bucket = suites.setdefault(name, {"recorded": 0, "not_recorded": {}})
+        state.dirty.add(tenant)
         if reason is None:
             bucket["recorded"] += 1
-            if tenant in state.tallied:
-                return
+            first = tenant not in state.tallied
         else:
             bucket["not_recorded"][reason] = bucket["not_recorded"].get(reason, 0) + 1
-        state.tallied.add(tenant)
-        snapshot = {
-            suite_name: {
-                "recorded": counts["recorded"],
-                "not_recorded": dict(counts["not_recorded"]),
+            first = False
+    if first:
+        _flush(state, tenant)
+
+
+def _flush(state: _State, only: str | None = None) -> None:
+    """Write the counts of every tenant counted since the last write, or of
+    `only`. At the first recording, at each tick, and at exit. Never raises."""
+    with state.tally_lock:
+        tenants = [only] if only is not None else sorted(state.dirty)
+        for tenant in tenants:
+            suites = state.tallies.get(tenant)
+            if suites is None:
+                continue
+            snapshot = {
+                suite_name: {
+                    "recorded": counts["recorded"],
+                    "not_recorded": dict(counts["not_recorded"]),
+                }
+                for suite_name, counts in suites.items()
             }
-            for suite_name, counts in suites.items()
-        }
-        with contextlib.suppress(Exception):
-            _write_counts(state, tenant, snapshot)
+            with contextlib.suppress(Exception):
+                _write_counts(state, tenant, snapshot)
+                state.tallied.add(tenant)
+                state.dirty.discard(tenant)
 
 
 def _write_counts(state: _State, tenant: str, suites: dict[str, Any]) -> None:
@@ -974,6 +1000,7 @@ def _look(state: _State) -> None:
             _read_switches(state, starting=False)
         _measure(state)
         state.commit = None
+        _flush(state)
     except Exception:  # noqa: BLE001 — the rule of this module
         state.count("config invalid")
     finally:

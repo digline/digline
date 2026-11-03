@@ -653,6 +653,32 @@ def test_record_on_prints_the_values_the_file_holds(
     ) in out
 
 
+def test_the_counts_are_written_at_the_tick_never_per_call(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: list[float]
+) -> None:
+    def out() -> float:
+        return 0.99
+
+    monkeypatch.setattr(recorder, "_draw", out)
+    switch(tmp_path, "acme", "on = true\nsample = 0.5\n")
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    counts_files = list((tmp_path / ".digline").glob("acme/recordings/*/.counts"))
+    for _ in range(100):
+        ask(client)
+    assert counts(client)["not_recorded"] == {"sampled out": 100}
+    # A hundred outcomes inside one interval, and not one write.
+    assert (
+        list((tmp_path / ".digline").glob("acme/recordings/*/.counts"))
+        == counts_files
+        == []
+    )
+    clock[0] += recorder.DEFAULT_INTERVAL + 1
+    ask(client)  # the tick: the look writes what the hundred counted
+    [written] = (tmp_path / ".digline").glob("acme/recordings/*/.counts")
+    document = json.loads(written.read_text(encoding="utf-8"))
+    assert document["suites"]["triage"]["not_recorded"] == {"sampled out": 100}
+
+
 def test_the_counts_outlive_the_process_and_status_reads_them(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
