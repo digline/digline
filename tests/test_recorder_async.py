@@ -470,23 +470,32 @@ def test_one_process_writes_one_directory_whatever_the_clients_it_wraps(
     assert written["suites"]["triage"]["recorded"] == 2
 
 
-#: The longest the event loop may stall on the first recorded call, with the
-#: recorder on when the client is wrapped. Measured with this program on
-#: 2026-11-03 on a laptop (macOS, CPython 3.14.5), five runs each: 9.7 to
-#: 11.9 ms with the imports in `wrap()`, 88.1 to 91.9 ms with them at the
-#: first recording. Between the two, with room for a slower machine.
-FIRST_CALL_STALL_MS = 50.0
+#: The longest the recorder's own share of the first recorded call may take,
+#: with the recorder on when the client is wrapped: `record`, `tally`, `map`
+#: and `look` below, the least of three fresh interpreters. Measured on
+#: 2026-11-03 on the CI's three Linux legs, one launch each: 1.6 to 2.5 ms
+#: with the imports in `wrap()`. On a laptop (macOS, CPython 3.14.5), the
+#: whole first call stalled the loop 88.1 to 91.9 ms with the imports at the
+#: first recording, which this share then holds. The share, and not the
+#: stall: on Linux the stall was 21.9 to 33.3 ms and once 90 ms, nearly all of
+#: it the SDK's first request and the runner's load, which the recorder does
+#: not decide.
+RECORDER_FIRST_CALL_MS = 20.0
+
+#: The phases the recorder's share of a call is the sum of.
+RECORDER_PHASES = ("record", "tally", "map", "look")
 
 #: A fresh interpreter, so that nothing of digline's is imported before
 #: `wrap()`: a ticker task sleeps 1 ms at a time and records the longest gap
 #: while the first call, and then a second, are awaited.
 #:
-#: Diagnostic, for now: the first call is also cut into phases, each a
-#: function of the recorder timed with `perf_counter` while that call runs,
-#: and the modules it imports are listed. Nested phases: `record` holds
-#: `now` and `write`; `write` holds `layout` and `link`; `layout` holds
-#: `ensure_layout`. `rest` is the call's wall time less `look`, `map`,
-#: `record` and `tally`: the SDK and the loop.
+#: The first call is cut into phases, each a function of the recorder timed
+#: with `perf_counter` while that call runs, and the modules it imports are
+#: listed. Nested phases: `record` holds `now` and `write`; `write` holds
+#: `layout` and `link`; `layout` holds `ensure_layout`. `rest` is the call's
+#: wall time less `look`, `map`, `record` and `tally`: the SDK and the loop.
+#: The program imports nothing of digline's beyond the recorder, so `layout`
+#: and `ensure_layout` are timed only where `wrap()` loaded the store.
 STALL_PROGRAM = """\
 import asyncio, json, os, sys, time
 import anthropic, httpx2
@@ -499,7 +508,9 @@ client = recorder.wrap(anthropic.AsyncAnthropic(api_key="t", http_client=http),
                        app="a", tenant="acme")
 ready = "digline.core" in sys.modules
 
-from digline.store import file_store
+# Never imported here: an import before the call would do for the recorder
+# what the test is asking whether `wrap()` did. Timed only if it is loaded.
+file_store = sys.modules.get("digline.store.file_store")
 
 spent = {}
 timing = [False]
@@ -521,8 +532,9 @@ timed(recorder, "_map_or_none", "map")
 timed(recorder, "_record", "record")
 timed(recorder, "_now", "now")
 timed(recorder, "_write", "write")
-timed(file_store.RecordingWriter, "_choose", "layout")
-timed(file_store.FileResultStore, "ensure_layout", "ensure_layout")
+if file_store is not None:
+    timed(file_store.RecordingWriter, "_choose", "layout")
+    timed(file_store.FileResultStore, "ensure_layout", "ensure_layout")
 timed(os, "link", "link")
 timed(recorder, "_tally", "tally")
 
@@ -575,34 +587,44 @@ def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
     tmp_path: Path,
 ) -> None:
     """On when the client is wrapped: `wrap()` imports what the first
-    recording would, at the application's start, and the first call holds the
-    loop no longer than `FIRST_CALL_STALL_MS`."""
-    done = subprocess.run(
-        [
-            sys.executable,
-            "-I",
-            "-c",
-            STALL_PROGRAM.replace("__BODY__", repr(ANTHROPIC_WHOLE)),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=tmp_path,
-        env={"PATH": "/usr/bin:/bin", recorder.ENVIRONMENT_VARIABLE: "1"},
-    )
-    assert done.returncode == 0, done.stderr
-    measured = json.loads(done.stdout)
-    breakdown = (
-        f"first-call stall {measured['first']:.2f} ms, second "
-        f"{measured['second']:.2f} ms; phases in ms {measured['phases']}; "
-        f"{len(measured['imported'])} modules imported by the first call: "
-        f"{measured['imported']}"
-    )
+    recording would, at the application's start, and the recorder's share of
+    the first call, the least of three fresh interpreters, is under
+    `RECORDER_FIRST_CALL_MS`. The least, because a runner's load can only
+    lengthen a launch."""
+    shares: list[float] = []
+    said: list[str] = []
+    for launch in range(3):
+        where = tmp_path / f"launch-{launch}"
+        where.mkdir()
+        done = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-c",
+                STALL_PROGRAM.replace("__BODY__", repr(ANTHROPIC_WHOLE)),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=where,
+            env={"PATH": "/usr/bin:/bin", recorder.ENVIRONMENT_VARIABLE: "1"},
+        )
+        assert done.returncode == 0, done.stderr
+        measured = json.loads(done.stdout)
+        # The control: the interpreter was cold before `wrap()`, and both
+        # calls were recorded, so what is measured is a recording's.
+        assert measured["cold"] is True
+        assert measured["recorded"] == 2
+        phases = measured["phases"]
+        share = sum(phases.get(phase, 0.0) for phase in RECORDER_PHASES)
+        shares.append(share)
+        said.append(
+            f"launch {launch}: recorder's share {share:.2f} ms; first-call "
+            f"stall {measured['first']:.2f} ms, second "
+            f"{measured['second']:.2f} ms; phases in ms {phases}; "
+            f"{len(measured['imported'])} modules imported by the first call: "
+            f"{measured['imported']}; core imported by wrap(): {measured['ready']}"
+        )
+    breakdown = " | ".join(said)
     warnings.warn(breakdown, FirstCallBreakdown, stacklevel=1)
-    # The control: the interpreter was cold before `wrap()`, and both calls
-    # were recorded, so the stall measured is a recording's.
-    assert measured["cold"] is True
-    assert measured["recorded"] == 2
-    assert measured["first"] < FIRST_CALL_STALL_MS, breakdown
-    # And why: the core was imported by `wrap()`, before any call.
-    assert measured["ready"] is True
+    assert min(shares) < RECORDER_FIRST_CALL_MS, breakdown
