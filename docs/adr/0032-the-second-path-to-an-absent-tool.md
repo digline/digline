@@ -471,6 +471,12 @@ decision 9 territory and needs its own record; it is filed and not decided
 here, because folding a disclosure ruling into a promotion ruling is how one of
 them ends up unargued.
 
+*Noted 2026-11-03 ([ADR 0061](0061-a-local-page-whose-views-other-packages-may-extend.md)
+§4), and the paragraph above kept as written.* The finding is closed by
+removal: `digline view` takes no `--host`, and listens on 127.0.0.1. The view
+gains two writes there, behind a flag of their own, and a page that writes
+must not be one option away from another network.
+
 **Everything else is clean on this question.** `compare`, `diff`, `list`,
 `explain` and `log` write nothing, and the `wire` layer's omission of `reason`
 holds across all of them. `run` and `rejudge` write only under gitignored

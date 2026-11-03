@@ -511,3 +511,10 @@ land in `_unassigned` (§10).
 - **An application in another language.**
 - **A review interface over recordings, and recording a response flagged from
   inside the application.** Neither is part of this record.
+
+  *Noted 2026-11-03 ([ADR 0061](0061-a-local-page-whose-views-other-packages-may-extend.md)),
+  and the item above kept as written.* The first half is decided there: a
+  local page over `.digline/`, served by `digline view`, reads the
+  recordings and writes two things, the switch and an imported case, through
+  the host functions `digline record` calls. The second half, recording a
+  response flagged from inside the application, is not decided there.

@@ -244,6 +244,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "Streaming, asynchronous clients and the rich import are in no file. "
         "Meant for 1.1"
     ),
+    "0061-a-local-page-whose-views-other-packages-may-extend": (
+        "proposed, and before any code: `digline view` has no view of the "
+        "recorder, no write but promotion, no `--allow-record` and no "
+        "`digline.views` group, and it still takes `--host`"
+    ),
 }
 
 
