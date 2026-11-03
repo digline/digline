@@ -457,8 +457,9 @@ tag.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-openai` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-openai on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
-| `digline-bedrock` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-bedrock on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
+| `digline-openai` | *Updated 2026-11-03.* Its recorder map is on `main` (`digline_openai/recording.py`, under the entry point `digline.recording_maps`) and in no release. Its cap `digline<2`, added on 2026-11-02, rides the same release: a cap reaches nobody until the package is released, because the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-openai on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
+| `digline-bedrock` | *Updated 2026-11-03.* Its recorder map is on `main` (`digline_bedrock/recording.py`, under the entry point `digline.recording_maps`) and in no release. Its cap `digline<2`, added on 2026-11-02, rides the same release: a cap reaches nobody until the package is released, because the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-bedrock on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
+| `digline-anthropic` | *Updated 2026-11-03.* Its recorder map was published with 0.8.0, uploaded to PyPI on 2026-11-03, and is inert there: no released core reads the entry point `digline.recording_maps`. Its cap `digline<2` is already in 0.8.0's `requires_dist`. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-anthropic on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -558,8 +559,22 @@ them. So the pull request writes a row here
 too, and the cut that chooses the number (*Choosing the version*, above) reads
 it and deletes it.
 
-| Package | What it carries | What the number must reflect |
-|---|---|---|
+*Added 2026-11-03:* **the *Then* column, in the shape of the table owed at the
+cut.** A row also says who closes it and when: a session, Alessandro, or the
+release. `tests/test_plugin_floors.py` refuses a row whose *Then* is empty or
+names none of the three, so a debt cannot sit here with nobody to settle it.
+The rows of digline 1.1 are the first: one release's work, spread over several
+pull requests and the site, each written here by itself. One of them is closed
+after the tag, on the site, and its *Then* says so.
+
+| Package | What it carries | What the number must reflect | Then |
+|---|---|---|---|
+| `digline` | #869, schema 23 ([ADR 0057](docs/adr/0057-the-replay-reads-the-trajectory-the-live-run-read.md)), a draft and parked. It is unparked last, a few days before the tag: `main` merged into its branch, verified again, made a real pull request, and put in the queue. | the minor, 1.1.0: a run document at schema 23 | a session, a few days before the tag, as the last pull request of 1.1.0; its merge deletes this row |
+| `digline` | at the unparking of #869: an episode's `response` fills `finish` and `tools` from its steps ([ADR 0058](docs/adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md) §5 and §7), with a test that reads them back. | 1.1.0 | a session, at the unparking of #869; the pull request that lands it deletes this row |
+| `digline` | at the unparking of #869: whether a case's label enters the run's results, in schema 23's step. | 1.1.0, and schema 23 if the label enters | Alessandro rules, at the unparking, and the ruling is recorded in #869; the pull request that lands it deletes this row |
+| `digline` | `docs/record.md:3` says *"Arrives with digline 1.1."*, which turns false at the tag. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the line and deletes this row |
+| `digline` | on digline.dev, `product/record.md` moves from *Essentials* to *Commands*, with its group in `COMMAND_GROUPS` (`tools/hooks/home.py`), once the release has captured `home.json` again with `record` in its command list. The precedent is `digline delete`, entered by digline.dev `e96f4b9` after 0.30.0. | 1.1.0 | a session, on digline.dev after the tag of 1.1.0 and the capture of `home.json`; the pull request here that names that site commit deletes this row |
+| `digline` | a dated note to [ADR 0058](docs/adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md) §6, which says each plugin ships a minor with 1.1: digline-anthropic's map came first, published with 0.8.0 on 2026-11-03 and inert, because no released core reads it. | 1.1.0 | a session, in the release pull request of 1.1.0, which deletes this row |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
@@ -574,8 +589,9 @@ on GitHub, which reads `main`, shows a line that `pip install digline` does not
 print. It stays false for whoever installed until the next release, and the
 replay is green throughout, because it reads the tree and not the index. That
 pull request writes a row: the package `digline`, what it carries (the pull
-request and the line, quoted as the page now shows it), and what the number
-must reflect (the block named by its `suite=` label, to capture again).
+request and the line, quoted as the page now shows it), what the number must
+reflect (the block named by its `suite=` label, to capture again), and *Then*
+(the release: the block captured again before the tag, and the row deleted).
 
 **Before the tag, the block is captured again from the tree being tagged, as
 a terminal shows it, and the row is deleted.** That means:
