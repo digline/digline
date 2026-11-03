@@ -1,25 +1,23 @@
-"""The recorder's wrapper: a provider's client that records the calls an
-application makes through it. (ADR 0058 §2, §3, §6, §10)
+"""The recorder: a provider's client that records the calls an application
+makes through it, so they can become a suite's cases. (ADR 0058)
 
     client = digline.recorder.wrap(anthropic.Anthropic(), app="support", tenant="acme")
     client.messages.create(model=..., messages=..., suite="triage")
 
+`suite=` on the call names the suite the call belongs to, the same name as
+that suite's `Suite(name=...)`. A call that names none is recorded under
+`_unassigned`, with the function it was made from.
+
 **One call, recorded or let through**, and **an episode**: a context around
-one turn of an agent, whose calls are attached to it (§5, §8, §9).
+one turn of an agent, whose calls are attached to it.
 
     with digline.recorder.episode(client, suite="support-agent", case={...}) as ep:
         ...  # calls through wrapped clients, tools run by the application
         ep.output(result)
 
-A synchronous client. The import, streaming and asynchronous clients are later
-pieces of the same ADR.
-
-**Where it sits.** At the level of `digline.host`, the layer that may read
-files, the environment and the clock, and nothing imports it. Not *inside*
-`digline.host`, because that package's `__init__` imports the whole host, and
-the host imports the core: switched off, the wrapper must not (§10). So this
-module imports the standard library alone at the top, and everything of
-digline's lazily, at the first call it records.
+A synchronous, non-streaming client. Streaming and asynchronous clients are
+not recorded yet. The recordings become cases with `digline record import`,
+and `docs/recorder.md` walks through the whole of it.
 
 **How a provider is found, without importing it.** A plugin declares, under the
 entry point group `digline.recording_maps`, a name that says which client it
@@ -65,6 +63,13 @@ redaction and no sampling, and it is refused when the client is wrapped.
 file that switches a tenant on without `redact`, without `sample`, or without
 `ceiling` and a writable directory to put the recordings in. In development
 the three have defaults: `sample` 1, `redact` `"none"`, `ceiling` 100 MiB.
+A file that says `production = true`, which `digline record on --production`
+writes, is held to the three wherever it is read.
+
+**An invalid switch file stops an application only in production.** In
+development the recorder says why on standard error, once, stays off for
+that tenant, and counts `config invalid`: a typo in a local, ignored file is
+not a reason for the application not to start.
 
 **Read again at an interval, without a restart.** Each call compares a
 monotonic clock with the time the next look is due, which is one comparison;
@@ -85,6 +90,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 import threading
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar, Token
@@ -93,6 +99,12 @@ from pathlib import Path
 from time import monotonic, perf_counter
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
+# Where this module sits: at the level of `digline.host`, the layer that may
+# read files, the environment and the clock, and nothing imports it. Not
+# *inside* `digline.host`, because that package's `__init__` imports the whole
+# host, and the host imports the core: switched off, the wrapper must not
+# (ADR 0058 §10). So this module imports the standard library alone at the
+# top, and everything of digline's lazily, at the first call it records.
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -125,7 +137,9 @@ __all__ = [
 ENVIRONMENT_VARIABLE = "DIGLINE_RECORD"
 
 #: The keys a switch file may hold, and nothing else. (ADR 0058 §10)
-SWITCH_KEYS = ("on", "sample", "redact", "ceiling", "interval")
+#: `production` declares the file is for production, and holds it to the
+#: three refusals in any regime.
+SWITCH_KEYS = ("on", "sample", "redact", "ceiling", "interval", "production")
 
 #: What a development switch leaves out, it gets: every call, no redaction,
 #: 100 MiB. Production declares the first three, or is refused.
@@ -192,7 +206,15 @@ class Switch:
     written from a default.
     """
 
-    __slots__ = ("ceiling", "declared", "interval", "on", "redact", "sample")
+    __slots__ = (
+        "ceiling",
+        "declared",
+        "interval",
+        "on",
+        "production",
+        "redact",
+        "sample",
+    )
 
     def __init__(
         self,
@@ -202,9 +224,11 @@ class Switch:
         redact: str = "none",
         ceiling: int = DEFAULT_CEILING,
         interval: float = DEFAULT_INTERVAL,
+        production: bool = False,
         declared: frozenset[str] = frozenset(),
     ) -> None:
         self.on = on
+        self.production = production
         self.sample = sample
         self.redact = redact
         self.ceiling = ceiling
@@ -268,6 +292,10 @@ def parse_switch(text: str, *, where: str, production: bool) -> Switch:
         raise RecorderStartError(
             f"{where}: interval must be a number of seconds above 0"
         )
+    declared_production = raw.get("production", False)
+    if type(declared_production) is not bool:
+        raise RecorderStartError(f"{where}: production must be true or false")
+    production = production or declared_production
     if production and on:
         missing: list[str] = []
         if redact is None:
@@ -295,6 +323,7 @@ def parse_switch(text: str, *, where: str, production: bool) -> Switch:
         redact="none",
         ceiling=DEFAULT_CEILING if ceiling is None else ceiling,
         interval=DEFAULT_INTERVAL if interval is None else float(interval),
+        production=declared_production,
         declared=frozenset(raw),
     )
 
@@ -357,6 +386,11 @@ class _State:
         #: The commit an episode's setup is read with, cached until the next
         #: look: reading it is two `git` processes.
         self.commit: tuple[str | None] | None = None
+        #: Per tenant and suite, what this process recorded and did not, as
+        #: its counts file holds it; the tenants whose file exists.
+        self.tallies: dict[str, dict[str, dict[str, Any]]] = {}
+        self.tallied: set[str] = set()
+        self.tally_lock = threading.Lock()
 
     def count(self, reason: str | None) -> None:
         with self.lock:
@@ -509,20 +543,25 @@ def _intercepted(method: Callable[..., Any], state: _State) -> Callable[..., Any
         if not state.any_on:
             return method(*args, **kwargs)
         inside = _CURRENT.get()
+        known = None if state.production else cast(str, state.tenant)
         if kwargs.get("stream"):
             _joined(state, inside, "streaming", None)
+            _tally(state, known, suite, "streaming")
             return method(*args, **kwargs)
         if args:
             _joined(state, inside, "positional arguments", None)
+            _tally(state, known, suite, "positional arguments")
             return method(*args, **kwargs)
         site = _call_site() if suite is None else None
         started = perf_counter()
         reply = method(**kwargs)
         elapsed_ms = (perf_counter() - started) * 1000.0
+        _LAST.tenant = known
         reason, seen = _record(
             state, kwargs, reply, elapsed_ms, suite, variables, site, inside
         )
         _joined(state, inside, reason, seen)
+        _tally(state, _LAST.tenant, suite, reason)
         return reply
 
     return call
@@ -549,6 +588,73 @@ def _joined(
     collector = _OPEN.get(inside)
     if collector is not None:
         collector.add(seen)
+
+
+#: The tenant the last recording on this thread resolved, so that its outcome
+#: is tallied under the tenant it was for. Per thread, because two threads
+#: record at once.
+_LAST = threading.local()
+
+
+def _tally(
+    state: _State, tenant: str | None, suite: object, reason: str | None
+) -> None:
+    """Count one outcome under its tenant and suite, in this process's counts
+    file, for `digline record status` to read from any process.
+
+    Written at every outcome that is not a recording, and at the first
+    recording of the tenant in this process; a recording after that is
+    counted and written with the next outcome. Not tallied: an outcome whose
+    tenant is not known (a tenant function that raised, or a call refused
+    before its tenant was asked, in production), and *off for this tenant*,
+    which would make a directory for a tenant that records nothing. Never
+    raises.
+    """
+    if tenant is None or reason == "off for this tenant":
+        return
+    name = suite if isinstance(suite, str) and suite else UNASSIGNED
+    with state.tally_lock:
+        suites = state.tallies.setdefault(tenant, {})
+        bucket = suites.setdefault(name, {"recorded": 0, "not_recorded": {}})
+        if reason is None:
+            bucket["recorded"] += 1
+            if tenant in state.tallied:
+                return
+        else:
+            bucket["not_recorded"][reason] = bucket["not_recorded"].get(reason, 0) + 1
+        state.tallied.add(tenant)
+        snapshot = {
+            suite_name: {
+                "recorded": counts["recorded"],
+                "not_recorded": dict(counts["not_recorded"]),
+            }
+            for suite_name, counts in suites.items()
+        }
+        with contextlib.suppress(Exception):
+            _write_counts(state, tenant, snapshot)
+
+
+def _write_counts(state: _State, tenant: str, suites: dict[str, Any]) -> None:
+    import json
+
+    from digline.store.file_store import (
+        COUNTS_FILENAME,
+        FileResultStore,
+        RecordingWriter,
+    )
+
+    with state.lock:
+        if state.writer is None:
+            state.writer = RecordingWriter(FileResultStore(state.root))
+        writer = state.writer
+    place = writer.place(tenant)
+    path = place / COUNTS_FILENAME
+    temporary = place / f"{COUNTS_FILENAME}.{os.getpid()}.tmp"
+    temporary.write_text(
+        json.dumps({"pid": os.getpid(), "suites": suites}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
 
 
 def _call_site() -> str | None:
@@ -599,6 +705,7 @@ def _record(
     stage = "tenant"
     try:
         tenant = _tenant_of(state)
+        _LAST.tenant = tenant
         if tenant is None:
             return stage, None
         switch = state.switches.get(tenant)
@@ -783,9 +890,11 @@ def _stamp(path: Path) -> tuple[int, int] | None:
 def _read_switches(state: _State, *, starting: bool) -> None:
     """Read every switch file again, and decide each tenant's switch.
 
-    Starting, a file that is invalid is refused, loudly, and so is a
-    production tenant switched on with no writable directory. Afterwards the
-    same file switches its tenant off and counts `config invalid`."""
+    In production, starting, a file that is invalid is refused, loudly, and
+    so is a tenant switched on with no writable directory. In development,
+    and in production after the start, an invalid file switches its tenant
+    off, counts `config invalid`, and says why on standard error, once for
+    each version of the file."""
     files = _switch_files(state)
     switches: dict[str, Switch] = {}
     stamps: dict[str, tuple[int, int]] = {}
@@ -806,10 +915,12 @@ def _read_switches(state: _State, *, starting: bool) -> None:
                     f"{path.parent} is not a writable directory to put the "
                     "recordings in (ADR 0058 §10)"
                 )
-        except (RecorderStartError, OSError, UnicodeDecodeError):
-            if starting:
+        except (RecorderStartError, OSError, UnicodeDecodeError) as exc:
+            if starting and state.production:
                 raise
             state.count("config invalid")
+            if state.stamps.get(tenant) != stamp:
+                _warn(exc, path)
             continue
         switches[tenant] = switch
     # The environment decides only where no file exists: a file that is
@@ -821,6 +932,20 @@ def _read_switches(state: _State, *, starting: bool) -> None:
     state.any_on = any(switch.on for switch in switches.values())
     intervals = [switch.interval for switch in switches.values()]
     state.interval = min(intervals) if intervals else DEFAULT_INTERVAL
+
+
+def _warn(exc: BaseException, path: Path) -> None:
+    """The sentence a refusal would have raised, on standard error, and that
+    the recorder is off. Never raises: a warning that failed would fail the
+    application it exists to spare."""
+    reason = (
+        str(exc) if isinstance(exc, RecorderStartError) else f"{path} cannot be read"
+    )
+    with contextlib.suppress(Exception):
+        print(  # noqa: T201 — the application's own stderr, once
+            f"digline recorder: not recording for this tenant: {reason}",
+            file=sys.stderr,
+        )
 
 
 def _writable(directory: Path) -> bool:
@@ -883,7 +1008,12 @@ class attach:  # noqa: N801 — read as a function at the call site, like `episo
     was opened in: a `ThreadPoolExecutor` worker, a `threading.Thread`, a
     process. The id is `ep.id`, passed by the application.
 
-        pool.submit(lambda: run_in(attach(ep.id)))
+        def lookup(order: str, episode_id: str | None) -> str:
+            with attach(episode_id):
+                return client.messages.create(..., suite="lookup")
+
+        with episode(client, suite="order-agent", case={"ticket": text}) as ep:
+            pool.submit(lookup, "A1", ep.id).result()
 
     `None`, which is `ep.id` while the recorder is off, attaches nothing. The
     calls are recorded with the id whether or not the episode is open in this
@@ -1025,14 +1155,18 @@ class Episode:
         _reset(self._token)
         with _OPEN_LOCK:
             _OPEN.pop(self.id, None)
+        state = self._state
+        known = None if state.production else cast(str, state.tenant)
         if self._collector.sampled_out:
-            self._state.count("sampled out")
+            state.count("sampled out")
+            _tally(state, known, self._suite, "sampled out")
             return
-        self._state.count(
-            _record_episode(
-                self, self._collector, elapsed_ms, interrupted=kind is not None
-            )
+        _LAST.tenant = known
+        reason = _record_episode(
+            self, self._collector, elapsed_ms, interrupted=kind is not None
         )
+        state.count(reason)
+        _tally(state, _LAST.tenant, self._suite, reason)
         if self._parent is not None:
             parent = _OPEN.get(self._parent)
             if parent is not None:
@@ -1048,8 +1182,20 @@ def episode(
 ) -> Episode:
     """An episode whose recording is filed as `client`'s calls are: the same
     app, tenant and root. `client` is a client `wrap` returned, and any other
-    object is refused, by name, recording or not. `suite=` names the suite; an
-    episode that names none is `_unassigned`, with its call site (§2)."""
+    object is refused, by name, recording or not.
+
+    `case=` is required: the input that started the turn, a mapping of
+    names to JSON values, as the case will hold it, for example
+    `{"ticket": text}` or `{"messages": [...]}`. Two turns with the same
+    `case` are the same case at the import. `suite=` names the suite, as
+    `suite=` does on a call; an episode that names none is `_unassigned`,
+    with its call site. `setup=` replaces the setup the episode derives
+    from its calls, where the turn runs steps no model call shows.
+
+        with episode(client, suite="order-agent", case={"ticket": text}) as ep:
+            ...
+            ep.output(answer)
+    """
     if not isinstance(client, RecordedClient):
         raise RecorderStartError(
             "episode() takes a client wrap() returned, so that the episode is "
@@ -1170,6 +1316,7 @@ def _record_episode(
 
         stage = "tenant"
         tenant = _tenant_of(state)
+        _LAST.tenant = tenant
         if tenant is None:
             return stage
         switch = state.switches.get(tenant)
@@ -1260,8 +1407,15 @@ def wrap(
     directory that holds `.digline/`, the current directory when this is
     called if not given.
 
-    Refused here, never at a call: a switch file that is invalid, and in
-    production `DIGLINE_RECORD=1` and the three refusals of §10.
+    Refused here, never at a call: in production, an invalid switch file,
+    `DIGLINE_RECORD=1` and the three refusals of §10. In development an
+    invalid switch file is said on standard error and leaves the recorder
+    off.
+
+    The client returned is the client, with its call intercepted: every
+    other attribute is the client's own. `client.digline_counts` says how
+    many calls this process recorded and, per reason, how many it did not;
+    `digline record status` reads the same counts from every process.
     """
     if not isinstance(app, str) or not app:  # pyright: ignore[reportUnnecessaryIsInstance]
         raise RecorderStartError("wrap() needs app=, a non-empty name")

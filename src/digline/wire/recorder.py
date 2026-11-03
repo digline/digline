@@ -17,8 +17,8 @@ never *nothing arrived*.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Literal
 
 from digline.wire.contract import OUTPUT_VERSION
@@ -38,6 +38,11 @@ class SuiteRecordings:
     calls: int
     episodes: int
     orphans: int
+    #: Of `calls`, those made inside an episode, which are part of that
+    #: episode's case and not cases of their own.
+    inside_episodes: int = 0
+    #: Per reason, the calls every process said it did not record.
+    not_recorded: Mapping[str, int] = field(default_factory=dict[str, int])
     imported: bool | None = None
     since_last_import: int | None = None
 
@@ -110,6 +115,8 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "calls": suite.calls,
                     "episodes": suite.episodes,
                     "orphans": suite.orphans,
+                    "inside_episodes": suite.inside_episodes,
+                    "not_recorded": dict(suite.not_recorded),
                     "imported": suite.imported,
                     "since_last_import": suite.since_last_import,
                 }

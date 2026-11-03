@@ -178,9 +178,11 @@ def refuse_data_suite(spec: str) -> None:
     if spec.endswith(SUITE_SUFFIX):
         raise RefusedError(
             f"{spec} is a data suite, and a data suite cannot declare where "
-            "captured cases go in this release: ADR 0023 §3 keeps the "
-            "declaration in a suite.py, and whether recordings may be declared "
-            "as data is a question ADR 0058 leaves open"
+            "captured cases go in this release. Write a suite.py with "
+            "Suite.capture = CaptureSource(cases_file=..., repository=...) "
+            "and load that file beside its cases with read_cases. ADR 0023 §3 "
+            "keeps the declaration in a suite.py, and whether recordings may "
+            "be declared as data is a question ADR 0058 leaves open"
         )
 
 
