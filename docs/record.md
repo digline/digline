@@ -128,9 +128,11 @@ async with recorder.episode(client, suite="order-agent", case={"ticket": t}) as 
   so every task created inside it, `asyncio.gather` among them, is in it. A
   task created before it is not: there, `async with recorder.attach(ep.id)`
   puts the task's calls in it, and without it they are orphans.
-- **A recording is written inside the event loop.** It is a small file, and
-  holding the loop for it was measured at about 0.4 ms a recording, from the
-  second recording on, so it is not moved to a thread. **The first recording
+- **A recording is written inside the event loop, and never `fsync`ed.** It
+  is a small file, written beside its place and linked into it, so no reader
+  sees half of one. It is durable at the operating system's pace: a crash of
+  the machine may lose the last recordings written before it. A recording is
+  a sample, not a ledger. **The first recording
   imports digline's core**, about 90 ms where it was measured, which holds
   the loop when the client is asynchronous. So when the recorder is on as the
   client is wrapped, `wrap()` imports the core then, at the application's
