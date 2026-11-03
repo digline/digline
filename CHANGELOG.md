@@ -17,7 +17,13 @@ notes under them are this file, verbatim.
   of whose calls could be priced, and outside a run nothing told the two
   apart (#569; reported by the brief project). `spent_usd` does not change.
 
-## digline-anthropic — unreleased
+## digline-anthropic 0.8.0 — 2026-11-03
+
+Published by its own tag, `digline-anthropic-v0.8.0`, after digline 1.0.3 was
+on PyPI. **A repair, and a minor because the outcome of a suite changed**: a
+suite with a `cost_budget` on a model that reports `"not_available"`, such as
+claude-haiku-4-5, errored every budget and exited `2`, and now judges it and
+exits by its verdict (*Choosing the version*: an exit code changed).
 
 - **A reply that reports `inference_geo: "not_available"` is priced at the
   standard rate** (reported by the brief project, on digline-anthropic 0.7.0
@@ -31,6 +37,10 @@ notes under them are this file, verbatim.
   at 1.0, and `unpriced_of` still says why for any other geography with no
   rate. ADR 0004 §8.9's first criterion takes a dated note: its example was
   this string.
+- **The dependency is `digline>=0.35.0,<2`.** The floor is unchanged. The cap
+  is new since 0.7.0, which declared none, and it reaches a resolver with
+  this release: from 1.0.0 a minor of digline does not break a public Python
+  signature, so every 1.x installs under it.
 
 ## 1.0.3 — 2026-10-31
 

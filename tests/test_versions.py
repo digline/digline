@@ -1035,6 +1035,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.34.0": "'with digline 0.34.0, the release this example installed that "
         "day' — the release a dated measurement of the judge's line was made "
         "on, named with what it printed: history",
+        "0.6.1": "not a digline version: the digline-anthropic that first read "
+        'the geography and errored a case over one with no rate; history',
+        "0.7.0": "not a digline version: the last digline-anthropic that could "
+        'not price `"not_available"`; history',
+        "0.8.0": "not a digline version: the digline-anthropic that prices "
+        '`"not_available"` at the standard rate. A floor for the sentence, '
+        "so it cannot go stale; the example's cap decides what a reader installs",
     },
     "examples/external-app/README.md": {
         "0.1.2": "'Needs digline 0.1.2 (HttpTarget)' — the release the feature "
@@ -1088,8 +1095,10 @@ RECORDED: dict[str, dict[str, str]] = {
     "docker/Dockerfile": {
         "0.6.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.7.0": "digline-anthropic's and digline-bedrock's version, each "
-        "pinned to its own pyproject by tests/test_docker.py",
+        "0.7.0": "digline-bedrock's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
+        "0.8.0": "digline-anthropic's version, pinned to its own pyproject by "
+        "tests/test_docker.py",
         "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
         "not a digline version",
         "26.2.2": "the pip the image upgrades to, held to an exact version by "

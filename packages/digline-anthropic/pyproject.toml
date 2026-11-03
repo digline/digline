@@ -1,6 +1,6 @@
 [project]
 name = "digline-anthropic"
-version = "0.7.0"
+version = "0.8.0"
 description = "Anthropic target and judges for digline: prompt file in, priced Response out."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -51,11 +51,6 @@ dependencies = [
     # the version*). So the cap is the next major, and every 1.x installs under
     # it. Every package under `packages/` holds one, and
     # `tests/test_plugin_floors.py` reads it.
-    #
-    # **Owed at the cut: a release of this package, with the floor unchanged.**
-    # The cap reaches nobody until this package is released: the only reader
-    # of caps, `.github/plugins_against_core.py`, reads `requires_dist` from
-    # PyPI. RELEASING.md, *Owed at the cut*, holds the row.
     "digline>=0.35.0,<2",
     "anthropic>=0.40",
 ]
