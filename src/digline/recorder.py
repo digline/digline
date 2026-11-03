@@ -15,9 +15,11 @@ one turn of an agent, whose calls are attached to it.
         ...  # calls through wrapped clients, tools run by the application
         ep.output(result)
 
-A synchronous, non-streaming client. Streaming and asynchronous clients are
-not recorded yet. The recordings become cases with `digline record import`,
-and `docs/record.md` walks through the whole of it.
+A client, synchronous or asynchronous, and a reply, whole or streamed: an
+asynchronous client's call is awaited as the SDK's is, and a stream reaches
+the application as the SDK built it, watched as it is read. The recordings
+become cases with `digline record import`, and `docs/record.md` walks through
+the whole of it.
 
 **How a provider is found, without importing it.** A plugin declares, under the
 entry point group `digline.recording_maps`, a name that says which client it
@@ -31,8 +33,9 @@ names is refused when it is wrapped, by name, never at the call.
 of the recorder.** Whatever goes wrong while recording — a value JSON cannot
 carry, the writer's `OSError`, a reply the map does not recognise, the tenant
 function raising — the call's own result is returned, and a *not recorded* is
-counted with its reason. A call with `stream=True` passes and counts *not
-recorded: streaming*. An exception of the provider's SDK propagates as it is,
+counted with its reason. A stream closed or dropped before its end counts
+*stream abandoned*, and a stream through a map that cannot read one counts
+*streaming*. An exception of the provider's SDK propagates as it is,
 and nothing is recorded.
 
 **Two regimes, read from `tenant=`** (§4, §10). A name is **development**: one
@@ -616,6 +619,22 @@ def _intercepted(
         site = _call_site() if suite is None else None
         started = perf_counter()
         reply = method(**kwargs)
+        if _awaitable(reply):
+            # An asynchronous client's call: what the application awaits is
+            # the SDK's own awaitable, awaited here and handed on as it came.
+            return _awaited(
+                reply,
+                state,
+                slot,
+                mapped,
+                kwargs,
+                streamed,
+                suite,
+                variables,
+                site,
+                inside,
+                known,
+            )
         if streamed:
             # The application gets the stream the SDK built, the same object;
             # it is watched as the application reads it, and recorded at its
@@ -645,6 +664,66 @@ def _intercepted(
         return reply
 
     return call
+
+
+def _awaitable(value: object) -> bool:
+    """Whether `value` is to be awaited. `inspect`, imported here, at a call
+    the recorder is on for: switched off, this module imports nothing it can
+    do without."""
+    import inspect
+
+    return inspect.isawaitable(value)
+
+
+def _awaitable_function(value: object) -> bool:
+    import inspect
+
+    return inspect.iscoroutinefunction(value)
+
+
+async def _awaited(
+    pending: Any,
+    state: _State,
+    slot: _Slot,
+    mapped: Any,
+    request: Mapping[str, Any],
+    streamed: bool,
+    suite: object,
+    variables: object,
+    site: str | None,
+    inside: str | None,
+    known: str | None,
+) -> Any:
+    """An asynchronous call: the SDK's reply, awaited, recorded as a
+    synchronous one is, and returned as it came. A streamed reply is the
+    SDK's asynchronous stream, watched as the application reads it. An
+    exception of the SDK propagates as it was raised."""
+    started = perf_counter()
+    reply = await pending
+    if streamed:
+        _watch(
+            state,
+            slot,
+            mapped,
+            request,
+            reply,
+            started,
+            suite,
+            variables,
+            site,
+            inside,
+            known,
+        )
+        return reply
+    elapsed_ms = (perf_counter() - started) * 1000.0
+    _LAST.tenant = known
+    _LAST.notes = []
+    reason, seen = _record(
+        state, slot, request, reply, elapsed_ms, suite, variables, site, inside
+    )
+    _joined(state, inside, reason, seen)
+    _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
+    return reply
 
 
 def _map_or_none(slot: _Slot) -> Any:
@@ -714,11 +793,50 @@ def _watching(kind: type) -> type:
             self.__dict__["_digline_watch"].closing()
             return base.close(self, *args, **kwargs)
 
-        namespace: dict[str, Any] = {"__iter__": __iter__}
-        if hasattr(kind, "__next__"):
-            namespace["__next__"] = __next__
-        if hasattr(kind, "close"):
-            namespace["close"] = close
+        async def __aiter__(self: Any) -> Any:  # noqa: N807
+            watch: _Watch = self.__dict__["_digline_watch"]
+            try:
+                async for item in base.__aiter__(self):
+                    watch.item(item)
+                    yield item
+            except GeneratorExit:
+                raise
+            except BaseException as exc:
+                watch.failed(exc)
+                raise
+            await watch.finished_async(self)
+
+        async def __anext__(self: Any) -> Any:  # noqa: N807
+            watch: _Watch = self.__dict__["_digline_watch"]
+            try:
+                item = await base.__anext__(self)
+            except StopAsyncIteration:
+                await watch.finished_async(self)
+                raise
+            except BaseException as exc:
+                watch.failed(exc)
+                raise
+            watch.item(item)
+            return item
+
+        async def aclose(self: Any, *args: Any, **kwargs: Any) -> Any:
+            self.__dict__["_digline_watch"].closing()
+            return await base.close(self, *args, **kwargs)
+
+        namespace: dict[str, Any] = {}
+        if hasattr(kind, "__aiter__"):
+            # An asynchronous stream: the same watch, awaited.
+            namespace["__aiter__"] = __aiter__
+            if hasattr(kind, "__anext__"):
+                namespace["__anext__"] = __anext__
+            if _awaitable_function(getattr(kind, "close", None)):
+                namespace["close"] = aclose
+        else:
+            namespace["__iter__"] = __iter__
+            if hasattr(kind, "__next__"):
+                namespace["__next__"] = __next__
+            if hasattr(kind, "close"):
+                namespace["close"] = close
         made = type(kind.__name__, (kind,), namespace)
         made.__module__ = kind.__module__
         made.__qualname__ = kind.__qualname__
@@ -741,7 +859,17 @@ def _entering(kind: type) -> type:
             _attach(stream, self.__dict__["_digline_watch"])
             return stream
 
-        made = type(kind.__name__, (kind,), {"__enter__": __enter__})
+        async def __aenter__(self: Any) -> Any:  # noqa: N807
+            stream: Any = await base.__aenter__(self)
+            _attach(stream, self.__dict__["_digline_watch"])
+            return stream
+
+        namespace: dict[str, Any] = {}
+        if hasattr(kind, "__enter__"):
+            namespace["__enter__"] = __enter__
+        if hasattr(kind, "__aenter__"):
+            namespace["__aenter__"] = __aenter__
+        made = type(kind.__name__, (kind,), namespace)
         made.__module__ = kind.__module__
         made.__qualname__ = kind.__qualname__
         _WATCHED[kind] = made
@@ -859,15 +987,31 @@ class _Watch:
     def finished(self, stream: Any) -> None:
         if not self._settle():
             return
+        completion: Any = None
+        if not self.broken:
+            with contextlib.suppress(Exception):
+                completion = self.reading.completion(stream)
+        self._recorded(completion)
+
+    async def finished_async(self, stream: Any) -> None:
+        """`finished`, for an asynchronous stream, whose final reply may be
+        read with a coroutine (`get_final_message()` on `AsyncMessageStream`)."""
+        if not self._settle():
+            return
+        completion: Any = None
+        if not self.broken:
+            with contextlib.suppress(Exception):
+                completion = self.reading.completion(stream)
+                if _awaitable(completion):
+                    completion = await completion
+        self._recorded(completion)
+
+    def _recorded(self, completion: Any) -> None:
         elapsed_ms = (perf_counter() - self.started) * 1000.0
         state = self.state
         late = self.inside is not None and self.inside not in _OPEN
         _LAST.tenant = self.known
         _LAST.notes = []
-        completion: Any = None
-        if not self.broken:
-            with contextlib.suppress(Exception):
-                completion = self.reading.completion(stream)
         if completion is None:
             reason, seen = "map", None
         else:
@@ -1435,6 +1579,12 @@ class attach:  # noqa: N801 — read as a function at the call site, like `episo
     def __exit__(self, *exc: object) -> None:
         _reset(self._token)
 
+    async def __aenter__(self) -> None:
+        self.__enter__()
+
+    async def __aexit__(self, *exc: object) -> None:
+        self.__exit__(*exc)
+
 
 def _reset(token: Token[str | None] | None) -> None:
     """Undo a `set`, where it can be undone: a context left in another
@@ -1573,6 +1723,19 @@ class Episode:
             parent = _OPEN.get(self._parent)
             if parent is not None:
                 parent.add(self._collector)
+
+    async def __aenter__(self) -> Episode:
+        """`async with`, the same as `with`: the id is a context variable,
+        and every task the block creates inherits it. (ADR 0058 §5)"""
+        return self.__enter__()
+
+    async def __aexit__(
+        self,
+        kind: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.__exit__(kind, exc, traceback)
 
 
 def episode(
@@ -1797,8 +1960,7 @@ def _find(client: object) -> dict[str, Any]:
     named = ", ".join(sorted(declared)) or "none"
     raise RecorderStartError(
         f"no installed plugin records a client of type {_key_of(client)[0]}. "
-        f"The plugins installed record: {named}. An asynchronous client is not "
-        "recorded yet"
+        f"The plugins installed record: {named}"
     )
 
 

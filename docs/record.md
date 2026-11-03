@@ -1,5 +1,8 @@
 # `digline record` — the calls your application makes, kept as cases
 
+> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
+> `digline.recorder` do not exist.
+
 While an application is being built, the calls it makes to a model are the
 material a suite is made of. The recorder keeps them, at the place where the
 application makes them, in the shape a suite reads: what the call was asked,
@@ -60,12 +63,13 @@ The clients recorded are the ones a plugin maps, one method at a time:
 
 | Plugin | Client | Methods |
 |---|---|---|
-| `digline-anthropic` | `anthropic.Anthropic` | `messages.create`, `messages.stream` |
-| `digline-openai` | `openai.OpenAI` | `chat.completions.create`, `chat.completions.stream` |
+| `digline-anthropic` | `anthropic.Anthropic`, `anthropic.AsyncAnthropic` | `messages.create`, `messages.stream` |
+| `digline-openai` | `openai.OpenAI`, `openai.AsyncOpenAI` | `chat.completions.create`, `chat.completions.stream` |
 | `digline-bedrock` | a `bedrock-runtime` client | `converse`, `converse_stream` |
 
-Any other client is refused when it is wrapped, by name. An asynchronous
-client is not recorded yet.
+Any other client is refused when it is wrapped, by name. Bedrock has no
+asynchronous client in botocore; aiobotocore's is a package of its own that no
+plugin maps, so it is refused like any other.
 
 **The application's call never fails because of the recorder.** Whatever goes
 wrong while recording, the call returns what the provider returned, and the
@@ -98,6 +102,35 @@ that stream by name, `messages.stream()`, `chat.completions.stream()` and
   ends. If the episode has closed by then, the call is recorded as an orphan
   with the episode's id, and noted `ended after its episode`; the episode
   counts it among the calls it did not see.
+
+## An asynchronous client
+
+`wrap` takes `anthropic.AsyncAnthropic` and `openai.AsyncOpenAI` as it takes
+their synchronous clients, and records the same thing for the same request.
+
+```python
+client = recorder.wrap(anthropic.AsyncAnthropic(), app="helpdesk", tenant="acme")
+
+reply = await client.messages.create(..., suite="category")
+
+stream = await client.messages.create(..., stream=True, suite="category")
+async for event in stream:
+    ...
+
+async with recorder.episode(client, suite="order-agent", case={"ticket": t}) as ep:
+    await asyncio.gather(lookup(...), lookup(...))
+```
+
+- **What the application awaits is what the SDK returns**: the reply, or the
+  SDK's asynchronous stream, unread, watched as the application reads it, as a
+  synchronous stream is.
+- **An episode is the same with `async with`.** Its id is a context variable,
+  so every task created inside it, `asyncio.gather` among them, is in it. A
+  task created before it is not: there, `async with recorder.attach(ep.id)`
+  puts the task's calls in it, and without it they are orphans.
+- **A recording is written inside the event loop.** It is a small file, and
+  holding the loop for it was measured at about 0.4 ms a recording, so it is
+  not moved to a thread.
 
 ## A turn of an agent: `episode`
 
@@ -264,7 +297,6 @@ perimeter [ADR 0034](adr/0034-the-store-outside-and-the-reference-that-names-not
 
 ## Not yet
 
-- Asynchronous clients.
 - An application in another language than Python.
 - A label given at the import is a case's `label`, read by an aggregate that
   counts a confusion matrix; a run's results do not show it yet.
