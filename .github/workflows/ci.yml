@@ -175,7 +175,10 @@ jobs:
         # day: `--ignore` them in this step and run them serially in a step of
         # their own. Not a retry and not a longer timeout — a red that is not
         # true teaches everyone to ignore reds.
-        run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
+        #
+        # `--durations=25`: the log says where the time goes. Without it the
+        # 25 slowest had to be measured on a laptop, which is not this runner.
+        run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py --durations=25
 
       - name: Tests that write into the source tree, serially
         if: needs.queue-tested.outputs.tested != 'true'
@@ -194,7 +197,15 @@ jobs:
         run: uv run --python ${{ matrix.python }} ruff check .
 
       - name: Types
-        if: needs.queue-tested.outputs.tested != 'true'
+        # One leg, not three. `[tool.pyright] pythonVersion` is "3.12" in
+        # `pyproject.toml`, so every leg checked the same code against the same
+        # version, and the two others repeated it (12–22s each, measured on the
+        # gates (3.13) runs of 2026-11-02 and 2026-11-03). What differs between
+        # legs is the installed environment, and pyright on the whole tree no
+        # longer reads 3.13's or 3.14's. Each leg still runs pyright on the
+        # planted files of `tests/test_type_gate.py`, in the serial step above:
+        # whether this leg's pyright resolves the project, not the whole tree.
+        if: needs.queue-tested.outputs.tested != 'true' && matrix.python == '3.12'
         run: uv run --python ${{ matrix.python }} pyright
 
       - name: Home capture is current

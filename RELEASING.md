@@ -968,7 +968,7 @@ Run **exactly what CI runs**, from the repository root:
 
 ```sh
 uv sync --all-packages --locked
-uv run pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
+uv run pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py --durations=25
 uv run pytest -q -m "not live" tests/test_type_gate.py
 uv run ruff format --check .
 uv run ruff check .

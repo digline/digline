@@ -20,6 +20,7 @@ lands are their next reading.
 from __future__ import annotations
 
 import sys
+import tomllib
 import urllib.error
 from pathlib import Path
 from typing import Any
@@ -223,8 +224,18 @@ def test_on_a_queue_entry_every_step_of_the_gates_legs_is_skipped_and_named() ->
     assert notice["if"] == "needs.queue-tested.outputs.tested == 'true'"
     assert "REASON" in notice["env"] and "::notice::" in notice["run"]
     assert rest, "the gates job has no steps"
+    skip = "needs.queue-tested.outputs.tested != 'true'"
     for step in rest:
-        assert step.get("if") == "needs.queue-tested.outputs.tested != 'true'", step
+        if step.get("name") == "Types":
+            continue
+        assert step.get("if") == skip, step
+    # Types is skipped the same way, and runs on one leg only: the leg of the
+    # version `pyproject.toml` tells pyright to check against.
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        version = tomllib.load(handle)["tool"]["pyright"]["pythonVersion"]
+    assert version in PYTHONS
+    (types,) = [step for step in rest if step.get("name") == "Types"]
+    assert types["if"] == f"{skip} && matrix.python == '{version}'", types
 
 
 def test_the_answer_is_asked_on_a_push_and_on_a_queue_entry() -> None:
