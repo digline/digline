@@ -99,6 +99,7 @@ def lookup(order, episode_id):
     with recorder.attach(episode_id):
         return client.messages.create(..., suite="lookup")
 
+
 with recorder.episode(client, suite="order-agent", case={"ticket": ticket}) as ep:
     pool.submit(lookup, "A1", ep.id).result()
 ```
