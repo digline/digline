@@ -226,7 +226,12 @@ def test_an_episode_of_three_calls_is_one_recording_and_three_children(
     assert turn["steps"][1]["arguments"] == '{"order":"A1"}'
     assert "interrupted" not in turn
     assert "unrecorded_children" not in turn
-    assert counts(client) == {"recorded": 4, "not_recorded": {}, "orphan": 0}
+    assert counts(client) == {
+        "recorded": 4,
+        "not_recorded": {},
+        "orphan": 0,
+        "noted": {},
+    }
 
 
 @pytest.mark.usefixtures("on", "commit")
@@ -272,6 +277,7 @@ def test_an_episode_with_no_call_and_no_output_is_counted_not_written(
         "recorded": 0,
         "not_recorded": {"no output": 1},
         "orphan": 0,
+        "noted": {},
     }
 
 
@@ -555,6 +561,7 @@ def test_a_case_json_cannot_carry_is_counted_and_the_block_runs(
         "recorded": 1,
         "not_recorded": {"not JSON": 1},
         "orphan": 0,
+        "noted": {},
     }
 
 
@@ -643,7 +650,12 @@ def test_off_an_episode_is_an_empty_context(tmp_path: Path) -> None:
         ep.output("ignored")
     assert ep.id is None
     assert not (tmp_path / ".digline").exists()
-    assert counts(client) == {"recorded": 0, "not_recorded": {}, "orphan": 0}
+    assert counts(client) == {
+        "recorded": 0,
+        "not_recorded": {},
+        "orphan": 0,
+        "noted": {},
+    }
 
 
 def test_off_an_episode_imports_nothing_of_digline_core() -> None:

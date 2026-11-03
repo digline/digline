@@ -1532,6 +1532,9 @@ def cmd_record_status(args: argparse.Namespace) -> int:
                     f"{reason} {n}" for reason, n in suite.not_recorded.items()
                 )
                 say(f"    not recorded: {missed}")
+            if suite.noted:
+                said = ", ".join(f"{what} {n}" for what, n in suite.noted.items())
+                say(f"    recorded, and noted: {said}")
         if tenant.unreadable:
             say(f"  unreadable: {tenant.unreadable} files that are not recordings")
     return EXIT_OK

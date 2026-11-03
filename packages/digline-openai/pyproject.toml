@@ -82,6 +82,7 @@ openai = "digline_openai:PROVIDER"
 # the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
 [project.entry-points."digline.recording_maps"]
 "openai.OpenAI:chat.completions.create" = "digline_openai.recording:MAP"
+"openai.OpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
 
 [build-system]
 requires = ["hatchling>=1.27"]

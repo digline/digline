@@ -81,6 +81,7 @@ bedrock = "digline_bedrock:PROVIDER"
 # the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
 [project.entry-points."digline.recording_maps"]
 "botocore.BedrockRuntime:converse" = "digline_bedrock.recording:MAP"
+"botocore.BedrockRuntime:converse_stream" = "digline_bedrock.recording:STREAM_MAP"
 
 [build-system]
 requires = ["hatchling>=1.27"]

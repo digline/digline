@@ -223,7 +223,6 @@ def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> No
         ({"steps": None, "unrecorded_children": 1}, "single call"),
         ({"unrecorded_children": -1}, "from 0"),
         ({"orphan": True}, "only a single call"),
-        ({"steps": None, "orphan": True}, "only a single call"),
     ],
     ids=[
         "order",
@@ -231,7 +230,6 @@ def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> No
         "unrecorded-call",
         "negative",
         "orphan-episode",
-        "orphan-in-an-episode",
     ],
 )
 def test_an_episode_that_breaks_its_rules_is_refused(

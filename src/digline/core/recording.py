@@ -188,7 +188,10 @@ class Recording:
     open in the process that made it: a child whose thread was not attached,
     or a call that belongs to none. It is written when the call is, where that
     is known, because the files alone cannot tell it from a call made while
-    nothing was open, and the import says how many it found (§5).
+    nothing was open, and the import says how many it found (§5). A streamed
+    call whose stream ended after its episode had closed is an orphan too,
+    and carries that episode's id: it began inside, and arrived too late to
+    be one of the episode's steps.
     """
 
     source_tenant: str
@@ -264,9 +267,9 @@ class Recording:
             )
         if type(self.orphan) is not bool:
             raise RecordingRefusedError("Recording.orphan must be a boolean")
-        if self.orphan and (self.episode is not None or self.steps is not None):
+        if self.orphan and self.steps is not None:
             raise RecordingRefusedError(
-                "only a single call recorded in no episode is an orphan"
+                "only a single call is an orphan, never an episode"
             )
         if type(self.interrupted) is not bool:
             raise RecordingRefusedError("Recording.interrupted must be a boolean")

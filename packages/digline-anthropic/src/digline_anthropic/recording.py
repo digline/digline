@@ -13,6 +13,17 @@ every user a setup of their own, and the digest would read people as changes.
 
 **The reply is read by `completion_of`**, the function the target already uses,
 so a recorded reply and a measured one are read the same way.
+
+**A streamed reply is read from its events** (ADR 0058 §13), into the message
+the whole reply would have been, and then by `completion_of` like any other:
+- `messages.create(stream=True)` gives the raw events, accumulated with the
+  SDK's own `accumulate_event`, the function its `MessageStream` uses. It is
+  imported from `anthropic.lib.streaming._messages`, a module the SDK does not
+  export by name: if it moves, the reading fails and the call counts `map`,
+  and the application's stream is not touched;
+- `messages.stream()` is another method, declared under its own entry point,
+  `anthropic.Anthropic:messages.stream`. It returns a manager, and the stream
+  its `with` gives accumulates itself: its final message is read when it ends.
 """
 
 from __future__ import annotations
@@ -23,7 +34,7 @@ from typing import Any
 from digline.targets import Completion
 from digline_anthropic.client import completion_of
 
-__all__ = ["MAP", "NOT_SETUP", "AnthropicRecording"]
+__all__ = ["MAP", "NOT_SETUP", "STREAM_MAP", "AnthropicRecording"]
 
 #: The keywords of `messages.create` that are neither the case nor the setup,
 #: beside the messages themselves.
@@ -45,5 +56,55 @@ class AnthropicRecording:
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
         return completion_of(reply)
 
+    def reading(self, request: Mapping[str, Any]) -> Any:
+        """A reading of `messages.create(stream=True)`'s raw events."""
+        return _Events()
+
+
+class _Events:
+    """The raw events of one stream, folded into the message they make."""
+
+    def __init__(self) -> None:
+        from anthropic.lib.streaming._messages import accumulate_event
+
+        self._accumulate = accumulate_event
+        self._snapshot: Any = None
+        self._json: dict[int, bytes] = {}
+
+    def add(self, event: Any) -> None:
+        self._snapshot = self._accumulate(
+            event=event, current_snapshot=self._snapshot, json_bufs=self._json
+        )
+
+    def completion(self, stream: Any) -> Completion:
+        if self._snapshot is None:
+            raise ValueError("the stream ended with no message")
+        return completion_of(self._snapshot)
+
+
+class AnthropicStreamRecording(AnthropicRecording):
+    """The map for `messages.stream()`: the same request, a manager for a
+    reply, and a stream that keeps its own message."""
+
+    #: The stream is what the manager's `with` gives.
+    entered = True
+
+    def streams(self, request: Mapping[str, Any]) -> bool:
+        return True
+
+    def reading(self, request: Mapping[str, Any]) -> Any:
+        return _Final()
+
+
+class _Final:
+    """Reads the message a `MessageStream` accumulated itself."""
+
+    def add(self, event: Any) -> None:
+        return None
+
+    def completion(self, stream: Any) -> Completion:
+        return completion_of(stream.get_final_message())
+
 
 MAP = AnthropicRecording()
+STREAM_MAP = AnthropicStreamRecording()
