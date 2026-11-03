@@ -35,6 +35,14 @@ from digline.host.environment import (
     utc_now_iso,
 )
 from digline.host.errors import UsageError
+from digline.host.importing import (
+    ImportCase,
+    ImportListing,
+    import_elect,
+    import_listing,
+    imported_since,
+    refuse_data_suite,
+)
 from digline.host.listing import (
     SuiteRuns,
     left_out,
@@ -87,7 +95,7 @@ from digline.host.resolve import (
     replacing,
     resolve_key,
 )
-from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
 
 __all__ = [
     "DIRTY_SUFFIX",
@@ -110,6 +118,12 @@ __all__ = [
     "UsageError",
     "entry_for",
     "explained",
+    "ImportCase",
+    "ImportListing",
+    "import_elect",
+    "import_listing",
+    "imported_since",
+    "refuse_data_suite",
     "git_commit",
     "history",
     "left_out",
@@ -132,6 +146,7 @@ __all__ = [
     "promotion_notes",
     "need_baseline",
     "read_artifacts",
+    "read_cases",
     "read_pinned",
     "read_run",
     "record",

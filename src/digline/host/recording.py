@@ -17,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+from collections.abc import Mapping
 from pathlib import Path
 
 from digline.recorder import SWITCH_KEYS, RecorderStartError, Switch, parse_switch
@@ -122,10 +123,15 @@ def _write(path: Path, text: str) -> None:
 
 
 def recorder_status(
-    root: Path, tenant: str | None = None
+    root: Path,
+    tenant: str | None = None,
+    imports: Mapping[str, tuple[int | None, int]] | None = None,
 ) -> tuple[TenantRecorder, ...]:
     """Each tenant's switch and recordings: `tenant` alone, or every tenant
-    under `.digline/` with a switch file or a `recordings/` directory."""
+    under `.digline/` with a switch file or a `recordings/` directory.
+
+    `imports` is, per suite name, what `digline.host.importing.imported_since`
+    read from that suite's draft; a suite not in it says *not read*."""
     store = FileResultStore(root)
     if tenant is not None:
         names = [tenant]
@@ -140,10 +146,32 @@ def recorder_status(
                 or (entry / RECORDINGS_DIRNAME).is_dir()
             )
         )
-    return tuple(_tenant(store, name) for name in names)
+    return tuple(_tenant(store, name, imports or {}) for name in names)
 
 
-def _tenant(store: FileResultStore, tenant: str) -> TenantRecorder:
+def _suite(
+    name: str, counts: list[int], imported: tuple[int | None, int] | None
+) -> SuiteRecordings:
+    if imported is None:
+        return SuiteRecordings(
+            suite=name, calls=counts[0], episodes=counts[1], orphans=counts[2]
+        )
+    since, total = imported
+    return SuiteRecordings(
+        suite=name,
+        calls=counts[0],
+        episodes=counts[1],
+        orphans=counts[2],
+        imported=since is not None,
+        since_last_import=total if since is None else since,
+    )
+
+
+def _tenant(
+    store: FileResultStore,
+    tenant: str,
+    imports: Mapping[str, tuple[int | None, int]],
+) -> TenantRecorder:
     path = store.recorder_path(tenant)
     switch: Switch | None = None
     refusal: str | None = None
@@ -198,8 +226,8 @@ def _tenant(store: FileResultStore, tenant: str) -> TenantRecorder:
         production_refusal=production_refusal,
         recordings_path=str(directory),
         suites=tuple(
-            SuiteRecordings(suite=name, calls=c[0], episodes=c[1], orphans=c[2])
-            for name, c in sorted(suites.items())
+            _suite(name, counts, imports.get(name))
+            for name, counts in sorted(suites.items())
         ),
         unreadable=unreadable,
         size=size,

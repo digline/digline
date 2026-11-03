@@ -338,6 +338,18 @@ repository.
 **A status command** says whether the recorder is recording, where, and how many
 recordings each suite has gained since the last import.
 
+*Amended 2026-11-03, by Alessandro Prandini's decision, at implementation:
+how "since the last import" is known.* Not from a ledger: ADR 0023 §9 allows
+the import no memory but the draft. Each case the import writes carries
+`examined_through`, the newest `recorded_at` among the suite's recordings the
+person was shown, and each recording now carries `recorded_at`, the system
+time it was written at. The count is the suite's recordings written after the
+newest `examined_through` in its draft. The status reads it only when it is
+given the suite, because only the suite says where its draft is. A suite whose
+draft holds no case from the recordings is *never imported*, said with its
+total. A recording with no `recorded_at` is never counted as after the
+watermark.
+
 **In production:**
 - it is switched on by a command, per tenant, which writes the file;
 - the wrapper re-reads the file at an interval, so no restart is needed;

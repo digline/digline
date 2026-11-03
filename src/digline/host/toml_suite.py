@@ -197,6 +197,15 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             "world 3 it is a security property. A suite that genuinely needs "
             "to disclose more is a suite.py."
         )
+    if "capture" in table:
+        raise UsageError(
+            f"{where}, [suite]: `capture` is not settable from a data file in "
+            "this release. A capture source writes third-party text into a "
+            "committed file, and ADR 0023 §3 keeps that declaration in a "
+            "suite.py; whether recordings may be declared as data is the "
+            "question ADR 0058 leaves open. A suite that imports recordings "
+            "is a suite.py"
+        )
     if "cases" not in table:
         raise UsageError(
             f"{where}, [suite]: no `cases`. Cases are always a file — "
@@ -479,6 +488,22 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
 # --------------------------------------------------------------------------- #
 # Cases, always a file
 # --------------------------------------------------------------------------- #
+
+
+def read_cases(path: str | Path) -> list[Case]:
+    """A cases file, as a `suite.toml` reads its own: a JSON array of case
+    objects, each refused by name where it is wrong. Public so that a
+    `suite.py` loads the file its `CaptureSource` names, beside its own cases:
+
+        cases = [*mine, *read_cases(CAPTURED)]
+
+    A file that does not exist yet is no cases, since the import creates it
+    at its first election. (ADR 0023 §7)
+    """
+    path = Path(path)
+    if not path.exists():
+        return []
+    return _cases(path, str(path))
 
 
 def _cases(path: Path, where: str) -> list[Case]:

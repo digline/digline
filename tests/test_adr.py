@@ -200,7 +200,8 @@ def test_every_record_says_whether_it_has_shipped() -> None:
 UNRELEASED_RECORDS: dict[str, str] = {
     "0023-capture": (
         "the capture it decides, the `seen.json` a capture writes and its "
-        "`wanted`, `ignored` and `unsure`, is in no file"
+        "`wanted`, `ignored` and `unsure`, is in no file; a minimal "
+        "`CaptureSource` and §6's id exist, for ADR 0058's import"
     ),
     "0035-the-record-of-a-deletion": (
         "neither deletion ledger exists; the word `ledger` in `src/` is in "
@@ -236,10 +237,12 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "comes first"
     ),
     "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
-        "the recording's document, its place in the layout, the wrapper of "
-        "a single synchronous call, the episode with `RecordedStep`, the "
-        "switch file with its refusals, interval, sample and ceiling, and "
-        "`digline record` exist; the import is in no file. Meant for 1.1"
+        "the narrow piece exists: the recording's document and its place in "
+        "the layout, the wrapper of a single synchronous call, the episode "
+        "with `RecordedStep`, the switch file with its refusals, interval, "
+        "sample and ceiling, `digline record` and the narrow import. "
+        "Streaming, asynchronous clients and the rich import are in no file. "
+        "Meant for 1.1"
     ),
 }
 

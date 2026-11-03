@@ -5,10 +5,14 @@ is payload, whole, and this module reads none. The host counts them, by suite,
 and hands over the numbers. A suite's name and the tenant's are what every
 other `--json` already carries.
 
-**`since_last_import` is `null`, on every tenant.** The status of ADR 0058 §10
-says how many recordings each suite has gained since the last import, and
-there is no import yet: the key is there so the number has a place to arrive,
-and `null` says it is not kept, never that nothing arrived.
+**Since the last import, per suite** (ADR 0058 §10, as amended 2026-11-03).
+`imported` is `true` where the suite's draft holds cases elected from
+recordings, and `since_last_import` is then how many of the suite's recordings
+were written after the newest `examined_through` among them; `false` is
+*never imported*, with `since_last_import` the total. Both are `null` where
+the status was not asked about that suite (`--suite`): the draft is the
+suite's file, and only the suite says where it is. `null` is *not read*,
+never *nothing arrived*.
 """
 
 from __future__ import annotations
@@ -34,6 +38,8 @@ class SuiteRecordings:
     calls: int
     episodes: int
     orphans: int
+    imported: bool | None = None
+    since_last_import: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,9 +110,10 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "calls": suite.calls,
                     "episodes": suite.episodes,
                     "orphans": suite.orphans,
+                    "imported": suite.imported,
+                    "since_last_import": suite.since_last_import,
                 }
                 for suite in tenant.suites
             ],
-            "since_last_import": None,
         },
     }

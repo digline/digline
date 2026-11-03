@@ -151,6 +151,34 @@ def test_a_single_call_carries_none_of_an_episodes_keys() -> None:
     assert not {"steps", "interrupted", "unrecorded_children", "orphan"} & set(written)
 
 
+def test_an_episodes_id_and_the_time_come_back_as_written() -> None:
+    recording = an_episode(id="a" * 32, recorded_at="2026-11-03T08:00:00+00:00")
+    written = recording_to_dict(recording)
+    assert (written["id"], written["recorded_at"]) == (
+        "a" * 32,
+        "2026-11-03T08:00:00+00:00",
+    )
+    assert recording_from_dict(json.loads(json.dumps(written))) == recording
+    single = recording_to_dict(a_recording(recorded_at="2026-11-03T08:00:00+00:00"))
+    assert "id" not in single
+
+
+@pytest.mark.parametrize(
+    ("changes", "match"),
+    [
+        ({"id": "a" * 32}, "only an episode carries an id"),
+        ({"id": ""}, "Recording.id must be a non-empty string"),
+        ({"recorded_at": ""}, "Recording.recorded_at must be a non-empty string"),
+    ],
+    ids=["id-on-a-call", "empty-id", "empty-time"],
+)
+def test_the_two_keys_refuse_what_no_writer_writes(
+    changes: dict[str, object], match: str
+) -> None:
+    with pytest.raises(RecordingRefusedError, match=match):
+        a_recording(**changes)
+
+
 def test_an_orphan_comes_back_as_it_was_written() -> None:
     recording = a_recording(orphan=True)
     written = recording_to_dict(recording)

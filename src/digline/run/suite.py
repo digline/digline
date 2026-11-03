@@ -12,7 +12,7 @@ import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from digline.core import (
     GROUP_MARKER,
@@ -45,6 +45,7 @@ from digline.core.types import floor_width_refusal
 __all__ = [
     "BlindTolerance",
     "Calibration",
+    "CaptureSource",
     "CallPlan",
     "Case",
     "Suite",
@@ -64,6 +65,47 @@ def _listed(kind: TokenKind, names: Iterable[str]) -> tuple[str | NameRef, ...]:
             parts.append(", ")
         parts.append(NameRef(kind, name, quoted=False))
     return tuple(parts)
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureSource:
+    """Where captured cases are written, and the regime they are written
+    under. (ADR 0023 §3, §7, §8)
+
+    The minimal declaration: the file and the regime, and none of §3's
+    `read`, `explicit` or `ambiguous`. What fills it today is `digline record
+    import`, which reads the recorder's recordings itself (ADR 0058 §4).
+
+    `cases_file` is capture's own file, never the suite's other cases: the
+    import appends to it and nothing else, and **the suite loads it**, with
+    `digline.host.read_cases`, beside its own cases. A relative path is read
+    from the suite file's directory.
+
+    `repository` has no default, because the regime is declared, never
+    looked up (§8): `"private"` means readable only inside the perimeter of
+    whoever owns the text, and the input is written whole; `"public"` means
+    the import writes no third-party text, and a recorded case is that text,
+    so under it the import lists and refuses to write.
+
+    Outside `config_hash`, like `record_responses`: declaring a source moves
+    no score; what moves a baseline is the cases it adds, and they move
+    `cases_digest`.
+    """
+
+    cases_file: Path
+    repository: Literal["private", "public"]
+
+    def __post_init__(self) -> None:
+        # `str` accepted and made a `Path` here, the rule `artifacts` follows.
+        object.__setattr__(self, "cases_file", Path(self.cases_file))
+        if not str(self.cases_file).strip():
+            raise RefusedError("CaptureSource.cases_file must name a file")
+        if self.repository not in ("private", "public"):
+            raise RefusedError(
+                'CaptureSource.repository must be "private" or "public", and '
+                "has no default: whether the text may be written is declared, "
+                "never looked up (ADR 0023 §8)"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,6 +400,11 @@ class Suite:
     #: bar, and `disclosure` has never been in the fingerprint either.
     #: (ADR 0015 §2)
     record_responses: bool = False
+    #: Where captured cases are written, and under which regime: the one
+    #: thing `digline record import` needs from the suite. Python suites only
+    #: in this release (ADR 0023 §3). Outside `config_hash`, for the reason
+    #: `record_responses` is. (ADR 0058 §4)
+    capture: CaptureSource | None = None
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -377,6 +424,11 @@ class Suite:
             raise RefusedError("Suite.environment must not be empty")
         if not self.name:
             raise RefusedError("Suite.name must not be empty")
+        if self.capture is not None and not isinstance(self.capture, CaptureSource):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "Suite.capture must be a CaptureSource(cases_file=..., "
+                'repository="private" or "public"), or None'
+            )
         if not self.assertions:
             raise RefusedError(
                 f"suite {self.name!r} declares no assertions: a run that checks "

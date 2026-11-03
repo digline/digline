@@ -24,6 +24,7 @@ module is done, for the reason `tests/test_recorder.py` gives.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import importlib
 import json
 import multiprocessing
@@ -197,6 +198,12 @@ def test_an_episode_of_three_calls_is_one_recording_and_three_children(
     children = calls(tmp_path)
     assert [child["episode"] for child in children] == [ep.id] * 3
     assert "episode" not in turn
+    # Its own id, the one its children carry: the files alone join them.
+    assert turn["id"] == ep.id
+    assert all("id" not in child for child in children)
+    # Written with the system time, read by the host's clock.
+    for found in (turn, *children):
+        datetime.datetime.fromisoformat(found["recorded_at"])
     assert turn["suite"] == "support-agent"
     assert turn["case"] == CASE
     assert turn["app"] == "support"
