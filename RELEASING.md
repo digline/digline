@@ -2270,6 +2270,77 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-anthropic-v0.8.0 — a named tag after the core, one package, a
+  reply that reports `"not_available"` priced at the standard rate.** It
+  shipped #877's repair as a minor, because a suite with a `cost_budget` on
+  such a model exited `2` and now exits by its verdict. `publish`
+  (`41609547902`) passed on attempt 1 and read `completed`, `success`, at
+  09:19:28Z, with `github-release`, the site jobs and the MCP registry
+  skipped, as on any plugin tag, and no `docker-publish`, which fires on `v*`
+  only. `tools/tag_names.py "digline-anthropic 0.8.0"` ran on #878's merge
+  commit, `274de208`, which was `origin/main`, immediately before the tag:
+  one package, named, exit 0. The tag object is `fe9dfbd2`.
+  - **The gate.** This session did not read the run's `approvals` record, so
+    this entry says nothing about who approved or when. The `PyPI` job was
+    created at 09:17:51Z and started at 09:18:00Z. No follow-up issue names
+    this tag: `release-followup` (`41610095155`), started by this `publish`,
+    read `success`.
+  - **Counts**: 16 `twine check` `PASSED`, 12 in the build and 2 in each
+    upload job. TestPyPI's selection, and PyPI's read before the gate, gave 2
+    `publish` and 10 `skip`, the two being digline-anthropic 0.8.0's wheel
+    and sdist. `imported 6`, and the quickstart's 3 calls, after TestPyPI and
+    after PyPI.
+  - **The index**: uploads at 09:18:21Z and 09:18:22Z. The wait on
+    `/simple/` saw digline-anthropic 0.8.0 `after 0s`, at 09:18:24Z. The
+    install of the exact pins read from `dist/` then met the race the other
+    way: at 09:18:57Z pip answered *No matching distribution found for
+    digline-anthropic==0.8.0*, and the step's retry imported all six at
+    09:19:24Z. Read from outside at 09:20:22Z:
+    `/pypi/digline-anthropic/0.8.0/json` answered 200, and its control,
+    `/pypi/digline-anthropic/9.9.9/json`, 404. The two files it serves carry
+    the SHA256 the upload step printed for the files it took from `dist/`,
+    `2be35ee2…` for the wheel and `ee014a19…` for the sdist, and
+    `requires_dist` reads `digline<2,>=0.35.0`, so the cap reached the
+    index with this release.
+  - **The check a person makes until it is built ran after the tag, not
+    before it, as *Not built* asks.** Measured at `274de208` against the tag
+    that published each version: the core's `src/` moved since `v1.0.3`,
+    which rides the next core release, and this tag did not publish the
+    core. digline-mcp 0.8.1: 0 files. digline-openai 0.6.0 (2 files) and
+    digline-bedrock 0.7.0 (1 file) moved with `c4bef150`, the recorder's
+    maps, and pytest-digline 0.5.1 (1 file) with `2fc0e9af`, `7be88b4d` and
+    `a1bff723`. In each of the three plugins that is text under a version
+    the index serves, which *Not built* names, and none of it was published
+    by this tag. digline-openai and digline-bedrock carry only their maps,
+    which stay inert until a core release carries the recorder, and ADR
+    0058 §6 says each plugin ships a minor with 1.1. Whether pytest-digline's
+    text earns a release of its own is open.
+    digline-anthropic 0.8.0 itself carries `c4bef150` beside #877: its
+    `recording.py` and its `digline.recording_maps` entry point, which import
+    nothing digline 1.0.3 lacks and stay inert until a core release carries
+    the recorder. Its changelog entry did not name them, and names them since
+    the pull request that added this entry.
+  - **Step 3, the example locks.** `langchain`, `llamaindex` and
+    `prompt-first` are every example lock that names digline-anthropic. Each
+    moved from 0.7.0 to 0.8.0 with `--upgrade-package digline-anthropic`,
+    three lines per lock, written by uv 0.13.6 so that `revision = 5` holds
+    (#880, merge commit `55e87acb`). `ci.yml` dispatched against `main`
+    (`41611929015`) read `success` at 09:39:21Z: every example leg green,
+    `prompt-first`'s installing `digline-anthropic==0.8.0`, and the image job
+    green. The image job was red on #878's head, waiting for a version the
+    index did not serve yet; the `ci` run that followed `publish`
+    (`41610095187`) read `success`, the image job green, when it was read at
+    09:25:58Z.
+  - **Step 5 had nothing to do:** no committed report names
+    digline-anthropic. `git grep -F 'digline-anthropic'` over the eleven
+    `examples/*/report.html` found nothing, and its control,
+    `anthropic`, found two lines in `prompt-first`'s, the provider and the
+    judge. A first control, `digline`, found nothing either: these reports do
+    not print the product's name, so it could not have answered.
+
+  **The next tag must show** the check a person makes before the tag, not
+  after it.
+
 - **digline-mcp-v0.8.1 — a named tag after the core, one package, `unpriced`
   on the `run` tool.** `publish` (`41217962673`) passed on attempt 1 and read
   `completed`, `success`, at 16:11:20Z, with `github-release` and the site
