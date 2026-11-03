@@ -48,13 +48,17 @@ and the calibration case's judgings. Where your workspace is served in
 2026-10-28, at the prices the plugin read on 2026-10-02, and the bill line
 of your own run is the measurement.
 
-**Where your workspace's replies report no geography Anthropic prices**, such
-as `inference_geo: "not_available"`, digline cannot price the run: the
-target's and the judge's cost are not known. The cases are still judged, the
-bill says *cost not known*, with no figure, and the line after it says why and
-what to pin. The digline-anthropic this
-example installs carries ADR 0004 §8; the releases below it errored every case
-of such a run instead (#569).
+**Where your workspace's replies report no geography Anthropic prices**,
+digline cannot price the run: the target's and the judge's cost are not
+known. The cases are still judged, the bill says *cost not known*, with no
+figure, and the line after it says why and what to pin. The digline-anthropic
+this example installs carries ADR 0004 §8; 0.6.1, the first release to read
+the geography, errored every case of such a run instead (#569).
+
+**`inference_geo: "not_available"` is not one of them from digline-anthropic
+0.8.0.** A model that does not take the `inference_geo` parameter, such as
+claude-haiku-4-5, reports it, and Anthropic prices it at the standard rate,
+as digline now does. 0.6.1 to 0.7.0 could not price it.
 
 `--replacing` names the baseline this promotion replaces: here, the one
 this example ships, whose key `compare` prints under its verdict and
