@@ -328,7 +328,8 @@ def _joined(
     """Count the call, and give it to the episode it was made in.
 
     A call made in no episode while one is open in this process is counted an
-    orphan and attached to nothing: which episode it belongs to, if any, is
+    orphan, its file says `"orphan": true`, and it is attached to nothing:
+    which episode it belongs to, if any, is
     not something the recorder can know, and it never guesses from timing
     (ADR 0058 §5). A call whose episode is not open here — attached by id from
     another process, or after its episode closed — carries the id, and the
@@ -432,6 +433,9 @@ def _record(
             response=response,
             episode=inside,
             call_site=site,
+            # Read as the file is written: whether an episode is open in this
+            # process now is the one moment the definition can be known.
+            orphan=inside is None and bool(_OPEN),
         )
 
         stage = "writer"

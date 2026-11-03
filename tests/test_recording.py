@@ -148,7 +148,14 @@ def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
 
 def test_a_single_call_carries_none_of_an_episodes_keys() -> None:
     written = recording_to_dict(a_recording())
-    assert not {"steps", "interrupted", "unrecorded_children"} & set(written)
+    assert not {"steps", "interrupted", "unrecorded_children", "orphan"} & set(written)
+
+
+def test_an_orphan_comes_back_as_it_was_written() -> None:
+    recording = a_recording(orphan=True)
+    written = recording_to_dict(recording)
+    assert written["orphan"] is True
+    assert recording_from_dict(json.loads(json.dumps(written))) == recording
 
 
 @pytest.mark.parametrize(
@@ -187,8 +194,17 @@ def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> No
         ({"steps": None, "interrupted": True}, "single call"),
         ({"steps": None, "unrecorded_children": 1}, "single call"),
         ({"unrecorded_children": -1}, "from 0"),
+        ({"orphan": True}, "only a single call"),
+        ({"steps": None, "orphan": True}, "only a single call"),
     ],
-    ids=["order", "interrupted-call", "unrecorded-call", "negative"],
+    ids=[
+        "order",
+        "interrupted-call",
+        "unrecorded-call",
+        "negative",
+        "orphan-episode",
+        "orphan-in-an-episode",
+    ],
 )
 def test_an_episode_that_breaks_its_rules_is_refused(
     changes: dict[str, object], match: str
@@ -202,6 +218,7 @@ def test_an_episode_that_breaks_its_rules_is_refused(
     [
         ("interrupted", False, "true or not at all"),
         ("interrupted", None, "true or not at all"),
+        ("orphan", False, "true or not at all"),
         ("unrecorded_children", 0, "positive integer"),
         ("steps", {}, "not a list"),
     ],

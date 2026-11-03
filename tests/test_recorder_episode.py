@@ -406,6 +406,8 @@ def test_a_call_in_a_pool_thread_without_attach_is_an_orphan(tmp_path: Path) -> 
     first, orphan = calls(tmp_path)
     assert first["episode"] == ep.id
     assert "episode" not in orphan
+    assert orphan["orphan"] is True
+    assert "orphan" not in first
     # Attached to nothing: the episode's trajectory is its one child.
     assert [step["actor"] for step in turn["steps"]] == ["model", "tool"]
     assert counts(client)["orphan"] == 1
@@ -427,6 +429,7 @@ def test_a_call_in_a_pool_thread_with_attach_is_a_child(tmp_path: Path) -> None:
         pool.submit(attached, ep.id).result()
     [turn] = episodes(tmp_path)
     assert [child["episode"] for child in calls(tmp_path)] == [ep.id, ep.id]
+    assert not any("orphan" in child for child in calls(tmp_path))
     assert [step["actor"] for step in turn["steps"]] == ["model", "tool", "model"]
     assert counts(client)["orphan"] == 0
 
@@ -590,6 +593,19 @@ def test_over_the_ceiling_the_episode_keeps_no_text_and_no_steps(
     assert "output" not in turn["response"]
     assert "tool_calls" not in turn["response"]
     assert turn["steps"] == []
+
+
+@pytest.mark.usefixtures("on", "commit")
+def test_a_call_outside_every_episode_is_no_orphan(tmp_path: Path) -> None:
+    client = wrapped(tmp_path, ANSWER)
+    ask(client)
+    with episode(client, suite="support-agent", case=CASE):
+        ask(client)
+    ask(client)
+    before, inside, after = calls(tmp_path)
+    assert "orphan" not in before and "orphan" not in after
+    assert "orphan" not in inside
+    assert counts(client)["orphan"] == 0
 
 
 def test_an_episode_needs_a_wrapped_client() -> None:

@@ -177,6 +177,12 @@ class Recording:
     the recording holds what was seen until then. `unrecorded_children` counts
     the calls made inside the episode that were not recorded, so a trajectory
     with a hole says it has one.
+
+    `orphan` marks a single call recorded in no episode while an episode was
+    open in the process that made it: a child whose thread was not attached,
+    or a call that belongs to none. It is written when the call is, where that
+    is known, because the files alone cannot tell it from a call made while
+    nothing was open, and the import says how many it found (§5).
     """
 
     source_tenant: str
@@ -194,6 +200,7 @@ class Recording:
     steps: tuple[RecordedStep, ...] | None = None
     interrupted: bool = False
     unrecorded_children: int = 0
+    orphan: bool = False
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -233,6 +240,12 @@ class Recording:
                     "Recording.steps must be indexed 0, 1, 2, ... in order"
                 )
             object.__setattr__(self, "steps", steps)
+        if type(self.orphan) is not bool:
+            raise RecordingRefusedError("Recording.orphan must be a boolean")
+        if self.orphan and (self.episode is not None or self.steps is not None):
+            raise RecordingRefusedError(
+                "only a single call recorded in no episode is an orphan"
+            )
         if type(self.interrupted) is not bool:
             raise RecordingRefusedError("Recording.interrupted must be a boolean")
         if type(self.unrecorded_children) is not int or self.unrecorded_children < 0:
@@ -286,6 +299,8 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["interrupted"] = True
     if recording.unrecorded_children:
         payload["unrecorded_children"] = recording.unrecorded_children
+    if recording.orphan:
+        payload["orphan"] = True
     return payload
 
 
@@ -372,6 +387,7 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             steps=_steps(document),
             interrupted=_flag(document, "interrupted"),
             unrecorded_children=_count(document, "unrecorded_children"),
+            orphan=_flag(document, "orphan"),
         )
     except RecordingRefusedError:
         raise
