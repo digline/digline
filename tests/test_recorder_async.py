@@ -27,6 +27,7 @@ import gc
 import json
 import subprocess
 import sys
+import warnings
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -479,17 +480,51 @@ FIRST_CALL_STALL_MS = 50.0
 #: A fresh interpreter, so that nothing of digline's is imported before
 #: `wrap()`: a ticker task sleeps 1 ms at a time and records the longest gap
 #: while the first call, and then a second, are awaited.
+#:
+#: Diagnostic, for now: the first call is also cut into phases, each a
+#: function of the recorder timed with `perf_counter` while that call runs,
+#: and the modules it imports are listed. Nested phases: `record` holds
+#: `now` and `write`; `write` holds `layout` and `link`; `layout` holds
+#: `ensure_layout`. `rest` is the call's wall time less `look`, `map`,
+#: `record` and `tally`: the SDK and the loop.
 STALL_PROGRAM = """\
-import asyncio, json, sys, time
+import asyncio, json, os, sys, time
 import anthropic, httpx2
 import digline.recorder as recorder
 cold = "digline.core" not in sys.modules
-body = {body!r}
+body = __BODY__
 http = httpx2.AsyncClient(transport=httpx2.MockTransport(
     lambda request: httpx2.Response(200, json=body)))
 client = recorder.wrap(anthropic.AsyncAnthropic(api_key="t", http_client=http),
                        app="a", tenant="acme")
 ready = "digline.core" in sys.modules
+
+from digline.store import file_store
+
+spent = {}
+timing = [False]
+
+def timed(owner, name, phase):
+    original = getattr(owner, name)
+    def wrapper(*args, **kwargs):
+        started = time.perf_counter()
+        try:
+            return original(*args, **kwargs)
+        finally:
+            if timing[0]:
+                took = (time.perf_counter() - started) * 1000.0
+                spent[phase] = spent.get(phase, 0.0) + took
+    setattr(owner, name, wrapper)
+
+timed(recorder, "_look", "look")
+timed(recorder, "_map_or_none", "map")
+timed(recorder, "_record", "record")
+timed(recorder, "_now", "now")
+timed(recorder, "_write", "write")
+timed(file_store.RecordingWriter, "_choose", "layout")
+timed(file_store.FileResultStore, "ensure_layout", "ensure_layout")
+timed(os, "link", "link")
+timed(recorder, "_tally", "tally")
 
 async def main():
     gaps, stop = [], [False]
@@ -502,21 +537,38 @@ async def main():
             last = now
     task = asyncio.create_task(ticker())
     await asyncio.sleep(0.01)
-    stalls = []
+    stalls, phases, imported = [], {}, []
     for n in range(2):
         gaps.clear()
+        before = set(sys.modules)
+        timing[0] = n == 0
+        started = time.perf_counter()
         await client.messages.create(model="claude-test", max_tokens=10,
-            messages=[{{"role": "user", "content": str(n)}}], suite="triage")
+            messages=[{"role": "user", "content": str(n)}], suite="triage")
+        wall = (time.perf_counter() - started) * 1000.0
+        timing[0] = False
+        if n == 0:
+            imported = sorted(set(sys.modules) - before)
+            phases = {k: round(v, 2) for k, v in sorted(spent.items())}
+            phases["wall"] = round(wall, 2)
+            phases["rest"] = round(wall - sum(spent.get(k, 0.0)
+                for k in ("look", "map", "record", "tally")), 2)
         await asyncio.sleep(0.005)
         stalls.append(max(gaps))
     stop[0] = True
     await task
-    return stalls
+    return stalls, phases, imported
 
-first, second = asyncio.run(main())
-print(json.dumps({{"cold": cold, "ready": ready, "first": first, "second": second,
-                  "recorded": client.digline_counts["recorded"]}}))
+(first, second), phases, imported = asyncio.run(main())
+print(json.dumps({"cold": cold, "ready": ready, "first": first, "second": second,
+                  "recorded": client.digline_counts["recorded"],
+                  "phases": phases, "imported": imported}))
 """
+
+
+class FirstCallBreakdown(UserWarning):
+    """The first call's phases and new modules, said on every run: pytest's
+    warnings summary shows it in a CI log whether the test passed or not."""
 
 
 def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
@@ -526,7 +578,12 @@ def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
     recording would, at the application's start, and the first call holds the
     loop no longer than `FIRST_CALL_STALL_MS`."""
     done = subprocess.run(
-        [sys.executable, "-I", "-c", STALL_PROGRAM.format(body=ANTHROPIC_WHOLE)],
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            STALL_PROGRAM.replace("__BODY__", repr(ANTHROPIC_WHOLE)),
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -535,10 +592,17 @@ def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
     )
     assert done.returncode == 0, done.stderr
     measured = json.loads(done.stdout)
+    breakdown = (
+        f"first-call stall {measured['first']:.2f} ms, second "
+        f"{measured['second']:.2f} ms; phases in ms {measured['phases']}; "
+        f"{len(measured['imported'])} modules imported by the first call: "
+        f"{measured['imported']}"
+    )
+    warnings.warn(breakdown, FirstCallBreakdown, stacklevel=1)
     # The control: the interpreter was cold before `wrap()`, and both calls
     # were recorded, so the stall measured is a recording's.
     assert measured["cold"] is True
     assert measured["recorded"] == 2
-    assert measured["first"] < FIRST_CALL_STALL_MS, measured
+    assert measured["first"] < FIRST_CALL_STALL_MS, breakdown
     # And why: the core was imported by `wrap()`, before any call.
     assert measured["ready"] is True
