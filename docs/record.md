@@ -56,17 +56,48 @@ reply = client.messages.create(
 provider's SDK, whether the recorder is on or off. The client returned is the
 client: everything but the call is its own.
 
-The clients recorded are the ones a plugin maps: `anthropic.Anthropic`'s
-`messages.create` with `digline-anthropic`, `openai.OpenAI`'s
-`chat.completions.create` with `digline-openai`, and a `bedrock-runtime`
-client's `converse` with `digline-bedrock`. Any other client is refused when
-it is wrapped, by name. A streamed call (`stream=True`) passes and is not
-recorded, and an asynchronous client is not recorded yet.
+The clients recorded are the ones a plugin maps, one method at a time:
+
+| Plugin | Client | Methods |
+|---|---|---|
+| `digline-anthropic` | `anthropic.Anthropic` | `messages.create`, `messages.stream` |
+| `digline-openai` | `openai.OpenAI` | `chat.completions.create`, `chat.completions.stream` |
+| `digline-bedrock` | a `bedrock-runtime` client | `converse`, `converse_stream` |
+
+Any other client is refused when it is wrapped, by name. An asynchronous
+client is not recorded yet.
 
 **The application's call never fails because of the recorder.** Whatever goes
 wrong while recording, the call returns what the provider returned, and the
 reason it was not recorded is counted (below). An exception of the SDK itself
 propagates as it always did.
+
+## A streamed reply
+
+A streamed call is recorded too: `create(..., stream=True)`, and the methods
+that stream by name, `messages.stream()`, `chat.completions.stream()` and
+`converse_stream`.
+
+- **The application gets the stream the SDK built**, the same object, event
+  by event, as it reads them. The recorder watches each event pass and holds
+  none back. The stream keeps its class: `isinstance(stream, anthropic.Stream)`
+  is true, and `type(stream)` is a subclass of it that watches.
+- **It is recorded when the stream ends**, read from its events into the reply
+  the whole answer would have been. The same request streamed and not
+  streamed gives the same case, the same setup and the same text.
+- **A stream closed before its end, or dropped unread, is not recorded**: half
+  a reply is not a reply. It is counted `stream abandoned`.
+- **An exception inside the stream** propagates as the SDK raised it, and is
+  counted under its class's name, `APIStatusError` for example.
+- **Usage that arrives only on request** is never requested by the recorder:
+  it does not change the request. OpenAI sends counts in a stream only with
+  `stream_options={"include_usage": True}`. Without them the reply is recorded
+  with no counts, which a recorded response may have, and the status says
+  `usage not reported`.
+- **Inside an episode**, a streamed call joins the episode when its stream
+  ends. If the episode has closed by then, the call is recorded as an orphan
+  with the episode's id, and noted `ended after its episode`; the episode
+  counts it among the calls it did not see.
 
 ## A turn of an agent: `episode`
 
@@ -167,7 +198,9 @@ For each tenant: whether it records and with which values, where, the size
 against the ceiling, and per suite the single calls (with how many were made
 inside an episode), the episodes, the orphans, and **what was not recorded,
 by reason**: `not JSON` for a request a recording cannot hold, `sampled out`,
-`ceiling`, `streaming`, `config invalid` and the rest. Each process keeps its
+`ceiling`, `stream abandoned`, `config invalid` and the rest, and what was
+**recorded with something noted**: `usage not reported`, `ended after its
+episode`. Each process keeps its
 counts beside its recordings, so the status reads them from any process. With
 `--suite`, it also says how many recordings the suite gained since its last
 import. In the application, `client.digline_counts` gives the counts of that
@@ -231,7 +264,7 @@ perimeter [ADR 0034](adr/0034-the-store-outside-and-the-reference-that-names-not
 
 ## Not yet
 
-- Streaming and asynchronous clients.
+- Asynchronous clients.
 - An application in another language than Python.
 - A label given at the import is a case's `label`, read by an aggregate that
   counts a confusion matrix; a run's results do not show it yet.

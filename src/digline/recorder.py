@@ -126,6 +126,7 @@ __all__ = [
     "RecorderStartError",
     "Episode",
     "RecordingMap",
+    "StreamReading",
     "attach",
     "episode",
     "parse_switch",
@@ -328,6 +329,17 @@ def parse_switch(text: str, *, where: str, production: bool) -> Switch:
     )
 
 
+class StreamReading(Protocol):
+    """How a map reads a streamed reply: each event as the application reads
+    it, then the `Completion` the whole reply would have given, at its end.
+    `stream` is the SDK's stream object, for a stream that keeps its own
+    final reply."""
+
+    def add(self, event: Any) -> None: ...
+
+    def completion(self, stream: Any) -> Completion: ...
+
+
 class RecordingMap(Protocol):
     """What a plugin's map provides, loaded only to record a call.
 
@@ -354,17 +366,17 @@ class _State:
         app: str,
         tenant: str | Callable[[], str],
         root: Path,
-        entry: Any,
     ) -> None:
         self.app = app
         self.tenant = tenant
         self.root = root
-        self.entry = entry
         self.lock = threading.Lock()
         self.recorded = 0
         self.not_recorded: dict[str, int] = {}
         self.orphan = 0
-        self.map: RecordingMap | None = None
+        #: Recorded, with something said beside it: `usage not reported`,
+        #: `ended after its episode`.
+        self.noted: dict[str, int] = {}
         self.writer: RecordingWriter | None = None
         #: Production: the tenant comes from a function, at every call.
         self.production = callable(tenant)
@@ -405,6 +417,28 @@ class _State:
         with self.lock:
             self.orphan += 1
 
+    def note(self, what: str) -> None:
+        with self.lock:
+            self.noted[what] = self.noted.get(what, 0) + 1
+
+
+class _Slot:
+    """One intercepted method: the entry point that names it, and its map,
+    loaded the first time a call through it is recorded."""
+
+    __slots__ = ("entry", "lock", "map")
+
+    def __init__(self, entry: Any) -> None:
+        self.entry = entry
+        self.map: Any = None
+        self.lock = threading.Lock()
+
+    def mapped(self) -> Any:
+        with self.lock:
+            if self.map is None:
+                self.map = self.entry.load()
+            return self.map
+
 
 class _Seen:
     """What one recorded call adds to the episode it was made in."""
@@ -438,7 +472,18 @@ class _Collector:
         self.lock = threading.Lock()
         self.events: list[_Seen | _Collector] = []
         self.unrecorded = 0
+        #: Streams opened inside the episode and not yet ended. When the
+        #: episode closes, each is a child it did not see, said as one.
+        self.pending = 0
         self.digest: str | None = None
+
+    def begin(self) -> None:
+        with self.lock:
+            self.pending += 1
+
+    def settle(self) -> None:
+        with self.lock:
+            self.pending -= 1
 
     def add(self, event: _Seen | _Collector | None) -> None:
         with self.lock:
@@ -459,7 +504,7 @@ class _Collector:
     def children_unrecorded(self) -> int:
         with self.lock:
             events = list(self.events)
-            own = self.unrecorded
+            own = self.unrecorded + self.pending
         return own + sum(
             event.children_unrecorded()
             for event in events
@@ -475,41 +520,47 @@ class _Collector:
 
 
 class RecordedClient:
-    """The client, with one method intercepted and everything else its own.
+    """The client, with its mapped methods intercepted and everything else its
+    own.
 
-    Attribute access goes to the client, except along the path to the
-    intercepted method. `digline_counts` says how many calls were recorded and,
-    per reason, how many were not; it lives in memory, on this object.
+    Attribute access goes to the client, except along the paths to the
+    intercepted methods: one per entry point a plugin declares for the
+    client, `messages.create` and `messages.stream` sharing `messages`.
+    `digline_counts` says how many calls were recorded and, per reason, how
+    many were not; it lives in memory, on this object.
     """
 
     __slots__ = (
         "_digline_branches",
-        "_digline_path",
         "_digline_state",
         "_digline_target",
+        "_digline_tree",
     )
     _digline_branches: dict[str, RecordedClient]
-    _digline_path: tuple[str, ...]
+    _digline_tree: dict[str, Any]
     _digline_state: _State
     _digline_target: Any
 
-    def __init__(self, target: Any, path: tuple[str, ...], state: _State) -> None:
+    def __init__(self, target: Any, tree: dict[str, Any], state: _State) -> None:
         object.__setattr__(self, "_digline_target", target)
-        object.__setattr__(self, "_digline_path", path)
+        object.__setattr__(self, "_digline_tree", tree)
         object.__setattr__(self, "_digline_state", state)
         object.__setattr__(self, "_digline_branches", {})
 
     def __getattr__(self, name: str) -> Any:
-        path: tuple[str, ...] = self._digline_path
+        tree: dict[str, Any] = self._digline_tree
         value = getattr(self._digline_target, name)
-        if name != path[0]:
+        node = tree.get(name)
+        if node is None:
             return value
-        if len(path) == 1:
-            return _intercepted(value, self._digline_state)
+        if isinstance(node, _Slot):
+            return _intercepted(value, self._digline_state, node)
         branches: dict[str, RecordedClient] = self._digline_branches
         branch = branches.get(name)
         if branch is None or branch._digline_target is not value:
-            branch = RecordedClient(value, path[1:], self._digline_state)
+            branch = RecordedClient(
+                value, cast(dict[str, Any], node), self._digline_state
+            )
             branches[name] = branch
         return branch
 
@@ -521,11 +572,14 @@ class RecordedClient:
 
     @property
     def digline_counts(self) -> Mapping[str, object]:
-        """`{"recorded": n, "not_recorded": {reason: n, ...}, "orphan": n}`,
-        as of now. `recorded` counts the calls, and the episodes opened on
-        this client. `orphan` counts the
-        calls recorded with no episode while one was open in this process: a
-        child whose thread was not attached, or a call that belongs to none.
+        """`{"recorded": n, "not_recorded": {reason: n, ...}, "orphan": n,
+        "noted": {what: n, ...}}`, as of now. `noted` counts recordings
+        written with something said beside them: `usage not reported`, a
+        stream whose provider gave no counts, and `ended after its episode`.
+        `recorded` counts the calls, and the episodes opened on this client.
+        `orphan` counts the calls recorded with no episode while one was open
+        in this process: a child whose thread was not attached, or a call that
+        belongs to none.
         The recorder cannot tell which, and attaches neither (ADR 0058 §5)."""
         state: _State = self._digline_state
         with state.lock:
@@ -533,10 +587,13 @@ class RecordedClient:
                 "recorded": state.recorded,
                 "not_recorded": dict(state.not_recorded),
                 "orphan": state.orphan,
+                "noted": dict(state.noted),
             }
 
 
-def _intercepted(method: Callable[..., Any], state: _State) -> Callable[..., Any]:
+def _intercepted(
+    method: Callable[..., Any], state: _State, slot: _Slot
+) -> Callable[..., Any]:
     def call(*args: Any, **kwargs: Any) -> Any:
         suite = kwargs.pop(_SUITE, None)
         variables = kwargs.pop(_VARS, None)
@@ -546,27 +603,309 @@ def _intercepted(method: Callable[..., Any], state: _State) -> Callable[..., Any
             return method(*args, **kwargs)
         inside = _CURRENT.get()
         known = None if state.production else cast(str, state.tenant)
-        if kwargs.get("stream"):
-            _joined(state, inside, "streaming", None)
-            _tally(state, known, suite, "streaming")
-            return method(*args, **kwargs)
         if args:
             _joined(state, inside, "positional arguments", None)
             _tally(state, known, suite, "positional arguments")
             return method(*args, **kwargs)
+        mapped = _map_or_none(slot)
+        streamed = _streams(mapped, kwargs)
+        if streamed and not hasattr(mapped, "reading"):
+            _joined(state, inside, "streaming", None)
+            _tally(state, known, suite, "streaming")
+            return method(**kwargs)
         site = _call_site() if suite is None else None
         started = perf_counter()
         reply = method(**kwargs)
+        if streamed:
+            # The application gets the stream the SDK built, the same object;
+            # it is watched as the application reads it, and recorded at its
+            # end. (ADR 0058 §13)
+            _watch(
+                state,
+                slot,
+                mapped,
+                kwargs,
+                reply,
+                started,
+                suite,
+                variables,
+                site,
+                inside,
+                known,
+            )
+            return reply
         elapsed_ms = (perf_counter() - started) * 1000.0
         _LAST.tenant = known
+        _LAST.notes = []
         reason, seen = _record(
-            state, kwargs, reply, elapsed_ms, suite, variables, site, inside
+            state, slot, kwargs, reply, elapsed_ms, suite, variables, site, inside
         )
         _joined(state, inside, reason, seen)
-        _tally(state, _LAST.tenant, suite, reason)
+        _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
         return reply
 
     return call
+
+
+def _map_or_none(slot: _Slot) -> Any:
+    """The slot's map, or `None` where it cannot be loaded; the failure is
+    then said by the recording's own `map` stage."""
+    try:
+        return slot.mapped()
+    except Exception:  # noqa: BLE001 — the rule of this module
+        return None
+
+
+def _streams(mapped: Any, request: Mapping[str, Any]) -> bool:
+    """Whether this call answers with a stream: the map says, where it says;
+    otherwise `stream=True` on the call does."""
+    says = getattr(mapped, "streams", None)
+    if callable(says):
+        with contextlib.suppress(Exception):
+            return bool(says(request))
+    return bool(request.get("stream"))
+
+
+#: Each stream class the SDKs build, and the subclass of it that watches.
+_WATCHED: dict[type, type] = {}
+_WATCHED_LOCK = threading.Lock()
+
+
+def _watching(kind: type) -> type:
+    """A subclass of the SDK's own stream class that hands every event to its
+    watch as the application reads it, and on to the application unchanged:
+    no buffer, no reordering, nothing withheld. Made once per class.
+
+    The stream keeps being the object the SDK built: its class becomes this
+    subclass, so `isinstance` holds and every attribute is its own."""
+    base: Any = kind
+    with _WATCHED_LOCK:
+        made = _WATCHED.get(kind)
+        if made is not None:
+            return made
+
+        def __iter__(self: Any) -> Any:  # noqa: N807
+            watch: _Watch = self.__dict__["_digline_watch"]
+            try:
+                for item in base.__iter__(self):
+                    watch.item(item)
+                    yield item
+            except GeneratorExit:
+                raise
+            except BaseException as exc:
+                watch.failed(exc)
+                raise
+            watch.finished(self)
+
+        def __next__(self: Any) -> Any:  # noqa: N807
+            watch: _Watch = self.__dict__["_digline_watch"]
+            try:
+                item = base.__next__(self)
+            except StopIteration:
+                watch.finished(self)
+                raise
+            except BaseException as exc:
+                watch.failed(exc)
+                raise
+            watch.item(item)
+            return item
+
+        def close(self: Any, *args: Any, **kwargs: Any) -> Any:
+            self.__dict__["_digline_watch"].closing()
+            return base.close(self, *args, **kwargs)
+
+        namespace: dict[str, Any] = {"__iter__": __iter__}
+        if hasattr(kind, "__next__"):
+            namespace["__next__"] = __next__
+        if hasattr(kind, "close"):
+            namespace["close"] = close
+        made = type(kind.__name__, (kind,), namespace)
+        made.__module__ = kind.__module__
+        made.__qualname__ = kind.__qualname__
+        _WATCHED[kind] = made
+        return made
+
+
+def _entering(kind: type) -> type:
+    """A subclass of a stream manager whose `__enter__` watches the stream it
+    returns: `messages.stream()` and `chat.completions.stream()` send the
+    request when they are entered, and give the stream then."""
+    base: Any = kind
+    with _WATCHED_LOCK:
+        made = _WATCHED.get(kind)
+        if made is not None:
+            return made
+
+        def __enter__(self: Any) -> Any:  # noqa: N807
+            stream: Any = base.__enter__(self)
+            _attach(stream, self.__dict__["_digline_watch"])
+            return stream
+
+        made = type(kind.__name__, (kind,), {"__enter__": __enter__})
+        made.__module__ = kind.__module__
+        made.__qualname__ = kind.__qualname__
+        _WATCHED[kind] = made
+        return made
+
+
+def _attach(stream: Any, watch: _Watch) -> None:
+    """Watch `stream` in place. A stream dropped unread, closed or not, is
+    abandoned when it is collected."""
+    import weakref
+
+    kind = cast(type, stream.__class__)
+    stream.__dict__["_digline_watch"] = watch
+    stream.__class__ = _watching(kind)
+    weakref.finalize(stream, watch.abandoned)
+
+
+def _watch(
+    state: _State,
+    slot: _Slot,
+    mapped: Any,
+    request: Mapping[str, Any],
+    reply: Any,
+    started: float,
+    suite: object,
+    variables: object,
+    site: str | None,
+    inside: str | None,
+    known: str | None,
+) -> None:
+    """Start watching a streamed reply, or say why not. Never raises."""
+    try:
+        watch = _Watch(
+            state, slot, mapped, request, started, suite, variables, site, inside, known
+        )
+        if getattr(mapped, "entered", False):
+            manager: Any = reply
+            kind = cast(type, manager.__class__)
+            manager.__dict__["_digline_watch"] = watch
+            manager.__class__ = _entering(kind)
+        else:
+            stream_of = getattr(mapped, "stream_of", None)
+            _attach(stream_of(reply) if callable(stream_of) else reply, watch)
+    except Exception:  # noqa: BLE001 — the rule of this module
+        _joined(state, inside, "stream not watched", None)
+        _tally(state, known, suite, "stream not watched")
+
+
+class _Watch:
+    """One streamed reply, watched as the application reads it.
+
+    The events go to the map's reading as they pass. At the end of the
+    stream the reading gives the `Completion` the whole reply would have
+    given, and the call is recorded then, by the same path as any call. A
+    stream closed before its end, or dropped unread, is **abandoned**: half a
+    reply is not a reply, and it is not recorded. An exception inside the
+    stream propagates as it was raised, and is counted by its class's name.
+
+    Inside an episode the stream is pending until it ends. If the episode has
+    closed by then, the call is recorded with the episode's id and marked an
+    orphan, and `ended after its episode` is noted: the recorder neither
+    waits for the stream nor guesses where it belonged.
+    """
+
+    def __init__(
+        self,
+        state: _State,
+        slot: _Slot,
+        mapped: Any,
+        request: Mapping[str, Any],
+        started: float,
+        suite: object,
+        variables: object,
+        site: str | None,
+        inside: str | None,
+        known: str | None,
+    ) -> None:
+        self.state = state
+        self.slot = slot
+        self.request = request
+        self.started = started
+        self.suite = suite
+        self.variables = variables
+        self.site = site
+        self.inside = inside
+        self.known = known
+        self.lock = threading.Lock()
+        self.done = False
+        self.broken = False
+        self.reading = mapped.reading(request)
+        collector = None if inside is None else _OPEN.get(inside)
+        #: The episode's draw, read now: by the stream's end it may have closed.
+        self.drawn = None if collector is None else not collector.sampled_out
+        if collector is not None:
+            collector.begin()
+
+    def item(self, event: Any) -> None:
+        if self.done or self.broken:
+            return
+        try:
+            self.reading.add(event)
+        except Exception:  # noqa: BLE001 — the rule of this module
+            self.broken = True
+
+    def _settle(self) -> bool:
+        with self.lock:
+            if self.done:
+                return False
+            self.done = True
+        collector = None if self.inside is None else _OPEN.get(self.inside)
+        if collector is not None:
+            collector.settle()
+        return True
+
+    def finished(self, stream: Any) -> None:
+        if not self._settle():
+            return
+        elapsed_ms = (perf_counter() - self.started) * 1000.0
+        state = self.state
+        late = self.inside is not None and self.inside not in _OPEN
+        _LAST.tenant = self.known
+        _LAST.notes = []
+        completion: Any = None
+        if not self.broken:
+            with contextlib.suppress(Exception):
+                completion = self.reading.completion(stream)
+        if completion is None:
+            reason, seen = "map", None
+        else:
+            reason, seen = _record(
+                state,
+                self.slot,
+                self.request,
+                None,
+                elapsed_ms,
+                self.suite,
+                self.variables,
+                self.site,
+                self.inside,
+                completion=completion,
+                late=late,
+                drawn=self.drawn,
+            )
+        if reason is None and late:
+            state.note("ended after its episode")
+            _LAST.notes.append("ended after its episode")
+        _joined(state, None if late else self.inside, reason, seen)
+        _tally(state, _LAST.tenant, self.suite, reason, tuple(_LAST.notes))
+
+    def failed(self, exc: BaseException) -> None:
+        if not self._settle():
+            return
+        reason = type(exc).__name__
+        _joined(self.state, self.inside, reason, None)
+        _tally(self.state, self.known, self.suite, reason)
+
+    def closing(self) -> None:
+        self.abandoned()
+
+    def abandoned(self) -> None:
+        if not self._settle():
+            return
+        _joined(self.state, self.inside, "stream abandoned", None)
+        _tally(self.state, self.known, self.suite, "stream abandoned")
 
 
 def _joined(
@@ -595,11 +934,23 @@ def _joined(
 #: The tenant the last recording on this thread resolved, so that its outcome
 #: is tallied under the tenant it was for. Per thread, because two threads
 #: record at once.
-_LAST = threading.local()
+class _Last(threading.local):
+    tenant: str | None = None
+    notes: list[str]
+
+    def __init__(self) -> None:
+        self.notes = []
+
+
+_LAST = _Last()
 
 
 def _tally(
-    state: _State, tenant: str | None, suite: object, reason: str | None
+    state: _State,
+    tenant: str | None,
+    suite: object,
+    reason: str | None,
+    notes: tuple[str, ...] = (),
 ) -> None:
     """Count one outcome under its tenant and suite, in memory, for this
     process's counts file, which `digline record status` reads from any
@@ -626,7 +977,11 @@ def _tally(
 
             atexit.register(_flush, state)
         suites = state.tallies.setdefault(tenant, {})
-        bucket = suites.setdefault(name, {"recorded": 0, "not_recorded": {}})
+        bucket = suites.setdefault(
+            name, {"recorded": 0, "not_recorded": {}, "noted": {}}
+        )
+        for what in notes:
+            bucket["noted"][what] = bucket["noted"].get(what, 0) + 1
         state.dirty.add(tenant)
         if reason is None:
             bucket["recorded"] += 1
@@ -651,6 +1006,7 @@ def _flush(state: _State, only: str | None = None) -> None:
                 suite_name: {
                     "recorded": counts["recorded"],
                     "not_recorded": dict(counts["not_recorded"]),
+                    "noted": dict(counts["noted"]),
                 }
                 for suite_name, counts in suites.items()
             }
@@ -699,6 +1055,7 @@ def _call_site() -> str | None:
 
 def _record(
     state: _State,
+    slot: _Slot,
     request: Mapping[str, Any],
     reply: Any,
     elapsed_ms: float,
@@ -706,6 +1063,10 @@ def _record(
     variables: object,
     site: str | None,
     inside: str | None,
+    *,
+    completion: Completion | None = None,
+    late: bool = False,
+    drawn: bool | None = None,
 ) -> tuple[str | None, _Seen | None]:
     """Record one call, or say why not. `None` is *recorded*.
 
@@ -719,6 +1080,10 @@ def _record(
 
     Before anything is read: the tenant, its switch, the draw — skipped inside
     an episode, which drew for its children — and the ceiling.
+
+    A streamed call arrives here at its end with its `completion` already
+    read from the events, `drawn` as its episode drew when the stream began,
+    and `late` where that episode has closed since.
     """
     try:
         from digline.core.recording import Recording, setup_digest_of
@@ -738,7 +1103,10 @@ def _record(
         if switch is None or not switch.on:
             return "off for this tenant", None
         collector = None if inside is None else _OPEN.get(inside)
-        if collector is not None:
+        if drawn is not None:
+            if not drawn:
+                return "sampled out", None
+        elif collector is not None:
             if collector.sampled_out:
                 return "sampled out", None
         elif not _sampled_in(switch):
@@ -747,15 +1115,14 @@ def _record(
             return "ceiling", None
 
         stage = "map"
-        if state.map is None:
-            state.map = state.entry.load()
-        mapped: RecordingMap = state.map  # pyright: ignore[reportAssignmentType]
+        mapped: RecordingMap = slot.mapped()
         case, setup = mapped.split(request)
         if variables is not None:
             if not isinstance(variables, Mapping):
                 return "digline_vars is not a mapping", None
             case = {**case, "vars": dict(cast(Mapping[str, object], variables))}
-        completion = mapped.completion(reply, request)
+        if completion is None:
+            completion = mapped.completion(reply, request)
         metadata = completion.as_metadata()
         response = recorded(
             Response(
@@ -787,8 +1154,10 @@ def _record(
             episode=inside,
             call_site=site,
             # Read as the file is written: whether an episode is open in this
-            # process now is the one moment the definition can be known.
-            orphan=inside is None and bool(_OPEN),
+            # process now is the one moment the definition can be known. A
+            # stream that ended after its episode closed is an orphan too,
+            # and keeps the id of the episode it began in.
+            orphan=late or (inside is None and bool(_OPEN)),
             recorded_at=_now(),
         )
 
@@ -796,6 +1165,12 @@ def _record(
         _write(state, tenant, recording, RecordingWriter, FileResultStore)
     except Exception:  # noqa: BLE001 — the rule of this module
         return stage, seen
+    if completion.usage is None:
+        # Recorded without counts, which a recorded response may be: `None` is
+        # a target that reported none (`RecordedResponse.usage`). Said, so a
+        # stream whose provider gives counts only when asked shows it.
+        state.note("usage not reported")
+        _LAST.notes.append("usage not reported")
     return None, seen
 
 
@@ -1401,16 +1776,24 @@ def _key_of(client: object) -> list[str]:
     ]
 
 
-def _find(client: object) -> tuple[Any, tuple[str, ...]]:
-    declared: dict[str, tuple[Any, tuple[str, ...]]] = {}
+def _find(client: object) -> dict[str, Any]:
+    """The tree of methods to intercept on `client`: every entry point a
+    plugin declares for the first of its classes that has any, by path."""
+    declared: dict[str, list[tuple[Any, tuple[str, ...]]]] = {}
     for entry in entry_points(group=MAP_GROUP):
         kind, colon, method = entry.name.partition(":")
         path = tuple(part for part in method.split(".") if part)
         if colon and kind and path:
-            declared[kind] = (entry, path)
+            declared.setdefault(kind, []).append((entry, path))
     for key in _key_of(client):
         if key in declared:
-            return declared[key]
+            tree: dict[str, Any] = {}
+            for entry, path in declared[key]:
+                node = tree
+                for part in path[:-1]:
+                    node = node.setdefault(part, {})
+                node[path[-1]] = _Slot(entry)
+            return tree
     named = ", ".join(sorted(declared)) or "none"
     raise RecorderStartError(
         f"no installed plugin records a client of type {_key_of(client)[0]}. "
@@ -1450,12 +1833,11 @@ def wrap(
         raise RecorderStartError(
             "wrap() needs tenant=, a non-empty name or a function that returns one"
         )
-    entry, path = _find(client)
+    tree = _find(client)
     state = _State(
         app=app,
         tenant=tenant,
         root=Path(root) if root is not None else Path.cwd(),
-        entry=entry,
     )
     # Read before the files, so a value that is neither on nor off is refused
     # in both regimes.
@@ -1470,4 +1852,4 @@ def wrap(
     _read_switches(state, starting=True)
     _measure(state)
     state.next_look = _clock() + state.interval
-    return RecordedClient(client, path, state)
+    return RecordedClient(client, tree, state)

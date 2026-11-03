@@ -154,10 +154,13 @@ def recorder_status(
     return tuple(_tenant(store, name, imports or {}) for name in names)
 
 
-def _not_recorded(directory: Path) -> dict[str, dict[str, int]]:
-    """Per suite and reason, what every process said it did not record:
-    the sum of the counts file each process keeps in its subdirectory. A
-    file that does not read as counts is left out."""
+def _not_recorded(
+    directory: Path, key: str = "not_recorded"
+) -> dict[str, dict[str, int]]:
+    """Per suite and reason, what every process said it did not record, or
+    with `key="noted"` what it recorded with something said beside it: the
+    sum of the counts file each process keeps in its subdirectory. A file
+    that does not read as counts is left out."""
     found: dict[str, dict[str, int]] = {}
     for path in sorted(directory.glob(f"*/{COUNTS_FILENAME}")):
         try:
@@ -165,7 +168,7 @@ def _not_recorded(directory: Path) -> dict[str, dict[str, int]]:
             suites = document["suites"]
             for name, counts in suites.items():
                 reasons = found.setdefault(str(name), {})
-                for reason, n in counts["not_recorded"].items():
+                for reason, n in counts.get(key, {}).items():
                     if type(n) is int:
                         reasons[str(reason)] = reasons.get(str(reason), 0) + n
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
@@ -178,6 +181,7 @@ def _suite(
     counts: list[int],
     imported: tuple[int | None, int] | None,
     missed: Mapping[str, int],
+    noted: Mapping[str, int],
 ) -> SuiteRecordings:
     since, total = imported if imported is not None else (None, 0)
     return SuiteRecordings(
@@ -187,6 +191,7 @@ def _suite(
         orphans=counts[2],
         inside_episodes=counts[3],
         not_recorded=dict(sorted(missed.items())),
+        noted=dict(sorted(noted.items())),
         imported=None if imported is None else since is not None,
         since_last_import=None
         if imported is None
@@ -238,7 +243,8 @@ def _tenant(
         else:
             counts[1] += 1
     missed = _not_recorded(directory)
-    for name in missed:
+    noted = _not_recorded(directory, "noted")
+    for name in (*missed, *noted):
         suites.setdefault(name, [0, 0, 0, 0])
     return TenantRecorder(
         tenant=tenant,
@@ -260,7 +266,13 @@ def _tenant(
         production_refusal=production_refusal,
         recordings_path=str(directory),
         suites=tuple(
-            _suite(name, counts, imports.get(name), missed.get(name, {}))
+            _suite(
+                name,
+                counts,
+                imports.get(name),
+                missed.get(name, {}),
+                noted.get(name, {}),
+            )
             for name, counts in sorted(suites.items())
         ),
         unreadable=unreadable,

@@ -21,6 +21,18 @@ Neither is how the request travels (`extra_headers`, `extra_query`,
 **The reply is read by `completion_of`**, the function `OpenAIChat.complete`
 returns. A recording does not price: the price list passed is empty, so a reply
 without usage is recorded as *not recorded*, never as zero.
+
+**A streamed reply is read from its chunks** (ADR 0058 §13), with the SDK's
+own `ChatCompletionStreamState`, into the completion the whole reply would
+have been:
+- `chat.completions.create(stream=True)`. Its usage arrives only where the
+  application asked for it, with `stream_options={"include_usage": True}`;
+  the recorder never asks in its place, because it does not alter the
+  request. Without it the reply is recorded with no counts, and the recorder
+  notes `usage not reported`;
+- `chat.completions.stream()`, another method, declared under its own entry
+  point, `openai.OpenAI:chat.completions.stream`. It returns a manager, and
+  the stream its `with` gives keeps its own completion, read when it ends.
 """
 
 from __future__ import annotations
@@ -31,7 +43,13 @@ from typing import Any, cast
 from digline.targets import Completion, Pricing
 from digline_openai.client import completion_of
 
-__all__ = ["INSTRUCTION_ROLES", "MAP", "NOT_SETUP", "OpenAIRecording"]
+__all__ = [
+    "INSTRUCTION_ROLES",
+    "MAP",
+    "NOT_SETUP",
+    "STREAM_MAP",
+    "OpenAIRecording",
+]
 
 #: The keywords of `chat.completions.create` that are neither the case nor the
 #: setup, beside the messages themselves.
@@ -86,5 +104,60 @@ class OpenAIRecording:
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
         return completion_of(reply, str(request.get("model", "")), _NO_PRICES)
 
+    def reading(self, request: Mapping[str, Any]) -> Any:
+        """A reading of `chat.completions.create(stream=True)`'s chunks."""
+        return _Chunks(request)
+
+
+class _Chunks:
+    """The chunks of one stream, folded into the completion they make."""
+
+    def __init__(self, request: Mapping[str, Any]) -> None:
+        from openai.lib.streaming.chat import ChatCompletionStreamState
+
+        tools = request.get("tools")
+        self._state: Any = (
+            ChatCompletionStreamState(input_tools=tools)
+            if tools is not None
+            else ChatCompletionStreamState()
+        )
+        self._model = str(request.get("model", ""))
+
+    def add(self, event: Any) -> None:
+        self._state.handle_chunk(event)
+
+    def completion(self, stream: Any) -> Completion:
+        return completion_of(
+            self._state.get_final_completion(), self._model, _NO_PRICES
+        )
+
+
+class OpenAIStreamRecording(OpenAIRecording):
+    """The map for `chat.completions.stream()`: the same request, a manager
+    for a reply, and a stream that keeps its own completion."""
+
+    #: The stream is what the manager's `with` gives.
+    entered = True
+
+    def streams(self, request: Mapping[str, Any]) -> bool:
+        return True
+
+    def reading(self, request: Mapping[str, Any]) -> Any:
+        return _Final(str(request.get("model", "")))
+
+
+class _Final:
+    """Reads the completion a `ChatCompletionStream` accumulated itself."""
+
+    def __init__(self, model: str) -> None:
+        self._model = model
+
+    def add(self, event: Any) -> None:
+        return None
+
+    def completion(self, stream: Any) -> Completion:
+        return completion_of(stream.get_final_completion(), self._model, _NO_PRICES)
+
 
 MAP = OpenAIRecording()
+STREAM_MAP = OpenAIStreamRecording()

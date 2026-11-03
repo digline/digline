@@ -43,6 +43,9 @@ class SuiteRecordings:
     inside_episodes: int = 0
     #: Per reason, the calls every process said it did not record.
     not_recorded: Mapping[str, int] = field(default_factory=dict[str, int])
+    #: Recorded, with something said beside it: `usage not reported`, a
+    #: stream that ended `after its episode`.
+    noted: Mapping[str, int] = field(default_factory=dict[str, int])
     imported: bool | None = None
     since_last_import: int | None = None
 
@@ -117,6 +120,7 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "orphans": suite.orphans,
                     "inside_episodes": suite.inside_episodes,
                     "not_recorded": dict(suite.not_recorded),
+                    "noted": dict(suite.noted),
                     "imported": suite.imported,
                     "since_last_import": suite.since_last_import,
                 }

@@ -76,6 +76,7 @@ anthropic = "digline_anthropic:PROVIDER"
 # the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
 [project.entry-points."digline.recording_maps"]
 "anthropic.Anthropic:messages.create" = "digline_anthropic.recording:MAP"
+"anthropic.Anthropic:messages.stream" = "digline_anthropic.recording:STREAM_MAP"
 
 [build-system]
 requires = ["hatchling>=1.27"]
