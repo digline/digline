@@ -188,10 +188,11 @@ class Recording:
     open in the process that made it: a child whose thread was not attached,
     or a call that belongs to none. It is written when the call is, where that
     is known, because the files alone cannot tell it from a call made while
-    nothing was open, and the import says how many it found (§5). A streamed
-    call whose stream ended after its episode had closed is an orphan too,
-    and carries that episode's id: it began inside, and arrived too late to
-    be one of the episode's steps.
+    nothing was open, and the import says how many it found (§5). A call that
+    ended after its episode had closed in the same process — a stream read to
+    its end too late, or a call made in a task attached to the episode that
+    ran on — is an orphan too, and carries that episode's id: it was the
+    episode's, and arrived too late to be one of its steps.
     """
 
     source_tenant: str

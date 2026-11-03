@@ -41,6 +41,9 @@ class SuiteRecordings:
     #: Of `calls`, those made inside an episode, which are part of that
     #: episode's case and not cases of their own.
     inside_episodes: int = 0
+    #: Of `episodes`, those the application raised inside, written with what
+    #: was seen until then.
+    interrupted: int = 0
     #: Per reason, the calls every process said it did not record.
     not_recorded: Mapping[str, int] = field(default_factory=dict[str, int])
     #: Recorded, with something said beside it: `usage not reported`, a
@@ -59,9 +62,10 @@ class TenantRecorder:
     will use, a default where the file declared nothing (`declared` names
     what it did). `refusal` is why an invalid file is refused, and
     `production_refusal` why a valid one would still be refused with a tenant
-    function, which is production. `size` is the bytes of the readable and
-    unreadable recordings alike; `stopped_at_ceiling` is the marker the
-    recorder leaves when it stops.
+    function, which is production. `size` is the bytes of the recordings as
+    written, readable and unreadable alike, and the measure the recorder holds
+    against the ceiling; the disk holds more, a block per file at the least.
+    `stopped_at_ceiling` is the marker the recorder leaves when it stops.
     """
 
     tenant: str
@@ -119,6 +123,7 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "episodes": suite.episodes,
                     "orphans": suite.orphans,
                     "inside_episodes": suite.inside_episodes,
+                    "interrupted": suite.interrupted,
                     "not_recorded": dict(suite.not_recorded),
                     "noted": dict(suite.noted),
                     "imported": suite.imported,

@@ -129,6 +129,7 @@ from digline.wire import (
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
+    SuiteRecordings,
     TenantRecorder,
     ahead_note,
     compare_json,
@@ -1508,9 +1509,13 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             # that does not is a development file, where it is noise.
             say(f"  values:     {_values_line(tenant)}")
         say(f"  writes to:  {tenant.recordings_path}")
-        ceiling = "" if tenant.ceiling is None else f" of {tenant.ceiling}"
+        # The size the ceiling is held against: the recordings as written.
+        ceiling = "" if tenant.ceiling is None else f", ceiling {tenant.ceiling}"
         stopped = "; stopped at the ceiling" if tenant.stopped_at_ceiling else ""
-        say(f"  size:       {tenant.size}{ceiling} bytes{stopped}")
+        say(
+            f"  size:       {_many(tenant.size, 'byte')} of recordings "
+            f"(as written; disk use is higher){ceiling}{stopped}"
+        )
         for suite in tenant.suites:
             if suite.imported is None:
                 since = "since the last import: not read (pass --suite)"
@@ -1518,15 +1523,7 @@ def cmd_record_status(args: argparse.Namespace) -> int:
                 since = f"{suite.since_last_import} since the last import"
             else:
                 since = f"never imported, {suite.since_last_import} in all"
-            inside = (
-                f", {suite.inside_episodes} inside episodes"
-                if suite.inside_episodes
-                else ""
-            )
-            say(
-                f"  suite {suite.suite}: {suite.calls} calls{inside}, "
-                f"{suite.episodes} episodes, {suite.orphans} orphans; {since}"
-            )
+            say(f"  suite {suite.suite}: {_suite_counts(suite)}; {since}")
             if suite.not_recorded:
                 missed = ", ".join(
                     f"{reason} {n}" for reason, n in suite.not_recorded.items()
@@ -1536,8 +1533,38 @@ def cmd_record_status(args: argparse.Namespace) -> int:
                 said = ", ".join(f"{what} {n}" for what, n in suite.noted.items())
                 say(f"    recorded, and noted: {said}")
         if tenant.unreadable:
-            say(f"  unreadable: {tenant.unreadable} files that are not recordings")
+            what = (
+                "file that is not a recording"
+                if tenant.unreadable == 1
+                else "files that are not recordings"
+            )
+            say(f"  unreadable: {tenant.unreadable} {what}")
     return EXIT_OK
+
+
+def _many(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def _suite_counts(suite: SuiteRecordings) -> str:
+    """A suite's recordings, said only where they are: its calls, with how
+    many were inside an episode and how many are orphans, and its episodes,
+    with how many were interrupted. A suite of episodes whose calls name
+    another suite says no *0 calls*, and one of calls says no *0 episodes*."""
+    parts: list[str] = []
+    if suite.calls or not suite.episodes:
+        calls = _many(suite.calls, "call")
+        if suite.inside_episodes:
+            calls += f", {suite.inside_episodes} inside " + (
+                "an episode" if suite.inside_episodes == 1 else "episodes"
+            )
+        parts.append(f"{calls}, {_many(suite.orphans, 'orphan')}")
+    if suite.episodes:
+        episodes = _many(suite.episodes, "episode")
+        if suite.interrupted:
+            episodes += f", {suite.interrupted} interrupted"
+        parts.append(episodes)
+    return ", ".join(parts)
 
 
 #: Where `_Once` keeps every value an option was given while a command line is

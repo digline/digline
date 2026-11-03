@@ -606,6 +606,7 @@ def test_record_status_counts_by_suite_and_orphans(
             "episodes": 1,
             "orphans": 0,
             "inside_episodes": 0,
+            "interrupted": 0,
             "not_recorded": {},
             "noted": {},
             "imported": None,
@@ -617,6 +618,7 @@ def test_record_status_counts_by_suite_and_orphans(
             "episodes": 0,
             "orphans": 0,
             "inside_episodes": 1,
+            "interrupted": 0,
             "not_recorded": {},
             "noted": {},
             "imported": None,
@@ -633,10 +635,48 @@ def test_record_status_counts_by_suite_and_orphans(
     text = capsys.readouterr().out
     assert "tenant 'acme' · recording on" in text
     assert "sample 1.0 (default)" in text
-    assert "suite triage: 2 calls, 1 inside episodes, 0 episodes, 0 orphans" in text
+    # Each suite says what it holds: no "0 episodes" beside the calls whose
+    # episode is in another suite, and no "0 calls" beside the episode.
+    assert "suite triage: 2 calls, 1 inside an episode, 0 orphans; " in text
+    assert "suite agent: 1 episode; " in text
     assert "since the last import: not read (pass --suite)" in text
     # A development file: what production would refuse is not printed.
     assert "production" not in text
+
+
+def test_record_status_says_interrupted_episodes_one_by_one_and_the_size(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    switch_on(tmp_path, "acme", production=False, ceiling=10_000_000)
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    with episode(client, suite="agent", case={"m": "q"}):
+        ask(client)
+    with (
+        pytest.raises(RuntimeError, match="gave up"),
+        episode(client, suite="agent", case={"m": "r"}),
+    ):
+        ask(client)
+        raise RuntimeError("the agent gave up")
+    client.messages.create(
+        model="claude-test", max_tokens=10, messages=QUESTION, suite="lookup"
+    )
+    assert main(["record", "status", "--root", str(tmp_path), "--json"]) == 0
+    [tenant] = json.loads(capsys.readouterr().out)["tenants"]
+    agent, lookup, triage = tenant["recordings"]["suites"]
+    assert (agent["episodes"], agent["interrupted"]) == (2, 1)
+    assert (lookup["calls"], triage["calls"], triage["interrupted"]) == (1, 2, 0)
+    size = tenant["recordings"]["size"]
+    assert main(["record", "status", "--root", str(tmp_path)]) == 0
+    text = capsys.readouterr().out
+    assert "suite agent: 2 episodes, 1 interrupted; " in text
+    assert "suite lookup: 1 call, 0 orphans; " in text
+    assert "suite triage: 2 calls, 2 inside episodes, 0 orphans; " in text
+    # The size is the recordings as written, the measure the ceiling is held
+    # against, and the line says the disk holds more.
+    assert (
+        f"size:       {size} bytes of recordings (as written; disk use is "
+        "higher), ceiling 10000000\n"
+    ) in text
 
 
 def test_record_on_prints_the_values_the_file_holds(

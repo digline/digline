@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import gc
 import json
+import subprocess
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -44,6 +45,7 @@ from tests.test_recorder_streaming import (
 )
 
 from digline import recorder
+from digline.host import recorder_status
 from digline.recorder import RecordedClient, attach, episode, wrap
 
 SDKS = ("anthropic", "openai", "httpx2")
@@ -358,3 +360,184 @@ def test_the_async_clients_are_wrapped_and_off_passes_through(
 
     assert asyncio.run(run()).content[0].text == "Paris"
     assert not (tmp_path / ".digline").exists()
+
+
+# -- the corrections of the user pass of 2026-11-03 --------------------------- #
+
+
+def test_an_async_stream_left_half_read_when_the_loop_closes_is_abandoned(
+    tmp_path: Path,
+) -> None:
+    """The loop closes the generator the application broke out of, and what
+    it throws in, `CancelledError` or `GeneratorExit`, is not the SDK's: the
+    stream is abandoned, never counted by that class's name."""
+    client = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
+
+    async def run() -> None:
+        stream = await ask(client, stream=True)
+        async for _ in stream:
+            break
+
+    asyncio.run(run())
+    assert recordings(tmp_path) == []
+    assert counts(client)["not_recorded"] == {"stream abandoned": 1}
+
+
+def test_a_call_attached_after_its_episode_closed_is_an_orphan_noted(
+    tmp_path: Path,
+) -> None:
+    """A task attached to the episode whose call ends after the episode
+    closed: recorded with the episode's id, marked an orphan and noted, as a
+    stream that ends late is. The episode is written without it."""
+    client = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
+
+    async def run() -> str | None:
+        go, closed = asyncio.Event(), asyncio.Event()
+        held: list[str | None] = []
+
+        async def late() -> None:
+            await go.wait()
+            async with attach(held[0]):
+                await closed.wait()
+                await ask(client)
+
+        task = asyncio.create_task(late())
+        async with episode(client, suite="agent", case={"m": "q"}) as ep:
+            held.append(ep.id)
+            go.set()
+            await ask(client)
+            ep.output("done")
+        closed.set()
+        await task
+        return ep.id
+
+    episode_id = asyncio.run(run())
+    child, turn, after = recordings(tmp_path)
+    assert child["episode"] == episode_id and "orphan" not in child
+    assert turn["id"] == episode_id and len(turn["steps"]) == 1
+    assert after["episode"] == episode_id and after["orphan"] is True
+    assert counts(client)["noted"] == {"ended after its episode": 1}
+    [triage] = [
+        s for s in recorder_status(tmp_path, "acme")[0].suites if s.suite == "triage"
+    ]
+    assert (triage.calls, triage.inside_episodes, triage.orphans) == (2, 1, 1)
+
+
+def test_a_call_attached_to_an_episode_this_process_never_opened_is_a_child(
+    tmp_path: Path,
+) -> None:
+    """An id from another process, whole or streamed: the episode was never
+    open here, so the call is not late. It carries the id unmarked, for the
+    import to join."""
+    client = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
+    elsewhere = "0" * 32
+
+    async def run() -> None:
+        async with attach(elsewhere):
+            await ask(client)
+            async for _ in await ask(client, stream=True):
+                pass
+
+    asyncio.run(run())
+    whole, streamed = recordings(tmp_path)
+    for child in (whole, streamed):
+        assert child["episode"] == elsewhere
+        assert "orphan" not in child
+    assert counts(client)["noted"] == {}
+
+
+def test_one_process_writes_one_directory_whatever_the_clients_it_wraps(
+    tmp_path: Path,
+) -> None:
+    """A synchronous and an asynchronous client in one process: one
+    subdirectory for the tenant, one counts file, the two clients' counts in
+    it (ADR 0058 §4, §10)."""
+    synchronous = wrap(an_anthropic(), app="a", tenant="acme", root=tmp_path)
+    asynchronous = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
+    synchronous.messages.create(
+        model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
+    )
+    asyncio.run(ask(asynchronous))
+    recorder._flush(asynchronous._digline_state)  # pyright: ignore[reportPrivateUsage]
+    [folder] = (tmp_path / ".digline" / "acme" / "recordings").iterdir()
+    assert sorted(p.name for p in folder.iterdir()) == [
+        ".counts",
+        "000001.json",
+        "000002.json",
+    ]
+    written = json.loads((folder / ".counts").read_text(encoding="utf-8"))
+    assert written["suites"]["triage"]["recorded"] == 2
+
+
+#: The longest the event loop may stall on the first recorded call, with the
+#: recorder on when the client is wrapped. Measured with this program on
+#: 2026-11-03 on a laptop (macOS, CPython 3.14.5), five runs each: 9.7 to
+#: 11.9 ms with the imports in `wrap()`, 88.1 to 91.9 ms with them at the
+#: first recording. Between the two, with room for a slower machine.
+FIRST_CALL_STALL_MS = 50.0
+
+#: A fresh interpreter, so that nothing of digline's is imported before
+#: `wrap()`: a ticker task sleeps 1 ms at a time and records the longest gap
+#: while the first call, and then a second, are awaited.
+STALL_PROGRAM = """\
+import asyncio, json, sys, time
+import anthropic, httpx2
+import digline.recorder as recorder
+cold = "digline.core" not in sys.modules
+body = {body!r}
+http = httpx2.AsyncClient(transport=httpx2.MockTransport(
+    lambda request: httpx2.Response(200, json=body)))
+client = recorder.wrap(anthropic.AsyncAnthropic(api_key="t", http_client=http),
+                       app="a", tenant="acme")
+ready = "digline.core" in sys.modules
+
+async def main():
+    gaps, stop = [], [False]
+    async def ticker():
+        last = time.perf_counter()
+        while not stop[0]:
+            await asyncio.sleep(0.001)
+            now = time.perf_counter()
+            gaps.append((now - last) * 1000.0)
+            last = now
+    task = asyncio.create_task(ticker())
+    await asyncio.sleep(0.01)
+    stalls = []
+    for n in range(2):
+        gaps.clear()
+        await client.messages.create(model="claude-test", max_tokens=10,
+            messages=[{{"role": "user", "content": str(n)}}], suite="triage")
+        await asyncio.sleep(0.005)
+        stalls.append(max(gaps))
+    stop[0] = True
+    await task
+    return stalls
+
+first, second = asyncio.run(main())
+print(json.dumps({{"cold": cold, "ready": ready, "first": first, "second": second,
+                  "recorded": client.digline_counts["recorded"]}}))
+"""
+
+
+def test_the_first_recorded_call_does_not_hold_the_loop_for_the_imports(
+    tmp_path: Path,
+) -> None:
+    """On when the client is wrapped: `wrap()` imports what the first
+    recording would, at the application's start, and the first call holds the
+    loop no longer than `FIRST_CALL_STALL_MS`."""
+    done = subprocess.run(
+        [sys.executable, "-I", "-c", STALL_PROGRAM.format(body=ANTHROPIC_WHOLE)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        env={"PATH": "/usr/bin:/bin", recorder.ENVIRONMENT_VARIABLE: "1"},
+    )
+    assert done.returncode == 0, done.stderr
+    measured = json.loads(done.stdout)
+    # The control: the interpreter was cold before `wrap()`, and both calls
+    # were recorded, so the stall measured is a recording's.
+    assert measured["cold"] is True
+    assert measured["recorded"] == 2
+    assert measured["ready"] is True
+    assert measured["first"] < FIRST_CALL_STALL_MS, measured
