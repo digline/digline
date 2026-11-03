@@ -1927,6 +1927,11 @@ class RecordingWriter:
     random half keeps apart two processes that were given the same id at
     different times.
 
+    **The layout is made before the first recording of a tenant**, with
+    `ensure_layout`, as a run's is: the generated `.gitignore` keeps
+    `*/recordings/` out of git, and without it a repository whose `.digline/`
+    was never laid out would offer the recordings to `git add`.
+
     **Each recording is `<n>.json`**, `n` counting from 1 inside its
     subdirectory, six digits wide so that a listing sorts in the order written.
     It is written to a temporary file and linked into place with `os.link`,
@@ -1951,6 +1956,10 @@ class RecordingWriter:
             pid = os.getpid()
             place = self._places.get(tenant)
             if place is None or place[0] != pid:
+                # Before the first recording lands: the generated
+                # `.gitignore` is what keeps `*/recordings/` out of git, and
+                # a recording is payload. `run` lays it out the same way.
+                self._store.ensure_layout(tenant)
                 directory = (
                     self._store.recordings_dir(tenant)
                     / f"p{pid}-{secrets.token_hex(4)}"

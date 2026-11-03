@@ -345,6 +345,21 @@ def test_the_digest_follows_the_setup_and_nothing_else(tmp_path: Path) -> None:
     assert third["setup_digest"] != first["setup_digest"]
 
 
+@pytest.mark.usefixtures("on")
+def test_the_first_recording_lays_out_the_generated_gitignore(tmp_path: Path) -> None:
+    # An empty directory and the variable alone: no `digline record on` and
+    # no run has laid `.digline/` out. A defect of #874, found in the next
+    # piece: the recording landed with no `.gitignore` beside it.
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    client.messages.create(
+        model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
+    )
+    gitignore = (tmp_path / ".digline" / ".gitignore").read_text(encoding="utf-8")
+    assert "*/recordings/" in gitignore.splitlines()
+    assert "*/recorder.toml" in gitignore.splitlines()
+    assert len(recordings(tmp_path)) == 1
+
+
 @pytest.mark.usefixtures("off")
 def test_a_tenant_function_decides_each_recordings_directory(tmp_path: Path) -> None:
     # A function is production, switched on per tenant by its file.
