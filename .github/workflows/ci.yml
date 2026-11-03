@@ -53,12 +53,19 @@ jobs:
     #   was the queue's commit 30 times in 30, every job of the queue's run had
     #   finished before the push run was created, and the push run never
     #   turned a job red that the queue had not already turned red on the same
-    #   commit. The answer is a `merge_group` run of `ci` on exactly this SHA
-    #   with every repeated job green. `gates`, `readers`, `glyphs` and
-    #   `image-touched` (and `image` with it) are then skipped. **The
-    #   finished-before-the-push part no longer holds once the queue-side skip
-    #   below fires**, and then this answers false: `verdict` in the script
-    #   says why, with the runs it was measured on.
+    #   commit. Two answers. `tested`: a `merge_group` run of `ci` on exactly
+    #   this SHA with every repeated job green; `readers`, `glyphs` and
+    #   `image-touched` (and `image` with it) are then skipped. `gates`: that
+    #   run's three `gates` legs green, or else the tree condition of a queue
+    #   entry, asked of the pushed commit; the `gates` legs are then skipped.
+    #   **The finished-before-the-push part no longer holds once the
+    #   queue-side skip below fires**: `glyphs` and `image` are usually still
+    #   running when `main` moves, and `tested` answers false (`verdict` in
+    #   the script says why, with the runs it was measured on). *Split on
+    #   2026-11-03:* until then one answer skipped all four jobs, so the
+    #   `gates` legs ran again in full on a tree that had passed them, because
+    #   two jobs that are not required were still running. The `gates` legs
+    #   read nothing outside the tree, so their skip no longer waits on those.
     # - **On a queue entry.** The queue's commit may carry exactly the tree the
     #   four required checks already passed on, on the pull request's head. The
     #   answer is that tree, compared: the script's docstring says why the
@@ -83,6 +90,8 @@ jobs:
     outputs:
       tested: ${{ steps.read.outputs.tested }}
       reason: ${{ steps.read.outputs.reason }}
+      gates: ${{ steps.read.outputs.gates }}
+      gates_reason: ${{ steps.read.outputs.gates_reason }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -94,7 +103,8 @@ jobs:
 
   gates:
     needs: queue-tested
-    # On a push the whole job is skipped when the queue ran this commit. On a
+    # Reads the `gates` answer, not `tested`. On a push the whole job is
+    # skipped when the queue passed this tree. On a
     # queue entry whose tree already passed, the job runs and its steps are
     # skipped instead: a matrix job skipped by its `if:` reports a single
     # check named `gates`, without the version (measured: the skipped matrix
@@ -104,7 +114,7 @@ jobs:
     # do, each leg reports under its own name.
     if: >-
       ${{ !cancelled() && !(github.event_name == 'push' &&
-      needs.queue-tested.outputs.tested == 'true') }}
+      needs.queue-tested.outputs.gates == 'true') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -118,23 +128,23 @@ jobs:
         python: ["3.12", "3.13", "3.14"]
     steps:
       - name: Already passed on this tree
-        if: needs.queue-tested.outputs.tested == 'true'
+        if: needs.queue-tested.outputs.gates == 'true'
         env:
-          REASON: ${{ needs.queue-tested.outputs.reason }}
+          REASON: ${{ needs.queue-tested.outputs.gates_reason }}
         run: |
           echo "::notice::not run again: $REASON"
           echo "Not run again: $REASON" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         with:
           enable-cache: true
 
       - name: Install the workspace
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         # --all-packages: the plugin under packages/ is part of the build, and
         # the layering gate reads what is in packages/ to know what to forbid.
         #
@@ -150,7 +160,7 @@ jobs:
         run: uv sync --all-packages --locked --python ${{ matrix.python }}
 
       - name: Tests
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         # Never `live`. It needs a key and it spends money, and CI has neither
         # a reason nor a budget to talk to a provider.
         #
@@ -175,10 +185,13 @@ jobs:
         # day: `--ignore` them in this step and run them serially in a step of
         # their own. Not a retry and not a longer timeout — a red that is not
         # true teaches everyone to ignore reds.
-        run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
+        #
+        # `--durations=25`: the log says where the time goes. Without it the
+        # 25 slowest had to be measured on a laptop, which is not this runner.
+        run: uv run --python ${{ matrix.python }} pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py --durations=25
 
       - name: Tests that write into the source tree, serially
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         # Its planted files are only safe when nothing else is reading `src/`,
         # and `_alone` in that file refuses a parallel run that includes others.
         # Anything else that writes inside the checkout joins it here: that
@@ -186,26 +199,34 @@ jobs:
         run: uv run --python ${{ matrix.python }} pytest -q -m "not live" tests/test_type_gate.py
 
       - name: Format
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         run: uv run --python ${{ matrix.python }} ruff format --check .
 
       - name: Lint
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         run: uv run --python ${{ matrix.python }} ruff check .
 
       - name: Types
-        if: needs.queue-tested.outputs.tested != 'true'
+        # One leg, not three. `[tool.pyright] pythonVersion` is "3.12" in
+        # `pyproject.toml`, so every leg checked the same code against the same
+        # version, and the two others repeated it (12–22s each, measured on the
+        # gates (3.13) runs of 2026-11-02 and 2026-11-03). What differs between
+        # legs is the installed environment, and pyright on the whole tree no
+        # longer reads 3.13's or 3.14's. Each leg still runs pyright on the
+        # planted files of `tests/test_type_gate.py`, in the serial step above:
+        # whether this leg's pyright resolves the project, not the whole tree.
+        if: needs.queue-tested.outputs.gates != 'true' && matrix.python == '3.12'
         run: uv run --python ${{ matrix.python }} pyright
 
       - name: Home capture is current
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         # docs/assets/home/home.json is what digline.dev's home shows, captured
         # by running digline. A version bump that did not regenerate it would
         # put another version's output on the site.
         run: uv run --python ${{ matrix.python }} python tools/home_capture.py --check
 
       - name: The example locks install as written
-        if: needs.queue-tested.outputs.tested != 'true'
+        if: needs.queue-tested.outputs.gates != 'true'
         # `uv sync --locked` in every `examples/*/uv.lock`, found by the glob,
         # into a throwaway environment, on this leg's Python. Until this step no
         # pull request read those locks: the tests above import the examples

@@ -20,6 +20,7 @@ lands are their next reading.
 from __future__ import annotations
 
 import sys
+import tomllib
 import urllib.error
 from pathlib import Path
 from typing import Any
@@ -33,11 +34,13 @@ CI = ROOT / ".github" / "workflows" / "ci.yml"
 sys.path.insert(0, str(ROOT / ".github"))
 import queue_tested  # noqa: E402
 from queue_tested import (  # noqa: E402
+    GATES,
     IMAGE,
     PYTHONS,
     REPEATED,
     REQUIRED,
     WORKFLOW,
+    gates_verdict,
     tree_verdict,
     verdict,
 )
@@ -135,6 +138,106 @@ def test_one_green_queue_run_among_several_is_enough() -> None:
     assert verdict(SHA, runs, jobs)[0]
 
 
+@pytest.mark.parametrize(
+    "name", ["The site's fonts set every character of these docs", IMAGE]
+)
+@pytest.mark.parametrize("conclusion", [None, "failure", "missing"])
+def test_on_a_push_the_gates_skip_while_the_others_do_not(
+    name: str, conclusion: str | None
+) -> None:
+    """The split of 2026-11-03. `glyphs` or the image still running (`None`)
+    when `main` moves, or red: the three that read outside the tree run again,
+    and the gates legs, which passed this tree, do not."""
+    jobs = {RUN: _jobs(**{name: conclusion})}
+    assert not verdict(SHA, [_run()], jobs)[0]
+    gates, reason = gates_verdict(SHA, [_run()], jobs)
+    assert gates
+    assert str(RUN) in reason and SHA in reason
+
+
+def test_a_gates_leg_the_queue_skipped_on_its_tree_counts_as_passed() -> None:
+    """On a queue entry whose tree already passed, the legs run with every step
+    skipped and conclude `success`: the queue's tree condition held."""
+    assert gates_verdict(SHA, [_run()], {RUN: _jobs()})[0]
+
+
+@pytest.mark.parametrize("name", GATES)
+@pytest.mark.parametrize(
+    "conclusion", ["failure", "cancelled", "skipped", None, "missing"]
+)
+def test_on_a_push_any_gates_leg_not_green_in_the_queue_is_not_passed(
+    name: str, conclusion: str | None
+) -> None:
+    gates, reason = gates_verdict(SHA, [_run()], {RUN: _jobs(**{name: conclusion})})
+    assert not gates
+    assert name in reason
+
+
+@pytest.mark.parametrize(
+    "run",
+    [
+        _run(sha="0" * 40),
+        _run(event="pull_request"),
+        _run(event="push"),
+        _run(path=".github/workflows/codeql.yml"),
+    ],
+    ids=["another-sha", "pull_request", "push", "another-workflow"],
+)
+def test_on_a_push_only_a_queue_run_of_ci_on_this_sha_passes_the_gates(
+    run: Any,
+) -> None:
+    assert not gates_verdict(SHA, [run], {RUN: _jobs()})[0]
+
+
+def _push_without_a_queue_run(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, head_tree: str
+) -> str:
+    """A push whose SHA has no queue run, asked of its own tree: the pushed
+    commit is a merge of BASE and HEAD, and HEAD's pull_request run is green."""
+
+    def listing(path: str) -> Any:
+        if "event=merge_group" in path:
+            return {"workflow_runs": []}
+        if path.endswith(f"/git/commits/{QUEUED}"):
+            return _commit()
+        if path.endswith(f"/git/commits/{HEAD}"):
+            return _commit(sha=HEAD, tree=head_tree, parents=(BASE,))
+        if path.endswith(f"/compare/{BASE}...{HEAD}"):
+            return {"status": "ahead", "behind_by": 0}
+        if "/actions/workflows/ci.yml/runs?" in path:
+            assert f"head_sha={HEAD}" in path and "event=pull_request" in path
+            return {"workflow_runs": [_run(sha=HEAD, event="pull_request", id=PR_RUN)]}
+        assert path.endswith(f"/actions/runs/{PR_RUN}/jobs?per_page=100"), path
+        return {"jobs": _pr_jobs()}
+
+    output = tmp_path / "output"
+    monkeypatch.setattr(queue_tested, "get", listing)
+    monkeypatch.setenv("GITHUB_REPOSITORY", "digline/digline")
+    monkeypatch.setenv("GITHUB_EVENT_NAME", "push")
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    assert queue_tested.main([QUEUED]) == 0
+    return output.read_text(encoding="utf-8")
+
+
+def test_on_a_push_the_tree_that_passed_on_the_pull_request_skips_the_gates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The queue's own condition, asked of the pushed commit: the gates legs
+    skip, and the three that read outside the tree do not."""
+    written = _push_without_a_queue_run(monkeypatch, tmp_path, TREE)
+    assert written.startswith("tested=false\nreason=no merge_group run")
+    assert "\ngates=true\ngates_reason=pull_request run" in written
+
+
+def test_on_a_push_a_tree_that_differs_skips_nothing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    written = _push_without_a_queue_run(monkeypatch, tmp_path, "0" * 40)
+    assert written.startswith("tested=false\n")
+    assert "\ngates=false\ngates_reason=" in written
+    assert "is not the head's tree" in written
+
+
 @pytest.mark.parametrize("event", ["push", "merge_group"])
 def test_an_unreadable_api_answers_false_and_exits_0(
     event: str,
@@ -153,7 +256,9 @@ def test_an_unreadable_api_answers_false_and_exits_0(
     monkeypatch.setenv("GITHUB_EVENT_NAME", event)
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
     assert queue_tested.main([SHA]) == 0
-    assert output.read_text(encoding="utf-8").startswith("tested=false\nreason=")
+    written = output.read_text(encoding="utf-8")
+    assert written.startswith("tested=false\nreason=")
+    assert "\ngates=false\ngates_reason=" in written
     assert "::warning::" in capsys.readouterr().out
 
 
@@ -175,7 +280,8 @@ def test_the_cli_writes_true_for_a_green_queue_run(
     assert queue_tested.main([SHA]) == 0
     written = output.read_text(encoding="utf-8")
     assert written.startswith("tested=true\nreason=merge_group run")
-    assert written.count("\n") == 2
+    assert "\ngates=true\ngates_reason=merge_group run" in written
+    assert written.count("\n") == 4
 
 
 def test_the_versions_held_are_the_gates_matrix() -> None:
@@ -200,9 +306,12 @@ def test_the_repeated_jobs_wait_for_the_answer_and_only_they_do() -> None:
         # Skipped whole on a push only: on a queue entry `readers`, `glyphs`
         # and the image read things outside the tree, and `gates` skips by
         # its steps.
+        # The gates legs read their own answer; the three that read outside
+        # the tree read `tested`.
+        answer = "gates" if key == "gates" else "tested"
         push_only = (
             "!(github.event_name == 'push' && "
-            "needs.queue-tested.outputs.tested == 'true')"
+            f"needs.queue-tested.outputs.{answer} == 'true')"
         )
         assert push_only in condition, key
     waiting = {
@@ -220,11 +329,22 @@ def test_on_a_queue_entry_every_step_of_the_gates_legs_is_skipped_and_named() ->
     run and every step but the notice is skipped; the notice says why."""
     steps = _jobs_of_ci()["gates"]["steps"]
     notice, rest = steps[0], steps[1:]
-    assert notice["if"] == "needs.queue-tested.outputs.tested == 'true'"
-    assert "REASON" in notice["env"] and "::notice::" in notice["run"]
+    assert notice["if"] == "needs.queue-tested.outputs.gates == 'true'"
+    assert notice["env"]["REASON"] == "${{ needs.queue-tested.outputs.gates_reason }}"
+    assert "::notice::" in notice["run"]
     assert rest, "the gates job has no steps"
+    skip = "needs.queue-tested.outputs.gates != 'true'"
     for step in rest:
-        assert step.get("if") == "needs.queue-tested.outputs.tested != 'true'", step
+        if step.get("name") == "Types":
+            continue
+        assert step.get("if") == skip, step
+    # Types is skipped the same way, and runs on one leg only: the leg of the
+    # version `pyproject.toml` tells pyright to check against.
+    with (ROOT / "pyproject.toml").open("rb") as handle:
+        version = tomllib.load(handle)["tool"]["pyright"]["pythonVersion"]
+    assert version in PYTHONS
+    (types,) = [step for step in rest if step.get("name") == "Types"]
+    assert types["if"] == f"{skip} && matrix.python == '{version}'", types
 
 
 def test_the_answer_is_asked_on_a_push_and_on_a_queue_entry() -> None:
@@ -235,6 +355,8 @@ def test_the_answer_is_asked_on_a_push_and_on_a_queue_entry() -> None:
     assert job["permissions"] == {"contents": "read", "actions": "read"}
     assert job["outputs"]["tested"] == "${{ steps.read.outputs.tested }}"
     assert job["outputs"]["reason"] == "${{ steps.read.outputs.reason }}"
+    assert job["outputs"]["gates"] == "${{ steps.read.outputs.gates }}"
+    assert job["outputs"]["gates_reason"] == "${{ steps.read.outputs.gates_reason }}"
 
 
 def test_the_required_checks_are_the_gates_legs_and_the_readers() -> None:
@@ -364,6 +486,7 @@ def test_the_cli_reads_the_queue_case_from_the_api(
     monkeypatch.setenv("GITHUB_EVENT_NAME", "merge_group")
     monkeypatch.setenv("GITHUB_OUTPUT", str(output))
     assert queue_tested.main([QUEUED]) == 0
-    assert output.read_text(encoding="utf-8").startswith(
-        "tested=true\nreason=pull_request run"
-    )
+    written = output.read_text(encoding="utf-8")
+    # On a queue entry only the gates legs are asked.
+    assert written.startswith("tested=false\nreason=")
+    assert "\ngates=true\ngates_reason=pull_request run" in written
