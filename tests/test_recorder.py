@@ -166,7 +166,7 @@ def test_off_the_call_passes_without_digline_keywords(tmp_path: Path) -> None:
     )
     assert reply.content[0].text == "Paris"  # pyright: ignore[reportAttributeAccessIssue]
     assert not (tmp_path / ".digline").exists()
-    assert counts(client) == {"recorded": 0, "not_recorded": {}}
+    assert counts(client) == {"recorded": 0, "not_recorded": {}, "orphan": 0}
 
 
 @pytest.mark.usefixtures("off")
@@ -261,7 +261,7 @@ def test_anthropic_is_recorded_in_three_compartments(tmp_path: Path) -> None:
     assert written["response"]["output"] == "Paris"
     assert written["response"]["usage"] == {"input_tokens": 12, "output_tokens": 3}
     assert "call_site" not in written
-    assert counts(client) == {"recorded": 1, "not_recorded": {}}
+    assert counts(client) == {"recorded": 1, "not_recorded": {}, "orphan": 0}
 
 
 @pytest.mark.usefixtures("on")
@@ -394,7 +394,7 @@ def test_a_broken_writer_lets_the_call_through_and_counts(
         model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
     )
     assert reply.content[0].text == "Paris"  # pyright: ignore[reportAttributeAccessIssue]
-    assert counts(client) == {"recorded": 0, "not_recorded": {"writer": 1}}
+    assert counts(client) == {"recorded": 0, "not_recorded": {"writer": 1}, "orphan": 0}
 
 
 @pytest.mark.usefixtures("on")
@@ -412,7 +412,11 @@ def test_a_value_json_cannot_carry_lets_the_call_through_and_counts(
         suite="triage",
     )
     assert reply.content[0].text == "Paris"  # pyright: ignore[reportAttributeAccessIssue]
-    assert counts(client) == {"recorded": 0, "not_recorded": {"not JSON": 1}}
+    assert counts(client) == {
+        "recorded": 0,
+        "not_recorded": {"not JSON": 1},
+        "orphan": 0,
+    }
     assert recordings(tmp_path) == []
 
 
@@ -425,7 +429,7 @@ def test_a_tenant_function_that_raises_lets_the_call_through(tmp_path: Path) -> 
     client.messages.create(
         model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
     )
-    assert counts(client) == {"recorded": 0, "not_recorded": {"tenant": 1}}
+    assert counts(client) == {"recorded": 0, "not_recorded": {"tenant": 1}, "orphan": 0}
 
 
 @pytest.mark.usefixtures("on")
@@ -447,7 +451,11 @@ def test_a_streamed_call_passes_and_counts(tmp_path: Path) -> None:
     client.messages.create(
         model="claude-test", max_tokens=10, messages=QUESTION, stream=True
     )
-    assert counts(client) == {"recorded": 0, "not_recorded": {"streaming": 1}}
+    assert counts(client) == {
+        "recorded": 0,
+        "not_recorded": {"streaming": 1},
+        "orphan": 0,
+    }
 
 
 @pytest.mark.usefixtures("on")
@@ -457,7 +465,7 @@ def test_an_sdk_error_propagates_and_nothing_is_recorded(tmp_path: Path) -> None
         client.messages.create(
             model="claude-test", max_tokens=10, messages=QUESTION, suite="triage"
         )
-    assert counts(client) == {"recorded": 0, "not_recorded": {}}
+    assert counts(client) == {"recorded": 0, "not_recorded": {}, "orphan": 0}
     assert not (tmp_path / ".digline").exists()
 
 
