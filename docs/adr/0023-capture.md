@@ -20,6 +20,19 @@
   house's person may write a case by hand inside the owner's perimeter (§8).
   No decision of this record's own was left blocking it. What stays open is
   declared in *Not decided here*
+  *Noted 2026-11-03: "nothing in it is implemented" is no longer true of
+  four parts, which
+  [ADR 0058](0058-the-recorder-a-call-recorded-where-the-application-makes-it.md)'s
+  import of recordings, `digline record import`, implements:*
+  - *§3's `CaptureSource`, minimal: `cases_file` and `repository`, without
+    `read`, `explicit` or `ambiguous` (`src/digline/run/suite.py`);*
+  - *§6's id, `capture_id` (`src/digline/core/capture.py`);*
+  - *§8's regime, applied by the import (`src/digline/host/importing.py`);*
+  - *§4's two invocations: a listing that writes nothing, and an election by
+    id.*
+
+  *`digline capture` itself, the command this record decides, and its reader
+  of an application's log are not implemented*
 - Shipped: unreleased
 - Date: 2026-09-16
 - Assumes: [ADR 0001](0001-verdict-not-score.md) §1 (three states);

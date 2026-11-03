@@ -70,6 +70,7 @@ __all__ = [
     "import_listing",
     "capture_file",
     "refuse_data_suite",
+    "unloaded_capture",
 ]
 
 #: What every case the import writes says about where it came from.
@@ -135,16 +136,40 @@ def capture_file(
             '"private" or "public") in its suite.py, and load that file beside '
             "its cases with read_cases (ADR 0023 §3)"
         )
-    file = getattr(module, "__file__", None)
-    base = Path(file).parent if file else root
-    path = (
-        source.cases_file
-        if source.cases_file.is_absolute()
-        else base / source.cases_file
-    )
     return source, within_perimeter(
-        path, root.resolve(), "capture", f"suite {suite.name!r}"
+        _beside(source, module, root),
+        root.resolve(),
+        "capture",
+        f"suite {suite.name!r}",
     )
+
+
+def _beside(source: CaptureSource, module: ModuleType | None, root: Path) -> Path:
+    """`cases_file` read from the suite file's directory where it is relative."""
+    if source.cases_file.is_absolute():
+        return source.cases_file
+    file = getattr(module, "__file__", None)
+    return (Path(file).parent if file else root) / source.cases_file
+
+
+def unloaded_capture(suite: Suite, module: ModuleType | None, root: Path) -> list[str]:
+    """The ids in the suite's capture file that the suite did not load, in
+    the file's order. Empty where the suite declares no capture source, or
+    its file is absent or holds no case.
+
+    A suite loads its capture file itself, with `read_cases`, and a suite
+    that declared the file and forgot to load it would run without the cases
+    a person elected, and say nothing. So `load_suite` asks this, and
+    refuses by name. (ADR 0023 §7)
+    """
+    if suite.capture is None:
+        return []
+    loaded = {case.id for case in suite.cases}
+    return [
+        case.id
+        for case in read_cases(_beside(suite.capture, module, root))
+        if case.id not in loaded
+    ]
 
 
 def refuse_data_suite(spec: str) -> None:

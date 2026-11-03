@@ -58,8 +58,9 @@ def case(text: str) -> dict[str, object]:
 A, B, C, E = case("refund?"), case("hours?"), case("address?"), case("lost parcel")
 
 
-def suite_file(root: Path, regime: str = "private") -> Path:
+def suite_file(root: Path, regime: str = "private", *, loads: bool = True) -> Path:
     path = root / "suite.py"
+    captured = ", *read_cases(HERE / 'captured.json')" if loads else ""
     path.write_text(
         "from pathlib import Path\n"
         "from digline.core import Contains\n"
@@ -69,7 +70,7 @@ def suite_file(root: Path, regime: str = "private") -> Path:
         "suite = Suite(\n"
         "    tenant='acme', environment='dev', name='triage',\n"
         "    assertions=[Contains(needle='x')],\n"
-        "    cases=[Case(id='by-hand'), *read_cases(HERE / 'captured.json')],\n"
+        f"    cases=[Case(id='by-hand'){captured}],\n"
         "    capture=CaptureSource(\n"
         f"        cases_file='captured.json', repository={regime!r}\n"
         "    ),\n"
@@ -233,6 +234,40 @@ def test_a_suite_with_no_capture_source_is_refused(root: Path) -> None:
     suite, how = load_suite(str(root / "plain.py"), root=root)
     with pytest.raises(RefusedError, match="declares no capture source"):
         import_listing(root, suite, how.module, "acme")
+
+
+# -- the suite loads what was elected ----------------------------------------- #
+
+
+def test_a_suite_that_declares_and_loads_its_capture_file_loads(root: Path) -> None:
+    import_elect(listed(root), positive=[capture_id(A)])
+    suite, _ = loaded(root)
+    assert [c.id for c in suite.cases] == ["by-hand", capture_id(A)]
+
+
+def test_a_suite_that_does_not_load_its_capture_file_is_refused_with_the_ids(
+    root: Path,
+) -> None:
+    import_elect(listed(root), positive=[capture_id(A)], negative=[capture_id(C)])
+    suite_file(root, loads=False)
+    from digline.host import UsageError
+
+    with pytest.raises(UsageError) as refused:
+        loaded(root)
+    message = str(refused.value)
+    assert "does not load 2 of its cases" in message
+    assert f"{capture_id(A)}, {capture_id(C)}" in message
+
+
+@pytest.mark.parametrize("content", [None, "[]\n"], ids=["absent", "empty"])
+def test_an_absent_or_empty_capture_file_is_no_refusal(
+    root: Path, content: str | None
+) -> None:
+    suite_file(root, loads=False)
+    if content is not None:
+        (root / "captured.json").write_text(content, encoding="utf-8")
+    suite, _ = loaded(root)
+    assert [c.id for c in suite.cases] == ["by-hand"]
 
 
 # -- the listing -------------------------------------------------------------- #
