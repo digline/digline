@@ -25,6 +25,7 @@ from digline.run.suite import (
     BlindTolerance,
     Calibration,
     CallPlan,
+    CaptureSource,
     Case,
     Suite,
     blind_tolerances,
@@ -36,6 +37,7 @@ from digline.run.suite import (
 __all__ = [
     "BlindTolerance",
     "Calibration",
+    "CaptureSource",
     "CallPlan",
     "Case",
     "HasArtifacts",

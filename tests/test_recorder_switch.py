@@ -573,10 +573,23 @@ def test_record_status_counts_by_suite_and_orphans(
     assert tenant["switch"]["sample"] == 1.0
     assert "no declared redaction" in tenant["switch"]["production_refusal"]
     assert tenant["recordings"]["suites"] == [
-        {"suite": "agent", "calls": 0, "episodes": 1, "orphans": 0},
-        {"suite": "triage", "calls": 2, "episodes": 0, "orphans": 0},
+        {
+            "suite": "agent",
+            "calls": 0,
+            "episodes": 1,
+            "orphans": 0,
+            "imported": None,
+            "since_last_import": None,
+        },
+        {
+            "suite": "triage",
+            "calls": 2,
+            "episodes": 0,
+            "orphans": 0,
+            "imported": None,
+            "since_last_import": None,
+        },
     ]
-    assert tenant["recordings"]["since_last_import"] is None
     assert tenant["recordings"]["stopped_at_ceiling"] is False
     assert tenant["recordings"]["size"] == sum(
         path.stat().st_size
@@ -588,7 +601,7 @@ def test_record_status_counts_by_suite_and_orphans(
     assert "tenant 'acme' · recording on" in text
     assert "sample 1.0 (default)" in text
     assert "suite triage: 2 calls, 0 episodes, 0 orphans" in text
-    assert "since the last import: not kept" in text
+    assert "since the last import: not read (pass --suite)" in text
 
 
 def test_record_status_counts_an_orphan(tmp_path: Path) -> None:

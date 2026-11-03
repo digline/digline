@@ -58,6 +58,9 @@ from digline.host import (
     explained,
     git_commit,
     history,
+    import_elect,
+    import_listing,
+    imported_since,
     instant,
     load_suite,
     load_target,
@@ -73,6 +76,7 @@ from digline.host import (
     read_run,
     record,
     recorder_status,
+    refuse_data_suite,
     refuse_unreadable_baseline,
     refused_exit,
     reported,
@@ -1280,8 +1284,9 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_record(args: argparse.Namespace) -> int:
-    """`digline record on|off|status`: the recorder's switch, per tenant, and
-    what it has kept. (ADR 0058 §10)
+    """`digline record on|off|status|import`: the recorder's switch, per
+    tenant, what it has kept, and the cases a person elects from it.
+    (ADR 0058 §4, §10)
 
     One subcommand with its action as an argument, so it reads like every
     other: the options that belong to one action are refused, by name, with
@@ -1294,16 +1299,25 @@ def cmd_record(args: argparse.Namespace) -> int:
         "ceiling": "on",
         "interval": "on",
         "json": "status",
+        "positive": "import",
+        "negative": "import",
     }
     for option, action in belongs.items():
         given = getattr(args, option)
-        if given not in (None, False) and args.action != action:
+        if given not in (None, False, []) and args.action != action:
             raise UsageError(
                 f"--{option} belongs to `digline record {action}`, not "
                 f"`digline record {args.action}`"
             )
+    if args.suite is not None and args.action not in ("import", "status"):
+        raise UsageError(
+            f"--suite belongs to `digline record import` and `digline record "
+            f"status`, not `digline record {args.action}`"
+        )
     if args.action == "status":
         return cmd_record_status(args)
+    if args.action == "import":
+        return cmd_record_import(args)
     if args.tenant is None:
         raise UsageError(f"`digline record {args.action}` needs --tenant")
     if args.action == "off":
@@ -1329,10 +1343,97 @@ def cmd_record(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _record_suite(args: argparse.Namespace) -> tuple[Suite, Loaded]:
+    """The suite `--suite` names, refused before it is loaded if it is data:
+    a `suite.toml` cannot declare where captured cases go. (ADR 0023 §3)"""
+    refuse_data_suite(args.suite)
+    return load_suite(args.suite, root=Path(args.root))
+
+
+def cmd_record_import(args: argparse.Namespace) -> int:
+    """Recordings made a suite's cases, in two invocations (ADR 0023 §4).
+
+    Without `--positive` or `--negative` it lists and writes nothing. With
+    them it writes the cases named, each with its label, and stops: no
+    commit, no run, no promotion. There is no dialogue, no default and no
+    preselection, and nothing serves it to an agent. (ADR 0058 §4)
+    """
+    if args.tenant is None or args.suite is None:
+        raise UsageError("`digline record import` needs --tenant and --suite")
+    suite, loaded = _record_suite(args)
+    found = import_listing(Path(args.root), suite, loaded.module, args.tenant)
+    if args.positive or args.negative:
+        written = import_elect(
+            found, positive=args.positive or (), negative=args.negative or ()
+        )
+        say(f"wrote {len(written)} cases to {found.cases_file}:")
+        for case_id in written:
+            say(f"  {case_id}")
+        say(
+            "  the diff is the review and the commit is the signature: nothing "
+            "was committed, run or promoted (ADR 0023 §7)"
+        )
+        return EXIT_OK
+    say(
+        f"tenant {found.tenant!r} · suite {found.suite} · writes to "
+        f"{found.cases_file} ({found.repository})"
+    )
+    say(f"  setup in force: {found.setup or 'none'}")
+    for case in found.cases:
+        attached = (
+            f", {case.attached} recordings attached" if case.kind == "episode" else ""
+        )
+        state = (
+            f"already elected, {case.elected}"
+            if case.elected is not None
+            else "electable"
+            if case.electable
+            else "recorded only under earlier setups: seen, not electable"
+        )
+        say("")
+        say(f"case {case.id} · {case.kind}{attached} · {state}")
+        say(f"  input:  {json.dumps(case.vars, ensure_ascii=False, sort_keys=True)}")
+        for answer in case.answers:
+            say(f"  answer: {answer}")
+        if case.earlier:
+            say(
+                f"  earlier: {case.earlier} recordings under "
+                f"{case.earlier_setups} earlier setups"
+            )
+    say("")
+    say(
+        f"{len(found.cases)} cases from {found.recordings} recordings of the suite; "
+        f"not cases: {found.orphans} orphans, {found.detached} calls whose "
+        f"episode is not among the files, {found.interrupted} interrupted "
+        f"episodes, {found.oversize} over the ceiling of a recording, "
+        f"{found.unreadable} files that are not readable recordings"
+    )
+    if found.repository == "public":
+        say(
+            'repository = "public": this lists, and an election is refused, '
+            "because a recorded case is third-party text (ADR 0023 §8)"
+        )
+    else:
+        say(
+            "to write cases, name each one with its label: --positive ID, "
+            "--negative ID. A case not named stays out"
+        )
+    return EXIT_OK
+
+
 def cmd_record_status(args: argparse.Namespace) -> int:
     """Whether each tenant records, where, how much, and whether it stopped at
-    its ceiling. Not a gate: it exits 0 whenever it could read the store."""
-    tenants = recorder_status(Path(args.root), args.tenant)
+    its ceiling. Not a gate: it exits 0 whenever it could read the store.
+    With `--suite`, how many of its recordings came after its last import."""
+    imports: dict[str, tuple[int | None, int]] = {}
+    if args.suite is not None:
+        if args.tenant is None:
+            raise UsageError("`digline record status --suite` needs --tenant")
+        suite, loaded = _record_suite(args)
+        imports[suite.name] = imported_since(
+            Path(args.root), suite, loaded.module, args.tenant
+        )
+    tenants = recorder_status(Path(args.root), args.tenant, imports)
     if args.json:
         emit(
             json.dumps(
@@ -1391,13 +1492,18 @@ def cmd_record_status(args: argparse.Namespace) -> int:
         stopped = "; stopped at the ceiling" if tenant.stopped_at_ceiling else ""
         say(f"  size:       {tenant.size}{ceiling} bytes{stopped}")
         for suite in tenant.suites:
+            if suite.imported is None:
+                since = "since the last import: not read (pass --suite)"
+            elif suite.imported:
+                since = f"{suite.since_last_import} since the last import"
+            else:
+                since = f"never imported, {suite.since_last_import} in all"
             say(
                 f"  suite {suite.suite}: {suite.calls} calls, {suite.episodes} "
-                f"episodes, {suite.orphans} orphans"
+                f"episodes, {suite.orphans} orphans; {since}"
             )
         if tenant.unreadable:
             say(f"  unreadable: {tenant.unreadable} files that are not recordings")
-        say("  since the last import: not kept; the import is not built yet")
     return EXIT_OK
 
 
@@ -1818,10 +1924,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec_p.add_argument(
         "action",
-        choices=("on", "off", "status"),
+        choices=("on", "off", "status", "import"),
         help=(
             "on and off write .digline/<tenant>/recorder.toml; status reads it "
-            "and the tenant's recordings, and is never a gate"
+            "and the tenant's recordings, and is never a gate; import lists a "
+            "suite's recorded cases, or writes the ones named"
         ),
     )
     rec_p.add_argument(
@@ -1856,6 +1963,25 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="status only: emit the status the lines are rendered from",
+    )
+    rec_p.add_argument(
+        "--suite",
+        help=(
+            "import and status: path/to/suite.py[:attribute], a suite.py that "
+            "declares Suite.capture"
+        ),
+    )
+    rec_p.add_argument(
+        "--positive",
+        action="append",
+        metavar="ID",
+        help="import only: write this case labelled positive; once per case",
+    )
+    rec_p.add_argument(
+        "--negative",
+        action="append",
+        metavar="ID",
+        help="import only: write this case labelled negative; once per case",
     )
     rec_p.set_defaults(func=cmd_record)
 

@@ -656,6 +656,7 @@ def _record(
             # Read as the file is written: whether an episode is open in this
             # process now is the one moment the definition can be known.
             orphan=inside is None and bool(_OPEN),
+            recorded_at=_now(),
         )
 
         stage = "writer"
@@ -1073,6 +1074,15 @@ def _episode_sampled_in(state: _State) -> bool:
     return _sampled_in(switch)
 
 
+def _now() -> str:
+    """The system time a recording is written at, read by the host's clock,
+    imported here and not at the top: this module imports nothing of
+    digline's until it records. (ADR 0058 §10, as amended 2026-11-03)"""
+    from digline.host.environment import utc_now_iso
+
+    return utc_now_iso()
+
+
 def _commit(state: _State) -> str | None:
     """The repository's commit, read as a run reads it, once until the next
     look: two `git` processes are tens of milliseconds."""
@@ -1185,6 +1195,8 @@ def _record_episode(
             steps=() if oversize else tuple(steps),
             interrupted=interrupted,
             unrecorded_children=collector.children_unrecorded(),
+            id=ep.id,
+            recorded_at=_now(),
         )
 
         stage = "writer"

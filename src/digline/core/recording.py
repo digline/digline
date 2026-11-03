@@ -24,6 +24,12 @@ of `RecordedStep`; `interrupted`, where the application raised inside it; and
 `unrecorded_children`, how many calls made inside it were not recorded. A
 recording carries `steps` if and only if it is an episode. They are optional
 keys added to a format that has not shipped, so `RECORDING_VERSION` stays 1.
+
+**Two keys added for the import, on the same terms** (ADR 0058 §4, §5, §10):
+`id`, an episode's own id, the one its children carry in `episode`, so that
+the files alone can join them back; and `recorded_at`, the system time the
+recording was written at, so that a case elected from it can carry the
+watermark ADR 0023 §9 reads.
 """
 
 from __future__ import annotations
@@ -201,6 +207,12 @@ class Recording:
     interrupted: bool = False
     unrecorded_children: int = 0
     orphan: bool = False
+    #: An episode's own id: what its children carry in `episode`. `None` on a
+    #: single call, and on an episode written before the key existed.
+    id: str | None = None
+    #: When the recording was written, ISO 8601 with its offset, read from the
+    #: system clock by the host. `None` where nothing recorded it.
+    recorded_at: str | None = None
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -240,6 +252,16 @@ class Recording:
                     "Recording.steps must be indexed 0, 1, 2, ... in order"
                 )
             object.__setattr__(self, "steps", steps)
+        for name in ("id", "recorded_at"):
+            if getattr(self, name) == "":
+                raise RecordingRefusedError(
+                    f"Recording.{name} must be a non-empty string, or None"
+                )
+        if self.id is not None and self.steps is None:
+            raise RecordingRefusedError(
+                "only an episode carries an id of its own; a single call "
+                "carries the id of its episode in `episode`"
+            )
         if type(self.orphan) is not bool:
             raise RecordingRefusedError("Recording.orphan must be a boolean")
         if self.orphan and (self.episode is not None or self.steps is not None):
@@ -301,6 +323,10 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["unrecorded_children"] = recording.unrecorded_children
     if recording.orphan:
         payload["orphan"] = True
+    if recording.id is not None:
+        payload["id"] = recording.id
+    if recording.recorded_at is not None:
+        payload["recorded_at"] = recording.recorded_at
     return payload
 
 
@@ -388,6 +414,8 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             interrupted=_flag(document, "interrupted"),
             unrecorded_children=_count(document, "unrecorded_children"),
             orphan=_flag(document, "orphan"),
+            id=_optional_text(document, "id"),
+            recorded_at=_optional_text(document, "recorded_at"),
         )
     except RecordingRefusedError:
         raise
