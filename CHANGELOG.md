@@ -41,6 +41,13 @@ exits by its verdict (*Choosing the version*: an exit code changed).
   is new since 0.7.0, which declared none, and it reaches a resolver with
   this release: from 1.0.0 a minor of digline does not break a public Python
   signature, so every 1.x installs under it.
+- **The package also carries its recording map for ADR 0058's recorder**
+  (`c4bef150`): `digline_anthropic.recording` and the entry point
+  `digline.recording_maps`, which names `anthropic.Anthropic:messages.create`.
+  It is inert until a digline release carries the recorder, which loads it
+  only when a call is recorded. It imports `digline.targets.Completion`,
+  public since digline 0.8.0, and the plugin's own `completion_of`, so the
+  floor is unchanged.
 
 ## 1.0.3 — 2026-10-31
 

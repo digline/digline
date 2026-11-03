@@ -2311,11 +2311,15 @@ is the one a quiet log cannot supply.
     maps, and pytest-digline 0.5.1 (1 file) with `2fc0e9af`, `7be88b4d` and
     `a1bff723`. In each of the three plugins that is text under a version
     the index serves, which *Not built* names, and none of it was published
-    by this tag.
+    by this tag. digline-openai and digline-bedrock carry only their maps,
+    which stay inert until a core release carries the recorder, and ADR
+    0058 §6 says each plugin ships a minor with 1.1. Whether pytest-digline's
+    text earns a release of its own is open.
     digline-anthropic 0.8.0 itself carries `c4bef150` beside #877: its
     `recording.py` and its `digline.recording_maps` entry point, which import
     nothing digline 1.0.3 lacks and stay inert until a core release carries
-    the recorder. Its changelog entry does not name them.
+    the recorder. Its changelog entry did not name them, and names them since
+    the pull request that added this entry.
   - **Step 3, the example locks.** `langchain`, `llamaindex` and
     `prompt-first` are every example lock that names digline-anthropic. Each
     moved from 0.7.0 to 0.8.0 with `--upgrade-package digline-anthropic`,
@@ -2335,8 +2339,7 @@ is the one a quiet log cannot supply.
     not print the product's name, so it could not have answered.
 
   **The next tag must show** the check a person makes before the tag, not
-  after it, and must say whether the three plugins above that carry text
-  under a served version owe a release.
+  after it.
 
 - **digline-mcp-v0.8.1 — a named tag after the core, one package, `unpriced`
   on the `run` tool.** `publish` (`41217962673`) passed on attempt 1 and read
