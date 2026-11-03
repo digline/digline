@@ -525,15 +525,11 @@ def test_an_sdk_error_propagates_and_nothing_is_recorded(tmp_path: Path) -> None
 # -- refused when wrapped ----------------------------------------------------- #
 
 
-@pytest.mark.parametrize("kind", ["no-plugin", "async"])
-def test_a_client_no_plugin_maps_is_refused_when_wrapped(kind: str) -> None:
-    client = (
-        object()
-        if kind == "no-plugin"
-        else sdk("anthropic").AsyncAnthropic(api_key="test")
-    )
+def test_a_client_no_plugin_maps_is_refused_when_wrapped() -> None:
+    # An aiobotocore client is one: no plugin declares it. Not installed here,
+    # so a class of no plugin's stands for it.
     with pytest.raises(RecorderStartError, match="no installed plugin records"):
-        wrap(client, app="support", tenant="acme")
+        wrap(object(), app="support", tenant="acme")
 
 
 def test_a_switch_value_that_is_neither_on_nor_off_is_refused(

@@ -28,6 +28,7 @@ the whole reply would have been, and then by `completion_of` like any other:
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Mapping
 from typing import Any
 
@@ -97,13 +98,22 @@ class AnthropicStreamRecording(AnthropicRecording):
 
 
 class _Final:
-    """Reads the message a `MessageStream` accumulated itself."""
+    """Reads the message a `MessageStream` accumulated itself. On an
+    `AsyncMessageStream`, `get_final_message()` is a coroutine, and so is
+    what this returns: the recorder awaits it."""
 
     def add(self, event: Any) -> None:
         return None
 
-    def completion(self, stream: Any) -> Completion:
-        return completion_of(stream.get_final_message())
+    def completion(self, stream: Any) -> Any:
+        final = stream.get_final_message()
+        if inspect.isawaitable(final):
+            return _later(final)
+        return completion_of(final)
+
+
+async def _later(final: Any) -> Completion:
+    return completion_of(await final)
 
 
 MAP = AnthropicRecording()

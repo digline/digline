@@ -83,6 +83,8 @@ openai = "digline_openai:PROVIDER"
 [project.entry-points."digline.recording_maps"]
 "openai.OpenAI:chat.completions.create" = "digline_openai.recording:MAP"
 "openai.OpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
+"openai.AsyncOpenAI:chat.completions.create" = "digline_openai.recording:MAP"
+"openai.AsyncOpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
 
 [build-system]
 requires = ["hatchling>=1.27"]

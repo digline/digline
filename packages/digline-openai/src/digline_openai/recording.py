@@ -37,6 +37,7 @@ have been:
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -155,8 +156,17 @@ class _Final:
     def add(self, event: Any) -> None:
         return None
 
-    def completion(self, stream: Any) -> Completion:
-        return completion_of(stream.get_final_completion(), self._model, _NO_PRICES)
+    def completion(self, stream: Any) -> Any:
+        """On an `AsyncChatCompletionStream`, `get_final_completion()` is a
+        coroutine, and so is what this returns: the recorder awaits it."""
+        final = stream.get_final_completion()
+        if inspect.isawaitable(final):
+            return _later(final, self._model)
+        return completion_of(final, self._model, _NO_PRICES)
+
+
+async def _later(final: Any, model: str) -> Completion:
+    return completion_of(await final, model, _NO_PRICES)
 
 
 MAP = OpenAIRecording()
