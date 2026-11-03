@@ -369,6 +369,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "RELEASING.md": {
+        "1.1.0": (
+            "not yet released: the rows owed to the next version for digline "
+            "1.1, and the floors owed at the cut that 1.1.0 raises, a plan "
+            "naming the release it waits for. The day 1.1.0 is cut this entry "
+            "turns illegal, and the cut deletes the rows with it"
+        ),
         "1.0.2": (
             "the release before 1.0.3, told as history: its paragraph in the "
             "Status block, with the capture, the index, the image and the "
