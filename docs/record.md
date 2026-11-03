@@ -129,8 +129,14 @@ async with recorder.episode(client, suite="order-agent", case={"ticket": t}) as 
   task created before it is not: there, `async with recorder.attach(ep.id)`
   puts the task's calls in it, and without it they are orphans.
 - **A recording is written inside the event loop.** It is a small file, and
-  holding the loop for it was measured at about 0.4 ms a recording, so it is
-  not moved to a thread.
+  holding the loop for it was measured at about 0.4 ms a recording, from the
+  second recording on, so it is not moved to a thread. **The first recording
+  imports digline's core**, about 90 ms where it was measured, which holds
+  the loop when the client is asynchronous. So when the recorder is on as the
+  client is wrapped, `wrap()` imports the core then, at the application's
+  start, and the first call costs what the second does. Switched on later
+  from the file, while the application runs, the first recording pays it,
+  once. (Measured on 2026-11-03, on a laptop running macOS, CPython 3.14.)
 
 ## A turn of an agent: `episode`
 
@@ -168,6 +174,13 @@ with recorder.episode(client, suite="order-agent", case={"ticket": ticket}) as e
     pool.submit(lookup, "A1", ep.id).result()
 ```
 
+**A call that ends after its episode closed** is not one of its steps: the
+episode is already written. Whether it is a stream read to its end too late,
+or a call made in a task attached to the episode that ran on, it is recorded
+with the episode's id, marked an orphan, and noted `ended after its
+episode`. An id from another process is not late: the episode was never open
+in this one, and its calls carry the id for the import to join.
+
 A call made with no episode while one is open in the process is recorded as
 an **orphan**: the recorder cannot tell a child that was not attached from a
 call that belongs to no episode, and it attaches neither.
@@ -187,14 +200,17 @@ The variable records with the defaults. `digline record on` writes
 `.digline/<tenant>/recorder.toml`, which wins over the variable wherever it
 exists, and prints every value the file now holds. A value written before
 stays until it is changed: `record on` with no option switches on and keeps
-the rest, and `record off` switches off and keeps the rest.
+the rest, and `record off` switches off and keeps the rest. Like every
+command that writes under `.digline/`, it lays out the tenant's whole
+directory first, `baselines/` and `runs/` beside the switch, so a tenant that
+only records has them too, empty.
 
 | Key | | Development default |
 |---|---|---|
 | `on` | `true` or `false` | required |
 | `sample` | the share of calls recorded, above 0 and at most 1 | 1 |
 | `redact` | `"none"`, the one implemented | `"none"` |
-| `ceiling` | the bytes the tenant's recordings may reach | 100 MiB |
+| `ceiling` | the bytes the tenant's recordings may reach, as written | 100 MiB |
 | `interval` | seconds between two looks at the file | 5 |
 | `production` | the file is held to the production rules | `false` |
 
@@ -227,14 +243,22 @@ $ digline record status
 $ digline record status --tenant acme --suite eval/suite.py --json
 ```
 
-For each tenant: whether it records and with which values, where, the size
-against the ceiling, and per suite the single calls (with how many were made
-inside an episode), the episodes, the orphans, and **what was not recorded,
-by reason**: `not JSON` for a request a recording cannot hold, `sampled out`,
-`ceiling`, `stream abandoned`, `config invalid` and the rest, and what was
-**recorded with something noted**: `usage not reported`, `ended after its
-episode`. Each process keeps its
-counts beside its recordings, so the status reads them from any process. With
+For each tenant: whether it records and with which values, where, and the
+size against the ceiling. **The size is the bytes of the recordings as
+written**, and it is the measure the ceiling is held against; the disk holds
+more, a block per file at the least. Per suite: the single calls (with how
+many were made inside an episode), the orphans, the episodes (with how many
+were interrupted), and **what was not recorded, by reason**: `not JSON` for a
+request a recording cannot hold, `sampled out`, `ceiling`, `stream
+abandoned`, `config invalid` and the rest, and what was **recorded with
+something noted**: `usage not reported`, `ended after its episode`. A suite
+says only what it holds: a suite of episodes whose calls name another suite
+shows no calls.
+
+**Each process writes one subdirectory per tenant**,
+`recordings/p<pid>-<8 hex>/`, however many clients it wraps, and keeps its
+counts there beside its recordings, so the status reads them from any
+process. With
 `--suite`, it also says how many recordings the suite gained since its last
 import. In the application, `client.digline_counts` gives the counts of that
 client, in that process.

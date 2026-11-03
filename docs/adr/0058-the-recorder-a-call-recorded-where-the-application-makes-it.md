@@ -378,6 +378,14 @@ it in 1.1.
   indicative and the implementation owes the saved measurement. Off, the
   wrapper's module imports nothing of digline's beyond itself, and everything
   else is imported at the first recording.
+
+  *Amended 2026-11-03, decided in the conversation of the session that
+  implemented it, after a pass as a user measured the first recording holding
+  an asynchronous client's event loop for about 90 ms:* where the recorder is
+  on when the client is wrapped, `wrap()` imports what the first recording
+  would, at the application's start. Off, nothing changes, and the test that
+  `digline.core` is not in `sys.modules` holds as written. Switched on later
+  from the file, the first recording still imports it, once.
 - **The cost per call off is measured, not declared.** It is a test that
   imports the wrapper off and asserts that `digline.core` is not in
   `sys.modules`; a benchmark of a client injected without network, called bare

@@ -190,6 +190,7 @@ def _suite(
         episodes=counts[1],
         orphans=counts[2],
         inside_episodes=counts[3],
+        interrupted=counts[4],
         not_recorded=dict(sorted(missed.items())),
         noted=dict(sorted(noted.items())),
         imported=None if imported is None else since is not None,
@@ -221,7 +222,7 @@ def _tenant(
         except RecorderStartError as exc:
             refusal = str(exc)
     directory = store.recordings_dir(tenant)
-    # calls, episodes, orphans, calls inside an episode
+    # calls, episodes, orphans, calls inside an episode, interrupted episodes
     suites: dict[str, list[int]] = {}
     unreadable = 0
     size = 0
@@ -235,17 +236,20 @@ def _tenant(
         except (ValueError, OSError):
             unreadable += 1
             continue
-        counts = suites.setdefault(recording.suite, [0, 0, 0, 0])
+        counts = suites.setdefault(recording.suite, [0, 0, 0, 0, 0])
         if recording.steps is None:
             counts[0] += 1
             counts[2] += recording.orphan
-            counts[3] += recording.episode is not None
+            # An orphan that carries an id ended after its episode closed: it
+            # is not part of that episode's case.
+            counts[3] += recording.episode is not None and not recording.orphan
         else:
             counts[1] += 1
+            counts[4] += recording.interrupted
     missed = _not_recorded(directory)
     noted = _not_recorded(directory, "noted")
     for name in (*missed, *noted):
-        suites.setdefault(name, [0, 0, 0, 0])
+        suites.setdefault(name, [0, 0, 0, 0, 0])
     return TenantRecorder(
         tenant=tenant,
         switch_path=str(path),

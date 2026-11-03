@@ -107,7 +107,8 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 # *inside* `digline.host`, because that package's `__init__` imports the whole
 # host, and the host imports the core: switched off, the wrapper must not
 # (ADR 0058 §10). So this module imports the standard library alone at the
-# top, and everything of digline's lazily, at the first call it records.
+# top, and everything of digline's lazily: in `wrap()` when the recorder is on
+# there, otherwise at the first call it records (`_ready`).
 if TYPE_CHECKING:
     from types import TracebackType
 
@@ -153,7 +154,7 @@ DEFAULT_CEILING = 100 * 1024 * 1024
 DEFAULT_INTERVAL = 5.0
 
 #: The layout's names, as `digline.store.file_store` has them; restated here
-#: because this module does not import the store until it records, and a test
+#: because this module does not import the store while it is off, and a test
 #: holds the two equal.
 _STORE = ".digline"
 _SWITCH_FILE = "recorder.toml"
@@ -201,6 +202,19 @@ _CURRENT: ContextVar[str | None] = ContextVar("digline_episode", default=None)
 #: wrapped client, adds its step to it.
 _OPEN: dict[str, _Collector] = {}
 _OPEN_LOCK = threading.Lock()
+
+#: The episodes this process closed, most recent last, so that a call made
+#: after its episode closed is told from one attached from another process,
+#: whose episode was never open here. Bounded: past `_CLOSED_KEPT` the oldest
+#: id is forgotten, and a call that late carries the id unmarked, as a call
+#: from another process does, for the import to join.
+_CLOSED: dict[str, None] = {}
+_CLOSED_KEPT = 10_000
+
+
+def _late(inside: str | None) -> bool:
+    """Whether `inside` is an episode this process has closed."""
+    return inside is not None and inside not in _OPEN and inside in _CLOSED
 
 
 class Switch:
@@ -360,6 +374,40 @@ class RecordingMap(Protocol):
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion: ...
 
 
+class _Shared:
+    """What every wrapped client of this process shares under one root: the
+    writer, so that the process has one subdirectory per tenant whatever the
+    number of clients it wraps (ADR 0058 §4, §10), and the counts its counts
+    file holds."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.lock = threading.Lock()
+        self.writer: RecordingWriter | None = None
+        #: Per tenant and suite, what this process recorded and did not, as
+        #: its counts file holds it; the tenants whose file exists.
+        self.tallies: dict[str, dict[str, dict[str, Any]]] = {}
+        self.tallied: set[str] = set()
+        #: The tenants counted since their file was last written.
+        self.dirty: set[str] = set()
+        self.tally_lock = threading.Lock()
+
+
+#: One `_Shared` per root this process wraps clients under, by the root
+#: resolved: two spellings of one directory are one place.
+_SHARED: dict[Path, _Shared] = {}
+_SHARED_LOCK = threading.Lock()
+
+
+def _shared(root: Path) -> _Shared:
+    where = root.resolve()
+    with _SHARED_LOCK:
+        found = _SHARED.get(where)
+        if found is None:
+            found = _SHARED[where] = _Shared(root)
+        return found
+
+
 class _State:
     """What every intercepted call of one wrapped client shares."""
 
@@ -380,7 +428,9 @@ class _State:
         #: Recorded, with something said beside it: `usage not reported`,
         #: `ended after its episode`.
         self.noted: dict[str, int] = {}
-        self.writer: RecordingWriter | None = None
+        #: The writer and the counts file, shared with every client of this
+        #: process wrapped under the same root.
+        self.shared = _shared(root)
         #: Production: the tenant comes from a function, at every call.
         self.production = callable(tenant)
         #: Each tenant's switch, replaced whole at each look, never edited.
@@ -401,13 +451,6 @@ class _State:
         #: The commit an episode's setup is read with, cached until the next
         #: look: reading it is two `git` processes.
         self.commit: tuple[str | None] | None = None
-        #: Per tenant and suite, what this process recorded and did not, as
-        #: its counts file holds it; the tenants whose file exists.
-        self.tallies: dict[str, dict[str, dict[str, Any]]] = {}
-        self.tallied: set[str] = set()
-        #: The tenants counted since their file was last written.
-        self.dirty: set[str] = set()
-        self.tally_lock = threading.Lock()
 
     def count(self, reason: str | None) -> None:
         with self.lock:
@@ -654,13 +697,18 @@ def _intercepted(
             )
             return reply
         elapsed_ms = (perf_counter() - started) * 1000.0
-        _LAST.tenant = known
-        _LAST.notes = []
-        reason, seen = _record(
-            state, slot, kwargs, reply, elapsed_ms, suite, variables, site, inside
+        _ended(
+            state,
+            slot,
+            kwargs,
+            reply,
+            elapsed_ms,
+            suite,
+            variables,
+            site,
+            inside,
+            known,
         )
-        _joined(state, inside, reason, seen)
-        _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
         return reply
 
     return call
@@ -716,14 +764,62 @@ async def _awaited(
         )
         return reply
     elapsed_ms = (perf_counter() - started) * 1000.0
+    _ended(
+        state, slot, request, reply, elapsed_ms, suite, variables, site, inside, known
+    )
+    return reply
+
+
+def _ended(
+    state: _State,
+    slot: _Slot,
+    request: Mapping[str, Any],
+    reply: Any,
+    elapsed_ms: float,
+    suite: object,
+    variables: object,
+    site: str | None,
+    inside: str | None,
+    known: str | None,
+    *,
+    completion: Completion | None = None,
+    drawn: bool | None = None,
+    unread: bool = False,
+) -> None:
+    """A call that has ended, whole or streamed: recorded, or said why not,
+    and counted, in its episode where that is still open.
+
+    **A call whose episode this process has closed** — a stream that ended
+    after it, or a call made in a task attached to it that ran on — is
+    recorded with the episode's id, marked an orphan, and noted `ended after
+    its episode`: the episode is already written without it, and the recorder
+    neither waits nor guesses where it belonged. `unread` is a stream whose
+    reading gave no reply, which is the map's failure."""
+    late = _late(inside)
     _LAST.tenant = known
     _LAST.notes = []
-    reason, seen = _record(
-        state, slot, request, reply, elapsed_ms, suite, variables, site, inside
-    )
-    _joined(state, inside, reason, seen)
+    if unread:
+        reason, seen = "map", None
+    else:
+        reason, seen = _record(
+            state,
+            slot,
+            request,
+            reply,
+            elapsed_ms,
+            suite,
+            variables,
+            site,
+            inside,
+            completion=completion,
+            late=late,
+            drawn=drawn,
+        )
+    if reason is None and late:
+        state.note("ended after its episode")
+        _LAST.notes.append("ended after its episode")
+    _joined(state, None if late else inside, reason, seen)
     _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
-    return reply
 
 
 def _map_or_none(slot: _Slot) -> Any:
@@ -798,11 +894,16 @@ def _watching(kind: type) -> type:
             try:
                 async for item in base.__aiter__(self):
                     watch.item(item)
-                    yield item
-            except GeneratorExit:
-                raise
+                    try:
+                        yield item
+                    except BaseException:
+                        # Thrown in where the application holds the stream,
+                        # never by the SDK: `GeneratorExit` or `CancelledError`
+                        # from a loop closing a generator left half read.
+                        watch.abandoned()
+                        raise
             except BaseException as exc:
-                watch.failed(exc)
+                _ended_early(watch, exc)
                 raise
             await watch.finished_async(self)
 
@@ -814,7 +915,7 @@ def _watching(kind: type) -> type:
                 await watch.finished_async(self)
                 raise
             except BaseException as exc:
-                watch.failed(exc)
+                _ended_early(watch, exc)
                 raise
             watch.item(item)
             return item
@@ -842,6 +943,21 @@ def _watching(kind: type) -> type:
         made.__qualname__ = kind.__qualname__
         _WATCHED[kind] = made
         return made
+
+
+def _ended_early(watch: _Watch, exc: BaseException) -> None:
+    """An asynchronous stream that ended before its end. A cancellation, or a
+    generator closed, is the application leaving the stream, which is
+    *stream abandoned*; anything else came from the SDK, and is counted by
+    its class's name. `asyncio` is read from `sys.modules`: a loop that is
+    not asyncio's has none of its cancellations to tell apart."""
+    loop = sys.modules.get("asyncio")
+    if isinstance(exc, GeneratorExit) or (
+        loop is not None and isinstance(exc, loop.CancelledError)
+    ):
+        watch.abandoned()
+    else:
+        watch.failed(exc)
 
 
 def _entering(kind: type) -> type:
@@ -1007,33 +1123,21 @@ class _Watch:
         self._recorded(completion)
 
     def _recorded(self, completion: Any) -> None:
-        elapsed_ms = (perf_counter() - self.started) * 1000.0
-        state = self.state
-        late = self.inside is not None and self.inside not in _OPEN
-        _LAST.tenant = self.known
-        _LAST.notes = []
-        if completion is None:
-            reason, seen = "map", None
-        else:
-            reason, seen = _record(
-                state,
-                self.slot,
-                self.request,
-                None,
-                elapsed_ms,
-                self.suite,
-                self.variables,
-                self.site,
-                self.inside,
-                completion=completion,
-                late=late,
-                drawn=self.drawn,
-            )
-        if reason is None and late:
-            state.note("ended after its episode")
-            _LAST.notes.append("ended after its episode")
-        _joined(state, None if late else self.inside, reason, seen)
-        _tally(state, _LAST.tenant, self.suite, reason, tuple(_LAST.notes))
+        _ended(
+            self.state,
+            self.slot,
+            self.request,
+            None,
+            (perf_counter() - self.started) * 1000.0,
+            self.suite,
+            self.variables,
+            self.site,
+            self.inside,
+            self.known,
+            completion=completion,
+            drawn=self.drawn,
+            unread=completion is None,
+        )
 
     def failed(self, exc: BaseException) -> None:
         if not self._settle():
@@ -1061,9 +1165,10 @@ def _joined(
     orphan, its file says `"orphan": true`, and it is attached to nothing:
     which episode it belongs to, if any, is
     not something the recorder can know, and it never guesses from timing
-    (ADR 0058 §5). A call whose episode is not open here — attached by id from
-    another process, or after its episode closed — carries the id, and the
-    import joins it.
+    (ADR 0058 §5). A call attached by id to an episode that was never open
+    here, opened in another process, carries the id, and the import joins
+    it. One whose episode this process closed before it ended reaches here
+    as `inside=None`: `_ended` marked it an orphan.
     """
     state.count(reason)
     if inside is None:
@@ -1115,35 +1220,41 @@ def _tally(
     if tenant is None or reason == "off for this tenant":
         return
     name = suite if isinstance(suite, str) and suite else UNASSIGNED
-    with state.tally_lock:
-        if not state.tallies:
+    shared = state.shared
+    with shared.tally_lock:
+        if not shared.tallies:
             import atexit
 
-            atexit.register(_flush, state)
-        suites = state.tallies.setdefault(tenant, {})
+            atexit.register(_flush_shared, shared)
+        suites = shared.tallies.setdefault(tenant, {})
         bucket = suites.setdefault(
             name, {"recorded": 0, "not_recorded": {}, "noted": {}}
         )
         for what in notes:
             bucket["noted"][what] = bucket["noted"].get(what, 0) + 1
-        state.dirty.add(tenant)
+        shared.dirty.add(tenant)
         if reason is None:
             bucket["recorded"] += 1
-            first = tenant not in state.tallied
+            first = tenant not in shared.tallied
         else:
             bucket["not_recorded"][reason] = bucket["not_recorded"].get(reason, 0) + 1
             first = False
     if first:
-        _flush(state, tenant)
+        _flush_shared(shared, tenant)
 
 
 def _flush(state: _State, only: str | None = None) -> None:
+    """`_flush_shared` for the counts `state`'s client shares."""
+    _flush_shared(state.shared, only)
+
+
+def _flush_shared(shared: _Shared, only: str | None = None) -> None:
     """Write the counts of every tenant counted since the last write, or of
     `only`. At the first recording, at each tick, and at exit. Never raises."""
-    with state.tally_lock:
-        tenants = [only] if only is not None else sorted(state.dirty)
+    with shared.tally_lock:
+        tenants = [only] if only is not None else sorted(shared.dirty)
         for tenant in tenants:
-            suites = state.tallies.get(tenant)
+            suites = shared.tallies.get(tenant)
             if suites is None:
                 continue
             snapshot = {
@@ -1155,12 +1266,12 @@ def _flush(state: _State, only: str | None = None) -> None:
                 for suite_name, counts in suites.items()
             }
             with contextlib.suppress(Exception):
-                _write_counts(state, tenant, snapshot)
-                state.tallied.add(tenant)
-                state.dirty.discard(tenant)
+                _write_counts(shared, tenant, snapshot)
+                shared.tallied.add(tenant)
+                shared.dirty.discard(tenant)
 
 
-def _write_counts(state: _State, tenant: str, suites: dict[str, Any]) -> None:
+def _write_counts(shared: _Shared, tenant: str, suites: dict[str, Any]) -> None:
     import json
 
     from digline.store.file_store import (
@@ -1169,10 +1280,10 @@ def _write_counts(state: _State, tenant: str, suites: dict[str, Any]) -> None:
         RecordingWriter,
     )
 
-    with state.lock:
-        if state.writer is None:
-            state.writer = RecordingWriter(FileResultStore(state.root))
-        writer = state.writer
+    with shared.lock:
+        if shared.writer is None:
+            shared.writer = RecordingWriter(FileResultStore(shared.root))
+        writer = shared.writer
     place = writer.place(tenant)
     path = place / COUNTS_FILENAME
     temporary = place / f"{COUNTS_FILENAME}.{os.getpid()}.tmp"
@@ -1319,10 +1430,12 @@ def _record(
 
 
 def _write(state: _State, tenant: str, recording: Any, writer: Any, store: Any) -> None:
-    with state.lock:
-        if state.writer is None:
-            state.writer = writer(store(state.root))
-    path = cast("RecordingWriter", state.writer).write(recording)
+    shared = state.shared
+    with shared.lock:
+        if shared.writer is None:
+            shared.writer = writer(store(shared.root))
+        made = shared.writer
+    path = cast("RecordingWriter", made).write(recording)
     grown = path.stat().st_size
     with state.lock:
         state.sizes[tenant] = state.sizes.get(tenant, 0) + grown
@@ -1563,7 +1676,9 @@ class attach:  # noqa: N801 — read as a function at the call site, like `episo
 
     `None`, which is `ep.id` while the recorder is off, attaches nothing. The
     calls are recorded with the id whether or not the episode is open in this
-    process; where it is not, the import joins them by the id.
+    process; where it was opened in another, the import joins them by the id.
+    A call that ends after its episode closed in this process is recorded
+    with the id, marked an orphan, and noted `ended after its episode`.
     """
 
     __slots__ = ("_id", "_token")
@@ -1707,6 +1822,9 @@ class Episode:
         _reset(self._token)
         with _OPEN_LOCK:
             _OPEN.pop(self.id, None)
+            _CLOSED[self.id] = None
+            if len(_CLOSED) > _CLOSED_KEPT:
+                del _CLOSED[next(iter(_CLOSED))]
         state = self._state
         known = None if state.production else cast(str, state.tenant)
         if self._collector.sampled_out:
@@ -1787,8 +1905,8 @@ def _episode_sampled_in(state: _State) -> bool:
 
 def _now() -> str:
     """The system time a recording is written at, read by the host's clock,
-    imported here and not at the top: this module imports nothing of
-    digline's until it records. (ADR 0058 §10, as amended 2026-11-03)"""
+    imported here and not at the top: off, this module imports nothing of
+    digline's. (ADR 0058 §10, as amended 2026-11-03)"""
     from digline.host.environment import utc_now_iso
 
     return utc_now_iso()
@@ -2013,5 +2131,49 @@ def wrap(
         )
     _read_switches(state, starting=True)
     _measure(state)
+    if state.any_on:
+        _ready(tree)
     state.next_look = _clock() + state.interval
     return RecordedClient(client, tree, state)
+
+
+#: What a recording imports the first time, by name: the standard library's
+#: modules this one imports where it uses them, and digline's own.
+_AT_THE_FIRST_RECORDING = (
+    "atexit",
+    "inspect",
+    "json",
+    "random",
+    "weakref",
+    "digline.core.recording",
+    "digline.core.run",
+    "digline.host.environment",
+    "digline.run.driver",
+    "digline.store.file_store",
+)
+
+
+def _ready(tree: Mapping[str, Any]) -> None:
+    """What the first recording would import, imported now, at the start: the
+    core, the store, the host's clock and the maps of the client's methods.
+    On at the start, so the first call pays nothing the second does not —
+    and, for an asynchronous client, so no call holds the event loop for
+    them. Off at the start, nothing: switched on later from the file, the
+    first recording pays it, once. (ADR 0058 §10)
+
+    Never raises: what fails to import here fails again at the recording,
+    which says why, as a *not recorded*, and the call goes on."""
+    import importlib
+
+    for name in _AT_THE_FIRST_RECORDING:
+        with contextlib.suppress(Exception):
+            importlib.import_module(name)
+
+    def maps(node: Mapping[str, Any]) -> None:
+        for value in node.values():
+            if isinstance(value, _Slot):
+                _map_or_none(value)
+            else:
+                maps(cast(Mapping[str, Any], value))
+
+    maps(tree)
