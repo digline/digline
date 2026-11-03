@@ -245,7 +245,7 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "Meant for 1.1"
     ),
     "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
-        "proposed, and before any code: no `steps_of`, no `steps` in a "
+        "accepted, and before any code: no `steps_of`, no `steps` in a "
         "response's metadata or on `RecordedResponse`, no collection around "
         "the target's call, and no `Subsequence`, `Before`, `Never` or "
         "`MaxSteps`"

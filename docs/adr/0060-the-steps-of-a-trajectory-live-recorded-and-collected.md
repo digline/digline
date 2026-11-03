@@ -1,6 +1,9 @@
 # ADR 0060 — The steps of a trajectory: read live, recorded in the run, collected from the calls a target makes
 
-- Status: proposed 2026-11-03. **Its decisions were ruled before this record
+- Status: accepted 2026-11-03, by Alessandro Prandini, the text first, as it
+  stands at `f912e868`: every item marked *decided here* taken, with the
+  names it proposes (`steps_of`, `collecting` and `around_target`).
+  Proposed 2026-11-03. **Its decisions were ruled before this record
   was written**, by Alessandro Prandini on 2026-11-03, in the conversation of
   the session that wrote it: that the steps of a trajectory enter 1.1, live and
   in the run document, with four assertions on them; and, after a measurement
@@ -8,8 +11,8 @@
   priced only where the target declares a price list. They are stated here as
   ruled. **What this record adds is marked *decided here***: the names of two
   functions and of one argument of `execute()`, the refusals a suite meets,
-  and the keys each assertion writes. Each is proposed, and acceptance takes it
-  or removes it, item by item. Acceptance is Alessandro Prandini's
+  and the keys each assertion writes. Each was proposed, for acceptance to
+  take or remove item by item
 - Shipped: unreleased
 - Date: 2026-11-03
 - Opens: **a third passenger on schema 23, when its code lands, and nothing
