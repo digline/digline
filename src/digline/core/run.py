@@ -3242,6 +3242,10 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
 #: `is`.
 recorded_response_to_dict = _response_to_dict
 recorded_response_from_dict = _response_from_dict
+#: The same, for one recorded tool call: a recording's tool step is written
+#: and read by these. (ADR 0058 §9, §11)
+recorded_tool_call_to_dict = _tool_call_to_dict
+recorded_tool_call_from_dict = _tool_call_from_dict
 
 
 def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:

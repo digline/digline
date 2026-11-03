@@ -11,7 +11,11 @@ What is held here:
   the subdirectory chosen at the first write and again after a fork, written
   whole or not at all, never over another;
 - the generated `.gitignore` keeps `*/recordings/` and `*/recorder.toml` out of
-  git.
+  git;
+- an episode's steps come back as written, a tool step's call by the run
+  document's own serializer of a tool call, and a step that breaks §7 is
+  refused: a finish on a tool step, a call on a model step, an index out of
+  order.
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import pytest
 from digline.core import RecordedResponse, RecordedToolCall, Usage
 from digline.core.recording import (
     RECORDING_VERSION,
+    RecordedStep,
     Recording,
     RecordingRefusedError,
     recording_from_dict,
@@ -35,8 +40,12 @@ from digline.core.recording import (
 from digline.core.run import (
     _response_from_dict,  # pyright: ignore[reportPrivateUsage]
     _response_to_dict,  # pyright: ignore[reportPrivateUsage]
+    _tool_call_from_dict,  # pyright: ignore[reportPrivateUsage]
+    _tool_call_to_dict,  # pyright: ignore[reportPrivateUsage]
     recorded_response_from_dict,
     recorded_response_to_dict,
+    recorded_tool_call_from_dict,
+    recorded_tool_call_to_dict,
 )
 from digline.store.file_store import FileResultStore, RecordingWriter
 
@@ -92,6 +101,142 @@ def a_recording(
 def test_the_public_names_are_the_run_documents_own_functions() -> None:
     assert recorded_response_to_dict is _response_to_dict
     assert recorded_response_from_dict is _response_from_dict
+    assert recorded_tool_call_to_dict is _tool_call_to_dict
+    assert recorded_tool_call_from_dict is _tool_call_from_dict
+
+
+LOOKUP = RecordedToolCall(
+    tool="lookup",
+    arguments='{"order":"A1"}',
+    status="not_reported",
+    result_absence="not_reported",
+)
+STEPS = (
+    RecordedStep(index=0, actor="model", finish="tool_use"),
+    RecordedStep(index=1, actor="tool", call=LOOKUP),
+    RecordedStep(index=2, actor="model"),
+)
+
+
+def an_episode(**changes: object) -> Recording:
+    fields: dict[str, object] = {"steps": STEPS, "episode": "f" * 32}
+    fields.update(changes)
+    return a_recording(RESPONSES["text"], **fields)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [{}, {"interrupted": True}, {"unrecorded_children": 2}, {"steps": ()}],
+    ids=["plain", "interrupted", "unrecorded", "no-steps"],
+)
+def test_an_episode_comes_back_as_it_was_written(changes: dict[str, object]) -> None:
+    recording = an_episode(**changes)
+    document = json.loads(json.dumps(recording_to_dict(recording)))
+    assert recording_from_dict(document) == recording
+
+
+def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
+    written = recording_to_dict(an_episode())
+    assert written["steps"] == [
+        {"index": 0, "actor": "model", "finish": "tool_use"},
+        {"index": 1, "actor": "tool", **_tool_call_to_dict(LOOKUP)},
+        {"index": 2, "actor": "model"},
+    ]
+    assert "interrupted" not in written
+    assert "unrecorded_children" not in written
+
+
+def test_a_single_call_carries_none_of_an_episodes_keys() -> None:
+    written = recording_to_dict(a_recording())
+    assert not {"steps", "interrupted", "unrecorded_children", "orphan"} & set(written)
+
+
+def test_an_orphan_comes_back_as_it_was_written() -> None:
+    recording = a_recording(orphan=True)
+    written = recording_to_dict(recording)
+    assert written["orphan"] is True
+    assert recording_from_dict(json.loads(json.dumps(written))) == recording
+
+
+@pytest.mark.parametrize(
+    ("step", "match"),
+    [
+        (
+            lambda: RecordedStep(index=0, actor="tool", call=LOOKUP, finish="stop"),
+            "no finish",
+        ),
+        (lambda: RecordedStep(index=0, actor="model", call=LOOKUP), "no tool call"),
+        (lambda: RecordedStep(index=0, actor="tool"), "carries its call"),
+        (lambda: RecordedStep(index=-1, actor="model"), "from 0"),
+        (lambda: RecordedStep(index=True, actor="model"), "from 0"),  # pyright: ignore[reportArgumentType]
+        (lambda: RecordedStep(index=0, actor="engine"), "'model' or 'tool'"),  # pyright: ignore[reportArgumentType]
+        (lambda: RecordedStep(index=0, actor="model", finish=""), "non-empty"),
+    ],
+    ids=[
+        "tool-finish",
+        "model-call",
+        "tool-no-call",
+        "negative",
+        "bool",
+        "engine",
+        "empty-finish",
+    ],
+)
+def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> None:
+    with pytest.raises(RecordingRefusedError, match=match):
+        step()  # pyright: ignore[reportCallIssue]
+
+
+@pytest.mark.parametrize(
+    ("changes", "match"),
+    [
+        ({"steps": (STEPS[1], STEPS[0])}, "in order"),
+        ({"steps": None, "interrupted": True}, "single call"),
+        ({"steps": None, "unrecorded_children": 1}, "single call"),
+        ({"unrecorded_children": -1}, "from 0"),
+        ({"orphan": True}, "only a single call"),
+        ({"steps": None, "orphan": True}, "only a single call"),
+    ],
+    ids=[
+        "order",
+        "interrupted-call",
+        "unrecorded-call",
+        "negative",
+        "orphan-episode",
+        "orphan-in-an-episode",
+    ],
+)
+def test_an_episode_that_breaks_its_rules_is_refused(
+    changes: dict[str, object], match: str
+) -> None:
+    with pytest.raises(RecordingRefusedError, match=match):
+        an_episode(**changes)
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "match"),
+    [
+        ("interrupted", False, "true or not at all"),
+        ("interrupted", None, "true or not at all"),
+        ("orphan", False, "true or not at all"),
+        ("unrecorded_children", 0, "positive integer"),
+        ("steps", {}, "not a list"),
+    ],
+)
+def test_a_document_that_writes_what_no_writer_writes_is_refused(
+    key: str, value: object, match: str
+) -> None:
+    document = recording_to_dict(an_episode())
+    document[key] = value
+    with pytest.raises(RecordingRefusedError, match=match):
+        recording_from_dict(document)
+
+
+def test_a_model_step_with_a_tool_calls_keys_is_refused() -> None:
+    document = recording_to_dict(an_episode())
+    document["steps"] = [{"index": 0, "actor": "model", "tool": "lookup"}]
+    with pytest.raises(RecordingRefusedError, match="model step"):
+        recording_from_dict(document)
 
 
 @pytest.mark.parametrize("name", sorted(RESPONSES))

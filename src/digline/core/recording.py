@@ -17,6 +17,13 @@ second serializer of one fact is how a trajectory came to have three forms
 on its own schedule, apart from `SCHEMA_VERSION` and `JOURNAL_VERSION`. A
 recording at any other version is refused by name, saying which version was
 read and which this digline reads, and is never read as the version it is not.
+
+**An episode is a recording too** (ADR 0058 §5), with the same compartments
+and three keys a single call never carries: `steps`, its trajectory as a list
+of `RecordedStep`; `interrupted`, where the application raised inside it; and
+`unrecorded_children`, how many calls made inside it were not recorded. A
+recording carries `steps` if and only if it is an episode. They are optional
+keys added to a format that has not shipped, so `RECORDING_VERSION` stays 1.
 """
 
 from __future__ import annotations
@@ -25,18 +32,22 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from digline.core.aggregate import Label
 from digline.core.refused import RefusedError, Written
 from digline.core.run import (
     RecordedResponse,
+    RecordedToolCall,
     recorded_response_from_dict,
     recorded_response_to_dict,
+    recorded_tool_call_from_dict,
+    recorded_tool_call_to_dict,
 )
 
 __all__ = [
     "RECORDING_VERSION",
+    "RecordedStep",
     "Recording",
     "RecordingRefusedError",
     "recording_from_dict",
@@ -50,6 +61,11 @@ __all__ = [
 RECORDING_VERSION = 1
 
 _LABELS: frozenset[str] = frozenset({"positive", "negative"})
+
+#: Who acted in a step. `engine`, declared by hand, is a later release's
+#: (ADR 0058 §9); 1.1 produces these two.
+type Actor = Literal["model", "tool"]
+_ACTORS: frozenset[str] = frozenset({"model", "tool"})
 
 
 class RecordingRefusedError(RefusedError):
@@ -90,6 +106,60 @@ def setup_digest_of(setup: Mapping[str, object]) -> str:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordedStep:
+    """One step of an episode's trajectory. (ADR 0058 §7, §9)
+
+    `index` is the step's place in the episode, from 0, for the order
+    assertions planned after 1.1 will read. A `model` step is one call to a
+    model and carries the `finish` its reply reported, `None` where the plugin
+    reported none; a `tool` step is one tool call the model asked for, carries
+    it as `call`, and never a finish, because a tool does not end a reply.
+
+    **Here and not in `digline.core.run`**, beside `RecordedToolCall`, because
+    the run document does not hold steps: they enter it when assertions read
+    them live (ADR 0058, *Alternatives considered*). A tool step's call is
+    written by the run document's own serializer of a tool call, inline in the
+    step, so a call has one written form wherever it is kept.
+
+    `finish` is the text the plugin gave, not checked against `Finish`'s
+    words: a finish nobody normalised is carried as given (ADR 0058 §12).
+    """
+
+    index: int
+    actor: Actor
+    finish: str | None = None
+    call: RecordedToolCall | None = None
+
+    def __post_init__(self) -> None:
+        # `bool` is an `int` in Python, and `True` is not a place in a list.
+        if type(self.index) is not int or self.index < 0:
+            raise RecordingRefusedError("RecordedStep.index must be an integer from 0")
+        if self.actor not in _ACTORS:
+            raise RecordingRefusedError(
+                f"RecordedStep.actor must be 'model' or 'tool', got "
+                f"{str(self.actor)[:40]!r}"
+            )
+        if self.actor == "model" and self.call is not None:
+            raise RecordingRefusedError(
+                "a model step carries no tool call: the call the model asked "
+                "for is the tool step after it"
+            )
+        if self.actor == "tool":
+            if self.call is None:
+                raise RecordingRefusedError("a tool step carries its call")
+            if self.finish is not None:
+                raise RecordingRefusedError(
+                    "a tool step carries no finish: a tool does not end a reply "
+                    "(ADR 0058 §7)"
+                )
+        if self.finish == "":
+            raise RecordingRefusedError(
+                "RecordedStep.finish must be a non-empty string, or None where "
+                "none was reported"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class Recording:
     """One recorded call, or one episode. (ADR 0058 §3, §4, §7)
 
@@ -97,8 +167,22 @@ class Recording:
     recording is filed under. `app` is a field and not a directory (§1).
     `suite` is the name the call site gave, or `_unassigned` (§2). `episode` is
     the id of the episode the call belongs to, `None` for a single call made
-    outside one (§5). `label` is `Case.label` before the case exists, empty
-    until a person gives one (§7).
+    outside one (§5), and for an episode the id of the episode it is nested
+    in. `label` is `Case.label` before the case exists, empty until a person
+    gives one (§7).
+
+    `steps` is `None` on a single call and a tuple on an episode, empty where
+    nothing inside it was recorded: its presence is what makes a recording an
+    episode. `interrupted` says the application raised inside the episode and
+    the recording holds what was seen until then. `unrecorded_children` counts
+    the calls made inside the episode that were not recorded, so a trajectory
+    with a hole says it has one.
+
+    `orphan` marks a single call recorded in no episode while an episode was
+    open in the process that made it: a child whose thread was not attached,
+    or a call that belongs to none. It is written when the call is, where that
+    is known, because the files alone cannot tell it from a call made while
+    nothing was open, and the import says how many it found (§5).
     """
 
     source_tenant: str
@@ -113,6 +197,10 @@ class Recording:
     #: `module:function` of the call that named no suite, so a person can
     #: assign it (ADR 0058 §2). `None` where the call named its suite.
     call_site: str | None = None
+    steps: tuple[RecordedStep, ...] | None = None
+    interrupted: bool = False
+    unrecorded_children: int = 0
+    orphan: bool = False
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -134,6 +222,35 @@ class Recording:
             raise RecordingRefusedError(
                 f"Recording.label must be 'positive', 'negative' or None, got "
                 f"{self.label!r}"
+            )
+        if self.steps is None:
+            if self.interrupted or self.unrecorded_children:
+                raise RecordingRefusedError(
+                    "only an episode is interrupted or has unrecorded children, "
+                    "and a recording without steps is a single call"
+                )
+        else:
+            steps = tuple(self.steps)
+            if not all(isinstance(step, RecordedStep) for step in steps):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise RecordingRefusedError(
+                    "Recording.steps holds something that is not a RecordedStep"
+                )
+            if [step.index for step in steps] != list(range(len(steps))):
+                raise RecordingRefusedError(
+                    "Recording.steps must be indexed 0, 1, 2, ... in order"
+                )
+            object.__setattr__(self, "steps", steps)
+        if type(self.orphan) is not bool:
+            raise RecordingRefusedError("Recording.orphan must be a boolean")
+        if self.orphan and (self.episode is not None or self.steps is not None):
+            raise RecordingRefusedError(
+                "only a single call recorded in no episode is an orphan"
+            )
+        if type(self.interrupted) is not bool:
+            raise RecordingRefusedError("Recording.interrupted must be a boolean")
+        if type(self.unrecorded_children) is not int or self.unrecorded_children < 0:
+            raise RecordingRefusedError(
+                "Recording.unrecorded_children must be an integer from 0"
             )
         # Replaced by the checked copy, so that what is written is what was
         # checked, and a caller who mutates its own dict later changes nothing
@@ -176,7 +293,54 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["label"] = recording.label
     if recording.call_site is not None:
         payload["call_site"] = recording.call_site
+    if recording.steps is not None:
+        payload["steps"] = [_step_to_dict(step) for step in recording.steps]
+    if recording.interrupted:
+        payload["interrupted"] = True
+    if recording.unrecorded_children:
+        payload["unrecorded_children"] = recording.unrecorded_children
+    if recording.orphan:
+        payload["orphan"] = True
     return payload
+
+
+def _step_to_dict(step: RecordedStep) -> dict[str, object]:
+    """`index` and `actor`, then a model step's finish where one was reported,
+    or a tool step's call as a run document writes one, inline."""
+    payload: dict[str, object] = {"index": step.index, "actor": step.actor}
+    if step.finish is not None:
+        payload["finish"] = step.finish
+    if step.call is not None:
+        payload.update(recorded_tool_call_to_dict(step.call))
+    return payload
+
+
+def _step_from_dict(raw: object, at: int) -> RecordedStep:
+    if not isinstance(raw, Mapping):
+        raise RecordingRefusedError(f"a recording's step {at} is not an object")
+    entry = dict(cast(Mapping[str, Any], raw))
+    index = entry.pop("index", None)
+    actor = entry.pop("actor", None)
+    finish = entry.pop("finish", None)
+    if finish is not None and not isinstance(finish, str):
+        raise RecordingRefusedError(
+            f"a recording's step {at} has a finish that is not text"
+        )
+    if actor == "tool":
+        try:
+            call = recorded_tool_call_from_dict(entry)
+        except ValueError as exc:
+            raise RecordingRefusedError(
+                Written.of(exc, f"a recording's step {at}: ", named=False)
+            ) from exc
+        return RecordedStep(
+            index=cast(int, index), actor="tool", finish=finish, call=call
+        )
+    if entry:
+        raise RecordingRefusedError(
+            f"a recording's step {at} is a model step and carries a tool call's keys"
+        )
+    return RecordedStep(index=cast(int, index), actor=cast(Actor, actor), finish=finish)
 
 
 def recording_from_dict(raw: object, *, where: str = "this recording") -> Recording:
@@ -220,6 +384,10 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             episode=_optional_text(document, "episode"),
             label=cast(Label | None, _optional_text(document, "label")),
             call_site=_optional_text(document, "call_site"),
+            steps=_steps(document),
+            interrupted=_flag(document, "interrupted"),
+            unrecorded_children=_count(document, "unrecorded_children"),
+            orphan=_flag(document, "orphan"),
         )
     except RecordingRefusedError:
         raise
@@ -229,6 +397,40 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
         raise RecordingRefusedError(
             Written.of(exc, f"{where}, response: ", named=False)
         ) from exc
+
+
+def _steps(document: Mapping[str, Any]) -> tuple[RecordedStep, ...] | None:
+    if "steps" not in document:
+        return None
+    raw = document["steps"]
+    if not isinstance(raw, list):
+        raise RecordingRefusedError("a recording's 'steps' is not a list")
+    return tuple(
+        _step_from_dict(entry, at) for at, entry in enumerate(cast(list[object], raw))
+    )
+
+
+def _flag(document: Mapping[str, Any], key: str) -> bool:
+    """Absent is `False`, and only `true` is written: a document that says
+    `false` or `null` is refused, because no writer writes either."""
+    if key not in document:
+        return False
+    if document[key] is not True:
+        raise RecordingRefusedError(
+            f"a recording's {key!r} is written as true or not at all"
+        )
+    return True
+
+
+def _count(document: Mapping[str, Any], key: str) -> int:
+    if key not in document:
+        return 0
+    value = document[key]
+    if type(value) is not int or value < 1:
+        raise RecordingRefusedError(
+            f"a recording's {key!r} is written as a positive integer or not at all"
+        )
+    return value
 
 
 def _text(document: Mapping[str, Any], key: str) -> str:

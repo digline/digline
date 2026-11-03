@@ -4,9 +4,16 @@ application makes through it. (ADR 0058 §2, §3, §6, §10)
     client = digline.recorder.wrap(anthropic.Anthropic(), app="support", tenant="acme")
     client.messages.create(model=..., messages=..., suite="triage")
 
-**One call, recorded or let through.** This is the narrow piece: a synchronous
-client, one call at a time. An episode, the switch file and its refusals, the
-ceiling, the status command and the import are later pieces of the same ADR.
+**One call, recorded or let through**, and **an episode**: a context around
+one turn of an agent, whose calls are attached to it (§5, §8, §9).
+
+    with digline.recorder.episode(client, suite="support-agent", case={...}) as ep:
+        ...  # calls through wrapped clients, tools run by the application
+        ep.output(result)
+
+A synchronous client. The switch file and its refusals, the ceiling, the status
+command, the import, streaming and asynchronous clients are later pieces of the
+same ADR.
 
 **Where it sits.** At the level of `digline.host`, the layer that may read
 files, the environment and the clock, and nothing imports it. Not *inside*
@@ -38,15 +45,21 @@ wrapper takes digline's two keywords out of the call and passes it through.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 from collections.abc import Callable, Mapping
+from contextvars import ContextVar, Token
 from importlib.metadata import entry_points
 from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
+    from types import TracebackType
+
+    from digline.core.recording import RecordedStep
+    from digline.core.run import RecordedToolCall
     from digline.store.file_store import RecordingWriter
     from digline.targets import Completion
 
@@ -56,7 +69,10 @@ __all__ = [
     "UNASSIGNED",
     "RecordedClient",
     "RecorderStartError",
+    "Episode",
     "RecordingMap",
+    "attach",
+    "episode",
     "wrap",
 ]
 
@@ -85,6 +101,18 @@ class RecorderStartError(ValueError):
     Defined here and not as a `RefusedError`, because importing that class
     would import the core, which this module must not do while off.
     """
+
+
+#: The id of the episode the current context is inside, or `None`. A context
+#: variable reaches an asyncio task and `asyncio.to_thread`, and does not reach
+#: a `threading.Thread` or a `ThreadPoolExecutor` worker: there `attach` carries
+#: it, by hand (ADR 0058 §5).
+_CURRENT: ContextVar[str | None] = ContextVar("digline_episode", default=None)
+
+#: The episodes open in this process, by id. A call made inside one, through any
+#: wrapped client, adds its step to it.
+_OPEN: dict[str, _Collector] = {}
+_OPEN_LOCK = threading.Lock()
 
 
 class RecordingMap(Protocol):
@@ -124,6 +152,7 @@ class _State:
         self.lock = threading.Lock()
         self.recorded = 0
         self.not_recorded: dict[str, int] = {}
+        self.orphan = 0
         self.map: RecordingMap | None = None
         self.writer: RecordingWriter | None = None
 
@@ -133,6 +162,76 @@ class _State:
                 self.recorded += 1
             else:
                 self.not_recorded[reason] = self.not_recorded.get(reason, 0) + 1
+
+    def count_orphan(self) -> None:
+        with self.lock:
+            self.orphan += 1
+
+
+class _Seen:
+    """What one recorded call adds to the episode it was made in."""
+
+    __slots__ = ("calls", "digest", "finish", "text")
+
+    def __init__(
+        self,
+        digest: str,
+        text: str,
+        finish: str | None,
+        calls: tuple[RecordedToolCall, ...] | None,
+    ) -> None:
+        self.digest = digest
+        self.text = text
+        self.finish = finish
+        self.calls = calls
+
+
+class _Collector:
+    """An open episode's children, as they arrive, from any thread.
+
+    `events` keeps them in the order they were seen: a call is one `_Seen`, a
+    nested episode that closed is its own collector, whose steps are spliced in
+    where it closed.
+    """
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.events: list[_Seen | _Collector] = []
+        self.unrecorded = 0
+        self.digest: str | None = None
+
+    def add(self, event: _Seen | _Collector | None) -> None:
+        with self.lock:
+            if event is None:
+                self.unrecorded += 1
+            else:
+                self.events.append(event)
+
+    def calls(self) -> list[_Seen]:
+        """Every call seen, a nested episode's in place, in order."""
+        with self.lock:
+            events = list(self.events)
+        found: list[_Seen] = []
+        for event in events:
+            found.extend(event.calls() if isinstance(event, _Collector) else [event])
+        return found
+
+    def children_unrecorded(self) -> int:
+        with self.lock:
+            events = list(self.events)
+            own = self.unrecorded
+        return own + sum(
+            event.children_unrecorded()
+            for event in events
+            if isinstance(event, _Collector)
+        )
+
+    def digests(self) -> set[str]:
+        """The setup digests of the direct children: each call's, and each
+        nested episode's own."""
+        with self.lock:
+            events = list(self.events)
+        return {event.digest for event in events if event.digest is not None}
 
 
 class RecordedClient:
@@ -182,12 +281,18 @@ class RecordedClient:
 
     @property
     def digline_counts(self) -> Mapping[str, object]:
-        """`{"recorded": n, "not_recorded": {reason: n, ...}}`, as of now."""
+        """`{"recorded": n, "not_recorded": {reason: n, ...}, "orphan": n}`,
+        as of now. `recorded` counts the calls, and the episodes opened on
+        this client. `orphan` counts the
+        calls recorded with no episode while one was open in this process: a
+        child whose thread was not attached, or a call that belongs to none.
+        The recorder cannot tell which, and attaches neither (ADR 0058 §5)."""
         state: _State = self._digline_state
         with state.lock:
             return {
                 "recorded": state.recorded,
                 "not_recorded": dict(state.not_recorded),
+                "orphan": state.orphan,
             }
 
 
@@ -197,20 +302,47 @@ def _intercepted(method: Callable[..., Any], state: _State) -> Callable[..., Any
         variables = kwargs.pop(_VARS, None)
         if not state.on:
             return method(*args, **kwargs)
+        inside = _CURRENT.get()
         if kwargs.get("stream"):
-            state.count("streaming")
+            _joined(state, inside, "streaming", None)
             return method(*args, **kwargs)
         if args:
-            state.count("positional arguments")
+            _joined(state, inside, "positional arguments", None)
             return method(*args, **kwargs)
         site = _call_site() if suite is None else None
         started = perf_counter()
         reply = method(**kwargs)
         elapsed_ms = (perf_counter() - started) * 1000.0
-        state.count(_record(state, kwargs, reply, elapsed_ms, suite, variables, site))
+        reason, seen = _record(
+            state, kwargs, reply, elapsed_ms, suite, variables, site, inside
+        )
+        _joined(state, inside, reason, seen)
         return reply
 
     return call
+
+
+def _joined(
+    state: _State, inside: str | None, reason: str | None, seen: _Seen | None
+) -> None:
+    """Count the call, and give it to the episode it was made in.
+
+    A call made in no episode while one is open in this process is counted an
+    orphan, its file says `"orphan": true`, and it is attached to nothing:
+    which episode it belongs to, if any, is
+    not something the recorder can know, and it never guesses from timing
+    (ADR 0058 §5). A call whose episode is not open here — attached by id from
+    another process, or after its episode closed — carries the id, and the
+    import joins it.
+    """
+    state.count(reason)
+    if inside is None:
+        if reason is None and _OPEN:
+            state.count_orphan()
+        return
+    collector = _OPEN.get(inside)
+    if collector is not None:
+        collector.add(seen)
 
 
 def _call_site() -> str | None:
@@ -235,19 +367,25 @@ def _record(
     suite: object,
     variables: object,
     site: str | None,
-) -> str | None:
+    inside: str | None,
+) -> tuple[str | None, _Seen | None]:
     """Record one call, or say why not. `None` is *recorded*.
 
     Nothing here may raise: each stage is its own reason, and digline's own
     imports failing is `unexpected: <type>`. The reasons name a stage and
     never quote a value, because a value is the application's payload.
+
+    The second value is what the call adds to its episode, read once the
+    reply is: a call the writer then failed to file still happened, and its
+    step stays in the episode's trajectory.
     """
     try:
         from digline.core.recording import Recording, setup_digest_of
+        from digline.core.run import record_trajectory
         from digline.run.driver import Response, recorded
         from digline.store.file_store import FileResultStore, RecordingWriter
     except Exception as exc:  # noqa: BLE001 — the rule of this module
-        return f"unexpected: {type(exc).__name__}"
+        return f"unexpected: {type(exc).__name__}", None
 
     stage = "map"
     try:
@@ -257,15 +395,309 @@ def _record(
         case, setup = mapped.split(request)
         if variables is not None:
             if not isinstance(variables, Mapping):
-                return "digline_vars is not a mapping"
+                return "digline_vars is not a mapping", None
             case = {**case, "vars": dict(cast(Mapping[str, object], variables))}
         completion = mapped.completion(reply, request)
+        metadata = completion.as_metadata()
         response = recorded(
             Response(
                 output=completion.text,
                 latency_ms=elapsed_ms,
                 usage=completion.usage,
-                metadata=completion.as_metadata(),
+                metadata=metadata,
+            )
+        )
+
+        stage = "not JSON"
+        digest = setup_digest_of(setup)
+        seen = _Seen(
+            digest, completion.text, completion.finish, record_trajectory(metadata)
+        )
+    except Exception:  # noqa: BLE001 — the rule of this module
+        return stage, None
+
+    try:
+        stage = "tenant"
+        tenant = state.tenant() if callable(state.tenant) else state.tenant
+        if not isinstance(tenant, str) or not tenant:  # pyright: ignore[reportUnnecessaryIsInstance]
+            return stage, seen
+
+        stage = "not JSON"
+        recording = Recording(
+            source_tenant=tenant,
+            app=state.app,
+            suite=suite if isinstance(suite, str) and suite else UNASSIGNED,
+            case=case,
+            setup=setup,
+            setup_digest=digest,
+            response=response,
+            episode=inside,
+            call_site=site,
+            # Read as the file is written: whether an episode is open in this
+            # process now is the one moment the definition can be known.
+            orphan=inside is None and bool(_OPEN),
+        )
+
+        stage = "writer"
+        _write(state, recording, RecordingWriter, FileResultStore)
+    except Exception:  # noqa: BLE001 — the rule of this module
+        return stage, seen
+    return None, seen
+
+
+def _write(state: _State, recording: Any, writer: Any, store: Any) -> None:
+    with state.lock:
+        if state.writer is None:
+            state.writer = writer(store(state.root))
+    cast("RecordingWriter", state.writer).write(recording)
+
+
+class attach:  # noqa: N801 — read as a function at the call site, like `episode`
+    """Put the calls made inside it in the episode `id`. (ADR 0058 §5)
+
+    For a thread or a process that does not inherit the context the episode
+    was opened in: a `ThreadPoolExecutor` worker, a `threading.Thread`, a
+    process. The id is `ep.id`, passed by the application.
+
+        pool.submit(lambda: run_in(attach(ep.id)))
+
+    `None`, which is `ep.id` while the recorder is off, attaches nothing. The
+    calls are recorded with the id whether or not the episode is open in this
+    process; where it is not, the import joins them by the id.
+    """
+
+    __slots__ = ("_id", "_token")
+
+    def __init__(self, id: str | None) -> None:  # noqa: A002 — the episode's id
+        self._id = id if isinstance(id, str) and id else None
+        self._token: Token[str | None] | None = None
+
+    def __enter__(self) -> None:
+        if self._id is not None:
+            self._token = _CURRENT.set(self._id)
+
+    def __exit__(self, *exc: object) -> None:
+        _reset(self._token)
+
+
+def _reset(token: Token[str | None] | None) -> None:
+    """Undo a `set`, where it can be undone: a context left in another
+    context than the one it entered cannot be, and the application never
+    hears of it."""
+    if token is None:
+        return
+    with contextlib.suppress(ValueError):
+        _CURRENT.reset(token)
+
+
+class Episode:
+    """One turn of an agent, or one pass through a chain, recorded as one
+    recording with its calls attached. (ADR 0058 §5, §8, §9)
+
+    Made by `episode`. The recording is written when the `with` block ends:
+
+    - **case**: the `case=` given, the message that started the turn;
+    - **setup**: the `setup=` given, or else the distinct setup digests of its
+      direct children, sorted, and the repository's `git_commit`, read as a
+      run reads it (`digline.host.environment.git_commit`); `setup_digest` is
+      the digest of that. Sorted and distinct, because a turn that loops once
+      more through the same setup has not changed its setup;
+    - **response**: the output given with `output()`; if the application gave
+      none, **the text of the last call to a model made inside it**; with
+      neither, the episode is not recorded and counts `no output`, because a
+      recorded response has a text and an empty one would be an answer
+      nobody gave. Its `tool_calls` are its children's, in order, and `None`
+      if any child's plugin said nothing about tools;
+    - **steps**: one `model` step per call, with the finish its reply
+      reported, followed by a `tool` step per tool call it asked for. A tool's
+      result is not visible to the wrapper — it is the application's, sent in
+      the next request — so a tool step's result is absent and says
+      `not_reported`, never filled in. A nested episode's steps are spliced in
+      where it closed.
+
+    Over `MAX_RECORDED_CHARS`, whole or nothing as a run's recorded response
+    is: the response says `oversize` and the steps, which carry the calls'
+    arguments, are written empty.
+
+    **The episode never fails the application.** An exception raised inside
+    the block propagates as it was raised; the recording is still written,
+    with what was seen until then, and `interrupted: true`. What goes wrong
+    while recording is counted on the wrapped client, by reason.
+
+    Off, it is an empty context: `id` is `None`, `output()` keeps nothing, and
+    nothing is imported.
+    """
+
+    __slots__ = (
+        "_case",
+        "_collector",
+        "_output",
+        "_parent",
+        "_setup",
+        "_site",
+        "_started",
+        "_state",
+        "_suite",
+        "_token",
+        "id",
+    )
+
+    def __init__(
+        self,
+        state: _State,
+        suite: str | None,
+        case: Mapping[str, object],
+        setup: Mapping[str, object] | None,
+        site: str | None,
+    ) -> None:
+        self._state = state
+        self._suite = suite
+        self._case = case
+        self._setup = setup
+        self._site = site
+        #: The episode's id: 32 hexadecimal characters, random, made when the
+        #: block is entered. `None` while the recorder is off.
+        self.id: str | None = None
+        self._output: tuple[object] | None = None
+        self._parent: str | None = None
+        self._collector: _Collector | None = None
+        self._token: Token[str | None] | None = None
+        self._started = 0.0
+
+    def output(self, result: object) -> None:
+        """The turn's final output, as the application gives it. The last one
+        given is the one recorded."""
+        if self._state.on:
+            self._output = (result,)
+
+    def __enter__(self) -> Episode:
+        if not self._state.on:
+            return self
+        self.id = os.urandom(16).hex()
+        self._parent = _CURRENT.get()
+        self._collector = _Collector()
+        with _OPEN_LOCK:
+            _OPEN[self.id] = self._collector
+        self._token = _CURRENT.set(self.id)
+        self._started = perf_counter()
+        return self
+
+    def __exit__(
+        self,
+        kind: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if self.id is None or self._collector is None:
+            return
+        elapsed_ms = (perf_counter() - self._started) * 1000.0
+        _reset(self._token)
+        with _OPEN_LOCK:
+            _OPEN.pop(self.id, None)
+        self._state.count(
+            _record_episode(
+                self, self._collector, elapsed_ms, interrupted=kind is not None
+            )
+        )
+        if self._parent is not None:
+            parent = _OPEN.get(self._parent)
+            if parent is not None:
+                parent.add(self._collector)
+
+
+def episode(
+    client: object,
+    *,
+    case: Mapping[str, object],
+    suite: str | None = None,
+    setup: Mapping[str, object] | None = None,
+) -> Episode:
+    """An episode whose recording is filed as `client`'s calls are: the same
+    app, tenant and root. `client` is a client `wrap` returned, and any other
+    object is refused, by name, recording or not. `suite=` names the suite; an
+    episode that names none is `_unassigned`, with its call site (§2)."""
+    if not isinstance(client, RecordedClient):
+        raise RecorderStartError(
+            "episode() takes a client wrap() returned, so that the episode is "
+            "filed under its app and tenant"
+        )
+    state: _State = client._digline_state  # pyright: ignore[reportPrivateUsage]
+    site = _call_site() if state.on and suite is None else None
+    return Episode(state, suite, case, setup, site)
+
+
+def _record_episode(
+    ep: Episode, collector: _Collector, elapsed_ms: float, *, interrupted: bool
+) -> str | None:
+    """Write an episode's recording, or say why not. `_record`'s rule: nothing
+    here raises, and each stage is its reason."""
+    stage = "unexpected"
+    try:
+        from digline.core.recording import RecordedStep, Recording, setup_digest_of
+        from digline.core.run import (
+            MAX_RECORDED_CHARS,
+            RecordedResponse,
+            record_output,
+            trajectory_chars,
+        )
+        from digline.store.file_store import FileResultStore, RecordingWriter
+
+        state = ep._state  # pyright: ignore[reportPrivateUsage]
+        calls = collector.calls()
+
+        stage = "setup"
+        given = ep._setup  # pyright: ignore[reportPrivateUsage]
+        if given is not None:
+            setup = dict(given)
+        else:
+            from digline.host.environment import git_commit
+
+            setup: dict[str, object] = {"child_setups": sorted(collector.digests())}
+            commit = git_commit(state.root)
+            if commit is not None:
+                setup["git_commit"] = commit
+
+        stage = "not JSON"
+        digest = setup_digest_of(setup)
+        collector.digest = digest
+
+        stage = "output"
+        kept = ep._output  # pyright: ignore[reportPrivateUsage]
+        if kept is not None:
+            text, kind = record_output(cast(Any, kept[0]))
+        elif calls:
+            text, kind = calls[-1].text, "text"
+        else:
+            # A recorded response always has its text or says why not, and
+            # an empty string would be an answer nobody gave.
+            return "no output"
+
+        steps: list[RecordedStep] = []
+        trajectory: list[RecordedToolCall] | None = []
+        for seen in calls:
+            steps.append(
+                RecordedStep(index=len(steps), actor="model", finish=seen.finish)
+            )
+            if seen.calls is None:
+                # A call whose plugin said nothing about tools: the episode
+                # cannot say what was called either.
+                trajectory = None
+                continue
+            for call in seen.calls:
+                steps.append(RecordedStep(index=len(steps), actor="tool", call=call))
+                if trajectory is not None:
+                    trajectory.append(call)
+        oversize = len(text) > MAX_RECORDED_CHARS or (
+            trajectory_chars(trajectory or ()) > MAX_RECORDED_CHARS
+        )
+        response = (
+            RecordedResponse(oversize=True, latency_ms=elapsed_ms)
+            if oversize
+            else RecordedResponse(
+                output=text,
+                kind=kind,
+                latency_ms=elapsed_ms,
+                tool_calls=None if trajectory is None else tuple(trajectory),
             )
         )
 
@@ -275,21 +707,26 @@ def _record(
             return stage
 
         stage = "not JSON"
+        suite = ep._suite  # pyright: ignore[reportPrivateUsage]
         recording = Recording(
             source_tenant=tenant,
             app=state.app,
             suite=suite if isinstance(suite, str) and suite else UNASSIGNED,
-            case=case,
+            case=ep._case,  # pyright: ignore[reportPrivateUsage]
             setup=setup,
-            setup_digest=setup_digest_of(setup),
+            setup_digest=digest,
             response=response,
-            call_site=site,
+            episode=ep._parent,  # pyright: ignore[reportPrivateUsage]
+            call_site=ep._site,  # pyright: ignore[reportPrivateUsage]
+            # Over the ceiling, whole or nothing: the steps carry the calls'
+            # arguments, so they go with the text (ADR 0015 §3).
+            steps=() if oversize else tuple(steps),
+            interrupted=interrupted,
+            unrecorded_children=collector.children_unrecorded(),
         )
 
         stage = "writer"
-        if state.writer is None:
-            state.writer = RecordingWriter(FileResultStore(state.root))
-        state.writer.write(recording)
+        _write(state, recording, RecordingWriter, FileResultStore)
     except Exception:  # noqa: BLE001 — the rule of this module
         return stage
     return None

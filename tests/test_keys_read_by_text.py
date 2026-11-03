@@ -133,6 +133,18 @@ KNOWN: dict[Use, tuple[int, str]] = {
         1,
         "a key the digest writes into its own input; it reads no configuration",
     ),
+    # A step's actor, the word ADR 0058 §9 names: the same text as the
+    # configuration key, and not a key. A recording is payload and is never
+    # projected, so no token can stand where the word is read.
+    ("digline.core.recording", "<module>", "model"): (
+        2,
+        "the `Actor` type and `_ACTORS`, a step's actor words (ADR 0058 §9)",
+    ),
+    ("digline.core.recording", "RecordedStep.__post_init__", "model"): (
+        1,
+        "a model step carries no tool call: the actor word, read on a "
+        "recording, which is never projected (ADR 0058 §9)",
+    ),
 }
 
 
