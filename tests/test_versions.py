@@ -1327,6 +1327,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "which a replay of an honest zero-call run stopped being refused",
     },
     "packages/digline-anthropic/src/digline_anthropic/client.py": {
+        "2.3.0": "not a digline version: the `anthropic` the lock pins, read on "
+        "2026-11-03, whose `usage.inference_geo` is `Optional[str]` and names no "
+        'value, so `"not_available"` stands on an observation and not on the SDK',
         "0.40.0": "not a digline version: the oldest `anthropic` this package "
         "admits, whose `Usage` has two fields and no `output_tokens_details`. "
         "Installed and read on 2026-09-20, so the old-SDK branch of `_thinking` "

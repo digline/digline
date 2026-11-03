@@ -6,6 +6,32 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **A judge says whether `spent_usd` is the whole of its cost**:
+  `JudgeBase.every_cost_known`, new and additive. It is `False` from the
+  first call whose usage was not read or whose cost could not be computed,
+  read off `uncounted_calls` and `unpriced_calls` as a run's judge line reads
+  them, and stays `False` for the life of the judge. Such a call adds nothing
+  to `spent_usd`, so a `0.0` could be a judge that cost nothing or one none
+  of whose calls could be priced, and outside a run nothing told the two
+  apart (#569; reported by the brief project). `spent_usd` does not change.
+
+## digline-anthropic — unreleased
+
+- **A reply that reports `inference_geo: "not_available"` is priced at the
+  standard rate** (reported by the brief project, on digline-anthropic 0.7.0
+  with digline 1.0.3). A model that does not take the `inference_geo`
+  parameter, such as claude-haiku-4-5, reports that string, and Anthropic's
+  data-residency page says standard pricing applies to such models. 0.7.0
+  left every such call unpriced: in a suite every `cost_budget` errored, and
+  a judge's `spent_usd` stayed at 0.0 with the calls counted in
+  `unpriced_calls`. 0.6.1 refused the reply, and 0.6.0, before the
+  geography was read, priced it. `GEO_MULTIPLIERS` now has `"not_available"`
+  at 1.0, and `unpriced_of` still says why for any other geography with no
+  rate. ADR 0004 §8.9's first criterion takes a dated note: its example was
+  this string.
+
 ## 1.0.3 — 2026-10-31
 
 digline **1.0.3**. **A patch, by the enumeration in `RELEASING.md`, *Choosing
