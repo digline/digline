@@ -1867,7 +1867,13 @@ PARSES: dict[str, tuple[str, ...]] = {
     "explain": ("--suite", "s.py", "--run", "k"),
     "log": ("--suite", "s.py"),
     "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
+    "record": ("status",),
 }
+
+#: The subcommands that take no `--suite`: `record` addresses a tenant's
+#: recorder switch, which belongs to no suite. The two tests about `--suite`
+#: itself skip them; every other test here takes them.
+NO_SUITE: frozenset[str] = frozenset({"record"})
 
 #: The subcommands that take a choice, and the option that carries it. The
 #: others have none, so a wrong choice cannot be asked of them.
@@ -1912,7 +1918,7 @@ def test_an_unknown_flag_exits_64(
     )
 
 
-@pytest.mark.parametrize("command", sorted(PARSES))
+@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE))
 def test_a_missing_value_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1923,7 +1929,7 @@ def test_a_missing_value_exits_64(
     )
 
 
-@pytest.mark.parametrize("command", sorted(PARSES))
+@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE))
 def test_a_missing_required_flag_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2017,11 +2023,15 @@ def two_values(action: argparse.Action) -> tuple[str, str]:
         return str(first), str(second)
     if action.type is int:
         return "1", "2"
+    if action.type is float:
+        return "0.5", "0.25"
     return "first.py", "second.py"
 
 
 def stored(action: argparse.Action, value: str) -> object:
     """The value as the namespace holds it, after `type=`."""
+    if action.type is float:
+        return float(value)
     return int(value) if action.type is int else value
 
 
@@ -2238,5 +2248,4 @@ def test_an_option_given_once_is_read_as_before(
     args = build_parser().parse_args(
         [command, *without(PARSES[command], option), option, value]
     )
-    expected: object = int(value) if action.type is int else value
-    assert getattr(args, action.dest) == expected
+    assert getattr(args, action.dest) == stored(action, value)

@@ -237,9 +237,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
     ),
     "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
         "the recording's document, its place in the layout, the wrapper of "
-        "a single synchronous call and the episode with `RecordedStep` exist; "
-        "`recorder.toml` read or written, the ceiling, the status command and "
-        "the import are in no file. Meant for 1.1"
+        "a single synchronous call, the episode with `RecordedStep`, the "
+        "switch file with its refusals, interval, sample and ceiling, and "
+        "`digline record` exist; the import is in no file. Meant for 1.1"
     ),
 }
 

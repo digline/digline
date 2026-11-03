@@ -139,6 +139,14 @@ def off(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """The recorder's clock, moved by hand: `clock[0] += 60` is a minute."""
+    now = [1000.0]
+    monkeypatch.setattr(recorder, "_clock", lambda: now[0])
+    return now
+
+
+@pytest.fixture
 def commit(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
     """The commit `git_commit` answers, settable by a test: the reading the
     episode does, replaced where it is looked up."""
@@ -355,7 +363,7 @@ def test_a_setup_given_by_hand_is_the_one_digested(tmp_path: Path) -> None:
 
 @pytest.mark.usefixtures("on")
 def test_the_same_setup_and_children_digest_alike_and_a_commit_moves_it(
-    tmp_path: Path, commit: list[str | None]
+    tmp_path: Path, commit: list[str | None], clock: list[float]
 ) -> None:
     client = wrapped(tmp_path, LOOKUP, ANSWER, LOOKUP, ANSWER, LOOKUP, ANSWER)
     for suite in ("first", "second"):
@@ -363,6 +371,9 @@ def test_the_same_setup_and_children_digest_alike_and_a_commit_moves_it(
             ask(client)
             ask(client)
     commit[0] = "b" * 40
+    # The commit is read once until the next look at the switch; past the
+    # interval, it is read again.
+    clock[0] += recorder.DEFAULT_INTERVAL + 1
     with episode(client, suite="third", case=CASE):
         ask(client)
         ask(client)

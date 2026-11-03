@@ -12,8 +12,11 @@
       <tenant>/recordings/<process>/*.json ignored    <- the calls an application
                                                          made, one subdirectory per
                                                          process (ADR 0058)
-      <tenant>/recorder.toml               ignored    <- the recorder's switch; named,
-                                                         not yet read or written
+      <tenant>/recordings/ceiling-reached.json
+                                           ignored    <- the recorder stopped at the
+                                                         tenant's ceiling
+      <tenant>/recorder.toml               ignored    <- the recorder's switch, written
+                                                         by `digline record`
       .gitignore                           generated, contains "*/runs/",
                                            "*/name-table/", "*/recordings/" and
                                            "*/recorder.toml"
@@ -169,10 +172,16 @@ NAME_TABLE_DIRNAME = "name-table"
 #: by git, like `runs/`: a recording is payload. (ADR 0058 §4, §5)
 RECORDINGS_DIRNAME = "recordings"
 
-#: The file that switches the recorder on for a tenant. Named here so that the
-#: generated `.gitignore` keeps it out of git; nothing in this version reads or
-#: writes it. (ADR 0058 §10)
+#: The file that switches the recorder on for a tenant: written by `digline
+#: record`, read by the recorder, and kept out of git by the generated
+#: `.gitignore`. (ADR 0058 §10)
 RECORDER_FILENAME = "recorder.toml"
+
+#: The marker the recorder leaves in a tenant's `recordings/` when it stops at
+#: the ceiling, for `digline record status` to read from another process. It
+#: is not a recording: it sits beside the process subdirectories, never in
+#: one. (ADR 0058 §10)
+CEILING_MARKER_FILENAME = "ceiling-reached.json"
 
 
 def _check_name(value: str, kind: str) -> str:
@@ -496,9 +505,14 @@ class FileResultStore:
         return self.tenant_dir(tenant) / RECORDINGS_DIRNAME
 
     def recorder_path(self, tenant: str) -> Path:
-        """`.digline/<tenant>/recorder.toml`, the recorder's switch. Named and
-        ignored by git; nothing reads or writes it yet. (ADR 0058 §10)"""
+        """`.digline/<tenant>/recorder.toml`, the recorder's switch. Ignored by
+        git. (ADR 0058 §10)"""
         return self.tenant_dir(tenant) / RECORDER_FILENAME
+
+    def ceiling_marker_path(self, tenant: str) -> Path:
+        """`.digline/<tenant>/recordings/ceiling-reached.json`, where the
+        recorder says it stopped at the tenant's ceiling. (ADR 0058 §10)"""
+        return self.recordings_dir(tenant) / CEILING_MARKER_FILENAME
 
     def read_recording(self, path: Path) -> Recording:
         """One recording, read back from inside this store, or a refusal by
