@@ -45,6 +45,14 @@ notes under them are this file, verbatim.
   assertion and that it samples at least twice. `digline run`, `rejudge` and
   `execute()` refuse a suite that declares one before anything is called or
   written, until schema 23 gives the run document its key (ADR 0059 §1).
+- **`digline record import` writes reviewed answers**, by `--good ID` and
+  `--bad ID` with a mandatory `--by NAME`, in place of `--positive` and
+  `--negative`, which never shipped. An id names an answer to an input, and
+  the listing groups the answers by the shape of their output, counts each
+  group and ranks nothing. The source declares its `check`, and a `suite.toml`
+  declares it as a `[capture]` table, with `cases` an array of files.
+  `Suite.deterministic_output` makes a yes also write an `expected`. The
+  declaration is printed at every use (ADR 0059 §2–§4).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 
