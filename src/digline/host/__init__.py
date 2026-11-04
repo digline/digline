@@ -24,6 +24,7 @@ target stays allowed.
 
 from digline.host.artifacts import read_artifacts, read_pinned
 from digline.host.authorship import to_withhold, written_by_digline
+from digline.host.comparing import record_compare
 from digline.host.environment import (
     DIRTY_SUFFIX,
     ProcessState,
@@ -123,6 +124,7 @@ __all__ = [
     "import_elect",
     "import_listing",
     "imported_since",
+    "record_compare",
     "refuse_data_suite",
     "git_commit",
     "history",

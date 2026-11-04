@@ -95,6 +95,15 @@ from digline.wire.contract import (  # pyright: ignore[reportPrivateUsage]
     _OneOf,  # pyright: ignore[reportPrivateUsage]
     _Type,  # pyright: ignore[reportPrivateUsage]
 )
+from digline.wire.record_compare import (
+    ComparedAnswer,
+    ComparedCase,
+    ComparedSetup,
+    RecordComparison,
+    SetupKey,
+    SetupValue,
+    record_compare_json,
+)
 
 CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
@@ -612,6 +621,57 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
                 run_metadata=frozenset({"model"}),
                 artifact_body=True,
             ),
+        ),
+    )
+
+    # `record compare`: every filter given and two setups side by side, then
+    # none, which is where `pair` and `setup_keys` are `null`.
+    answer = ComparedAnswer(
+        digest="9f8e7d6c", text="text", first_at=CREATED, last_at=LATER, times=2
+    )
+    compared = RecordComparison(
+        tenant="acme",
+        suite="qa",
+        case="cap-0123456789abcdef",
+        since=CREATED,
+        setups=("a" * 64, "b" * 64),
+        pair=("a" * 64, "b" * 64),
+        setup_keys=(
+            SetupKey("system", SetupValue("x", 1, False), SetupValue("y", 1, False)),
+        ),
+        same_keys=1,
+        cases=(
+            ComparedCase(
+                id="cap-0123456789abcdef",
+                vars={"q": "x"},
+                kind="call",
+                setups=(
+                    ComparedSetup(setup="a" * 64, answers=(answer,)),
+                    ComparedSetup(
+                        setup="b" * 64,
+                        answers=(
+                            dataclasses.replace(answer, first_at=None, last_at=None),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        recordings=3,
+        orphans=0,
+        detached=0,
+        interrupted=0,
+        oversize=0,
+        unreadable=0,
+        undated=1,
+    )
+    yield "record_compare_json", "record_compare", record_compare_json(compared)
+    yield (
+        "record_compare_json unfiltered",
+        "record_compare",
+        record_compare_json(
+            dataclasses.replace(
+                compared, case=None, since=None, pair=None, setup_keys=None
+            )
         ),
     )
 

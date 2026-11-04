@@ -75,6 +75,7 @@ from digline.host import (
     read_pinned,
     read_run,
     record,
+    record_compare,
     recorder_status,
     refuse_data_suite,
     refuse_unreadable_baseline,
@@ -129,6 +130,7 @@ from digline.wire import (
     EXIT_USAGE,
     EXIT_WORSE,
     OUTPUT_VERSION,
+    SetupValue,
     SuiteRecordings,
     TenantRecorder,
     ahead_note,
@@ -137,6 +139,7 @@ from digline.wire import (
     exit_code,
     explain_json,
     log_json,
+    record_compare_json,
     recorder_status_json,
     run_json,
     usage_lines,
@@ -1286,40 +1289,43 @@ def cmd_report(args: argparse.Namespace) -> int:
 
 
 def cmd_record(args: argparse.Namespace) -> int:
-    """`digline record on|off|status|import`: the recorder's switch, per
-    tenant, what it has kept, and the cases a person elects from it.
-    (ADR 0058 §4, §10)
+    """`digline record on|off|status|import|compare`: the recorder's switch,
+    per tenant, what it has kept, the cases a person elects from it, and a
+    suite's answers by setup. (ADR 0058 §4, §10)
 
     One subcommand with its action as an argument, so it reads like every
     other: the options that belong to one action are refused, by name, with
     another, rather than ignored.
     """
-    belongs = {
-        "production": "on",
-        "sample": "on",
-        "redact": "on",
-        "ceiling": "on",
-        "interval": "on",
-        "json": "status",
-        "positive": "import",
-        "negative": "import",
+    belongs: dict[str, tuple[str, ...]] = {
+        "production": ("on",),
+        "sample": ("on",),
+        "redact": ("on",),
+        "ceiling": ("on",),
+        "interval": ("on",),
+        "json": ("status", "compare"),
+        "positive": ("import",),
+        "negative": ("import",),
+        "suite": ("import", "status", "compare"),
+        "case": ("compare",),
+        "since": ("compare",),
+        "setup": ("compare",),
+        "show_setup": ("compare",),
     }
-    for option, action in belongs.items():
+    for option, actions in belongs.items():
         given = getattr(args, option)
-        if given not in (None, False, []) and args.action != action:
+        if given not in (None, False, []) and args.action not in actions:
+            owners = " and ".join(f"`digline record {a}`" for a in actions)
             raise UsageError(
-                f"--{option} belongs to `digline record {action}`, not "
+                f"--{option.replace('_', '-')} belongs to {owners}, not "
                 f"`digline record {args.action}`"
             )
-    if args.suite is not None and args.action not in ("import", "status"):
-        raise UsageError(
-            f"--suite belongs to `digline record import` and `digline record "
-            f"status`, not `digline record {args.action}`"
-        )
     if args.action == "status":
         return cmd_record_status(args)
     if args.action == "import":
         return cmd_record_import(args)
+    if args.action == "compare":
+        return cmd_record_compare(args)
     if args.tenant is None:
         raise UsageError(f"`digline record {args.action}` needs --tenant")
     if args.action == "off":
@@ -1457,6 +1463,113 @@ def cmd_record_import(args: argparse.Namespace) -> int:
             "--negative ID. A case not named stays out"
         )
     return EXIT_OK
+
+
+def cmd_record_compare(args: argparse.Namespace) -> int:
+    """A suite's recorded answers, by case and by setup: shown, never judged,
+    and nothing written. The layout of `record_compare`'s structure, and
+    nothing else: what is read and what is refused is the host's."""
+    if args.tenant is None or args.suite is None:
+        raise UsageError("`digline record compare` needs --tenant and --suite")
+    suite, _ = load_suite(args.suite, root=Path(args.root))
+    found = record_compare(
+        Path(args.root),
+        suite,
+        args.tenant,
+        case=args.case,
+        since=args.since,
+        setups=args.setup,
+        show_setup=args.show_setup,
+    )
+    if args.json:
+        emit(
+            json.dumps(
+                record_compare_json(found),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+    short = [setup[:8] for setup in found.setups]
+    say(
+        f"tenant {found.tenant!r} · suite {found.suite} · "
+        f"{_many(found.recordings, 'recording')} · "
+        f"{_many(len(short), 'setup')}" + (f": {', '.join(short)}" if short else "")
+    )
+    kept = [
+        part
+        for part in (
+            None if found.case is None else f"case {found.case}",
+            None if found.since is None else f"since {found.since}",
+        )
+        if part is not None
+    ]
+    if kept:
+        say(f"  only: {', '.join(kept)}")
+    if found.pair is not None:
+        a, b = (setup[:8] for setup in found.pair)
+        say(f"  side by side: A {a}, B {b}")
+    if found.setup_keys is not None:
+        say(
+            f"  keys the two setups differ on ({found.same_keys} the same):"
+            if found.setup_keys
+            else f"  the two setups hold the same {found.same_keys} keys"
+        )
+        for key in found.setup_keys:
+            sides = [
+                f"{side} {_setup_value(value)}"
+                if value is not None
+                else f"not in {side}"
+                for side, value in (("A", key.a), ("B", key.b))
+            ]
+            say(f"    {key.key}: {' · '.join(sides)}")
+    if not found.cases:
+        say(
+            f"nothing recorded for suite {found.suite} in tenant {found.tenant!r}"
+            + (f" ({', '.join(kept)})" if kept else "")
+        )
+    for case in found.cases:
+        say("")
+        say(f"case {case.id} · {case.kind}")
+        say(f"  input:  {json.dumps(case.vars, ensure_ascii=False, sort_keys=True)}")
+        for setup in case.setups:
+            side = ""
+            if found.pair is not None:
+                side = "A " if setup.setup == found.pair[0] else "B "
+            say(f"  setup {side}{setup.setup[:8]}")
+            if not setup.answers:
+                say("    nothing recorded")
+            for answer in setup.answers:
+                # Equal answers one after the other are one line, counted:
+                # never hidden, and the dates say when the run began and ended.
+                times = (
+                    f"  ×{answer.times}, through {answer.last_at or 'undated'}"
+                    if answer.times > 1
+                    else ""
+                )
+                say(
+                    f"    {answer.first_at or 'undated'}  {answer.digest}{times}: "
+                    f"{answer.text}"
+                )
+    say("")
+    left = (
+        f"not shown: {found.orphans} orphans, {found.detached} calls whose "
+        f"episode is not among the files, {found.interrupted} interrupted "
+        f"episodes, {found.oversize} over the ceiling of a recording, "
+        f"{found.unreadable} files that are not readable recordings"
+    )
+    if found.since is not None:
+        left += f", {found.undated} with no recorded_at"
+    say(f"{_many(len(found.cases), 'case')}; {left}")
+    return EXIT_OK
+
+
+def _setup_value(value: SetupValue) -> str:
+    """A setup's value as the view shows it: its first line, quoted, and its
+    length where that line is not the whole of it."""
+    shown = json.dumps(value.preview, ensure_ascii=False)
+    return f"{shown}… ({value.chars} characters)" if value.clipped else shown
 
 
 def cmd_record_status(args: argparse.Namespace) -> int:
@@ -1984,11 +2097,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec_p.add_argument(
         "action",
-        choices=("on", "off", "status", "import"),
+        choices=("on", "off", "status", "import", "compare"),
         help=(
             "on and off write .digline/<tenant>/recorder.toml; status reads it "
             "and the tenant's recordings, and is never a gate; import lists a "
-            "suite's recorded cases, or writes the ones named"
+            "suite's recorded cases, or writes the ones named; compare shows a "
+            "suite's recorded answers by case and by setup, and writes nothing"
         ),
     )
     rec_p.add_argument(
@@ -2022,14 +2136,44 @@ def build_parser() -> argparse.ArgumentParser:
     rec_p.add_argument(
         "--json",
         action="store_true",
-        help="status only: emit the status the lines are rendered from",
+        help=(
+            "status and compare: emit what the lines are rendered from; for "
+            "compare, digests and never the recorded text"
+        ),
     )
     rec_p.add_argument(
         "--suite",
         help=(
-            "import and status: path/to/suite.py[:attribute], a suite.py that "
-            "declares Suite.capture"
+            "import, status and compare: path/to/suite.py[:attribute]; for "
+            "import and status, a suite.py that declares Suite.capture"
         ),
+    )
+    rec_p.add_argument(
+        "--case",
+        metavar="ID",
+        help="compare only: one case, by the id compare and import print",
+    )
+    rec_p.add_argument(
+        "--since",
+        metavar="WHEN",
+        help=(
+            "compare only: the recordings made at or after an instant, written "
+            "as recorded_at is, with its offset"
+        ),
+    )
+    rec_p.add_argument(
+        "--setup",
+        nargs=2,
+        metavar=("A", "B"),
+        help=(
+            "compare only: two setups, by the eight characters compare prints, "
+            "shown side by side"
+        ),
+    )
+    rec_p.add_argument(
+        "--show-setup",
+        action="store_true",
+        help="compare only, with --setup: the keys the two setups differ on",
     )
     rec_p.add_argument(
         "--positive",

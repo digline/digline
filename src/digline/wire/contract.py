@@ -1401,12 +1401,86 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
     },
 }
 
+
 #: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
 #: that is a bump. The keys added under 2, 3 and 4 are in `_BASE`, each beside
 #: the provenance its entry carried (#669, #678, and the bump to 5).
-_ADDED: tuple[_AddedKey, ...] = ()
+def _shape_added(
+    shape: str, keys: Mapping[str, _Key], ref: str
+) -> tuple[_AddedKey, ...]:
+    """A shape added whole: one entry per key, all under one `ref`."""
+    return tuple(_AddedKey(shape, key, value, ref) for key, value in keys.items())
+
+
+#: `digline record compare --json`, a document of its own: digests, dates and
+#: counts, and never a recorded word, which stays in the terminal's text
+#: (fixed decision 9). `pair` and `setup_keys` are `null` where `--setup` and
+#: `--show-setup` were not given, `case` and `since` where the filter was not.
+_RECORD_COMPARE = "ADR 0058; digline record compare, piece D4 of 1.1"
+
+_ADDED: tuple[_AddedKey, ...] = (
+    *_shape_added(
+        "record_compare",
+        {
+            "output_version": _INT,
+            "tenant": _STR,
+            "suite": _STR,
+            "case": _STR_OR_NULL,
+            "since": _STR_OR_NULL,
+            "setups": _STRINGS,
+            "pair": _k(_arr("string"), "null"),
+            "setup_keys": _k(_Obj("record_compare.setup_keys"), "null"),
+            "cases": _k(_arr(_Obj("record_compare.case"))),
+            "recordings": _INT,
+            "not_shown": _k(_Obj("record_compare.not_shown")),
+        },
+        _RECORD_COMPARE,
+    ),
+    *_shape_added(
+        "record_compare.setup_keys",
+        {"same": _INT, "keys": _k(_arr(_Obj("record_compare.key")))},
+        _RECORD_COMPARE,
+    ),
+    *_shape_added("record_compare.key", {"key": _STR, "side": _STR}, _RECORD_COMPARE),
+    *_shape_added(
+        "record_compare.case",
+        {
+            "id": _STR,
+            "kind": _STR,
+            "setups": _k(_arr(_Obj("record_compare.setup"))),
+        },
+        _RECORD_COMPARE,
+    ),
+    *_shape_added(
+        "record_compare.setup",
+        {"setup": _STR, "answers": _k(_arr(_Obj("record_compare.answer")))},
+        _RECORD_COMPARE,
+    ),
+    *_shape_added(
+        "record_compare.answer",
+        {
+            "digest": _STR,
+            "first_at": _STR_OR_NULL,
+            "last_at": _STR_OR_NULL,
+            "times": _INT,
+        },
+        _RECORD_COMPARE,
+    ),
+    *_shape_added(
+        "record_compare.not_shown",
+        {
+            "orphans": _INT,
+            "detached": _INT,
+            "interrupted": _INT,
+            "oversize": _INT,
+            "unreadable": _INT,
+            "undated": _INT,
+        },
+        _RECORD_COMPARE,
+    ),
+)
 
 
 def _derive(
