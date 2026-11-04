@@ -529,7 +529,7 @@ def test_the_listing_writes_nothing_and_says_the_declaration_first(
     assert tree() == before
     lines = capsys.readouterr().out.splitlines()
     assert lines[0] == (
-        f"tenant 'acme' · suite triage · writes to {root / 'captured.json'} · "
+        "tenant 'acme' · suite triage · writes to captured.json · "
         "repository private · check llm_rubric"
     )
     text = "\n".join(lines)
@@ -764,7 +764,7 @@ def test_the_command_prints_the_declaration_before_each_case_written(
     assert main(argv(root, "--good", ID_C, "--bad", ID_E, "--by", "Ada")) == 0
     lines = capsys.readouterr().out.splitlines()
     declaration = (
-        f"tenant 'acme' · suite triage · writes to {root / 'captured.json'} · "
+        "tenant 'acme' · suite triage · writes to captured.json · "
         "repository private · check llm_rubric"
     )
     assert lines[:4] == [
@@ -840,3 +840,21 @@ def test_the_import_options_belong_to_import(
 ) -> None:
     assert main([*command, "--root", str(root)]) == EXIT_USAGE
     assert "belongs to" in capsys.readouterr().err
+
+
+def test_both_forms_say_the_cases_file_from_the_repository(
+    root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A `suite.py` resolves its capture file from its own path and a
+    `suite.toml` from the one it was given, so the declaration said one whole
+    and the other as typed. Loaded as the command loads them, from the store's
+    directory with relative paths, both say it from the repository."""
+    toml_suite(root)
+    monkeypatch.chdir(root)
+    shown: list[str] = []
+    for name in ("suite.py", "suite.toml"):
+        suite, how = load_suite(name, root=Path("."))
+        found = import_listing(Path("."), suite, how.module, "acme")
+        shown.append(found.declaration.line())
+    # The TOML template declares no check, so the lines differ there alone.
+    assert all("· writes to captured.json ·" in line for line in shown), shown

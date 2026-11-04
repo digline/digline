@@ -148,6 +148,16 @@ POLICY = (
     "form-action 'self'; frame-ancestors 'none'"
 )
 
+#: The `Referrer-Policy` every response carries. `same-origin`, measured
+#: 2026-11-04 in HeadlessChrome 156 on a same-origin form POST: under
+#: `no-referrer` the browser sends `Origin: null`, which the origin check
+#: refuses, so no form on any page could write; under `same-origin` it sends
+#: the page's own origin, and to any other origin no referrer at all, which is
+#: what kept a run key in an address from leaving with a link (ADR 0061 §4.4,
+#: as noted 2026-11-04). `strict-origin-when-cross-origin` also sends the
+#: origin, and sends it to other origins too: the stricter of the two is this.
+REFERRER_POLICY = "same-origin"
+
 #: Where the views other packages declare are served, one name each.
 EXTENSION_PREFIX = "/x/"
 
@@ -476,12 +486,13 @@ class ViewHandler(BaseHTTPRequestHandler):
         nothing inline, no other origin, no frame, no image. With nothing inline
         on any page, a markup a run or a view smuggled in has nothing to run
         (ADR 0061 §4.4). `nosniff` keeps a browser from reading a page as a
-        script, and `no-referrer` keeps a run key in an address from leaving
-        with a link.
+        script, and `REFERRER_POLICY` keeps a run key in an address from
+        leaving with a link to anywhere but this server, while a form posted
+        here still says where it came from.
         """
         self.send_header("Content-Security-Policy", POLICY)
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Referrer-Policy", REFERRER_POLICY)
 
     def _page(self, document: str, *, locale: Locale, here: str = "") -> None:
         """A screen, with the recorder's views and those other packages added
@@ -1052,7 +1063,20 @@ class ViewHandler(BaseHTTPRequestHandler):
         if route is None:
             self._error(404, f"no such action: {path}")
             return
-        if not _allowed_origin(self.headers.get("Origin", ""), self.known):
+        origin = self.headers.get("Origin", "")
+        if origin == "null":
+            # Refused like any other origin, and said apart: `null` is what a
+            # page opened from a file, a sandboxed frame or an extension sends,
+            # none of which is this server's page. A browser on this server's
+            # own page sends its origin, under the policy every page carries.
+            self._error(
+                403,
+                "refused: this request's Origin is null, which is what a page "
+                "opened from a file, a sandboxed frame or an extension sends. "
+                "Write from a page this server served, at the address it printed.",
+            )
+            return
+        if not _allowed_origin(origin, self.known):
             # 403 and not a redirect: a refusal that looked like a page would be
             # indistinguishable from a promotion that happened.
             self._error(403, "refused: this request came from another origin")

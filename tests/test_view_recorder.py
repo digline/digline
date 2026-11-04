@@ -249,7 +249,7 @@ def test_the_recordings_page_says_the_listing_s_own_sentences(root: Path) -> Non
     for sentence in sentences:
         assert sentence in said, sentence
     # The capture file is the suite's, beside its own file: the module said so.
-    assert str(root / "suites" / "captured.json") in said
+    assert "writes to suites/captured.json ·" in said
 
 
 def test_each_answer_is_a_row_with_its_id_date_setup_and_count(root: Path) -> None:
@@ -674,7 +674,7 @@ def test_the_command_hands_the_server_the_suite_s_module(root: Path) -> None:
         port = int(line.split()[3].rstrip("/").rsplit(":", 1)[1])
         answer = Served(port, root).ask("GET", recordings_address("acme", "triage"))
         assert answer.status == 200, answer.body
-        assert str(root / "suites" / "captured.json") in unescape(answer.body)
+        assert "writes to suites/captured.json ·" in unescape(answer.body)
     finally:
         process.terminate()
         process.wait(timeout=10)
@@ -1198,3 +1198,24 @@ def test_the_recorder_says_what_it_could_not_count(root: Path) -> None:
         replace(status, uncounted=0), suite="triage", locale="en", writes=None
     )
     assert "Not counted" not in counted
+
+
+def test_the_case_link_keeps_the_pair_chosen(root: Path) -> None:
+    """From two setups side by side, a case alone stays side by side."""
+    found = compared(root, setups=[S1[:8], S2[:8]], show_setup=True)
+    page = unescape(recorder_pages.setups_page(found, locale="en"))
+    refund = next(c.id for c in found.cases if c.vars == REFUND)
+    assert f"?case={refund}&setup={S1[:8]}&setup={S2[:8]}&locale=en" in page
+
+
+def test_a_setup_shown_by_eight_characters_carries_its_whole_digest(
+    root: Path,
+) -> None:
+    """The listing and the comparison name a setup by eight characters, as
+    `digline record compare` prints it; the cases file holds the whole digest,
+    and the page says it in a title a browser shows without a script."""
+    page = recorder_pages.setups_page(compared(root), locale="en")
+    assert f'title="setup {S1}: shown by its first 8 characters' in page
+    assert len(S1) > 8
+    page = recorder_pages.recordings_page(listing(root), locale="en", writes=None)
+    assert f'title="setup {S2}: shown by its first 8 characters' in page
