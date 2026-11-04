@@ -83,7 +83,9 @@ nothing. No public name is removed or renamed and no exit code changes.
   over time; and the tenant's recorder as `digline record status` says it,
   opening with four figures. Each calls the command's own host function and
   says what the command says, refusals included. Without `--allow-record`
-  they read only (ADR 0061 §1).
+  they read only (ADR 0061 §1). The recorder's page says, beside the files
+  that are not recordings, how many processes keep recordings and no counts,
+  whose unrecorded calls are *not counted* (ADR 0062 §2).
 - **Views from other packages**: an entry point in `digline.views` adds a
   read-only page at `/x/<name>/`, listed in every screen's menu with the
   package beside it and loaded the first time it is asked for. The contract

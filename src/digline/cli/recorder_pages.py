@@ -740,6 +740,15 @@ def recorder_page(
     if status.stopped_at_ceiling:
         body.append(_p(phrase(locale, "view.recorder.stopped"), "empty"))
     body.append(_suites(status, locale))
+    if status.uncounted:
+        # What a process that keeps no counts did not record is not known,
+        # which is not the same as nothing (ADR 0062 §2).
+        body.append(
+            _p(
+                phrase(locale, "view.recorder.uncounted", count=status.uncounted),
+                "note",
+            )
+        )
     if status.unreadable:
         body.append(
             _p(
