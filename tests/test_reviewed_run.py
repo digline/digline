@@ -38,17 +38,22 @@ from tests._helpers import cli
 
 from digline.core import (
     Accuracy,
+    CaseOutcome,
     CaseResult,
     Contains,
     JudgeReply,
     LlmRubric,
     Reviewed,
     Run,
+    Score,
+    Verdict,
     compare,
     contradicted,
+    nothing_judged,
     run_from_json,
     run_to_json,
 )
+from digline.core.aggregate import per_sample_outcomes
 from digline.core.projection import project_served
 from digline.core.run import run_from_dict
 from digline.core.tokens import TokenKind
@@ -184,8 +189,19 @@ def test_a_judge_that_contradicts_a_person_fails_the_run(
     assert run_exit_code(found, declared=suite(case).declared()) == EXIT_WORSE
 
 
-def test_a_contradiction_fails_against_a_reference_too() -> None:
-    case = reviewed("no-good", GOOD, good=False)
+@pytest.mark.parametrize(
+    ("case", "counted"),
+    [
+        (reviewed("no-good", GOOD, good=False), (1, 0)),
+        (reviewed("yes-bad", BAD, good=True), (0, 1)),
+    ],
+    ids=["passed-a-no", "failed-a-yes"],
+)
+def test_a_contradiction_fails_against_a_reference_too(
+    case: Case, counted: tuple[int, int]
+) -> None:
+    """Each direction on its own moves the code: the headline counts it, and
+    `exit_code` reads that count with nothing worse beside it."""
     found = run(case)
     head = headline(
         compare(found, found),
@@ -194,8 +210,8 @@ def test_a_contradiction_fails_against_a_reference_too() -> None:
         locale="en",
         declared=suite(case).declared(),
     )
-    assert (head.reviewed_passed_no, head.reviewed_failed_yes) == (1, 0)
-    assert not head.worse
+    assert (head.reviewed_passed_no, head.reviewed_failed_yes) == counted
+    assert not head.worse and not head.canary_moved
     assert exit_code(head) == EXIT_WORSE
 
 
@@ -230,10 +246,60 @@ def test_an_aggregate_with_no_reviewed_answer_writes_no_key() -> None:
     assert "reviewed_excluded" not in found.aggregate[0].score.metadata
 
 
+def _sampled(case_id: str, samples: tuple[float, ...], **flags: bool) -> CaseOutcome:
+    return CaseOutcome(
+        case_id=case_id,
+        label="positive" if not flags else None,
+        verdict=Verdict(
+            score=Score(
+                name="llm_rubric",
+                score=sum(samples) / len(samples),
+                samples=samples,
+                sample_min=min(samples),
+                sample_max=max(samples),
+            ),
+            threshold=0.7,
+            status="pass",
+            reason="judged",
+            assertion_id="llm_rubric",
+        ),
+        **flags,
+    )
+
+
+def test_its_samples_do_not_silence_the_aggregates_interval() -> None:
+    """It samples the judge alone, and nothing obliges its count to match the
+    other cases': counted, it would delete the noise interval of every
+    aggregate in the run, for the calibration case's reason. (ADR 0024 §4.4)"""
+    subject = _sampled("one", (0.7, 0.9))
+    odd = _sampled("cap-1", (0.7, 0.8, 0.9), reviewed=True)
+    assert per_sample_outcomes([subject, odd]) != ()
+
+
 def test_it_is_a_case_that_watches_and_not_a_subject() -> None:
     declared = suite(*AGREES).declared()
     assert declared.subject == frozenset({"by-hand"})
     assert declared.watching == frozenset({"yes-good", "no-bad"})
+
+
+def test_read_off_the_run_a_judged_reviewed_answer_does_not_judge_the_suite() -> None:
+    """With no declaration to read, the subject cases are read off the run,
+    and a reviewed answer is not one: a run whose only subject case was set
+    aside judged nothing, however its reviewed answers went. (ADR 0049 §3)"""
+    found = run(AGREES[0], cases=[Case(id="by-hand", suspended="parked"), AGREES[0]])
+    assert nothing_judged(found, None)
+    assert run_exit_code(found, declared=None) == EXIT_UNJUDGED
+
+
+def test_a_reviewed_answer_and_a_calibration_band_are_two_kinds() -> None:
+    from digline.core import CalibrationBand
+
+    with pytest.raises(ValueError, match="a kind of its own"):
+        CaseResult(
+            case_id="x",
+            calibration=CalibrationBand(check="c", low=0.3, high=0.7, assertion_id="a"),
+            reviewed=Reviewed(check="c", assertion_id="a", good=True),
+        )
 
 
 # -- the run document --------------------------------------------------------- #
