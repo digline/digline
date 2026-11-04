@@ -1,5 +1,5 @@
 """A reviewed answer: an answer the application gave, and a person's yes or
-no about it, declared and loaded, and not run yet. (ADR 0059 §1)
+no about it, declared and loaded. (ADR 0059 §1)
 
 What is held here:
 
@@ -10,18 +10,14 @@ What is held here:
 - the suite refuses a check it does not declare, one two assertions share,
   one that is not judged, and a single sample;
 - the cases file reads it, `good` as JSON's `true` or `false`, and refuses an
-  unknown key inside it;
-- a run of a suite that declares one is refused before anything is called
-  and before anything is written: no run, no journal, from `execute`, from
-  the host and from `digline run`; a replay is refused the same way.
+  unknown key inside it, and a suite file loads it.
+
+How it runs is `tests/test_reviewed_run.py`.
 """
 
 from __future__ import annotations
 
-import dataclasses
 import json
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -30,20 +26,8 @@ import pytest
 from digline.core import Contains, JudgeReply, LlmRubric, Repeated
 from digline.core.refused import RefusedError
 from digline.host import UsageError, load_suite, read_cases
-from digline.host.measure import prepare
-from digline.run import (
-    Calibration,
-    Case,
-    Response,
-    ReviewedAnswer,
-    Suite,
-    execute,
-    refuse_reviewed_answers,
-)
-from digline.run.replay import Replay
-from digline.wire import EXIT_USAGE
+from digline.run import Calibration, Case, ReviewedAnswer, Suite
 
-CREATED = "2026-01-01T00:00:00+00:00"
 ANSWER = "Refunds take 14 days from the day the parcel is back."
 QUESTION = "How long does a refund take?"
 
@@ -228,53 +212,7 @@ def test_the_cases_file_refuses_a_reviewed_answer_that_is_not_an_object(
         read_cases(path)
 
 
-# -- not run yet -------------------------------------------------------------- #
-
-REFUSED = (
-    r"reviewed answers run once the run document has a key for a person's yes "
-    r"or no \(ADR 0059 §1\), and this build's, at schema 23, has none"
-)
-
-
-def test_execute_refuses_the_suite_before_the_first_call() -> None:
-    calls: list[str] = []
-
-    def target(case: Case) -> Response:
-        calls.append(case.id)
-        return Response(output="x")
-
-    with pytest.raises(RefusedError, match=REFUSED):
-        execute(suite(reviewed()), target, created_at=CREATED)
-    assert calls == []
-    with pytest.raises(
-        RefusedError, match="declares reviewed answers \\(cap-1, cap-2\\)"
-    ):
-        refuse_reviewed_answers(suite(reviewed(), reviewed("cap-2")))
-    # The control: the same suite without it runs.
-    execute(suite(), target, created_at=CREATED)
-    assert calls == ["by-hand", "by-hand"]
-
-
-def test_the_host_refuses_it_before_a_journal_is_opened() -> None:
-    with pytest.raises(RefusedError, match=REFUSED):
-        prepare(
-            suite(reviewed()),
-            object(),
-            now=CREATED,
-            git_commit=None,
-            artifacts={},
-        )
-
-
-def test_a_replay_is_refused_for_it_and_not_for_a_missing_answer() -> None:
-    run = execute(
-        dataclasses.replace(suite(), record_responses=True),
-        lambda case: Response(output="x", input="q"),
-        created_at=CREATED,
-    )
-    with pytest.raises(RefusedError, match=REFUSED):
-        Replay(suite(reviewed()), run)
-
+# -- a suite file ------------------------------------------------------------ #
 
 SUITE_PY = """\
 from digline.core import JudgeReply, LlmRubric
@@ -314,26 +252,7 @@ def target(case):
 """
 
 
-def test_digline_run_refuses_it_and_writes_nothing(tmp_path: Path) -> None:
-    (tmp_path / "suite.py").write_text(SUITE_PY, encoding="utf-8")
-    done = subprocess.run(
-        [sys.executable, "-m", "digline.cli", "run", "--suite", "suite.py"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == EXIT_USAGE, done.stderr
-    assert "reviewed answers run once the run document has a key" in done.stderr
-    assert "the target was called" not in done.stderr
-    assert done.stdout == ""
-    # No run and no journal: nothing under the store at all.
-    store = tmp_path / ".digline"
-    written = [p for p in store.rglob("*") if p.is_file()] if store.exists() else []
-    assert written == []
-
-
-def test_the_suite_loads_from_a_file_and_only_running_it_is_refused(
+def test_the_suite_loads_from_a_file(
     tmp_path: Path,
 ) -> None:
     (tmp_path / "suite.py").write_text(SUITE_PY, encoding="utf-8")

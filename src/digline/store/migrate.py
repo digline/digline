@@ -501,9 +501,10 @@ def _add_schema_twenty_two(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def _add_schema_twenty_three(raw: dict[str, Any]) -> dict[str, Any]:
-    """22 -> 23. Three passengers on a recorded response, and the step writes
-    nothing for any of them: what `ToolsCalled` reads live (ADR 0057), and the
-    steps the checks on a trajectory read live (ADR 0060 §5).
+    """22 -> 23. Four passengers, and the step writes nothing for any of them:
+    on a recorded response, what `ToolsCalled` reads live (ADR 0057) and the
+    steps the checks on a trajectory read live (ADR 0060 §5); on a case, what a
+    person said of a reviewed answer (ADR 0059 §1).
 
     - `finish` on a recorded response: a document before 23 does not say why a
       reply ended. Absent is *not recorded*, and the replay hands no `finish`
@@ -517,6 +518,9 @@ def _add_schema_twenty_three(raw: dict[str, Any]) -> dict[str, Any]:
       Absent is *not recorded*, never `[]`, and a check that counts steps
       cannot be re-judged from it. Building steps from `tool_calls` here
       would invent the model's turns, which `tool_calls` does not record.
+    - `reviewed` on a case: a document before 23 holds no reviewed answer,
+      because no digline before 23 ran one, so every case it holds is of
+      another kind, which is what absent says. Nothing is written.
     """
     return raw
 

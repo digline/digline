@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, get_args
 
-from digline.core import Declared, Outcome, Run, causes_of_two
+from digline.core import Declared, Outcome, Run, causes_of_two, contradicted
 from digline.report import Headline
 from digline.report.log import EXCLUSIONS, SPREAD_ABSENCES
 
@@ -460,7 +460,16 @@ def exit_code(head: Headline) -> int:
     passing in the reference, 0.65 passing under a lowered bar, *Nothing got
     worse*. (#642)
     """
-    if head.worse or head.canary_moved:
+    if (
+        head.worse
+        or head.canary_moved
+        or head.reviewed_passed_no
+        or head.reviewed_failed_yes
+    ):
+        # A reviewed answer the judge contradicted joins them: the person's
+        # verdict is the expected one, so the case fails, in the gate, and not
+        # as a lost scale. (ADR 0059 §1)
+        #
         # Two facts, one number. A canary that moved says the model behind the
         # alias probably changed, which is a reason to stop whichever direction
         # it moved in — and it is deliberately not folded into `worse`, so the
@@ -505,8 +514,10 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
 
     **`exit_code`'s rule, restricted to what a lone run can say.** `1` needs a
     relation: a check got worse, a canary moved, a pin drifted from the
-    reference. None of these has a meaning without a reference, so this
-    never returns `1`. What remains is `2`, for a case that could not be judged,
+    reference. None of these has a meaning without a reference. The one `1`
+    that has is a reviewed answer the judge contradicted, whose expected
+    verdict is a person's and needs no reference (ADR 0059 §1). What remains
+    is `2`, for a case that could not be judged,
     a calibration case outside its band, or a run that judged nothing. The
     first two are read from the run alone, by the functions `headline()` reads
     them with. The third is read against `declared`, **the same declaration the
@@ -522,6 +533,12 @@ def run_exit_code(run: Run, *, declared: Declared | None) -> int:
     with itself, which is the comparison with no relation in it, both given the
     same declaration.
     """
+    # A reviewed answer is the one `1` a lone run can say: its expected verdict
+    # is a person's, written in the suite, and it needs no reference. It is
+    # read first, as `exit_code` reads it before every cause of 2. (ADR 0059
+    # §1)
+    if contradicted(run):
+        return EXIT_WORSE
     # No comparison, so the two pin causes cannot hold: they are relations.
     if causes_of_two(run, None, declared=declared):
         return EXIT_UNJUDGED
@@ -1425,6 +1442,12 @@ _RECORD_COMPARE = "ADR 0058; digline record compare, piece D4 of 1.1"
 #: not asked about the suite.
 _RECORD_STATUS = "ADR 0058 §10; digline record status, emitted since 1.1's piece 2"
 
+#: A reviewed answer that runs (ADR 0059 §1): the two directions a judge can
+#: contradict a person in, counted on the headline, which `exit_code` reads;
+#: the flag on a delta, which `counts` leaves out; and the check and the
+#: person's yes or no on a case of the run document, `null` on every other.
+_REVIEWED = "ADR 0059 §1; reviewed answers run, schema 23"
+
 #: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
@@ -1550,6 +1573,13 @@ _ADDED: tuple[_AddedKey, ...] = (
         },
         _RECORD_STATUS,
     ),
+    _AddedKey("compare", "reviewed_passed_no", _INT, _REVIEWED),
+    _AddedKey("compare", "reviewed_failed_yes", _INT, _REVIEWED),
+    _AddedKey("compare.full", "reviewed_passed_no", _INT, _REVIEWED),
+    _AddedKey("compare.full", "reviewed_failed_yes", _INT, _REVIEWED),
+    _AddedKey("delta", "reviewed", _BOOL, _REVIEWED),
+    _AddedKey("run_document.case", "reviewed", _k(_Obj("reviewed"), "null"), _REVIEWED),
+    *_shape_added("reviewed", {"check": _STR, "good": _BOOL}, _REVIEWED),
 )
 
 

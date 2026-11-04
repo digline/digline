@@ -198,7 +198,7 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
     - a case's id: `case_id`;
     - a verdict's name, and an aggregate's family: `verdict_name`;
     - the group inside `family[group=…]`: `group`, rebuilt with `grouped_name`;
-    - a calibration band's check: `calibration_check`;
+    - a calibration band's check, and a reviewed answer's: `calibration_check`;
     - artifact paths, as keys and in `pinned`: `artifact_path`;
     - configuration keys, in `values` and in `withheld`, and string values:
       the key and value kinds of their side. **Except a key the configuration
@@ -349,6 +349,16 @@ def _case(case: CaseResult, name: Rename) -> CaseResult:
             else replace(
                 case.calibration,
                 check=name("calibration_check", case.calibration.check),
+            )
+        ),
+        # A check's name, as the band's is, so the same kind; the person's yes
+        # or no is digline's boolean and crosses as it is. (ADR 0059 §1)
+        reviewed=(
+            None
+            if case.reviewed is None
+            else replace(
+                case.reviewed,
+                check=name("calibration_check", case.reviewed.check),
             )
         ),
     )
