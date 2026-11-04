@@ -2135,7 +2135,9 @@ class Episode:
       a tool step's result is absent and says `not_reported`, never filled
       in. A nested episode's steps are spliced in where it closed. Where
       nothing inside it was recorded, the response carries no steps: absent
-      is *not recorded*, never an empty list.
+      is *not recorded*, never an empty list. Its `finish` is the last model
+      step's, and its `tools` the tool steps' names in order, as a run reads
+      them live;
 
     Over `MAX_RECORDED_CHARS`, whole or nothing as a run's recorded response
     is: the response says `oversize` and carries no steps, which carry the
@@ -2409,6 +2411,19 @@ def _record_episode(
                 # the ceiling there are none: the steps carry the calls'
                 # arguments, so they go with the text (ADR 0015 §3).
                 steps=tuple(steps) or None,
+                # Read off the steps, as a run's collection reads them live
+                # (`_settled`): why the turn ended is its last model step's
+                # finish, and the names are its tool steps', one per call in
+                # order, where every call said what it called. (ADR 0057; ADR
+                # 0058 §5, §7)
+                finish=_last_finish(steps),
+                tools=None
+                if trajectory is None
+                else tuple(
+                    step.call.tool
+                    for step in steps
+                    if step.actor == "tool" and step.call is not None
+                ),
             )
         )
 
@@ -2446,6 +2461,13 @@ def _record_episode(
     except Exception:  # noqa: BLE001 — the rule of this module
         return stage
     return None
+
+
+def _last_finish(steps: Any) -> str | None:
+    """The finish of the last model step: why the turn ended. `None` where it
+    reported none, and never an earlier step's, which ended another reply."""
+    models = [step for step in steps if step.actor == "model"]
+    return models[-1].finish if models else None
 
 
 def _switched_on() -> bool:
