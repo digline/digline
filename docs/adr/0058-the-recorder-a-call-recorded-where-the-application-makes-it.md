@@ -252,6 +252,15 @@ episode is the case that matters.
   first write, not at import, so that a process forked after importing the
   wrapper does not write into its parent's.
 
+*Noted 2026-11-03 ([ADR 0060](0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §3), and the section above kept as written.* A run of
+digline collects the calls a wrapped client makes inside the target's call,
+recorder on or off, through a context variable that `host` sets around that
+call alone. An episode the application opens there hands its calls to the
+collection as well: off, it stays the empty context this section describes;
+on, it records as it does here. The collection meets the same limit as the
+episode's id: it does not cross a `threading.Thread` or a `ThreadPoolExecutor`
+worker, and `attach(id)` is the way across.
+
 ### 6. Where the code lives
 
 **The format, the three compartments, the episode, nesting and the import are
@@ -285,6 +294,11 @@ the target already uses.
   the finish its reply reported; a tool step has none, because a tool does not
   end a reply. A single call is one model step, and `RecordedResponse.finish`
   is its finish.
+
+  *Noted 2026-11-03 ([ADR 0060](0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §1): confirmed, and built on.* One function makes
+  the steps of a trajectory, a single call's and an episode's alike: one
+  `model` step per call, with its finish, then one `tool` step per call it
+  asked for.
 - **A canonicalised argument carries the type it came from beside it.**
   `canonical` reduces a value it does not know to `"<TypeName>"`
   (`core/types.py:382`), so a `datetime` and the string `"<datetime>"` become
@@ -402,6 +416,14 @@ it in 1.1.
   interval check, which is one comparison of a monotonic clock per call, with
   the file read only when the interval has passed.
 
+*Noted 2026-11-03 ([ADR 0060](0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §3), and the cost off kept as written for every process
+that is not a run of digline.* The wrapper reads one context variable per call
+before it asks whether recording is on, and hands the reply to a collection
+where one is open. Only `host` opens one, around the target's call in a run,
+and never the wrapper on its own, so production never does. The two tests
+above hold as written: the variable lives in `digline.recorder`, and the read
+is inside the stated threshold.
+
 ### 11. One serializer, and the recording's own version
 
 *Decided here:*
@@ -448,6 +470,15 @@ it moves to a later release is decided then, not here.
 ## Consequences
 
 **No run document changes.** No step, no key, no reader of runs is touched.
+
+*Noted 2026-11-03 ([ADR 0060](0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §5), and the sentence above kept as written: it no
+longer holds for 1.1.* The steps of a trajectory enter the run document in
+1.1, as `steps` on a recorded response, on schema 23's step, which still
+writes nothing. This record foresaw it in *Alternatives considered*: *"Steps
+enter the run document when assertions read them live, so that the live form
+and the document move together"*. In 1.1 four assertions read them live, so
+the document moves with them. In a recording, the steps move into the
+response, and `Recording.steps` goes (ADR 0060 §6).
 
 **The layout gains two entries per tenant**, `recordings/` and
 `recorder.toml`, and the generated `.gitignore` gains both: `*/recordings/`,

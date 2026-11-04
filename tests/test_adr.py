@@ -249,6 +249,12 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no `[capture]` table and no `--good` or `--bad` exist; the import still "
         "writes `Case.label` from `--positive` and `--negative`"
     ),
+    "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
+        "accepted, and before any code: no `steps_of`, no `steps` in a "
+        "response's metadata or on `RecordedResponse`, no collection around "
+        "the target's call, and no `Subsequence`, `Before`, `Never` or "
+        "`MaxSteps`"
+    ),
 }
 
 

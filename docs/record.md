@@ -1,13 +1,13 @@
 # `digline record` — the calls your application makes, kept as cases
 
-> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
-> `digline.recorder` do not exist.
-
 While an application is being built, the calls it makes to a model are the
 material a suite is made of. The recorder keeps them, at the place where the
 application makes them, in the shape a suite reads: what the call was asked,
 what decided how it answered, and what it answered. A person then reads them
 back and names the ones that become cases.
+
+> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
+> `digline.recorder` do not exist.
 
 It is three things:
 
