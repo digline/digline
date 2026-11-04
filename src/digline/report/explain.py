@@ -27,6 +27,7 @@ from digline.core import (
     ConfigDelta,
     ConfigOutcome,
     ConfigValue,
+    Contradiction,
     Denominator,
     Direction,
     Expansion,
@@ -309,6 +310,10 @@ class TallyFact:
     #: shows. The count is their number, and it stays beside them. (ADR 0024
     #: §4.5)
     bands: Sequence[ScaleLost] = ()
+    #: Only on `reviewed`: each reviewed answer the judge contradicted a person
+    #: about, with its check and its direction, what the report's section
+    #: shows. (ADR 0059 §1)
+    contradictions: Sequence[Contradiction] = ()
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -385,7 +390,7 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # still measures on a scale, just a different one. It is inserted last so
     # the comparability fact below cannot displace it. (ADR 0024 §4.6)
     lost = scale_lost(run)
-    against = len(contradicted(run))
+    against = contradicted(run)
     gaps = len(unreconciled(run))
 
     if comparison is None:
@@ -393,7 +398,9 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         # on top: that one says the scale is gone, this one that the judge
         # contradicted a person about a known answer. (ADR 0059 §1)
         if against:
-            out.insert(0, TallyFact("reviewed", count=against))
+            out.insert(
+                0, TallyFact("reviewed", count=len(against), contradictions=against)
+            )
         if lost:
             out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
         if gaps:
@@ -433,7 +440,7 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     if comparison.comparability_reduced:
         out.insert(0, TallyFact("comparability", state=True))
     if against:
-        out.insert(0, TallyFact("reviewed", count=against))
+        out.insert(0, TallyFact("reviewed", count=len(against), contradictions=against))
     if lost:
         out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
     # Above even the lost scale: that one says what the numbers were measured
@@ -913,6 +920,15 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
                 locale,
                 f"explain.tally.reviewed.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
+                cases="; ".join(
+                    phrase(
+                        locale,
+                        f"explain.tally.reviewed.{item.direction}",
+                        case=item.case_id,
+                        check=item.check,
+                    )
+                    for item in fact.contradictions
+                ),
             )
         case "unreconciled":
             return phrase(

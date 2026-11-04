@@ -64,7 +64,14 @@ from digline.report.shape import shape
 from digline.run import Case, Response, ReviewedAnswer, Suite, execute
 from digline.run.replay import Replay
 from digline.run.suite import planned_calls
-from digline.wire import EXIT_OK, EXIT_UNJUDGED, EXIT_WORSE, exit_code, run_exit_code
+from digline.wire import (
+    EXIT_OK,
+    EXIT_UNJUDGED,
+    EXIT_WORSE,
+    exit_code,
+    explain_json,
+    run_exit_code,
+)
 from digline.wire.compare import compare_json
 from digline.wire.run import run_document
 
@@ -489,6 +496,39 @@ def test_explain_tallies_the_contradictions() -> None:
         "reviewed answer" in line
         for line in explain_text(facts(run(*AGREES)), locale="en")
     )
+
+
+def test_explain_names_each_contradiction_and_its_direction() -> None:
+    """The report's section, in the reading: which answer, which check, and
+    which way the judge went, in the text and beside the count in --json."""
+    found = run(
+        reviewed("no-good", GOOD, good=False),
+        reviewed("yes-bad", BAD, good=True),
+        *AGREES,
+    )
+    [line] = [
+        line
+        for line in explain_text(facts(found), locale="en")
+        if "reviewed answer" in line
+    ]
+    assert "no-good for llm_rubric, passed where the person said no" in line
+    assert "yes-bad for llm_rubric, failed where the person said yes" in line
+    assert "yes-good" not in line and "no-bad" not in line
+    document = json.loads(
+        json.dumps(explain_json(facts(found), reading="run", exit_code=1, run=found))
+    )
+    [fact] = [f for f in document["facts"] if f.get("kind") == "reviewed"]
+    assert fact["count"] == 2
+    assert fact["contradictions"] == [
+        {"case_id": "no-good", "check": "llm_rubric", "direction": "passed_no"},
+        {"case_id": "yes-bad", "check": "llm_rubric", "direction": "failed_yes"},
+    ]
+    [said] = [
+        line
+        for line in explain_text(facts(found), locale="it")
+        if "risposte riviste" in line
+    ]
+    assert "no-good per llm_rubric, promossa dove la persona ha detto no" in said
 
 
 def test_shape_leaves_it_out() -> None:

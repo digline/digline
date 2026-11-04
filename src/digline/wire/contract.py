@@ -1589,6 +1589,17 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey(
         "fact.tally", "bands", _k(_arr(_Obj("fact.tally.band")), optional=True), _BANDS
     ),
+    _AddedKey(
+        "fact.tally",
+        "contradictions",
+        _k(_arr(_Obj("fact.tally.contradiction")), optional=True),
+        _REVIEWED,
+    ),
+    *_shape_added(
+        "fact.tally.contradiction",
+        {"case_id": _STR, "check": _STR, "direction": _STR},
+        _REVIEWED,
+    ),
     *_shape_added(
         "fact.tally.band",
         {

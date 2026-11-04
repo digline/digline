@@ -137,6 +137,17 @@ def fact_json(
                     }
                     for item in fact.bands
                 ]
+            # And where the judge contradicted a person: each answer, its check
+            # and the direction, beside the count. (ADR 0059 §1)
+            if fact.contradictions:
+                payload["contradictions"] = [
+                    {
+                        "case_id": item.case_id,
+                        "check": item.check,
+                        "direction": item.direction,
+                    }
+                    for item in fact.contradictions
+                ]
             return payload
     assert_never(fact)
 
