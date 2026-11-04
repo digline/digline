@@ -65,11 +65,15 @@ from digline.store.file_store import FileResultStore
 __all__ = [
     "ImportCase",
     "ImportListing",
+    "SuiteRecorded",
     "import_elect",
     "imported_since",
     "import_listing",
     "capture_file",
+    "read_recordings",
+    "refuse_another_tenant",
     "refuse_data_suite",
+    "split_recordings",
     "unloaded_capture",
 ]
 
@@ -186,10 +190,15 @@ def refuse_data_suite(spec: str) -> None:
         )
 
 
-def _refuse_another_tenant(tenant: str, suite: Suite) -> None:
+def refuse_another_tenant(
+    tenant: str, suite: Suite, *, what: str = "imported into"
+) -> None:
+    """Refuse `tenant`'s recordings for a suite of another tenant, before
+    anything is shown. Every reader of a suite's recordings asks it, the import
+    and `digline record compare` alike; `what` is the verb of the sentence."""
     if tenant != suite.tenant:
         raise RefusedError(
-            f"the recordings of tenant {tenant!r} are not imported into suite "
+            f"the recordings of tenant {tenant!r} are not {what} suite "
             f"{suite.name!r}, whose tenant is {suite.tenant!r}: bringing "
             "material made for one tenant into another's suite is the bridge, "
             "which is planned and not built, and until it exists the "
@@ -198,7 +207,7 @@ def _refuse_another_tenant(tenant: str, suite: Suite) -> None:
         )
 
 
-def _read(store: FileResultStore, tenant: str) -> tuple[list[Recording], int]:
+def read_recordings(store: FileResultStore, tenant: str) -> tuple[list[Recording], int]:
     """Every readable recording of the tenant, in the files' order, and how
     many files were not readable recordings."""
     found: list[Recording] = []
@@ -232,23 +241,34 @@ def _answer(response: RecordedResponse) -> str | None:
     return response.output
 
 
-def import_listing(
-    root: Path, suite: Suite, module: ModuleType | None, tenant: str
-) -> ImportListing:
-    """Everything the person sees before naming a case. Writes nothing."""
-    _refuse_another_tenant(tenant, suite)
-    source, path = capture_file(suite, module, root)
-    store = FileResultStore(root)
-    draft = _draft(path)
-    everything, unreadable = _read(store, tenant)
+@dataclass(frozen=True, slots=True)
+class SuiteRecorded:
+    """One suite's recordings, split the way every reader of them splits them:
+    those that are a case with an answer, in the files' order, and the counts
+    of those that are not."""
 
+    recordings: tuple[Recording, ...]
+    eligible: tuple[Recording, ...]
+    orphans: int
+    detached: int
+    interrupted: int
+    oversize: int
+    #: For an episode's own id, how many calls were found carrying it.
+    attached: Mapping[str, int]
+
+
+def split_recordings(everything: Sequence[Recording], suite: str) -> SuiteRecorded:
+    """The recordings of `suite` among a tenant's, split into the eligible and
+    the counted. A call made inside an episode is part of that episode's case;
+    orphans, interrupted episodes, calls whose episode is not among the files
+    and recordings with no answer kept are counted, and are not cases."""
     episodes = {r.id for r in everything if r.steps is not None and r.id is not None}
     attached: dict[str, int] = {}
     for recording in everything:
         if recording.episode is not None:
             attached[recording.episode] = attached.get(recording.episode, 0) + 1
 
-    mine = [r for r in everything if r.suite == suite.name]
+    mine = [r for r in everything if r.suite == suite]
     orphans = detached = interrupted = oversize = 0
     eligible: list[Recording] = []
     for recording in mine:
@@ -265,6 +285,28 @@ def import_listing(
             oversize += 1
         else:
             eligible.append(recording)
+    return SuiteRecorded(
+        recordings=tuple(mine),
+        eligible=tuple(eligible),
+        orphans=orphans,
+        detached=detached,
+        interrupted=interrupted,
+        oversize=oversize,
+        attached=attached,
+    )
+
+
+def import_listing(
+    root: Path, suite: Suite, module: ModuleType | None, tenant: str
+) -> ImportListing:
+    """Everything the person sees before naming a case. Writes nothing."""
+    refuse_another_tenant(tenant, suite)
+    source, path = capture_file(suite, module, root)
+    store = FileResultStore(root)
+    draft = _draft(path)
+    everything, unreadable = read_recordings(store, tenant)
+    split = split_recordings(everything, suite.name)
+    mine, eligible, attached = split.recordings, split.eligible, split.attached
 
     setup = _setup_in_force(eligible)
     grouped: dict[str, list[Recording]] = {}
@@ -296,10 +338,10 @@ def import_listing(
         setup=setup,
         cases=tuple(cases),
         recordings=len(mine),
-        orphans=orphans,
-        detached=detached,
-        interrupted=interrupted,
-        oversize=oversize,
+        orphans=split.orphans,
+        detached=split.detached,
+        interrupted=split.interrupted,
+        oversize=split.oversize,
         unreadable=unreadable,
         examined_through=max(stamps) if stamps else None,
     )
@@ -427,7 +469,7 @@ def imported_since(
     _, path = capture_file(suite, module, root)
     marks = [mark for _label, mark in _draft(path).values() if mark is not None]
     store = FileResultStore(root)
-    everything, _ = _read(store, tenant)
+    everything, _ = read_recordings(store, tenant)
     mine = [r for r in everything if r.suite == suite.name]
     if not marks:
         return None, len(mine)
