@@ -145,6 +145,11 @@ KNOWN: dict[Use, tuple[int, str]] = {
         "a model step carries no tool call: the actor word, read on a "
         "recording, which is never projected (ADR 0058 §9)",
     ),
+    ("digline.core.recording", "steps_of", "model"): (
+        1,
+        "the actor word a model step is made with, written and never read "
+        "off a document, so no token can stand where it is (ADR 0060 §1)",
+    ),
 }
 
 

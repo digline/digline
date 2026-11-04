@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from digline.core import ConfigValue, Finish, ResultAbsence, ToolStatus
+from digline.core.recording import steps_as_reported
 from digline.targets.pricing import Usage
 
 __all__ = [
@@ -196,6 +197,11 @@ class Completion:
         *nobody asked*. `Response.metadata` is not persisted, so this bag costs
         nothing in any document — what reaches a run file is what an assertion
         measured out of it.
+
+        `steps` beside them, where the tool calls were reported: one call is
+        one `model` step and its `tool` steps (ADR 0058 §7, ADR 0060 §1, §2).
+        `tools` and `tool_calls` stay as they were, and are not derived from
+        the steps.
         """
         found: dict[str, object] = {}
         if self.finish is not None:
@@ -205,7 +211,9 @@ class Completion:
         if self.tools is not None:
             found["tools"] = list(self.tools)
         if self.tool_calls is not None:
-            found["tool_calls"] = [call.as_reported() for call in self.tool_calls]
+            reported = [call.as_reported() for call in self.tool_calls]
+            found["tool_calls"] = reported
+            found["steps"] = steps_as_reported([(self.finish, reported)])
         if self.model is not None:
             found["resolved_model"] = self.model
         if self.fingerprint is not None:
