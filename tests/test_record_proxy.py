@@ -34,7 +34,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -55,6 +55,7 @@ from digline.cli.main import main
 from digline.core.recording import input_of
 from digline.host import answer_id, recorder_status
 from digline.host.proxy import Proxy, start_proxy
+from digline.recorder import RecordingMap, RecordingWire
 
 SDKS = ("anthropic", "openai", "httpx2")
 
@@ -446,6 +447,9 @@ def test_an_upstream_error_passes_on_as_it_came_and_is_not_recorded(
     assert raised.value.body == {"message": "boom"}
     proxy.stop()
     assert recordings(tmp_path, 0) == []
+    # Not read either: an error is not a call that ended, so it is not
+    # counted as one the map could not read.
+    assert counted(tmp_path) == {}
 
 
 def test_an_upstream_that_does_not_answer_is_a_504_that_says_so(
@@ -488,6 +492,66 @@ def test_a_route_no_plugin_reads_is_forwarded_and_not_recorded(
     assert list(models) == []
     assert upstream.seen[0][0] == "/v1/models"
     assert recordings(tmp_path, 0) == []
+
+
+class Elsewhere:
+    """A plugin's reader whose own address is the fake upstream's, under a
+    path of its own, so a test can see where a call went with no
+    `--upstream`."""
+
+    def __init__(self, wire: RecordingWire, upstream: str) -> None:
+        self._wire = wire
+        self.upstream = upstream
+        self.map: RecordingMap = wire.map
+        self.base = wire.base
+
+    def matches(self, path: str) -> bool:
+        return self._wire.matches(path)
+
+    def claims(self, headers: Mapping[str, str]) -> bool:
+        return self._wire.claims(headers)
+
+    def reply(self, raw: object) -> Any:
+        return self._wire.reply(raw)
+
+    def event(self, raw: object) -> Any:
+        return self._wire.event(raw)
+
+    def load(self) -> None:
+        self._wire.load()
+
+
+def test_with_no_upstream_a_call_goes_where_its_sdks_headers_say(
+    tmp_path: Path, upstream: Upstream
+) -> None:
+    """Both SDKs send their key as a bearer: Anthropic's call is told by its
+    `anthropic-version`, and never sent to OpenAI's address."""
+    from digline_anthropic.recording import WIRE as ANTHROPIC
+    from digline_openai.recording import WIRE as OPENAI
+
+    running = start_proxy(
+        root=tmp_path,
+        tenant="acme",
+        app="support",
+        port=0,
+        wires={
+            "anthropic": Elsewhere(ANTHROPIC, f"{upstream.address}/a"),
+            "openai": Elsewhere(OPENAI, f"{upstream.address}/o/v1"),
+        },
+    )
+    try:
+        an_anthropic(running.address).messages.create(
+            model="claude-test", max_tokens=10, messages=QUESTION
+        )
+        an_openai(f"{running.address}/v1").chat.completions.create(
+            model="gpt-test", messages=QUESTION
+        )
+    finally:
+        running.stop()
+    assert [path for path, _ in upstream.seen] == [
+        "/a/v1/messages",
+        "/o/v1/chat/completions",
+    ]
 
 
 # -- a compatible endpoint ------------------------------------------------------ #

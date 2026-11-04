@@ -408,9 +408,14 @@ class RecordingWire(Protocol):
       for the first time at once were measured to fail half-way.
     """
 
-    map: RecordingMap
-    base: str
-    upstream: str
+    @property
+    def map(self) -> RecordingMap: ...
+
+    @property
+    def base(self) -> str: ...
+
+    @property
+    def upstream(self) -> str: ...
 
     def matches(self, path: str) -> bool: ...
 
