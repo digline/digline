@@ -11,7 +11,9 @@ is what `digline report` writes then. If the page and the exported document ever
 disagreed about a run, that would be a defect rather than a difference of
 medium, so there is only one function that can be wrong.
 
-The look is the report's: the same palette, the same type, the same table. Two
+The look is the report's, because the stylesheet is one: `SHEET`, which the
+report carries inline and every page here links to at `SHEET_ADDRESS`, so the
+server's policy can forbid every inline style (ADR 0061 §4.4, §7). Two
 deliberate departures, both because a screen is not a document:
 
 - **Wider.** The report is prose with narrow tables and lives at `52rem`; the
@@ -42,16 +44,20 @@ from digline.core import (
 from digline.core import diff as core_diff
 from digline.report import diff as diff_report
 from digline.report.history import CaseEntry, CaseHistory
-from digline.report.render import CSS, escape, render_html, render_run_html
+from digline.report.render import escape, render_html, render_run_html
+from digline.report.sheet import SHEET
 from digline.report.text import LOCALES, MONTHS, Locale, phrase
+from digline.report.views import MenuEntry, address
 
 __all__ = [
-    "VIEW_CSS",
+    "SHEET_ADDRESS",
     "case_page",
     "compare_page",
     "diff_page",
+    "extension_page",
     "fmt3",
     "human_time",
+    "linked",
     "locale_of",
     "nav",
     "phrase",
@@ -59,101 +65,49 @@ __all__ = [
     "runs_page",
     "suspend_page",
     "suspension_snippet",
+    "with_menu",
 ]
 
-#: Added to the report's stylesheet, never replacing it: everything shared —
-#: colour, type, table rules, the print block — comes from `CSS`, so the two
-#: keep looking like one product without either being told about the other.
-VIEW_CSS = """\
-body.wide { max-width: 68rem; }
-nav.bar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: baseline;
-          border-bottom: 1px solid #d8dce3; padding: 0 0 .75rem;
-          margin: 0 0 1.75rem; font-size: .9rem; }
-nav.bar a { color: #5b6270; text-decoration: none; }
-nav.bar a:hover { color: #16181d; text-decoration: underline; }
-nav.bar .suite { color: #16181d; font-weight: 600; }
-nav.bar .spacer { flex: 1; }
-nav.bar .here { color: #16181d; font-weight: 700; }
-/* This server promotes nothing — a fact about the server, so it sits in the
-   header beside the suite and never in a row. Lower case on purpose: it
-   carries a flag somebody has to type, and `.chip` uppercases. */
-nav.bar .readonly { background: #f6e9e0; color: #8a4b1c; font-weight: 600;
-                    border-radius: .25rem; padding: .1rem .45rem;
-                    font-size: .8rem; }
+#: Where the server serves `SHEET`, and what every page here links to.
+SHEET_ADDRESS = "/static/digline.css"
 
-/* One row is one run: a readable moment, with its address beneath it. */
-.when { font-weight: 600; white-space: nowrap; }
-.key { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-       font-size: .7rem; color: #7a828f; margin-top: .15rem;
-       user-select: all; -webkit-user-select: all; }
-.key:hover { color: #16181d; }
+_LINK = f'<link rel="stylesheet" href="{SHEET_ADDRESS}">\n'
+_INLINE = f"<style>\n{SHEET}</style>\n"
 
-/* Which prompt produced this run. A label beside the moment rather than a
-   column of its own: it is read to group runs, not to be compared down a
-   column, and the table is already wide. */
-.stamp { display: inline-block; font-size: .7rem; color: #5b6270; margin-left: .5rem;
-         font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 
-tbody tr:nth-child(even) { background: #fafbfc; }
-tbody tr.is-baseline { background: #eef4ef; }
-tbody tr.is-baseline:hover, tbody tr:hover { background: #f0f3f7; }
-td, th { white-space: nowrap; }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+def linked(document: str) -> str:
+    """A document written to carry the sheet inline, linking to it instead.
 
-/* The row's own actions, and — where a row can do less — the marker that says
-   why, in the same place the missing button would have been. One column, one
-   answer per run. */
-td.act, th.act { text-align: right; }
-td.act form { display: inline; margin: 0; }
-td.act .chip { margin-left: 0; }
-td.act a.action { margin-right: .6rem; }
-td.act button { font-size: .8rem; padding: .2rem .55rem; }
-a.action { color: #2f4f7a; text-decoration: none; }
-a.action:hover { text-decoration: underline; }
+    The report is a file opened from disk, so it carries the sheet; the same
+    document served by `digline view` links to it, because the server's policy
+    admits styles from its own origin and none inline. The document is
+    otherwise byte for byte the report's.
+    """
+    if document.count(_INLINE) != 1:
+        raise ValueError("this document does not carry the sheet inline once")
+    return document.replace(_INLINE, _LINK, 1)
 
-/* Produced under another configuration: comparable still, promotable no
-   longer. Attenuated rather than hidden — those numbers were measured, only
-   under other rules. */
-tbody tr.stale td { color: #868e9b; }
-tbody tr.stale td.commit code { color: inherit; }
-/* The delta too: a bright red change against a baseline measured under other
-   rules is the one number on that row that should not shout. */
-tbody tr.stale td .delta { color: #868e9b; }
 
-.chip { display: inline-block; font-size: .7rem; font-weight: 600;
-        text-transform: uppercase; letter-spacing: .04em; padding: .1rem .4rem;
-        border-radius: .25rem; background: #e3eae4; color: #17552e;
-        margin-left: .4rem; vertical-align: .05em; }
-.chip.warn { background: #f6e9e0; color: #8a4b1c; }
-.chip.plain { background: #eceff3; color: #5b6270; }
+def with_menu(document: str, entries: Sequence[MenuEntry], *, here: str = "") -> str:
+    """A page's navigation bar, with the views other packages added.
 
-.delta { font-size: .75rem; font-variant-numeric: tabular-nums; display: block;
-         margin-top: .1rem; }
-.delta.up { color: #17552e; }
-.delta.down { color: #8a1c1c; }
-.delta.same { color: #98a0ad; }
-
-.picker { display: flex; flex-wrap: wrap; gap: .75rem; align-items: baseline;
-          background: #f7f8fa; border: 1px solid #e6e9ee; border-radius: .375rem;
-          padding: .75rem 1rem; margin: 1.75rem 0 .5rem; font-size: .9rem; }
-button { font: inherit; font-size: .9rem; padding: .35rem .8rem; cursor: pointer;
-         border: 1px solid #c3c9d3; border-radius: .25rem; background: #fff; }
-button:hover { border-color: #16181d; }
-select, input[type=text] { font: inherit; font-size: .9rem; padding: .25rem; }
-
-.votes { color: #7a828f; font-size: .75rem; font-variant-numeric: tabular-nums;
-         margin-top: .15rem; }
-td.absent { color: #98a0ad; font-style: italic; }
-.commit code { color: #16181d; }
-pre.snippet { background: #f5f6f8; border: 1px solid #d8dce3; border-radius: .375rem;
-              padding: .75rem 1rem; overflow-x: auto; font-size: .875rem;
-              user-select: all; -webkit-user-select: all; }
-p.note { color: #5b6270; font-size: .85rem; margin: .5rem 0 0; max-width: 46rem; }
-ul.note { color: #5b6270; font-size: .85rem; margin: .5rem 0 0; max-width: 46rem;
-          padding-left: 1.25rem; }
-ul.note ul { padding-left: 1.25rem; }
-ul.note li { overflow-wrap: anywhere; }
-"""
+    Each entry is its name, linking to its address, with the package that
+    declared it beside it, so a reader can tell digline's screens from a
+    package's (ADR 0061 §1, §5). They go after digline's own links and before
+    the language switch. `here` marks the view being shown.
+    """
+    if not entries:
+        return document
+    spacer = '<span class="spacer"></span>'
+    if document.count(spacer) != 1:
+        raise ValueError("this document has no navigation bar to add a view to")
+    links = "".join(
+        f'<a class="ext{" here" if entry.name == here else ""}" '
+        f'href="{escape(address(entry.name))}">{escape(entry.name)}'
+        f"<small>{escape(entry.package)}</small></a>"
+        for entry in entries
+    )
+    return document.replace(spacer, links + spacer, 1)
 
 
 # --------------------------------------------------------------------------- #
@@ -413,7 +367,7 @@ def _document(title: str, locale: Locale, body: str, *, wide: bool = False) -> s
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{escape(title)}</title>\n"
-        f"<style>\n{CSS}{VIEW_CSS}</style>\n"
+        f"{_LINK}"
         "</head>\n"
         f"<body{' class="wide"' if wide else ''}>\n"
         f"{body}"
@@ -800,18 +754,16 @@ def compare_page(
 
     `render_html` is called, not reimplemented, and nothing else is touched —
     not the width, not the dates. This page *is* the document, so it keeps the
-    document's rules: ISO timestamps, six decimals, `52rem`. Removing the bar
-    yields exactly what `digline report` writes, which is what the test
-    asserts byte for byte.
+    document's rules: ISO timestamps, six decimals, `52rem`. Removing the bar,
+    and putting the sheet back inline where the page links to it, yields
+    exactly what `digline report` writes, which is what the test asserts byte
+    for byte. The bar needs no rules of its own: the sheet is one.
     """
     document = render_html(
         compare(run, against), run, against, locale=locale, declared=declared
     )
     bar = nav(locale, here="compare", suite=suite)
-    # The view's stylesheet has to reach the bar, and the report's `<style>` is
-    # the only one in the document.
-    document = document.replace("</style>\n", f"{VIEW_CSS}</style>\n", 1)
-    return document.replace("<body>\n", f"<body>\n{bar}", 1)
+    return linked(document).replace("<body>\n", f"<body>\n{bar}", 1)
 
 
 def run_page(run: Run, *, locale: Locale, suite: str) -> str:
@@ -827,8 +779,7 @@ def run_page(run: Run, *, locale: Locale, suite: str) -> str:
     """
     document = render_run_html(run, locale=locale)
     bar = nav(locale, here="compare", suite=suite)
-    document = document.replace("</style>\n", f"{VIEW_CSS}</style>\n", 1)
-    return document.replace("<body>\n", f"<body>\n{bar}", 1)
+    return linked(document).replace("<body>\n", f"<body>\n{bar}", 1)
 
 
 def diff_page(
@@ -1079,3 +1030,18 @@ def locale_of(
     values = raw.get("locale") or ()
     candidate = values[0] if values else ""
     return candidate if candidate in LOCALES else default  # pyright: ignore[reportReturnType]
+
+
+# --------------------------------------------------------------------------- #
+# 5. A view another package added
+# --------------------------------------------------------------------------- #
+
+
+def extension_page(name: str, body: str, *, locale: Locale, suite: str) -> str:
+    """The body a view returned, in digline's document: the sheet, the bar.
+
+    The view escapes what it puts in `body` (ADR 0061 §5); this escapes the
+    name, which is the page's title. The server adds the menu and its headers.
+    """
+    bar = nav(locale, here=name, suite=suite)
+    return _document(name, locale, f"{bar}{body}", wide=True)

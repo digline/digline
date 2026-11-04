@@ -2,9 +2,17 @@
 
 Transport only. Every screen is a pure function in `digline.report.pages`,
 so what is tested is the page and not the socket, and what is served can never
-disagree with what `digline report` writes to a file.
+disagree with what `digline report` writes to a file. Views other packages
+declare in `digline.views` are served at `/x/<name>/`, read-only, in the same
+document (ADR 0061 §5).
 
-Four properties are deliberate:
+Six properties are deliberate:
+
+- **Loopback, and nowhere else.** It binds 127.0.0.1, and there is no option
+  to bind anything else: `--host` went with ADR 0061 §4.1.
+- **Nothing inline.** Every response carries `POLICY`: the sheet and the
+  scripts come from this server's own files, and no page carries a style or a
+  script inline (ADR 0061 §4.4).
 
 - **No state of its own.** It reads the store and holds nothing between
   requests — not a session, not a preference, not a cache. Restarting it loses
@@ -51,7 +59,6 @@ Four properties are deliberate:
 from __future__ import annotations
 
 import hmac
-import ipaddress
 import secrets
 import threading
 import urllib.parse
@@ -60,16 +67,18 @@ import urllib.parse
 # the builtin `set`. Aliased because the bare name reads as the builtin at every
 # use site, and `serve()` deliberately passes a mutable set it fills after the
 # bind while the handler only ever reads it.
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass, field
 from email.message import Message
 from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.metadata import EntryPoint, entry_points
+from importlib.resources import files
 from pathlib import Path
 
 from digline.cli.output import flush, say
-from digline.core import key_of
+from digline.core import RefusedError, key_of
 from digline.host import (
     REFUSALS,
     SuiteRuns,
@@ -78,11 +87,28 @@ from digline.host import (
     suite_runs,
     utc_now_iso,
 )
-from digline.report import Locale, case_history, escape, pages
+from digline.report import (
+    SHEET,
+    Locale,
+    MenuEntry,
+    View,
+    ViewContext,
+    case_history,
+    escape,
+    pages,
+)
+from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
 from digline.store import ResultStore, RunRef
 
-__all__ = ["Launch", "ViewHandler", "cookie_values", "serve"]
+__all__ = [
+    "Extension",
+    "Launch",
+    "ViewHandler",
+    "cookie_values",
+    "installed_extensions",
+    "serve",
+]
 
 # `_ROUTES` used to stand here, a tuple commented *"everything this server
 # answers"*, with zero readers anywhere in the tree and two routes missing —
@@ -94,10 +120,98 @@ __all__ = ["Launch", "ViewHandler", "cookie_values", "serve"]
 # `if` chain in `do_GET`, which is the only thing that was ever true.
 
 
-#: Bind addresses that name every interface rather than one. A server bound to
-#: one of these cannot enumerate the names it will be reached by, which is the
-#: one case `_is_self` has to answer differently.
-_WILDCARDS = frozenset({"", "0.0.0.0", "::", "[::]"})  # noqa: S104
+#: The one address this server binds. `--host` is gone: a page that will
+#: write the recorder's switch and a suite's cases must not be one flag away
+#: from another network (ADR 0061 §4.1, closing ADR 0032 §4a's finding). It
+#: took the wildcard binds with it, and the exception `_is_self` made for them.
+HOST = "127.0.0.1"
+
+#: What every response says a browser may load and run: this server's own
+#: sheet and scripts, nothing inline, nothing from elsewhere, no frame, no image
+#: (ADR 0061 §4.4). A page that carried an inline style or script would be
+#: broken by this line, and `tests/test_view_policy.py` parses every page the
+#: server sends to hold that none does.
+POLICY = (
+    "default-src 'none'; style-src 'self'; script-src 'self'; "
+    "form-action 'self'; frame-ancestors 'none'"
+)
+
+#: Where the views other packages declare are served, one name each.
+EXTENSION_PREFIX = "/x/"
+
+
+def _package_file(name: str) -> str:
+    """A file shipped in `digline.report`'s `static/`, read when it is asked
+    for: the server holds nothing between requests."""
+    return files("digline.report").joinpath("static", name).read_text(encoding="utf-8")
+
+
+#: The server's own files, by address: the one sheet, uPlot (MIT, its licence
+#: beside it in the package) and digline's one script (ADR 0061 §7). The
+#: dispatch reads this table, and a path that is not in it is not served.
+STATIC: Mapping[str, Callable[[], tuple[str, str]]] = {
+    pages.SHEET_ADDRESS: lambda: ("text/css", SHEET),
+    "/static/uPlot.iife.min.js": lambda: (
+        "text/javascript",
+        _package_file("uPlot.iife.min.js"),
+    ),
+    "/static/chart.js": lambda: ("text/javascript", _package_file("chart.js")),
+}
+
+
+@dataclass(frozen=True)
+class Extension:
+    """A view another package declared: its name, its distribution, and how to
+    load it. Built from the installed metadata without importing anything."""
+
+    name: str
+    package: str
+    load: Callable[[], object] = field(repr=False)
+
+
+def _entry_points() -> Sequence[EntryPoint]:
+    """Every entry point in `digline.views`, read from the installed metadata.
+
+    One function, so a test can replace it and declare a view without
+    installing a package, as `tests/test_registry.py` does for targets.
+    """
+    return tuple(entry_points(group=GROUP))
+
+
+def installed_extensions() -> dict[str, Extension]:
+    """The views installed packages declare, by name, refused when the server
+    starts if a name is not one `NAME` allows or two share one, every
+    offender named (ADR 0061 §5)."""
+    found: dict[str, list[EntryPoint]] = {}
+    for entry in _entry_points():
+        found.setdefault(entry.name, []).append(entry)
+    problems: list[str] = []
+    for name, entries in sorted(found.items()):
+        owners = ", ".join(sorted(_package_of(entry) for entry in entries))
+        if not NAME.fullmatch(name):
+            problems.append(
+                f"{name!r} from {owners}: a view's name is lowercase letters, "
+                "digits and hyphens, because it is its address"
+            )
+        elif len(entries) > 1:
+            problems.append(f"{name!r} is declared by more than one entry: {owners}")
+    if problems:
+        raise RefusedError(
+            f"refused: the entry point group {GROUP} declares views digline view "
+            "cannot serve: " + "; ".join(problems)
+        )
+    return {
+        name: Extension(name=name, package=_package_of(entry), load=entry.load)
+        for name, (entry,) in found.items()
+    }
+
+
+def _package_of(entry: EntryPoint) -> str:
+    """The distribution that declared `entry`, or its module where the metadata
+    does not say."""
+    dist = entry.dist
+    return dist.name if dist is not None else entry.module
+
 
 #: The query parameter that carries the launch key on the printed address, once.
 LAUNCH = "launch"
@@ -215,38 +329,21 @@ def self_netlocs(host: str, port: int) -> frozenset[str]:
     would accept the right name at the wrong port — which is a different server
     on the same machine.
     """
-    names = {host, "localhost", "127.0.0.1", "[::1]"} - _WILDCARDS
+    names = {host, "localhost", "127.0.0.1", "[::1]"}
     return frozenset(f"{name}:{port}" for name in names)
 
 
-def _is_self(netloc: str, known: AbstractSet[str], *, wildcard: bool) -> bool:
-    """Whether `netloc` names this server.
+def _is_self(netloc: str, known: AbstractSet[str]) -> bool:
+    """Whether `netloc` names this server: one of the names it bound to.
 
-    **Why a wildcard bind is answered differently rather than refused.** Bound
-    to every interface, the server cannot know the names it is reachable by —
-    a LAN address, a container alias, whatever the operator arranged — and a
-    set derived from configuration would refuse a deployment somebody chose on
-    purpose. So an address *literal* is accepted there.
-
-    That is not a hole, and the reason is worth stating where the exception is
-    made: this check exists to stop a request whose `Host` is a **name** the
-    attacker controls. Pointing a name at the loopback address is what makes
-    their page same-origin with this server; an IP literal cannot be made to
-    resolve anywhere, because it does not resolve at all.
+    This check exists to stop a request whose `Host` is a **name** an attacker
+    controls: pointing a name at the loopback address is what makes their page
+    same-origin with this server.
     """
-    if netloc in known:
-        return True
-    if not wildcard:
-        return False
-    hostname = netloc.rsplit(":", 1)[0] if ":" in netloc else netloc
-    try:
-        ipaddress.ip_address(hostname.strip("[]"))
-    except ValueError:
-        return False
-    return True
+    return netloc in known
 
 
-def _allowed_origin(origin: str, known: AbstractSet[str], *, wildcard: bool) -> bool:
+def _allowed_origin(origin: str, known: AbstractSet[str]) -> bool:
     """Whether a request carrying this `Origin` may be acted on.
 
     A browser sends `Origin` on cross-site posts, so a page on any site the
@@ -267,7 +364,7 @@ def _allowed_origin(origin: str, known: AbstractSet[str], *, wildcard: bool) -> 
     """
     if not origin:
         return True
-    return _is_self(urllib.parse.urlparse(origin).netloc, known, wildcard=wildcard)
+    return _is_self(urllib.parse.urlparse(origin).netloc, known)
 
 
 class ViewHandler(BaseHTTPRequestHandler):
@@ -288,12 +385,23 @@ class ViewHandler(BaseHTTPRequestHandler):
         store: ResultStore,
         pricing: str = "",
         known: AbstractSet[str] = frozenset(),
-        wildcard: bool = False,
         launch: Launch | None = None,
+        allow_record: bool = False,
+        extensions: Mapping[str, Extension] | None = None,
+        root: str = "",
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
+        #: Whether `--allow-record` was typed. Accepted and nothing more, until
+        #: the recorder's views bring the two writes it serves: there is no
+        #: form and no route for it yet (ADR 0061 §4).
+        self.allow_record = allow_record
+        #: The views other packages declared, by name, read when the server
+        #: started and loaded only when one is asked for (ADR 0061 §5).
+        self.extensions: Mapping[str, Extension] = extensions or {}
+        #: The directory that holds `.digline/`, as a view's context carries it.
+        self.root = root
         #: The key this start minted and the session it was traded for, or
         #: `None` on the server that does not promote. **There is no separate
         #: switch beside it**: a server that promotes without a key cannot be
@@ -310,9 +418,6 @@ class ViewHandler(BaseHTTPRequestHandler):
         #: The netlocs that name this server, from where it bound — not from
         #: anything the request says. `serve()` computes them once.
         self.known = known
-        #: Bound to every interface, so the names cannot be enumerated and an
-        #: address literal is accepted instead. See `_is_self`.
-        self.wildcard = wildcard
         #: The declared-price digest of the target this view promotes for, so a
         #: promotion from the browser checks the same hash the CLI does.
         #: (ADR 0022 §5)
@@ -335,8 +440,33 @@ class ViewHandler(BaseHTTPRequestHandler):
         # Nothing here is cacheable: the store changes under the page whenever
         # the developer runs the suite in the terminal next door.
         self.send_header("Cache-Control", "no-store")
+        self._policy()
         self.end_headers()
         self.wfile.write(payload)
+
+    def _policy(self) -> None:
+        """The headers every response carries, whatever it answers.
+
+        Styles and scripts from this server's own files and from nowhere else:
+        nothing inline, no other origin, no frame, no image. With nothing inline
+        on any page, a markup a run or a view smuggled in has nothing to run
+        (ADR 0061 §4.4). `nosniff` keeps a browser from reading a page as a
+        script, and `no-referrer` keeps a run key in an address from leaving
+        with a link.
+        """
+        self.send_header("Content-Security-Policy", POLICY)
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+
+    def _page(self, document: str) -> None:
+        """A screen, with the views other packages added in its menu."""
+        self._send(200, pages.with_menu(document, self._menu()))
+
+    def _menu(self) -> tuple[MenuEntry, ...]:
+        return tuple(
+            MenuEntry(name=name, package=extension.package)
+            for name, extension in sorted(self.extensions.items())
+        )
 
     def _error(self, status: int, message: str) -> None:
         self._plain(status, message)
@@ -452,6 +582,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/")
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
+        self._policy()
         self.end_headers()
         return True
 
@@ -474,7 +605,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         page that can read `/` has every run key, environment and commit in the
         project, held by a party ADR 0002 exists to keep them from.
         """
-        if _is_self(self.headers.get("Host", ""), self.known, wildcard=self.wildcard):
+        if _is_self(self.headers.get("Host", ""), self.known):
             return True
         # 403 and not 404: the request reached the right server, and a reply
         # that pretended otherwise would be a different lie than the one being
@@ -504,6 +635,10 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_suspend(
                     locale, urllib.parse.unquote(path[len("/suspend/") :]), query
                 )
+            elif path in STATIC:
+                self._static(path)
+            elif path.startswith(EXTENSION_PREFIX):
+                self._screen_extension(locale, path, query)
             else:
                 self._error(404, f"no such page: {path}")
         except FileNotFoundError as exc:
@@ -516,8 +651,7 @@ class ViewHandler(BaseHTTPRequestHandler):
 
     def _screen_runs(self, locale: Locale, message: str = "") -> None:
         listed = self._runs()
-        self._send(
-            200,
+        self._page(
             pages.runs_page(
                 listed.runs,
                 baseline_key=listed.baseline_key,
@@ -586,8 +720,7 @@ class ViewHandler(BaseHTTPRequestHandler):
             # **the same sentence the CLI prints**, naming the same remedy. The
             # page around it is plain and may stay plain; the sentence is the
             # product, and a refusal worded twice would be two refusals.
-            self._send(
-                200,
+            self._page(
                 pages.diff_page(
                     run,
                     against,
@@ -603,10 +736,9 @@ class ViewHandler(BaseHTTPRequestHandler):
             # same state — not a 404. The first baseline is promoted from this
             # server, and a refusal here left the aggregates as the only thing
             # to promote from.
-            self._send(200, pages.run_page(run, locale=locale, suite=self.suite.name))
+            self._page(pages.run_page(run, locale=locale, suite=self.suite.name))
             return
-        self._send(
-            200,
+        self._page(
             pages.compare_page(
                 run,
                 baseline,
@@ -619,8 +751,7 @@ class ViewHandler(BaseHTTPRequestHandler):
     def _screen_case(self, locale: Locale, case_id: str) -> None:
         listed = self._runs()
         history = case_history(listed.runs, case_id)
-        self._send(
-            200,
+        self._page(
             pages.case_page(
                 history,
                 baseline_key=listed.baseline_key,
@@ -634,10 +765,66 @@ class ViewHandler(BaseHTTPRequestHandler):
         self, locale: Locale, case_id: str, query: Mapping[str, Sequence[str]]
     ) -> None:
         reason = (query.get("reason") or [""])[0]
-        self._send(
-            200,
+        self._page(
             pages.suspend_page(
                 case_id, reason=reason, locale=locale, suite=self.suite.name
+            ),
+        )
+
+    def _static(self, path: str) -> None:
+        """One of the server's own files: the sheet, uPlot, or digline's script.
+
+        A table of three, read by the dispatch, and never a path off the disk:
+        what is not in `STATIC` is the 404 any unknown path gets.
+        """
+        content_type, body = STATIC[path]()
+        self._send(200, body, content_type=content_type)
+
+    def _screen_extension(
+        self, locale: Locale, path: str, query: Mapping[str, Sequence[str]]
+    ) -> None:
+        """A view another package declared, at `/x/<name>/` (ADR 0061 §5).
+
+        Loaded here, on the first request for it, and not when the server
+        started: the menu needs only the names. A view that does not load or
+        does not render gives a page that names the entry point and its
+        package, with a 500; the exception's message reaches the standard
+        error of the person who started the server, and no page (ADR 0043).
+        The rest of the server keeps answering.
+        """
+        name = path[len(EXTENSION_PREFIX) :].removesuffix("/")
+        extension = self.extensions.get(name)
+        if extension is None or path != address(name):
+            self._error(404, f"no such page: {path}")
+            return
+        context = ViewContext(root=self.root, locale=locale, query=query)
+        try:
+            view = extension.load()
+            if not isinstance(view, View):
+                raise TypeError(f"{type(view).__name__} has no render(context)")
+            body = view.render(context)
+            if not isinstance(body, str):  # pyright: ignore[reportUnnecessaryIsInstance] — the view is a package's code
+                raise TypeError(f"render returned {type(body).__name__}, not str")
+        except Exception as exc:  # noqa: BLE001 — a package's code; the server stays up
+            say(
+                f"digline view: the view {name!r} from {extension.package} failed: "
+                f"{type(exc).__name__}: {exc}",
+                err=True,
+            )
+            self._plain(
+                500,
+                f"The view {name!r}, declared by the package {extension.package} "
+                f"in the entry point group {GROUP}, could not be shown. What it "
+                "raised is on the standard error of the terminal that started "
+                "digline view.",
+            )
+            return
+        self._send(
+            200,
+            pages.with_menu(
+                pages.extension_page(name, body, locale=locale, suite=self.suite.name),
+                self._menu(),
+                here=name,
             ),
         )
 
@@ -668,9 +855,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         if path != "/promote" or not self.allow_promote:
             self._error(404, f"no such action: {path}")
             return
-        if not _allowed_origin(
-            self.headers.get("Origin", ""), self.known, wildcard=self.wildcard
-        ):
+        if not _allowed_origin(self.headers.get("Origin", ""), self.known):
             # 403 and not a redirect: a refusal that looked like a page would be
             # indistinguishable from a promotion that happened.
             self._error(403, "refused: this request came from another origin")
@@ -805,14 +990,16 @@ def serve(
     suite: Suite,
     store: ResultStore,
     *,
-    host: str = "127.0.0.1",
     port: int = 7373,
     pricing: str = "",
     allow_promote: bool = False,
+    allow_record: bool = False,
+    root: str = ".",
 ) -> None:
-    """Serve until interrupted. Loopback by default, and that is not a default
-    anyone should change lightly: this server has no authentication because it
-    has no user, only a developer at the same machine.
+    """Serve until interrupted, on loopback and nowhere else: this server has
+    no authentication because it has no user, only a developer at the same
+    machine, and there is no parameter to bind it anywhere else (ADR 0061
+    §4.1).
 
     `allow_promote` defaults to refusing, and the startup line says which server
     this is either way. The refusing one names the flag there as well as in the
@@ -830,18 +1017,23 @@ def serve(
     # Binding twice to learn it would race another process for the number.
     known: set[str] = set()
     launch = Launch.minted() if allow_promote else None
+    # Read before the bind, so a package that declares a view digline cannot
+    # serve stops the start with its name rather than a page later.
+    extensions = installed_extensions()
     handler = partial(
         ViewHandler,
         suite=suite,
         store=store,
         pricing=pricing,
         known=known,
-        wildcard=host in _WILDCARDS,
         launch=launch,
+        allow_record=allow_record,
+        extensions=extensions,
+        root=root,
     )
-    with ThreadingHTTPServer((host, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
-        known.update(self_netlocs(host, int(httpd.server_address[1])))
-        shown = f"http://{host}:{httpd.server_address[1]}/"
+    with ThreadingHTTPServer((HOST, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
+        known.update(self_netlocs(HOST, int(httpd.server_address[1])))
+        shown = f"http://{HOST}:{httpd.server_address[1]}/"
         if launch is not None:
             # The one place the key is ever shown: the output of the process,
             # which goes wherever whoever started it pointed it — a person's

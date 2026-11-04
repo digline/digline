@@ -5,10 +5,16 @@ $ digline view --suite suite.py
 digline view on http://127.0.0.1:7373/ — read-only; --allow-promote to promote — ctrl-c to stop
 ```
 
-Screens over `.digline/`, stdlib only, no JavaScript, no state of its own:
-no session, no preference, no cache. Restarting it loses nothing, because there
-was nothing to lose. `--host` and `--port` are available; `--port 0` lets the
-operating system choose and the printed line carries the bound port.
+Screens over `.digline/`, stdlib only, no state of its own: no session, no
+preference, no cache. Restarting it loses nothing, because there was nothing
+to lose. `--port` is available; `--port 0` lets the operating system choose
+and the printed line carries the bound port.
+
+**It listens on 127.0.0.1 and nowhere else.** There is no `--host`: it was
+removed, and a command that passes it is refused. The page will soon write
+the recorder's switch and a suite's cases, and a page that writes must not be
+one flag away from another network.
+([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §4)
 
 **It promotes nothing unless you say so.** Without `--allow-promote` there is
 no button on any row and `POST /promote` is not a route — a POST to it gets the
@@ -174,7 +180,7 @@ allowed — that is `curl`, which the launch key refuses instead — and an
 the key stops a process.
 
 A path outside the routes is a `404` and never a file: the view serves pages it
-renders, never bytes off the disk.
+renders and three files of its own, by name, never a path off the disk.
 
 **What one connection can cost the server is bounded.** A promotion form is at
 most 4096 bytes. A larger declared `Content-Length` is refused with `413`
@@ -185,16 +191,89 @@ arriving is answered `408`, and headers that stop arriving are dropped.
 Without these limits, one caller that declared a large body or went quiet held
 a server thread for as long as it liked.
 
+## What a browser may run
+
+Every response carries one policy:
+
+```text
+Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'
+X-Content-Type-Options: nosniff
+Referrer-Policy: no-referrer
+```
+
+Styles and scripts come from the server's own files, and nothing is inline: no
+`style` attribute, no `<style>`, no `<script>` with a body that runs. A data
+block, `<script type="application/json">`, is the one `<script>` without a
+`src` a page may carry: a browser does not run it. A test parses every page the
+server sends and holds that. It parses rather than searches, because an answer a
+model gave can hold the characters `style=`, and the page shows it as text.
+
+**One stylesheet, the report's and the server's.** System fonts, tabular
+figures, and a light and a dark theme that follow the system. `digline report`
+writes it inline, because a report is opened from disk; the server serves it at
+`/static/digline.css` and every page links to it.
+
+**Two scripts are served, and no screen in this release runs either.** They are
+for the comparison across setups that comes with the recorder's views:
+
+| File | Bytes | Licence |
+|---|---|---|
+| `/static/uPlot.iife.min.js`, uPlot 1.6.31 | 50 312 | MIT, Copyright (c) 2022 Leon Sorokin, `uPlot.LICENSE` beside it in the package |
+| `/static/chart.js`, digline's | 1 987 | digline's |
+
+uPlot's own stylesheet, 1 857 bytes, is absorbed into the one sheet. Without
+JavaScript every page still reads.
+
+## `--allow-record`
+
+The flag that will serve the page's two writes: the recorder switched on or
+off, and a recorded case imported with a person's yes or no. They arrive with
+the recorder's views; this release accepts the flag and serves no write for it,
+so a POST still gets the `404` any unknown path gets. Like `--allow-promote`,
+it is spelled in full, and the Claude Code plugin asks a person before a
+command that carries it.
+([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §4)
+
+## Views from other packages
+
+A package adds a page by declaring an entry point in the group `digline.views`:
+
+```toml
+[project.entry-points."digline.views"]
+latency-drift = "acme_views:VIEW"
+```
+
+- **The name is the address and the label.** Lowercase letters, digits and
+  hyphens. The view is served at `/x/<name>/`, and the menu of every screen
+  lists it with the package that declared it beside it. A name that is not one
+  of those, or a name two entry points share, stops the server when it starts,
+  every offender named.
+- **The value is loaded the first time its address is asked for**, never to
+  draw the menu. It is an object with one method, `render(context) -> str`,
+  that returns the body of the page. `context` is a
+  `digline.report.ViewContext`: the directory that holds `.digline/`, the
+  locale and the parsed query. The body escapes what it carries, with
+  `digline.report.escape`, and carries nothing inline.
+- **Read only.** A view answers GET. A POST to its address gets the `404`
+  any unknown path gets, and nothing in its context can write.
+- **A view that fails** gives a page that names it and its package, with a
+  `500`. What it raised goes to the standard error of the terminal that
+  started the server, and every other page keeps answering.
+
+The contract is `digline.report.View`, `ViewContext` and `MenuEntry`, and
+the group name is `digline.report.views.GROUP`.
+([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §5)
+
 ## What keeps it honest
 
 Every screen is a pure function in `digline.report.pages`, so the tests are
 about the page and not about a socket. Two of them are structural rather than
 cosmetic:
 
-- the comparison page, with the navigation bar and its stylesheet stripped out,
-  must equal what `render_html` produces **byte for byte**. If the page and the
-  exported document ever disagreed about a run, that would be a defect and not a
-  difference of medium.
+- the comparison page, with the navigation bar stripped out and the sheet put
+  back inline where the page links to it, must equal what `render_html`
+  produces **byte for byte**. If the page and the exported document ever
+  disagreed about a run, that would be a defect and not a difference of medium.
 - the server is exercised end to end in a subprocess, for the things only a
   real server can show: that the routes are wired, that a POST from another
   origin is refused, that the default server answers `POST /promote` with a
