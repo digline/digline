@@ -134,21 +134,27 @@ KNOWN: dict[Use, tuple[int, str]] = {
         "a key the digest writes into its own input; it reads no configuration",
     ),
     # A step's actor, the word ADR 0058 §9 names: the same text as the
-    # configuration key, and not a key. A recording is payload and is never
-    # projected, so no token can stand where the word is read.
-    ("digline.core.recording", "<module>", "model"): (
+    # configuration key, and not a key. Steps live in `digline.core.run` since
+    # schema 23 (ADR 0060 §5), on a recorded response, which no projection
+    # carries (ADR 0015 §4), and in a recording, which is never projected.
+    ("digline.core.run", "<module>", "model"): (
         2,
         "the `Actor` type and `_ACTORS`, a step's actor words (ADR 0058 §9)",
     ),
-    ("digline.core.recording", "RecordedStep.__post_init__", "model"): (
+    ("digline.core.run", "RecordedStep.__post_init__", "model"): (
         1,
-        "a model step carries no tool call: the actor word, read on a "
-        "recording, which is never projected (ADR 0058 §9)",
+        "a model step carries no tool call: the actor word, on a recorded "
+        "response or a recording, neither of which is projected (ADR 0058 §9)",
     ),
-    ("digline.core.recording", "steps_of", "model"): (
+    ("digline.core.run", "steps_of", "model"): (
         1,
         "the actor word a model step is made with, written and never read "
         "off a document, so no token can stand where it is (ADR 0060 §1)",
+    ),
+    ("digline.core.run", "record_steps", "model"): (
+        2,
+        "the actor word, read off a live response's `steps` while it is "
+        "recorded, before any document exists to project (ADR 0060 §5)",
     ),
     # The same actor words, read by the checks on a trajectory out of a live
     # response's metadata, which is never persisted and never projected.

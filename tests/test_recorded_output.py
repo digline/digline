@@ -26,12 +26,16 @@ from tests._tags import archived_source
 
 from digline.core import (
     MAX_RECORDED_CHARS,
+    Before,
     CaseResult,
     Contains,
+    MaxSteps,
     Message,
+    Never,
     RecordedResponse,
     RecordedToolCall,
     Run,
+    Subsequence,
     ToolCalledWith,
     ToolsCalled,
     record_output,
@@ -41,7 +45,7 @@ from digline.core import (
     run_to_json,
     without_responses,
 )
-from digline.core.run import SCHEMA_VERSION
+from digline.core.run import SCHEMA_VERSION, steps_as_reported
 from digline.report import headline, render_html
 from digline.run import (
     Case,
@@ -700,22 +704,18 @@ def _calls(*names: str | None, arguments: object = None) -> list[dict[str, objec
     return [{"tool": name, "arguments": arguments} for name in names]
 
 
-_FINISH_NOT_RECORDED = (
-    "a reply that ends on `tool_use` and names no call is `error` live and "
-    "`fail` replayed: `ToolsCalled` reads `finish`, which reaches "
-    "`Response.metadata` and is not recorded, so the replay judges without it. "
-    "Measured 2026-11-02 at 83be8a52, through digline-anthropic with an "
-    "injected client. Passes when the replay hands `ToolsCalled` what the live "
-    "run handed it"
-)
-_NAMES_FROM_CALLS = (
-    "live `ToolsCalled` reads `tools` and the replay rebuilds `tools` from the "
-    "recorded `tool_calls`, so a function target whose two lists name different "
-    "calls is judged on one trajectory live and another replayed. `Completion` "
-    "and `HttpTarget` refuse the disagreement; a function target is not held to "
-    "it. Measured 2026-11-02 at 83be8a52. Passes when the replay judges the "
-    "`tools` the live run judged"
-)
+def _agent(last_finish: str = "end_turn") -> dict[str, object]:
+    """Three calls to a model: a lookup, then a policy check and a refund in
+    one reply, then an answer. Reported as steps and as calls, which agree."""
+    turns = [("tool_use", _calls("lookup")), ("tool_use", _calls("policy", "refund"))]
+    turns.append((last_finish, []))
+    calls = [call for _, made in turns for call in made]
+    return {
+        "tools": [call["tool"] for call in calls],
+        "tool_calls": calls,
+        "steps": steps_as_reported(turns),
+        "finish": last_finish,
+    }
 
 
 @pytest.mark.parametrize(
@@ -749,17 +749,11 @@ _NAMES_FROM_CALLS = (
             ).as_metadata(),
             ToolsCalled(expected=["lookup"]),
             id="tools-finish-tool-use-no-calls",
-            marks=pytest.mark.xfail(
-                raises=AssertionError, strict=True, reason=_FINISH_NOT_RECORDED
-            ),
         ),
         pytest.param(
             {"tools": ["lookup", "refund"], "tool_calls": _calls("refund", "lookup")},
             ToolsCalled(expected=["lookup", "refund"]),
             id="tools-and-calls-disagree",
-            marks=pytest.mark.xfail(
-                raises=AssertionError, strict=True, reason=_NAMES_FROM_CALLS
-            ),
         ),
         pytest.param(
             {"tools": ["lookup"], "tool_calls": _calls("lookup", arguments={"id": 7})},
@@ -779,6 +773,45 @@ _NAMES_FROM_CALLS = (
             ToolCalledWith(tool="lookup", arguments={"id": 7}),
             id="arguments-not-decodable",
         ),
+        # An agent of three calls, reported as steps beside its calls, judged
+        # live and re-judged from schema 23's `steps`. (ADR 0060 §5)
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=3, count="model"),
+            id="steps-max-model-within",
+        ),
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=2, count="model"),
+            id="steps-max-model-over",
+        ),
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=2, count="tool"),
+            id="steps-max-tool-over",
+        ),
+        pytest.param(
+            _agent(),
+            Subsequence(tools=["lookup", "refund"]),
+            id="steps-subsequence",
+        ),
+        pytest.param(
+            _agent(),
+            Before(first="refund", then="lookup"),
+            id="steps-before-fails",
+        ),
+        pytest.param(
+            _agent(),
+            Never(tool="policy"),
+            id="steps-never-fails",
+        ),
+        pytest.param(
+            # The reply contradicts itself on a step: an error live, and the
+            # same error replayed, not a verdict.
+            _agent(last_finish="tool_use"),
+            MaxSteps(limit=9, count="model"),
+            id="steps-tool-use-with-no-tool-step",
+        ),
         # A declared `datetime` stood here, `arguments-collapse-to-type-name`:
         # `canonical` wrote both sides as "<datetime>", and live and replayed
         # both passed on two different dates. That was a different defect from
@@ -795,21 +828,35 @@ def test_a_replay_judges_what_the_live_run_judged(
     assert replayed == live
 
 
-def test_a_trajectory_reported_without_its_calls_is_refused_by_name() -> None:
-    """`tools` with no `tool_calls` records no trajectory, so there is nothing
-    for the replay to hand back. The claim here is not equality: it is that the
-    replay says so, and names the check it would otherwise have errored."""
+def test_names_reported_without_calls_replay_for_the_check_that_reads_names() -> None:
+    """`tools` with no `tool_calls`. Until schema 23 the replay refused it,
+    because nothing recorded the names; from 23 `tools` is recorded, and
+    `ToolsCalled` re-judges it to the verdict the live run gave. (ADR 0057)"""
+    live, replayed = live_then_replayed(
+        {"tools": ["lookup"]}, ToolsCalled(expected=["lookup"])
+    )
+    assert live == replayed == [("pass", 1.0), ("pass", 1.0)]
+
+
+def test_names_reported_without_calls_are_refused_for_the_check_that_reads_calls() -> (
+    None
+):
+    """The same recording for `ToolCalledWith`, which reads the arguments only
+    `tool_calls` carries: there is nothing for the replay to hand back. The
+    claim is not equality: it is that the replay says so, and names the check
+    it would otherwise have errored. The refusal stays for this check alone.
+    (ADR 0057)"""
 
     def target(case: Case) -> Response:
         return Response(output="Done.", metadata={"tools": ["lookup"]})
 
     declared = suite(
-        record_responses=True, assertions=[ToolsCalled(expected=["lookup"])]
+        record_responses=True,
+        assertions=[ToolCalledWith(tool="lookup", arguments={"id": 7})],
     )
     source = execute(declared, target, created_at=CREATED)
-    assert [v.status for c in source.results for v in c.verdicts] == ["pass", "pass"]
     stored = run_from_json(run_to_json(source))
-    with pytest.raises(ReplayError, match="reported no trajectory.*'tools_called'"):
+    with pytest.raises(ReplayError, match="reported no trajectory.*'tool_called_with'"):
         rejudge(declared, stored, key="src-key", created_at=LATER)
 
 

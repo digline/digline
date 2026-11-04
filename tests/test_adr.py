@@ -232,9 +232,8 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "`tests/test_migration_steps.py`, run on a transforming step built there"
     ),
     "0057-the-replay-reads-the-trajectory-the-live-run-read": (
-        "`RecordedResponse` has no `finish` and no `tools`, and `SCHEMA_VERSION` "
-        "is 22; the repair is meant for 1.1 with its schema, and this record "
-        "comes first"
+        "built and not released: `RecordedResponse.finish` and `.tools` at "
+        "schema 23, handed back by the replay. Meant for 1.1"
     ),
     "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
         "the narrow piece exists: the recording's document and its place in "
@@ -246,14 +245,15 @@ UNRELEASED_RECORDS: dict[str, str] = {
     ),
     "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
         "a reviewed answer is declared, imported and refused at run: the run "
-        "document has no key for what the person said until schema 23, and no "
-        "run counts the judge against the person"
+        "document, at schema 23, has no key yet for what the person said, and "
+        "no run counts the judge against the person"
     ),
     "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
-        "accepted, and before any code: no `steps_of`, no `steps` in a "
-        "response's metadata or on `RecordedResponse`, no collection around "
-        "the target's call, and no `Subsequence`, `Before`, `Never` or "
-        "`MaxSteps`"
+        "§1 to §5 built and not released: `steps_of`, the live steps, the "
+        "collection around the target's call, the four checks on steps, and "
+        "`steps` on `RecordedResponse` at schema 23. §6 is in no file: a "
+        "recording still keeps an episode's steps as `Recording.steps`. Meant "
+        "for 1.1"
     ),
     "0061-a-local-page-whose-views-other-packages-may-extend": (
         "the foundations exist: `digline view` binds loopback alone with no "

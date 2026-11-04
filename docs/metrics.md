@@ -557,7 +557,8 @@ output kinds. Binary.
 response that has none: a provider target writes them, a run writes them for
 a target whose client is wrapped with `digline.recorder.wrap()`
 ([`record.md`](record.md#steps-live)), and a function target writes them
-itself. A replay refuses it until the run document holds steps (schema 23).
+itself. A replay judges it again where the run recorded steps, from schema 23,
+and refuses it by name where the run recorded none.
 
 ### `Repeated`
 

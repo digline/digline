@@ -30,14 +30,15 @@ import pytest
 from digline.core import RecordedResponse, RecordedToolCall, Usage
 from digline.core.recording import (
     RECORDING_VERSION,
-    RecordedStep,
     Recording,
     RecordingRefusedError,
     recording_from_dict,
     recording_to_dict,
     setup_digest_of,
 )
+from digline.core.refused import RefusedError
 from digline.core.run import (
+    RecordedStep,
     _response_from_dict,  # pyright: ignore[reportPrivateUsage]
     _response_to_dict,  # pyright: ignore[reportPrivateUsage]
     _tool_call_from_dict,  # pyright: ignore[reportPrivateUsage]
@@ -135,6 +136,19 @@ def test_an_episode_comes_back_as_it_was_written(changes: dict[str, object]) -> 
     assert recording_from_dict(document) == recording
 
 
+def test_a_recording_whose_step_breaks_the_steps_rules_is_refused_as_a_recording() -> (
+    None
+):
+    """The step's rules are the run document's since schema 23, and a
+    recording read with one says so as a recording, naming the step."""
+    document = json.loads(json.dumps(recording_to_dict(an_episode())))
+    document["steps"][2]["finish"] = ""
+    with pytest.raises(
+        RecordingRefusedError, match="a recording's step 2: .*non-empty"
+    ):
+        recording_from_dict(document)
+
+
 def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
     written = recording_to_dict(an_episode())
     assert written["steps"] == [
@@ -211,7 +225,10 @@ def test_an_orphan_comes_back_as_it_was_written() -> None:
     ],
 )
 def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> None:
-    with pytest.raises(RecordingRefusedError, match=match):
+    # A step's rules are the run document's since schema 23 (ADR 0060 §5), so
+    # they raise the base refusal; a recording read with one re-raises it as
+    # its own.
+    with pytest.raises(RefusedError, match=match):
         step()  # pyright: ignore[reportCallIssue]
 
 
