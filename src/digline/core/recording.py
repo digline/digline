@@ -30,38 +30,43 @@ keys added to a format that has not shipped, so `RECORDING_VERSION` stays 1.
 the files alone can join them back; and `recorded_at`, the system time the
 recording was written at, so that a case elected from it can carry the
 watermark ADR 0023 §9 reads.
+
+**The response's `input` is the question, as JSON text** (`input_of`): a single
+call's is its case's `messages`, an episode's is its whole case. The import
+copies it into a reviewed answer, beside the answer, for the judge to read,
+and refuses an answer recorded without one. The field was always in a
+recorded response, so `RECORDING_VERSION` stays 1.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from digline.core.aggregate import Label
 from digline.core.refused import RefusedError, Written
 from digline.core.run import (
+    Actor,
     RecordedResponse,
+    RecordedStep,
     RecordedToolCall,
-    record_trajectory,
     recorded_response_from_dict,
     recorded_response_to_dict,
+    recorded_step_to_dict,
     recorded_tool_call_from_dict,
-    recorded_tool_call_to_dict,
 )
 
 __all__ = [
     "RECORDING_VERSION",
-    "RecordedStep",
     "Recording",
     "RecordingRefusedError",
     "recording_from_dict",
+    "input_of",
     "recording_to_dict",
     "setup_digest_of",
-    "steps_as_reported",
-    "steps_of",
 ]
 
 #: The recording's format version. Independent of `SCHEMA_VERSION` and of
@@ -70,11 +75,6 @@ __all__ = [
 RECORDING_VERSION = 1
 
 _LABELS: frozenset[str] = frozenset({"positive", "negative"})
-
-#: Who acted in a step. `engine`, declared by hand, is a later release's
-#: (ADR 0058 §9); 1.1 produces these two.
-type Actor = Literal["model", "tool"]
-_ACTORS: frozenset[str] = frozenset({"model", "tool"})
 
 
 class RecordingRefusedError(RefusedError):
@@ -114,118 +114,25 @@ def setup_digest_of(setup: Mapping[str, object]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-@dataclass(frozen=True, slots=True)
-class RecordedStep:
-    """One step of an episode's trajectory. (ADR 0058 §7, §9)
+def input_of(question: object) -> str:
+    """The question a recorded answer replies to, as a recorded response's
+    `input` holds it: JSON text, keys sorted, compact, non-ASCII kept as it was
+    written, the form `record_output` gives a structured answer.
 
-    `index` is the step's place in the episode, from 0, for the order
-    assertions planned after 1.1 will read. A `model` step is one call to a
-    model and carries the `finish` its reply reported, `None` where the plugin
-    reported none; a `tool` step is one tool call the model asked for, carries
-    it as `call`, and never a finish, because a tool does not end a reply.
-
-    **Here and not in `digline.core.run`**, beside `RecordedToolCall`, because
-    the run document does not hold steps: they enter it when assertions read
-    them live (ADR 0058, *Alternatives considered*). A tool step's call is
-    written by the run document's own serializer of a tool call, inline in the
-    step, so a call has one written form wherever it is kept.
-
-    `finish` is the text the plugin gave, not checked against `Finish`'s
-    words: a finish nobody normalised is carried as given (ADR 0058 §12).
+    `question` is a single call's case's `messages`, or an episode's whole case
+    (`episode(case=...)`). Not the messages the provider received: the leading
+    instructions an OpenAI map moves into the setup are the setup's, and the
+    case is what the import groups answers by, so every recording of one
+    answer carries one input. Strict as the compartments are, and for the same
+    reason: a value JSON cannot carry is refused, not rewritten.
     """
-
-    index: int
-    actor: Actor
-    finish: str | None = None
-    call: RecordedToolCall | None = None
-
-    def __post_init__(self) -> None:
-        # `bool` is an `int` in Python, and `True` is not a place in a list.
-        if type(self.index) is not int or self.index < 0:
-            raise RecordingRefusedError("RecordedStep.index must be an integer from 0")
-        if self.actor not in _ACTORS:
-            raise RecordingRefusedError(
-                f"RecordedStep.actor must be 'model' or 'tool', got "
-                f"{str(self.actor)[:40]!r}"
-            )
-        if self.actor == "model" and self.call is not None:
-            raise RecordingRefusedError(
-                "a model step carries no tool call: the call the model asked "
-                "for is the tool step after it"
-            )
-        if self.actor == "tool":
-            if self.call is None:
-                raise RecordingRefusedError("a tool step carries its call")
-            if self.finish is not None:
-                raise RecordingRefusedError(
-                    "a tool step carries no finish: a tool does not end a reply "
-                    "(ADR 0058 §7)"
-                )
-        if self.finish == "":
-            raise RecordingRefusedError(
-                "RecordedStep.finish must be a non-empty string, or None where "
-                "none was reported"
-            )
-
-
-def steps_of(
-    calls: Iterable[tuple[str | None, Sequence[RecordedToolCall] | None]],
-) -> tuple[RecordedStep, ...]:
-    """The steps of a trajectory, from its calls to a model, in order.
-    (ADR 0060 §1)
-
-    Each call is the `finish` its reply reported and the tool calls it asked
-    for. It becomes one `model` step with that finish, then one `tool` step
-    per tool call, indexed from 0 across the whole trajectory. A call whose
-    tool calls are `None`, nobody said, is its model step alone.
-
-    The one place steps are made: a reply's metadata, a run's collection and
-    the close of an episode all come here, so the three cannot order a
-    trajectory three ways.
-    """
-    steps: list[RecordedStep] = []
-    for finish, called in calls:
-        steps.append(RecordedStep(index=len(steps), actor="model", finish=finish))
-        for call in called or ():
-            steps.append(RecordedStep(index=len(steps), actor="tool", call=call))
-    return tuple(steps)
-
-
-def steps_as_reported(
-    calls: Sequence[tuple[str | None, Sequence[Mapping[str, object]] | None]],
-) -> list[dict[str, object]] | None:
-    """The steps as `metadata["response"]["steps"]` holds them, or `None`.
-    (ADR 0060 §1, §2)
-
-    Each call is its `finish` and its tool calls in the form
-    `metadata["response"]["tool_calls"]` already uses. `steps_of` decides the
-    order and the indices; each tool step then carries its call in that live
-    form, inline beside `index` and `actor`, so a reader finds the same call
-    the same way in both keys.
-
-    `None` where any call's tool calls are `None`: steps that left a call's
-    tools out would say it called none, so a check that counts tool steps
-    would pass on what nobody reported. The calls are read by
-    `record_trajectory`, the run document's own reader, and a malformed one is
-    refused there rather than skipped.
-    """
-    recorded: list[tuple[str | None, Sequence[RecordedToolCall]]] = []
-    live: list[Mapping[str, object]] = []
-    for finish, called in calls:
-        if called is None:
-            return None
-        recorded.append((finish, record_trajectory({"tool_calls": called}) or ()))
-        live.extend(called)
-    reported: list[dict[str, object]] = []
-    at = iter(live)
-    for step in steps_of(recorded):
-        entry: dict[str, object] = {"index": step.index, "actor": step.actor}
-        if step.actor == "tool":
-            entry.update(next(at))
-        elif step.finish is not None:
-            entry["finish"] = step.finish
-        reported.append(entry)
-    return reported
+    return json.dumps(
+        _json_value(question, "input"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,7 +290,7 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
     if recording.call_site is not None:
         payload["call_site"] = recording.call_site
     if recording.steps is not None:
-        payload["steps"] = [_step_to_dict(step) for step in recording.steps]
+        payload["steps"] = [recorded_step_to_dict(step) for step in recording.steps]
     if recording.interrupted:
         payload["interrupted"] = True
     if recording.unrecorded_children:
@@ -394,17 +301,6 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["id"] = recording.id
     if recording.recorded_at is not None:
         payload["recorded_at"] = recording.recorded_at
-    return payload
-
-
-def _step_to_dict(step: RecordedStep) -> dict[str, object]:
-    """`index` and `actor`, then a model step's finish where one was reported,
-    or a tool step's call as a run document writes one, inline."""
-    payload: dict[str, object] = {"index": step.index, "actor": step.actor}
-    if step.finish is not None:
-        payload["finish"] = step.finish
-    if step.call is not None:
-        payload.update(recorded_tool_call_to_dict(step.call))
     return payload
 
 
@@ -426,14 +322,29 @@ def _step_from_dict(raw: object, at: int) -> RecordedStep:
             raise RecordingRefusedError(
                 Written.of(exc, f"a recording's step {at}: ", named=False)
             ) from exc
-        return RecordedStep(
-            index=cast(int, index), actor="tool", finish=finish, call=call
-        )
+        return _step(at, cast(int, index), "tool", finish, call)
     if entry:
         raise RecordingRefusedError(
             f"a recording's step {at} is a model step and carries a tool call's keys"
         )
-    return RecordedStep(index=cast(int, index), actor=cast(Actor, actor), finish=finish)
+    return _step(at, cast(int, index), cast(Actor, actor), finish, None)
+
+
+def _step(
+    at: int,
+    index: int,
+    actor: Actor,
+    finish: str | None,
+    call: RecordedToolCall | None,
+) -> RecordedStep:
+    """A step read from a recording, refused as a recording is: the step's
+    own rules are the run document's, since it moved there (ADR 0060 §5)."""
+    try:
+        return RecordedStep(index=index, actor=actor, finish=finish, call=call)
+    except RefusedError as exc:
+        raise RecordingRefusedError(
+            Written.of(exc, f"a recording's step {at}: ", named=False)
+        ) from exc
 
 
 def recording_from_dict(raw: object, *, where: str = "this recording") -> Recording:

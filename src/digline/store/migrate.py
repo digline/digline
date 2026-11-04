@@ -500,6 +500,27 @@ def _add_schema_twenty_two(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty_three(raw: dict[str, Any]) -> dict[str, Any]:
+    """22 -> 23. Three passengers on a recorded response, and the step writes
+    nothing for any of them: what `ToolsCalled` reads live (ADR 0057), and the
+    steps the checks on a trajectory read live (ADR 0060 §5).
+
+    - `finish` on a recorded response: a document before 23 does not say why a
+      reply ended. Absent is *not recorded*, and the replay hands no `finish`
+      back, which is what every replay did before.
+    - `tools` on a recorded response: a document before 23 does not keep the
+      names the target reported. Absent is *not recorded*, and the replay
+      derives the names from `tool_calls`, which is what every replay did
+      before. Writing them from `tool_calls` here would claim the target
+      reported two lists that agreed, which nobody measured.
+    - `steps` on a recorded response: a document before 23 holds no steps.
+      Absent is *not recorded*, never `[]`, and a check that counts steps
+      cannot be re-judged from it. Building steps from `tool_calls` here
+      would invent the model's turns, which `tool_calls` does not record.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one, and what the step declares it
 #: does. A version absent from this table is one whose bump was not additive,
 #: and the absence is the whole statement. Every entry declares its nature, and
@@ -535,6 +556,7 @@ _STEPS: Mapping[int, Step] = {
     19: Step(_add_schema_twenty, WritesNothing()),
     20: Step(_add_schema_twenty_one, WritesNothing()),
     21: Step(_add_schema_twenty_two, WritesNothing()),
+    22: Step(_add_schema_twenty_three, WritesNothing()),
 }
 
 #: The steps whose default states something that was not true of the run, by

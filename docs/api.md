@@ -304,9 +304,9 @@ nothing checks it. Reasoning in
 
 > **Declared and loaded, not run yet.** A suite that declares a reviewed
 > answer is refused by `digline run`, `rejudge` and `execute()` before
-> anything is called or written: *reviewed answers run from schema 23 (ADR
-> 0059 §1); this build is on schema 22*. The run document gains the key that
-> says what the person said with schema 23.
+> anything is called or written: *reviewed answers run once the run document
+> has a key for a person's yes or no (ADR 0059 §1), and this build's, at schema
+> 23, has none*. The key that says what the person said is still to come.
 
 An answer the application gave, and a person's yes or no about it. Here a
 person read two recorded answers to the same question, said yes to one and no
@@ -504,8 +504,10 @@ assertions = [
   names: `Subsequence` writes `matched`, `expected`, `tool_steps` and
   `called`; `Before` `violations`, `first_calls` and `then_calls`; `Never`
   `occurrences`; `MaxSteps` `steps` and `limit`.
-- **In a replay**, the three on order are judged from the recorded names.
-  `MaxSteps` is refused: the run document holds no steps before schema 23.
+- **In a replay**, the three on order are judged from the recorded steps, or
+  from the recorded names where no steps were recorded. `MaxSteps` is judged
+  from the recorded steps, and refused by name for a run that recorded none:
+  one produced before schema 23, or by a target that reports no steps.
 
 In a TOML suite they are `subsequence`, `before`, `never` and `max_steps`.
 
@@ -970,9 +972,11 @@ mistake rather than a formatting one:
   would do so identically whether or not the model had rolled underneath. A
   provider that does not say records nothing — `Bedrock` Converse is the case.
 
-What is not asserted on is not recorded. `finish` and `tools` reach
-`Response.metadata`, which is **not persisted**: what reaches a run file is what
-an assertion measured out of it, through `Score.metadata`.
+`finish`, `tools` and `steps` reach `Response.metadata`, which is **not
+persisted** as it is. Under `record_responses` a recorded response keeps those
+three from schema 23, beside `tool_calls`, so a replay judges the trajectory the
+live run judged (ADR 0057, ADR 0060 §5). The rest of the metadata reaches a run
+file only as what an assertion measured out of it, through `Score.metadata`.
 
 ### `config`: what decided how the model answered
 

@@ -32,6 +32,7 @@ from digline.core import (
     ToolsCalled,
     restore_output,
 )
+from digline.core.run import RecordedStep
 from digline.run.driver import (
     Mapper,
     Response,
@@ -104,6 +105,15 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     `tool_calls` what `ToolCalledWith` reads; writing one without the other
     would answer one assertion and error the other over the same recording.
 
+    **From schema 23, what was recorded is handed back as recorded.** `tools`
+    comes from the document where it was recorded, and `finish` beside it, so a
+    reply that ended on a tool call and named none, or whose two lists
+    disagreed, is judged on the trajectory the live run judged. Where `tools`
+    was not recorded — every document before 23 — the names are derived from
+    `tool_calls` as before, so an older document replays exactly as it did.
+    `tools` may now arrive without `tool_calls`: the one assertion that reads
+    the calls is refused that replay by `_check`. (ADR 0057)
+
     **`()` is not `None`, and collapsing them was a defect.** A recorded
     response carrying no calls is a target that reported *the model called
     nothing* — a real measurement, which `ToolsCalled` scores rather than
@@ -125,11 +135,13 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     # universal invariant when the refusal is conditional on the suite, so every
     # replay of a plain-function target died with `AssertionError`. The guard
     # belongs where the fact is known, which is `_check`.
-    if answer.tool_calls is None:
-        return {}
-    return {
-        "tools": [call.tool for call in answer.tool_calls],
-        "tool_calls": [
+    found: dict[str, object] = {}
+    if answer.tools is not None:
+        found["tools"] = list(answer.tools)
+    elif answer.tool_calls is not None:
+        found["tools"] = [call.tool for call in answer.tool_calls]
+    if answer.tool_calls is not None:
+        found["tool_calls"] = [
             {
                 "tool": call.tool,
                 "arguments": call.arguments,
@@ -138,8 +150,48 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
                 "result_absence": call.result_absence,
             }
             for call in answer.tool_calls
-        ],
-    }
+        ]
+    if answer.finish is not None:
+        found["finish"] = answer.finish
+    # The steps, in the live form `steps_as_reported` writes: a tool step
+    # carries its call as `tool_calls` carries it here, so the checks that
+    # read both find the same calls. Absent where not recorded, which is every
+    # document before schema 23. (ADR 0060 §5)
+    if answer.steps is not None:
+        found["steps"] = [_live_step(step) for step in answer.steps]
+    return found
+
+
+def _live_step(step: RecordedStep) -> dict[str, object]:
+    entry: dict[str, object] = {"index": step.index, "actor": step.actor}
+    if step.finish is not None:
+        entry["finish"] = step.finish
+    if step.call is not None:
+        entry.update(
+            {
+                "tool": step.call.tool,
+                "arguments": step.call.arguments,
+                "result": step.call.result,
+                "status": step.call.status,
+                "result_absence": step.call.result_absence,
+            }
+        )
+    return entry
+
+
+def _serves(check: object, answer: RecordedResponse) -> bool:
+    """Whether a recorded answer gives back what this trajectory check reads.
+    (ADR 0057; ADR 0060 §4, §5)"""
+    if isinstance(check, ToolCalledWith):
+        # The arguments, which only `tool_calls` carries.
+        return answer.replayable_trajectory
+    if isinstance(check, MaxSteps):
+        # The steps and nothing else: no fallback counts turns.
+        return answer.replayable_steps
+    if isinstance(check, Subsequence | Before | Never):
+        return answer.replayable_steps or answer.replayable_tools
+    # `ToolsCalled`: the names, recorded or derived from the calls.
+    return answer.replayable_tools
 
 
 def _check(suite: Suite, source: Run) -> None:
@@ -176,22 +228,10 @@ def _check(suite: Suite, source: Run) -> None:
         assertion
         for assertion in suite.assertions
         if isinstance(
-            assertion, ToolsCalled | ToolCalledWith | Subsequence | Before | Never
+            assertion,
+            ToolsCalled | ToolCalledWith | Subsequence | Before | Never | MaxSteps,
         )
     ]
-    # The three checks on order read the names under `tools` where a response
-    # has no steps, and a recorded response gives those back. A count of steps
-    # has no such fallback, and the run document holds no steps before schema
-    # 23: refused by name, before a judge is paid, rather than errored on every
-    # case. (ADR 0060 §4, §5)
-    for assertion in suite.assertions:
-        if isinstance(assertion, MaxSteps):
-            raise ReplayError(
-                f"this suite holds {assertion.name!r}, which counts steps, and "
-                "steps are not in the run document before schema 23: a stored "
-                "run cannot give them back, so the check cannot be judged again. "
-                "Re-judge without it, or produce a new run"
-            )
 
     recorded = {case.case_id: case for case in source.results}
     if not any(case.responses for case in source.results):
@@ -242,13 +282,32 @@ def _check(suite: Suite, source: Run) -> None:
                 "measurement wearing the suite's name: set `samples` to what "
                 "was recorded, or produce a new run"
             )
-        if trajectory_checks and not all(
-            r.replayable_trajectory for r in stored.responses
-        ):
+        # Each check asks for what it reads. `ToolCalledWith` reads the calls,
+        # which only `tool_calls` carries. `ToolsCalled` reads the names, which
+        # schema 23 records as `tools` and which `tool_calls` can still give,
+        # so a target that reported names and no calls is re-judged on them
+        # rather than refused. The three on order read the steps or the names;
+        # `MaxSteps` reads the steps alone, which a document before schema 23
+        # never holds. (ADR 0057; ADR 0060 §4, §5)
+        unserved = [
+            check
+            for check in trajectory_checks
+            if not all(_serves(check, r) for r in stored.responses)
+        ]
+        counted = [check for check in unserved if isinstance(check, MaxSteps)]
+        if counted:
+            raise ReplayError(
+                f"case {case.id!r} has a recorded answer with no steps, and this "
+                f"suite holds {counted[0].name!r}, which counts them. Steps are "
+                "recorded from schema 23, where the target reported them, so a "
+                "run produced before, or by a target that reports none, cannot "
+                "give them back. Re-judge without it, or produce a new run"
+            )
+        if unserved:
             raise ReplayError(
                 f"case {case.id!r} has a recorded answer from a target that "
                 f"reported no trajectory, and this suite holds "
-                f"{trajectory_checks[0].name!r}, which judges one. The run was "
+                f"{unserved[0].name!r}, which judges one. The run was "
                 "produced before trajectories were recorded, or by a target "
                 "that does not report them — so re-judging it would error that "
                 "check rather than measure it, which is a declared gate "

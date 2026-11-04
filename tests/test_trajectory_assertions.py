@@ -27,6 +27,7 @@ from digline.core import (
     ToolsCalled,
     Verdict,
 )
+from digline.core.run import steps_as_reported
 from digline.host.toml_suite import load_toml_suite
 from digline.run import Case, Response, Suite, execute
 from digline.run.replay import ReplayError, rejudge
@@ -389,16 +390,62 @@ def test_a_replay_refuses_an_order_check_over_a_run_with_no_trajectory() -> None
         rejudge(suite(NEVER_DELETE), source, key="src", created_at=LATER)
 
 
-def test_a_replay_refuses_a_check_that_counts_steps() -> None:
-    with pytest.raises(
-        ReplayError, match="steps are not in the run document before schema 23"
-    ):
+def test_a_replay_refuses_max_steps_where_no_steps_were_recorded() -> None:
+    with pytest.raises(ReplayError, match="which counts them"):
         rejudge(
             suite(MaxSteps(limit=6, count="model")),
             recorded(),
             key="src",
             created_at=LATER,
         )
+
+
+def stepping(case: Case) -> Response:
+    """Two turns of an agent, reported as steps and as calls, which agree."""
+    calls = [
+        {"tool": "lookup_order", "arguments": NO_ARGUMENTS, "status": "success"},
+        {"tool": "issue_refund", "arguments": NO_ARGUMENTS, "status": "success"},
+    ]
+    return Response(
+        output="refunded",
+        metadata={
+            "tools": [call["tool"] for call in calls],
+            "tool_calls": calls,
+            "steps": steps_as_reported(
+                [("tool_use", calls[:1]), ("tool_use", calls[1:])]
+            ),
+        },
+    )
+
+
+def recorded_with_steps() -> Any:
+    declared = Suite(
+        tenant="acme",
+        environment="test",
+        name="refunds",
+        assertions=[Contains(needle="refunded")],
+        cases=[Case(id="refund")],
+        record_responses=True,
+    )
+    return execute(declared, stepping, created_at=CREATED)
+
+
+@pytest.mark.parametrize(
+    ("check", "status"),
+    [
+        (MaxSteps(limit=2, count="model"), "pass"),
+        (MaxSteps(limit=1, count="model"), "fail"),
+        (MaxSteps(limit=1, count="tool"), "fail"),
+        (LOOKUP_THEN_REFUND, "pass"),
+        (LOOKUP_BEFORE_REFUND, "pass"),
+        (NEVER_DELETE, "pass"),
+    ],
+    ids=["max-model-2", "max-model-1", "max-tool-1", "subsequence", "before", "never"],
+)
+def test_a_replay_judges_the_recorded_steps(check: Any, status: str) -> None:
+    again = rejudge(suite(check), recorded_with_steps(), key="src", created_at=LATER)
+    [verdict] = again.results[0].verdicts
+    assert verdict.status == status
 
 
 # -- TOML --------------------------------------------------------------------------- #

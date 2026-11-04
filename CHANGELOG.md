@@ -6,7 +6,37 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 1.1.0 — unreleased
+
+digline **1.1.0**. **A minor, because the schema moves**: the run document is at
+schema 23, and `digline migrate` takes a document from 22 by a step that writes
+nothing. No public name is removed or renamed and no exit code changes.
+
+- **Schema 23: a recorded response keeps the trajectory the checks read live**,
+  three passengers, each additive and absent where it was not recorded:
+  - **`RecordedResponse.finish`**, why the reply ended, and
+    **`RecordedResponse.tools`**, the names the target reported (ADR 0057).
+    `ToolsCalled` reads both live, and the document did not keep them, so a
+    reply that ended on a tool call and named none was `error` live and `fail`
+    replayed, and a target whose two lists disagreed was judged on one live
+    and on the other replayed. Where `tools` was not recorded, the replay
+    derives the names from `tool_calls`, as before.
+  - **`RecordedResponse.steps`**, the trajectory as steps: a `model` step per
+    call to a model and a `tool` step per tool call it asked for (ADR 0060
+    §5). The replay hands them back, so `MaxSteps` is re-judged where the run
+    recorded steps, and refused by name where it did not; `Subsequence`,
+    `Before` and `Never` read the steps where they were recorded, and the
+    names otherwise. Steps whose calls are not the response's `tool_calls`,
+    in the same order, are refused rather than recorded.
+  - **The replay's refusal narrows.** A target that reported names and no
+    calls is re-judged for `ToolsCalled`, where it was refused.
+    `ToolCalledWith` reads the arguments, which only `tool_calls` carries, and
+    is still refused.
+
+  Each is written where the target reported it, under `record_responses`,
+  with no switch of its own. A document written before 23 records none of
+  them, and **no stored document changes its verdict**: absent is *not
+  recorded*, so it replays exactly as it did.
 
 - **`digline view` listens on 127.0.0.1 and nowhere else, and `--host` is
   gone**: a command that passes it is refused, exit `64`. A CLI option
@@ -92,6 +122,11 @@ notes under them are this file, verbatim.
   declares it as a `[capture]` table, with `cases` an array of files.
   `Suite.deterministic_output` makes a yes also write an `expected`. The
   declaration is printed at every use (ADR 0059 §2–§4).
+- **The recorder writes each answer's input**, which the import puts beside
+  the answer for the judge and refuses an answer without: a call's case
+  `messages`, made, streamed or awaited, and an episode's whole case, as JSON
+  text. Without it no answer the recorder kept could be written as a reviewed
+  answer. `RECORDING_VERSION` stays 1.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

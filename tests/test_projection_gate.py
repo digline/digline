@@ -187,6 +187,12 @@ FIELDS: dict[str, str] = {
     "RecordedToolCall.tool": _REDACTED + " with its response",
     "RecordedToolCall.arguments": _REDACTED + " with its response",
     "RecordedToolCall.result": _REDACTED + " with its response",
+    # Schema 23's passengers on a recorded response, dropped with it by
+    # `redact()` like every other field here. (ADR 0057; ADR 0060 §5)
+    "RecordedResponse.finish": _REDACTED + " with its response",
+    "RecordedResponse.tools": _REDACTED + " with its response",
+    "RecordedStep.actor": _REDACTED + " with its response",
+    "RecordedStep.finish": _REDACTED + " with its response",
     "Run.tenant": "$.tenant",
     "Run.environment": "$.environment",
     "Run.suite": "$.suite",

@@ -1504,9 +1504,14 @@ def _record(
     A streamed call arrives here at its end with its `completion` already
     read from the events, `drawn` as its episode drew when the stream began,
     and `late` where that episode has closed since.
+
+    The response's `input` is the case's `messages` as JSON text
+    (`input_of`), the same for a call made, streamed or awaited: the question
+    the import puts beside the answer for the judge. A map whose case holds no
+    messages records none, and the import says so of its answers.
     """
     try:
-        from digline.core.recording import Recording, setup_digest_of
+        from digline.core.recording import Recording, input_of, setup_digest_of
         from digline.core.run import record_trajectory
         from digline.run.driver import Response, recorded
         from digline.store.file_store import FileResultStore, RecordingWriter
@@ -1544,17 +1549,22 @@ def _record(
         if completion is None:
             completion = mapped.completion(reply, request)
         metadata = completion.as_metadata()
+
+        stage = "not JSON"
+        digest = setup_digest_of(setup)
+        # The question beside the answer, which the import copies into a
+        # reviewed answer: the case's messages, not the request's, so the
+        # instructions a map moved into the setup stay there.
+        question = case.get("messages")
         response = recorded(
             Response(
                 output=completion.text,
+                input=None if question is None else input_of(question),
                 latency_ms=elapsed_ms,
                 usage=completion.usage,
                 metadata=metadata,
             )
         )
-
-        stage = "not JSON"
-        digest = setup_digest_of(setup)
         seen = _Seen(
             digest, completion.text, completion.finish, record_trajectory(metadata)
         )
@@ -1973,7 +1983,7 @@ def _settled(
     says the rules."""
     from dataclasses import replace
 
-    from digline.core.recording import steps_as_reported
+    from digline.core.run import steps_as_reported
 
     with collected.lock:
         calls = list(collected.calls)
@@ -2227,7 +2237,9 @@ def episode(
     `case=` is required: the input that started the turn, a mapping of
     names to JSON values, as the case will hold it, for example
     `{"ticket": text}` or `{"messages": [...]}`. Two turns with the same
-    `case` are the same case at the import. `suite=` names the suite, as
+    `case` are the same case at the import, and the case, as JSON text, is
+    the recorded answer's `input`: the question the import puts beside the
+    turn's answer for the judge. `suite=` names the suite, as
     `suite=` does on a call; an episode that names none is `_unassigned`,
     with its call site. `setup=` replaces the setup the episode derives
     from its calls, where the turn runs steps no model call shows.
@@ -2285,14 +2297,23 @@ def _record_episode(
     ep: Episode, collector: _Collector, elapsed_ms: float, *, interrupted: bool
 ) -> str | None:
     """Write an episode's recording, or say why not. `_record`'s rule: nothing
-    here raises, and each stage is its reason."""
+    here raises, and each stage is its reason.
+
+    The response's `input` is the episode's whole case as JSON text
+    (`input_of`), never a call's messages: the answer is the turn's, so its
+    question is what started the turn. The first call's messages may be a
+    step the turn makes on its way, a later one's carry the tools' results,
+    and an episode may answer with no model call at all; the case is given,
+    and is what the import groups the turn's answers by. Counted against the
+    ceiling with the text and the trajectory, whole or nothing."""
     stage = "unexpected"
     try:
-        from digline.core.recording import Recording, setup_digest_of, steps_of
+        from digline.core.recording import Recording, input_of, setup_digest_of
         from digline.core.run import (
             MAX_RECORDED_CHARS,
             RecordedResponse,
             record_output,
+            steps_of,
             trajectory_chars,
         )
         from digline.store.file_store import FileResultStore, RecordingWriter
@@ -2313,6 +2334,7 @@ def _record_episode(
         stage = "not JSON"
         digest = setup_digest_of(setup)
         collector.digest = digest
+        question = input_of(dict(ep._case))  # pyright: ignore[reportPrivateUsage]
 
         stage = "output"
         kept = ep._output  # pyright: ignore[reportPrivateUsage]
@@ -2333,8 +2355,10 @@ def _record_episode(
             if any(seen.calls is None for seen in calls)
             else [call for seen in calls for call in seen.calls or ()]
         )
-        oversize = len(text) > MAX_RECORDED_CHARS or (
-            trajectory_chars(trajectory or ()) > MAX_RECORDED_CHARS
+        oversize = (
+            len(text) > MAX_RECORDED_CHARS
+            or len(question) > MAX_RECORDED_CHARS
+            or trajectory_chars(trajectory or ()) > MAX_RECORDED_CHARS
         )
         response = (
             RecordedResponse(oversize=True, latency_ms=elapsed_ms)
@@ -2342,6 +2366,7 @@ def _record_episode(
             else RecordedResponse(
                 output=text,
                 kind=kind,
+                input=question,
                 latency_ms=elapsed_ms,
                 tool_calls=None if trajectory is None else tuple(trajectory),
             )

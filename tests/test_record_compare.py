@@ -31,9 +31,9 @@ import pytest
 
 from digline.cli.main import main
 from digline.core.capture import capture_id
-from digline.core.recording import RecordedStep, Recording, setup_digest_of
+from digline.core.recording import Recording, setup_digest_of
 from digline.core.refused import RefusedError
-from digline.core.run import RecordedResponse
+from digline.core.run import RecordedResponse, RecordedStep
 from digline.host import load_suite, record_compare
 from digline.store.file_store import FileResultStore, RecordingWriter
 from digline.wire import EXIT_OK, EXIT_USAGE, record_compare_json

@@ -770,9 +770,12 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     # recorded rather than misread. It moved to 22 for `origin` on a verdict
     # and `named` on a configuration (ADR 0034 §17), and holds an eleventh:
     # both ride in the case and configuration records a leg already writes
-    # with the document's own serializer, each absent where not recorded. The
-    # journal's version stands by its own rule, as it did for `pid` and `host`.
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (22, 3)
+    # with the document's own serializer, each absent where not recorded. It
+    # moved to 23 for `finish` and `tools` on a recorded response (ADR 0057),
+    # which a leg carries inside the response it already writes, each absent
+    # where not recorded. The journal's version stands by its own rule, as it
+    # did for `pid` and `host`.
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (23, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
