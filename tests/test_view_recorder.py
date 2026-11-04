@@ -1179,3 +1179,22 @@ def test_the_command_serves_the_writes_behind_its_flag(root: Path) -> None:
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+def test_the_recorder_says_what_it_could_not_count(root: Path) -> None:
+    """A process that keeps recordings and no counts file is said, beside the
+    files that are not recordings: what it did not record is not known, which
+    is not nothing (ADR 0062 §2). The store here is written by the writer
+    alone, as a writer outside the recorder writes it, so it keeps no counts.
+    """
+    status = status_of(root, read=False)
+    assert status.uncounted == 1
+    said = "Not counted: 1 process(es) keep recordings and no counts"
+    page = recorder_pages.recorder_page(
+        status, suite="triage", locale="en", writes=None
+    )
+    assert said in unescape(page)
+    counted = recorder_pages.recorder_page(
+        replace(status, uncounted=0), suite="triage", locale="en", writes=None
+    )
+    assert "Not counted" not in counted

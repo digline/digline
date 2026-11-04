@@ -529,7 +529,9 @@ signature.
 A reviewed answer runs with the suite: the target is not asked for it, the
 check it names judges the answer you read, and a judge that says the other of
 what you said fails the case, so `digline report` and `digline compare` exit
-`1`, and the report names the case and which way the judge went.
+`1`, and the report names the case and which way the judge went. How it sits
+beside the other ways of reading a judge, calibration cases, the labelled
+aggregates and `Repeated`, is [Calibrating a judge](calibration.md).
 
 Recordings of another tenant than the suite's are refused before anything is
 shown: bringing one tenant's material into another's suite is the bridge,

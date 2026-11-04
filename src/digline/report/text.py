@@ -982,6 +982,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "The recorder stopped at the ceiling.",
         "view.recorder.unreadable": "{count} file(s) that are not recordings",
+        "view.recorder.uncounted": (
+            "Not counted: {count} process(es) keep recordings and no counts, so "
+            "what was not recorded there is not known."
+        ),
         "view.recorder.column.suite": "Suite",
         "view.recorder.column.calls": "Calls",
         "view.recorder.column.inside": "In an episode",
@@ -1231,26 +1235,39 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "that could not be judged."
         ),
         "explain.tally.calibration.one": (
-            "1 calibration case scored outside its declared band: the judged "
-            "scores in this run are not placed on the scale they are compared "
-            "on. It is counted in no aggregate, and the target was not asked "
-            "for it."
+            "1 calibration case scored outside its declared band: {cases}. The "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on. It is counted in no aggregate, and the target was not "
+            "asked for it."
         ),
         "explain.tally.calibration.many": (
-            "{count} calibration cases scored outside their declared bands: the "
-            "judged scores in this run are not placed on the scale they are "
-            "compared on. They are counted in no aggregate, and the target was "
-            "not asked for them."
+            "{count} calibration cases scored outside their declared bands: "
+            "{cases}. The judged scores in this run are not placed on the scale "
+            "they are compared on. They are counted in no aggregate, and the "
+            "target was not asked for them."
         ),
+        # The report's section, in a clause: the case, the check, the score,
+        # and which side of which band. (ADR 0024 §4.5)
+        "explain.tally.calibration.case": (
+            "{case} for {check} at {score}, {side} {low}–{high}"
+        ),
+        "explain.side.above": "above",
+        "explain.side.below": "below",
         "explain.tally.reviewed.one": (
             "The judge contradicted a person on 1 reviewed answer, and the case "
-            "fails. It is counted in no aggregate, and the target was not asked "
-            "for it."
+            "fails: {cases}. It is counted in no aggregate, and the target was "
+            "not asked for it."
         ),
         "explain.tally.reviewed.many": (
             "The judge contradicted a person on {count} reviewed answers, and "
-            "each fails. They are counted in no aggregate, and the target was "
-            "not asked for them."
+            "each fails: {cases}. They are counted in no aggregate, and the "
+            "target was not asked for them."
+        ),
+        "explain.tally.reviewed.passed_no": (
+            "{case} for {check}, passed where the person said no"
+        ),
+        "explain.tally.reviewed.failed_yes": (
+            "{case} for {check}, failed where the person said yes"
         ),
         "explain.tally.on_the_line.one": (
             "1 check measured a band that covers its own threshold, so which "
@@ -2484,6 +2501,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "Il registratore si è fermato al tetto.",
         "view.recorder.unreadable": "{count} file che non sono registrazioni",
+        "view.recorder.uncounted": (
+            "Non contato: {count} processo/i hanno registrazioni e nessun "
+            "conteggio, quindi non si sa cosa non vi è stato registrato."
+        ),
         "view.recorder.column.suite": "Suite",
         "view.recorder.column.calls": "Chiamate",
         "view.recorder.column.inside": "In un episodio",
@@ -2730,26 +2751,37 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "tra i controlli non valutati."
         ),
         "explain.tally.calibration.one": (
-            "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "
-            "giudicati in questa esecuzione non stanno sulla scala su cui "
-            "vengono confrontati. Non entra in nessun aggregato, e al sistema "
-            "sotto esame non è stato chiesto nulla per esso."
+            "1 caso di calibrazione è fuori dalla banda dichiarata: {cases}. I "
+            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
+            "cui vengono confrontati. Non entra in nessun aggregato, e al "
+            "sistema sotto esame non è stato chiesto nulla per esso."
         ),
         "explain.tally.calibration.many": (
-            "{count} casi di calibrazione sono fuori dalla banda dichiarata: i "
-            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
-            "cui vengono confrontati. Non entrano in nessun aggregato, e al "
-            "sistema sotto esame non è stato chiesto nulla per essi."
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata: "
+            "{cases}. I punteggi giudicati in questa esecuzione non stanno sulla "
+            "scala su cui vengono confrontati. Non entrano in nessun aggregato, "
+            "e al sistema sotto esame non è stato chiesto nulla per essi."
         ),
+        "explain.tally.calibration.case": (
+            "{case} per {check} a {score}, {side} {low}–{high}"
+        ),
+        "explain.side.above": "sopra",
+        "explain.side.below": "sotto",
         "explain.tally.reviewed.one": (
             "Il giudice ha contraddetto una persona su 1 risposta rivista, e il "
-            "caso fallisce. Non entra in nessun aggregato, e al sistema sotto "
-            "esame non è stato chiesto nulla per essa."
+            "caso fallisce: {cases}. Non entra in nessun aggregato, e al sistema "
+            "sotto esame non è stato chiesto nulla per essa."
         ),
         "explain.tally.reviewed.many": (
             "Il giudice ha contraddetto una persona su {count} risposte riviste, "
-            "e ciascuna fallisce. Non entrano in nessun aggregato, e al sistema "
-            "sotto esame non è stato chiesto nulla per esse."
+            "e ciascuna fallisce: {cases}. Non entrano in nessun aggregato, e al "
+            "sistema sotto esame non è stato chiesto nulla per esse."
+        ),
+        "explain.tally.reviewed.passed_no": (
+            "{case} per {check}, promossa dove la persona ha detto no"
+        ),
+        "explain.tally.reviewed.failed_yes": (
+            "{case} per {check}, bocciata dove la persona ha detto sì"
         ),
         "explain.tally.on_the_line.one": (
             "1 controllo ha misurato una banda che copre la propria soglia: da "

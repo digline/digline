@@ -391,6 +391,13 @@ does two things:
     the line as served until the form is posted, and the page that answers
     the POST shows the command that ran.
 
+    *Noted 2026-11-04 (#904), the bullet above kept as written.* The page that
+    answers the POST is the one the 303 leads to, and it shows the state the
+    write left, read back from the files: the switch on or off, the answers
+    *already in the file*. It does not show the command that ran. The server
+    keeps nothing between two requests, and a line carried in the address to
+    the next one would be text any link could make the page say.
+
 **Weights**, measured with `wc -c` and `gzip -c` on 2026-11-03, on the mockup
 and on the vendored files:
 

@@ -255,17 +255,19 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "response, with `Recording.steps` gone. Meant for 1.1"
     ),
     "0061-a-local-page-whose-views-other-packages-may-extend": (
-        "the foundations exist: `digline view` binds loopback alone with no "
-        "`--host`, carries the policy of §4.4 with nothing inline, serves the "
-        "one sheet, uPlot and digline's script, accepts `--allow-record`, and "
-        "serves the views of `digline.views`. It has no view of the recorder "
-        "and no write but promotion"
+        "built: `digline view` binds loopback alone with no `--host`, carries "
+        "the policy of §4.4 with nothing inline, serves the one sheet, uPlot "
+        "and digline's script, the recorder's three views (#902) and, behind "
+        "`--allow-record`, its two writes with the command under each button "
+        "(#904), and the views of `digline.views`"
     ),
     "0062-the-recorder-out-of-process-and-in-other-processes": (
-        "accepted, and in part built: `input` (#901), the contract's costs "
-        "(#905), and `digline record proxy` with `digline.recording_wire` "
-        "for OpenAI and Anthropic. Bedrock through the proxy, the steps "
-        "rebuilt from the messages and the Java files do not exist"
+        "§2 is built: the in-process recorder's `input` (#901), and the "
+        "contract `docs/recording-format.md` states, which the readers hold a "
+        "recording to (#905). §3 in part: `digline record proxy` and "
+        "`digline.recording_wire` read OpenAI and Anthropic. Bedrock through "
+        "the proxy, the steps rebuilt from the messages and the Java files do "
+        "not exist"
     ),
 }
 
