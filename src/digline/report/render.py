@@ -55,6 +55,7 @@ from digline.core import (
     within,
 )
 from digline.core.compare import WIDTH_FIELD
+from digline.report.sheet import SHEET
 from digline.report.text import Locale, phrase, strings
 
 __all__ = [
@@ -2053,66 +2054,6 @@ def _reason(
     return "" if source is None else source.reason
 
 
-CSS = """\
-:root { color-scheme: light; }
-body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-       margin: 0 auto; max-width: 52rem; padding: 2rem 1rem; color: #16181d; }
-h1 { font-size: 1.5rem; margin: 0 0 .25rem; }
-h2 { font-size: 1.1rem; margin: 0 0 .25rem; }
-.aggregates { margin: 0 0 2rem; }
-dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem;
-          margin: 1rem 0 2rem; font-size: .9rem; }
-dt { color: #5b6270; }
-dd { margin: 0; }
-.answer { border: 2px solid currentColor; border-radius: .5rem; padding: 1rem 1.25rem;
-          margin: 0 0 2rem; }
-.answer.worse { color: #8a1c1c; }
-.answer.fine { color: #17552e; }
-.answer .verdict { font-size: 2rem; font-weight: 700; line-height: 1; }
-.answer p { color: #16181d; margin: .75rem 0 0; }
-.tally { list-style: none; display: flex; flex-wrap: wrap; gap: 1rem;
-         padding: 0; margin: 1rem 0 0; font-size: .85rem; color: #5b6270; }
-.tally b { color: #16181d; }
-details { border-top: 1px solid #d8dce3; padding: .75rem 0; }
-summary { cursor: pointer; font-weight: 600; }
-table { border-collapse: collapse; width: 100%; margin-top: .75rem;
-        font-size: .9rem; }
-th, td { border-bottom: 1px solid #e6e9ee; padding: .5rem .5rem .5rem 0;
-         text-align: left; vertical-align: top; }
-th { color: #5b6270; font-weight: 600; }
-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-       font-size: .875em; }
-.empty { color: #5b6270; font-style: italic; margin: .5rem 0 0; }
-
-/* The diff of a file under test. Fixed width because alignment is the content,
-   and coloured rather than only signed so the eye finds the change before it
-   reads it. */
-pre.diff { background: #f5f6f8; border: 1px solid #d8dce3; border-radius: .375rem;
-           padding: .75rem 1rem; overflow-x: auto; font-size: .8125rem;
-           line-height: 1.45; margin: .5rem 0 1rem; white-space: pre; }
-pre.diff span { display: block; }
-.d-add { background: #e6f4ea; color: #14532d; }
-.d-del { background: #fceceb; color: #7f1d1d; }
-.d-meta { color: #7a828f; }
-.d-ctx { color: #3c4350; }
-section.config { margin: 0 0 2rem; }
-section.artifacts details { border-top: none; padding: .25rem 0; }
-section.artifacts summary { font-weight: 400; }
-
-/* Printing is the declared route to PDF, and a printed report that hides the
-   regressions is a wrong report. Collapsed sections open on paper. */
-@media print {
-  body { max-width: none; padding: 0; color: #000; }
-  details { display: block; }
-  details > summary { list-style: none; }
-  details > *:not(summary) { display: block !important; }
-  details[open] > *, details:not([open]) > * { display: block !important; }
-  .answer { border-color: #000; }
-  a[href]::after { content: ""; }
-}
-"""
-
-
 def _row(
     delta: AssertionDelta,
     locale: Locale,
@@ -2758,7 +2699,7 @@ def render_html(
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{escape(title)}</title>\n"
-        f"<style>\n{CSS}</style>\n"
+        f"<style>\n{SHEET}</style>\n"
         "</head>\n"
         "<body>\n"
         f"<h1>{escape(title)}</h1>\n"
@@ -3131,7 +3072,7 @@ def render_run_html(run: Run, *, locale: Locale) -> str:
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f"<title>{escape(title)}</title>\n"
-        f"<style>\n{CSS}</style>\n"
+        f"<style>\n{SHEET}</style>\n"
         "</head>\n"
         "<body>\n"
         f"<h1>{escape(title)}</h1>\n"

@@ -256,9 +256,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "for 1.1"
     ),
     "0061-a-local-page-whose-views-other-packages-may-extend": (
-        "accepted, and before any code: `digline view` has no view of the "
-        "recorder, no write but promotion, no `--allow-record` and no "
-        "`digline.views` group, and it still takes `--host`"
+        "the foundations exist: `digline view` binds loopback alone with no "
+        "`--host`, carries the policy of §4.4 with nothing inline, serves the "
+        "one sheet, uPlot and digline's script, accepts `--allow-record`, and "
+        "serves the views of `digline.views`. It has no view of the recorder "
+        "and no write but promotion"
     ),
 }
 

@@ -17,7 +17,8 @@ This plugin is how it reaches you. It ships:
   commit**. `promote` is not disabled there; it is absent, and there is no tool
   that could do it ([`docs/mcp.md`](../../docs/mcp.md));
 - **a hook that asks you before `digline promote`, `digline register`,
-  `digline view --allow-promote`, `digline record import` with `--good` or
+  `digline view --allow-promote`, `digline view --allow-record`,
+  `digline record import` with `--good` or
   `--bad`, and `digline record on`** — see below for what it is and what it is
   not.
 
@@ -89,7 +90,8 @@ the next, the answer holds for one execution, not for a session.
 ## The hook is a preference, not a wall
 
 When a shell command runs `digline promote` or `digline register`, the hook
-stops and asks you. It does the same for `digline view --allow-promote`, an
+stops and asks you. It does the same for `digline view --allow-promote` and
+`digline view --allow-record`, an
 import that writes a yes or no (`digline record import` with `--good` or
 `--bad`, under your `--by`), and `digline record on`, which decides what of an
 application's calls is kept; the listing, `record off`, `record status` and

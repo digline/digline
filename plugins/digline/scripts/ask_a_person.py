@@ -1,6 +1,7 @@
 """Read a PreToolUse payload and ask a person before a person's decision:
 `digline promote`, `digline register`, `digline view --allow-promote`,
-`digline record import` with `--good` or `--bad`, or `digline record on`.
+`digline view --allow-record`, `digline record import` with `--good` or
+`--bad`, or `digline record on`.
 
 Started by `ask-a-person`, which has already decided that the project is a
 digline project. Standard library only: it runs in the project's `.venv`, but
@@ -21,7 +22,10 @@ but a larger one: the same decision, taken once and made ambient for every run
 in the store for as long as the server is up. So the reach changes from *the
 first word* to *the first word and, for one subcommand, its flags*, and what is
 matched is still a word of the parsed simple command — `grep -r "digline view
---allow-promote" notes/` is still a grep. (ADR 0032 §3)
+--allow-promote" notes/` is still a grep. (ADR 0032 §3) `--allow-record` is
+read the same way: it serves the page's writes of the recorder's switch and
+of an imported case, the decisions `record on` and an import with `--good`
+or `--bad` make, left standing for as long as the server is up (ADR 0061 §4).
 
 **`record` is read past its first word too, for the same reason.** Bare
 `digline record import` lists and writes nothing; with `--good` or `--bad` it
@@ -72,6 +76,12 @@ REASONS = {
         "the promote decision taken once and left standing for every run in "
         "the store, for as long as the server is up"
     ),
+    "view --allow-record": (
+        "digline view --allow-record serves the page's writes: the recorder "
+        "switched on or off, and a recorded case imported with a person's yes "
+        "or no — the decisions digline record on and an import with --good or "
+        "--bad make, left standing for as long as the server is up"
+    ),
     "record import": (
         "digline record import with --good or --bad writes a person's yes or no "
         "about a recorded answer, under the name given to --by, into the "
@@ -97,11 +107,16 @@ class Rule(NamedTuple):
 
 #: The subcommands decided by more than their name. `view` reads the store and
 #: is not asked about; `--allow-promote` turns it into a surface that writes
-#: the committed reference (ADR 0032 §3). `record import` lists until `--good`
+#: the committed reference (ADR 0032 §3), and `--allow-record` into one that
+#: writes the recorder's switch and the suite's cases (ADR 0061 §4). `record
+#: import` lists until `--good`
 #: or `--bad` names an answer, and `record on` is a decision by its action
 #: alone (ADR 0059 §1, ADR 0058 §10).
 FLAGGED: dict[str, tuple[Rule, ...]] = {
-    "view": (Rule(None, ("--allow-promote",), "view --allow-promote"),),
+    "view": (
+        Rule(None, ("--allow-promote",), "view --allow-promote"),
+        Rule(None, ("--allow-record",), "view --allow-record"),
+    ),
     "record": (
         Rule("import", ("--good", "--bad"), "record import"),
         Rule("on", (), "record on"),
