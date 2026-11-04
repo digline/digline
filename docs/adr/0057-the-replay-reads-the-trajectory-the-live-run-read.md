@@ -113,6 +113,13 @@ A document written before 23 recorded neither field, and the absent key is how
 that is written. So the step is `WritesNothing()`, by ADR 0014 §2, and it
 invents no value for a run already stored.
 
+*Noted 2026-11-03 ([ADR 0060](0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §5), and §1 and §4 kept as written.* Schema 23
+carries a third field on a recorded response, `steps`, on the same step, which
+still writes nothing. It is written when the target reports steps, under
+`Suite.record_responses` and with no switch of its own, on `usage`'s model;
+absent is *not recorded*; and the replay hands it back, so a replay judges the
+steps the live run judged, as this record has it judge `finish` and `tools`.
+
 ## Consequences
 
 **No stored document changes its verdict.** In a document before 23 the two

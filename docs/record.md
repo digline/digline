@@ -1,13 +1,13 @@
 # `digline record` — the calls your application makes, kept as cases
 
-> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
-> `digline.recorder` do not exist.
-
 While an application is being built, the calls it makes to a model are the
 material a suite is made of. The recorder keeps them, at the place where the
 application makes them, in the shape a suite reads: what the call was asked,
 what decided how it answered, and what it answered. A person then reads them
 back and names the ones that become cases.
+
+> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
+> `digline.recorder` do not exist.
 
 It is three things:
 
@@ -190,9 +190,65 @@ A call made with no episode while one is open in the process is recorded as
 an **orphan**: the recorder cannot tell a child that was not attached from a
 call that belongs to no episode, and it attaches neither.
 
+## Steps, live
+
+A run reads an agent's trajectory as steps, in the target's response:
+`metadata["response"]["steps"]`, beside `tools`, `tool_calls` and `finish`.
+A step is a mapping with `index`, from 0, and `actor`: a `model` step is one
+call to a model, with the `finish` its reply reported; a `tool` step is one
+tool call the model asked for, with the call's keys as `tool_calls` holds
+them (`status`, `result` and `result_absence` are left out below).
+
+```python
+[
+    {"index": 0, "actor": "model", "finish": "tool_use"},
+    {"index": 1, "actor": "tool", "tool": "lookup_order", "arguments": {"order": 42}},
+    {"index": 2, "actor": "model", "finish": "stop"},
+]
+```
+
+**When there are steps:**
+
+- **A provider target** writes the steps of its one call: one `model` step
+  and its `tool` steps.
+- **A target that calls a model through a client `wrap()` returned** has the
+  steps of every call it made inside the case, in the order their replies
+  were read. `digline run` and the MCP server open the collection around each
+  call of the target, recorder on or off, and close it before the assertions
+  run, so a judge's calls are never the agent's. Off, nothing is written to
+  disk.
+- **A target that does not wrap its client** has what it reports: a function
+  that returns its last call's response reports that call alone, and one that
+  returns text reports no steps.
+- **Absent is not empty.** There are no steps where a call reported nothing
+  about tools, or where a call inside the case could not be read: a stream
+  the target returned before its end, or a call made with positional
+  arguments. A check that needs steps then errors, and never fails on what
+  was not seen.
+
+**What a wrapped target's response then carries.** `usage` is summed over its
+calls, and `latency_ms` is summed too: **the time spent waiting for the
+model, excluding the time your tools took.** It is not the duration of the
+case, so a `LatencyBudget` on a target that wraps its client measures the
+model's time. `metadata["response"]["collected"]` says how many calls were
+made and what the latency is. A cost is computed only where the target has a
+price list, a provider target's, each call at the model it reports; a function
+target's calls have no cost, and the run says why.
+
+**Limits.** The collection does not cross a `threading.Thread` or a
+`ThreadPoolExecutor` worker, and `recorder.attach(...)` does not carry it.
+`pytest-digline` calls `execute()` itself and does not open it yet. A program
+that calls `execute()` itself passes
+`around_target=digline.recorder.collecting` to have it.
+
+The decision is
+[ADR 0060](adr/0060-the-steps-of-a-trajectory-live-recorded-and-collected.md)
+§1–§3.
+
 ## Switching it on
 
-Off is the default, and off costs one comparison per call.
+Off is the default, and off costs one comparison and one read of a context
+variable per call.
 
 **In development**, either:
 

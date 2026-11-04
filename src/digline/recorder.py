@@ -95,7 +95,7 @@ import contextlib
 import os
 import sys
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextvars import ContextVar, Token
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -112,8 +112,9 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from digline.core.recording import RecordedStep
+    from digline.core import Usage
     from digline.core.run import RecordedToolCall
+    from digline.run.driver import Response
     from digline.store.file_store import RecordingWriter
     from digline.targets import Completion
 
@@ -132,6 +133,7 @@ __all__ = [
     "RecordingMap",
     "StreamReading",
     "attach",
+    "collecting",
     "episode",
     "parse_switch",
     "wrap",
@@ -197,6 +199,14 @@ class RecorderStartError(ValueError):
 #: a `threading.Thread` or a `ThreadPoolExecutor` worker: there `attach` carries
 #: it, by hand (ADR 0058 §5).
 _CURRENT: ContextVar[str | None] = ContextVar("digline_episode", default=None)
+
+#: The collection of the target's call the current context is inside, or
+#: `None`: what `collecting()` opens, around one call of a run's target and
+#: never anywhere else. It crosses what `_CURRENT` crosses and nothing more,
+#: and `attach` does not carry it (ADR 0060 §3).
+_COLLECTING: ContextVar[_Collected | None] = ContextVar(
+    "digline_collecting", default=None
+)
 
 #: The episodes open in this process, by id. A call made inside one, through any
 #: wrapped client, adds its step to it.
@@ -565,6 +575,58 @@ class _Collector:
         return {event.digest for event in events if event.digest is not None}
 
 
+class _Collected:
+    """The calls a run's target made through wrapped clients, inside one
+    `collecting()` block, recorder on or off. (ADR 0060 §3)
+
+    Each call read is its `Completion` and the time the reply took, in the
+    order the replies were read. `missed` counts a call made and not read: a
+    reply the map could not read, a call made with positional arguments, a
+    stream through a map that cannot read one, a stream that ended before its
+    end. `pending` counts the streams begun and not yet ended. Either makes the
+    collection incomplete, and an incomplete collection gives no steps.
+
+    Closed when its block ends: a stream that ends after that reaches nothing.
+    """
+
+    def __init__(self) -> None:
+        self.lock = threading.Lock()
+        self.calls: list[tuple[Completion, float]] = []
+        self.missed = 0
+        self.pending = 0
+        self.closed = False
+
+    def add(self, completion: Completion, elapsed_ms: float) -> None:
+        with self.lock:
+            if not self.closed:
+                self.calls.append((completion, elapsed_ms))
+
+    def miss(self) -> None:
+        with self.lock:
+            if not self.closed:
+                self.missed += 1
+
+    def begin(self) -> None:
+        with self.lock:
+            if not self.closed:
+                self.pending += 1
+
+    def end(self, completion: Completion | None, elapsed_ms: float) -> None:
+        """A stream begun inside the block has ended, read or not."""
+        with self.lock:
+            if self.closed:
+                return
+            self.pending -= 1
+            if completion is None:
+                self.missed += 1
+            else:
+                self.calls.append((completion, elapsed_ms))
+
+    def close(self) -> None:
+        with self.lock:
+            self.closed = True
+
+
 class RecordedClient:
     """The client, with its mapped methods intercepted and everything else its
     own.
@@ -645,21 +707,31 @@ def _intercepted(
         variables = kwargs.pop(_VARS, None)
         if _clock() >= state.next_look:
             _look(state)
-        if not state.any_on:
+        # Read before the one test an off client makes: a run's collection is
+        # open whether or not the recorder is on (ADR 0060 §3).
+        collected = _COLLECTING.get()
+        if collected is None and not state.any_on:
             return method(*args, **kwargs)
-        inside = _CURRENT.get()
+        records = state.any_on
+        inside = _CURRENT.get() if records else None
         known = None if state.production else cast(str, state.tenant)
         if args:
-            _joined(state, inside, "positional arguments", None)
-            _tally(state, known, suite, "positional arguments")
+            if records:
+                _joined(state, inside, "positional arguments", None)
+                _tally(state, known, suite, "positional arguments")
+            if collected is not None:
+                collected.miss()
             return method(*args, **kwargs)
         mapped = _map_or_none(slot)
         streamed = _streams(mapped, kwargs)
         if streamed and not hasattr(mapped, "reading"):
-            _joined(state, inside, "streaming", None)
-            _tally(state, known, suite, "streaming")
+            if records:
+                _joined(state, inside, "streaming", None)
+                _tally(state, known, suite, "streaming")
+            if collected is not None:
+                collected.miss()
             return method(**kwargs)
-        site = _call_site() if suite is None else None
+        site = _call_site() if records and suite is None else None
         started = perf_counter()
         reply = method(**kwargs)
         if _awaitable(reply):
@@ -677,6 +749,8 @@ def _intercepted(
                 site,
                 inside,
                 known,
+                collected,
+                records,
             )
         if streamed:
             # The application gets the stream the SDK built, the same object;
@@ -694,24 +768,47 @@ def _intercepted(
                 site,
                 inside,
                 known,
+                collected,
+                records,
             )
             return reply
         elapsed_ms = (perf_counter() - started) * 1000.0
-        _ended(
-            state,
-            slot,
-            kwargs,
-            reply,
-            elapsed_ms,
-            suite,
-            variables,
-            site,
-            inside,
-            known,
-        )
+        if records:
+            _ended(
+                state,
+                slot,
+                kwargs,
+                reply,
+                elapsed_ms,
+                suite,
+                variables,
+                site,
+                inside,
+                known,
+            )
+        if collected is not None:
+            _collect(collected, mapped, kwargs, reply, elapsed_ms)
         return reply
 
     return call
+
+
+def _collect(
+    collected: _Collected,
+    mapped: Any,
+    request: Mapping[str, Any],
+    reply: Any,
+    elapsed_ms: float,
+) -> None:
+    """Hand one call's reply to the run's collection, read by the plugin's
+    map, or count it missed. Never raises: the application's call is not
+    failed by the collection any more than by the recorder."""
+    try:
+        completion = cast("Completion", mapped.completion(reply, request))
+    except Exception:  # noqa: BLE001 — the rule of this module
+        collected.miss()
+        return
+    collected.add(completion, elapsed_ms)
 
 
 def _awaitable(value: object) -> bool:
@@ -741,9 +838,11 @@ async def _awaited(
     site: str | None,
     inside: str | None,
     known: str | None,
+    collected: _Collected | None,
+    records: bool,
 ) -> Any:
-    """An asynchronous call: the SDK's reply, awaited, recorded as a
-    synchronous one is, and returned as it came. A streamed reply is the
+    """An asynchronous call: the SDK's reply, awaited, recorded and collected
+    as a synchronous one is, and returned as it came. A streamed reply is the
     SDK's asynchronous stream, watched as the application reads it. An
     exception of the SDK propagates as it was raised."""
     started = perf_counter()
@@ -761,12 +860,26 @@ async def _awaited(
             site,
             inside,
             known,
+            collected,
+            records,
         )
         return reply
     elapsed_ms = (perf_counter() - started) * 1000.0
-    _ended(
-        state, slot, request, reply, elapsed_ms, suite, variables, site, inside, known
-    )
+    if records:
+        _ended(
+            state,
+            slot,
+            request,
+            reply,
+            elapsed_ms,
+            suite,
+            variables,
+            site,
+            inside,
+            known,
+        )
+    if collected is not None:
+        _collect(collected, mapped, request, reply, elapsed_ms)
     return reply
 
 
@@ -1015,11 +1128,25 @@ def _watch(
     site: str | None,
     inside: str | None,
     known: str | None,
+    collected: _Collected | None = None,
+    records: bool = True,
 ) -> None:
     """Start watching a streamed reply, or say why not. Never raises."""
+    watch: _Watch | None = None
     try:
         watch = _Watch(
-            state, slot, mapped, request, started, suite, variables, site, inside, known
+            state,
+            slot,
+            mapped,
+            request,
+            started,
+            suite,
+            variables,
+            site,
+            inside,
+            known,
+            collected,
+            records,
         )
         if getattr(mapped, "entered", False):
             manager: Any = reply
@@ -1030,8 +1157,14 @@ def _watch(
             stream_of = getattr(mapped, "stream_of", None)
             _attach(stream_of(reply) if callable(stream_of) else reply, watch)
     except Exception:  # noqa: BLE001 — the rule of this module
-        _joined(state, inside, "stream not watched", None)
-        _tally(state, known, suite, "stream not watched")
+        if watch is not None:
+            # Begun in the collection and never to end there.
+            watch.unwatched()
+        elif collected is not None:
+            collected.miss()
+        if records:
+            _joined(state, inside, "stream not watched", None)
+            _tally(state, known, suite, "stream not watched")
 
 
 class _Watch:
@@ -1048,6 +1181,10 @@ class _Watch:
     closed by then, the call is recorded with the episode's id and marked an
     orphan, and `ended after its episode` is noted: the recorder neither
     waits for the stream nor guesses where it belonged.
+
+    Inside a run's collection the stream is pending there too, and its end
+    hands the `Completion` to it, recorder on or off; `records` is false
+    where only the collection watches (ADR 0060 §3).
     """
 
     def __init__(
@@ -1062,6 +1199,8 @@ class _Watch:
         site: str | None,
         inside: str | None,
         known: str | None,
+        collected: _Collected | None = None,
+        records: bool = True,
     ) -> None:
         self.state = state
         self.slot = slot
@@ -1081,6 +1220,10 @@ class _Watch:
         self.drawn = None if collector is None else not collector.sampled_out
         if collector is not None:
             collector.begin()
+        self.collected = collected
+        self.records = records
+        if collected is not None:
+            collected.begin()
 
     def item(self, event: Any) -> None:
         if self.done or self.broken:
@@ -1123,12 +1266,17 @@ class _Watch:
         self._recorded(completion)
 
     def _recorded(self, completion: Any) -> None:
+        elapsed_ms = (perf_counter() - self.started) * 1000.0
+        if self.collected is not None:
+            self.collected.end(completion, elapsed_ms)
+        if not self.records:
+            return
         _ended(
             self.state,
             self.slot,
             self.request,
             None,
-            (perf_counter() - self.started) * 1000.0,
+            elapsed_ms,
             self.suite,
             self.variables,
             self.site,
@@ -1143,8 +1291,11 @@ class _Watch:
         if not self._settle():
             return
         reason = type(exc).__name__
-        _joined(self.state, self.inside, reason, None)
-        _tally(self.state, self.known, self.suite, reason)
+        if self.collected is not None:
+            self.collected.end(None, 0.0)
+        if self.records:
+            _joined(self.state, self.inside, reason, None)
+            _tally(self.state, self.known, self.suite, reason)
 
     def closing(self) -> None:
         self.abandoned()
@@ -1152,8 +1303,22 @@ class _Watch:
     def abandoned(self) -> None:
         if not self._settle():
             return
-        _joined(self.state, self.inside, "stream abandoned", None)
-        _tally(self.state, self.known, self.suite, "stream abandoned")
+        if self.collected is not None:
+            self.collected.end(None, 0.0)
+        if self.records:
+            _joined(self.state, self.inside, "stream abandoned", None)
+            _tally(self.state, self.known, self.suite, "stream abandoned")
+
+    def unwatched(self) -> None:
+        """The stream could not be watched after all: the collection counts it
+        missed, and the caller says why on the recorder's side, as it did
+        before the collection existed."""
+        with self.lock:
+            if self.done:
+                return
+            self.done = True
+        if self.collected is not None:
+            self.collected.end(None, 0.0)
 
 
 def _joined(
@@ -1711,6 +1876,198 @@ def _reset(token: Token[str | None] | None) -> None:
         _CURRENT.reset(token)
 
 
+#: The keys of a response's metadata that say what its calls were. Where a
+#: collection is read, they are its own and the target's are dropped: a target
+#: that returns its last call's response reports its last call alone.
+_TRAJECTORY_KEYS = frozenset(
+    {
+        "finish",
+        "finish_raw",
+        "tools",
+        "tool_calls",
+        "steps",
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cache_write_tokens",
+    }
+)
+
+#: What a collection's latency is, said beside it wherever it is read.
+_COLLECTED_LATENCY = "model calls only, tool time excluded"
+
+#: Why a collection's cost is not known, where nothing priced it.
+_NO_PRICE_LIST = (
+    "calls collected through a wrapped client: counts read, no price list "
+    "declared by the target"
+)
+
+
+@contextlib.contextmanager
+def collecting(
+    *,
+    price: Callable[[Completion], tuple[float | None, str | None]] | None = None,
+) -> Generator[Callable[[Response], Response]]:
+    """Collect the calls a run's target makes through wrapped clients, and
+    settle its response with them. (ADR 0060 §3)
+
+    What `digline.host` passes as `execute(around_target=...)`, entered
+    around each call of the target and left before the assertions run, so a
+    judge's calls are never the agent's. A library caller that runs
+    `execute()` itself passes it the same way:
+
+        execute(suite, target, ..., around_target=digline.recorder.collecting)
+
+    Every call made inside it through a client `wrap()` returned is read with
+    the plugin's map, recorder on or off: off, nothing is written, and an
+    `episode()` the application opens is the empty context it always is, its
+    calls collected all the same. A stream is collected when it ends.
+
+    **`settle`, given on entering, composes the response.** Where no call was
+    made through a wrapped client, it returns the response as it came: the
+    target's own `as_metadata()` is what the assertions read, as before. Where
+    calls were made, the collection wins, so a provider target whose client is
+    wrapped is not counted twice:
+
+    - `steps`, by `steps_of`, and `tools` and `tool_calls` from the steps;
+      `finish` and `finish_raw` from the last call;
+    - `usage`, summed, and the four counts in `metadata` with it;
+    - `latency_ms`, summed: **the time spent waiting for the model, excluding
+      the time the tools took.** It is not the duration of the case, so a
+      `LatencyBudget` on a target that wraps its client measures the model's
+      time;
+    - `cost_usd` by `price`, each call at the model it reports; `None` with
+      `unpriced` saying why where `price` is `None`, which is a function
+      target's case, or where any call cannot be priced: a partial cost is not
+      a cost;
+    - `metadata["collected"]`: `calls`, how many were made, and `latency`,
+      which says what the latency is.
+
+    **Incomplete is said, never filled in.** A call that could not be read, or
+    a stream the target returned before its end, leaves the collection
+    incomplete: then there are no steps, no trajectory, no counts, no latency
+    and no cost, and `metadata["collected"]["unread"]` says how many calls
+    were not read. A check that needs steps then errors, and never fails on
+    what was not seen.
+
+    **Limits.** A collection is a context variable: it does not reach a
+    `threading.Thread` or a `ThreadPoolExecutor` worker, and `attach(id)` does
+    not carry it.
+    """
+    collected = _Collected()
+    token = _COLLECTING.set(collected)
+    try:
+        yield lambda response: _settled(collected, response, price)
+    finally:
+        with contextlib.suppress(ValueError):
+            _COLLECTING.reset(token)
+        collected.close()
+
+
+def _settled(
+    collected: _Collected,
+    response: Response,
+    price: Callable[[Completion], tuple[float | None, str | None]] | None,
+) -> Response:
+    """The target's response, with what its collection read. `collecting()`
+    says the rules."""
+    from dataclasses import replace
+
+    from digline.core.recording import steps_as_reported
+
+    with collected.lock:
+        calls = list(collected.calls)
+        unread = collected.missed + collected.pending
+    if not calls and not unread:
+        return response
+    metadata = {
+        key: value
+        for key, value in response.metadata.items()
+        if key not in _TRAJECTORY_KEYS
+    }
+    said: dict[str, object] = {
+        "calls": len(calls) + unread,
+        "latency": _COLLECTED_LATENCY,
+    }
+    if unread:
+        said["unread"] = unread
+        metadata["collected"] = said
+        return replace(
+            response,
+            metadata=metadata,
+            usage=None,
+            cost_usd=None,
+            latency_ms=None,
+            unpriced=None,
+        )
+    metadata["collected"] = said
+    last = calls[-1][0]
+    if last.finish is not None:
+        metadata["finish"] = last.finish
+    if last.finish_raw is not None:
+        metadata["finish_raw"] = last.finish_raw
+    steps = steps_as_reported(
+        [
+            (
+                completion.finish,
+                None
+                if completion.tool_calls is None
+                else [call.as_reported() for call in completion.tool_calls],
+            )
+            for completion, _ in calls
+        ]
+    )
+    if steps is not None:
+        metadata["steps"] = steps
+        called = [step for step in steps if step["actor"] == "tool"]
+        metadata["tools"] = [step["tool"] for step in called]
+        metadata["tool_calls"] = [
+            {key: value for key, value in step.items() if key not in ("index", "actor")}
+            for step in called
+        ]
+    counts = [completion.usage for completion, _ in calls]
+    usage: Usage | None = None
+    if all(count is not None for count in counts):
+        for count in counts:
+            if count is not None:
+                usage = count if usage is None else usage + count
+    cost: float | None = None
+    unpriced: str | None = None
+    if usage is not None:
+        metadata.update(
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cache_read_tokens=usage.cache_read_tokens,
+            cache_write_tokens=usage.cache_write_tokens,
+        )
+        cost, unpriced = _priced([completion for completion, _ in calls], price)
+    return replace(
+        response,
+        metadata=metadata,
+        usage=usage,
+        cost_usd=cost,
+        latency_ms=sum(elapsed for _, elapsed in calls),
+        unpriced=unpriced,
+    )
+
+
+def _priced(
+    calls: list[Completion],
+    price: Callable[[Completion], tuple[float | None, str | None]] | None,
+) -> tuple[float | None, str | None]:
+    """The collection's cost, or `None` and why: every call priced, or no
+    cost at all."""
+    if price is None:
+        return None, _NO_PRICE_LIST
+    total = 0.0
+    for completion in calls:
+        cost, why = price(completion)
+        if cost is None:
+            return None, why or _NO_PRICE_LIST
+        total += cost
+    return total, None
+
+
 class Episode:
     """One turn of an agent, or one pass through a chain, recorded as one
     recording with its calls attached. (ADR 0058 §5, §8, §9)
@@ -1931,7 +2288,7 @@ def _record_episode(
     here raises, and each stage is its reason."""
     stage = "unexpected"
     try:
-        from digline.core.recording import RecordedStep, Recording, setup_digest_of
+        from digline.core.recording import Recording, setup_digest_of, steps_of
         from digline.core.run import (
             MAX_RECORDED_CHARS,
             RecordedResponse,
@@ -1968,21 +2325,14 @@ def _record_episode(
             # an empty string would be an answer nobody gave.
             return "no output"
 
-        steps: list[RecordedStep] = []
-        trajectory: list[RecordedToolCall] | None = []
-        for seen in calls:
-            steps.append(
-                RecordedStep(index=len(steps), actor="model", finish=seen.finish)
-            )
-            if seen.calls is None:
-                # A call whose plugin said nothing about tools: the episode
-                # cannot say what was called either.
-                trajectory = None
-                continue
-            for call in seen.calls:
-                steps.append(RecordedStep(index=len(steps), actor="tool", call=call))
-                if trajectory is not None:
-                    trajectory.append(call)
+        steps = steps_of((seen.finish, seen.calls) for seen in calls)
+        # A call whose plugin said nothing about tools: the episode cannot say
+        # what was called either.
+        trajectory: list[RecordedToolCall] | None = (
+            None
+            if any(seen.calls is None for seen in calls)
+            else [call for seen in calls for call in seen.calls or ()]
+        )
         oversize = len(text) > MAX_RECORDED_CHARS or (
             trajectory_chars(trajectory or ()) > MAX_RECORDED_CHARS
         )

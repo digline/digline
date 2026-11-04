@@ -22,6 +22,13 @@ notes under them are this file, verbatim.
   the last recordings. On a CI Linux runner, writing one recording with its
   sync took 21 to 117 ms, and held the caller, an event loop among them, for
   as long (ADR 0058 §10).
+- **An agent's steps, live**: `metadata["response"]["steps"]`, one `model`
+  step per call and a `tool` step per tool call, beside `tools` and
+  `tool_calls`, which do not change. A run reads every call a target makes
+  through a client `digline.recorder.wrap()` returned, recorder on or off,
+  through `execute(around_target=...)`, which `digline run` and the MCP server
+  pass; the response then sums usage and the model's time, without the tools'
+  (ADR 0060 §1–§3).
 - **`digline record compare`**, new: a suite's recorded answers, case by
   case, under each setup in the order they were recorded, with `--case`,
   `--since`, two setups side by side with `--setup A B`, the keys they

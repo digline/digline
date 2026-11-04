@@ -1734,6 +1734,15 @@ one; `measure()` opens the journal, runs, writes and deletes it. Underneath,
 `execute()` gained `done=` — results it must not call for — and `on_case=`, a
 callback per finished case. The driver still knows nothing about the store.
 
+`measure()` also passes `around_target`, entered around each call of the
+target and left before the assertions run: the collection of the calls the
+target makes through a client `digline.recorder.wrap()` returned, which gives
+an agent's response the steps of all its calls (ADR 0060 §3). Its type is
+`digline.core.AroundTarget`. A script that calls `execute()` itself passes
+`around_target=digline.recorder.collecting` for the same reading; without it,
+a target's response is what the target reports. What the response then
+carries is in [`digline record`](record.md#steps-live).
+
 `measure()` also takes `accepting_baseline_schema`, and it is `None` by
 default, which is the case the example shows. With the default, before anything
 is called, a run is refused when the suite's baseline is at a schema this
