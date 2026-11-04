@@ -15,6 +15,7 @@ commands it has been shown.
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import json
 import os
@@ -334,6 +335,13 @@ def test_the_hook_asks_a_person_before_a_persons_decision(
         "uv tool run ruff check .",
         # Not a spelling that runs: `digline` has no `__main__`.
         "python -m digline promote --suite s.py --run k",
+        # `record` reads, except where it writes a yes or no or switches on.
+        "digline record import --tenant acme --suite s.py",
+        "digline record off --tenant acme",
+        "digline record status --json",
+        "digline record compare --tenant acme --suite s.py --setup a b",
+        'grep -r "digline record on" notes/',
+        'grep -r "digline record import --good" notes/',
     ],
 )
 def test_the_hook_stays_silent_on_everything_else(command: str, project: Path) -> None:
@@ -398,6 +406,40 @@ def test_the_hook_asks_before_the_flag_that_makes_the_decision_ambient(
     assert "not a wall" in reason
 
 
+@pytest.mark.parametrize(
+    ("command", "names"),
+    [
+        (command, "record import")
+        for command in (
+            "digline record import --tenant acme --suite s.py --good cap-1-2 --by Ada",
+            "digline record import --tenant acme --suite s.py --bad=cap-1-2 --by Ada",
+            "uv run digline record import --suite s.py --tenant acme --bad cap-1-2",
+            "digline --root . record --tenant acme import --good cap-1-2 --by Ada",
+        )
+    ]
+    + [
+        (command, "record on")
+        for command in (
+            "digline record on --tenant acme",
+            "digline record --tenant acme on --sample 0.5",
+            "python -m digline.cli record on --tenant acme --production",
+        )
+    ],
+)
+def test_the_hook_asks_before_a_record_that_decides(
+    command: str, names: str, project: Path
+) -> None:
+    """An import that names an answer writes a person's yes or no under their
+    name, and `record on` decides what of an application's calls is kept: each
+    is a person's, so each is asked, and the listing, `off`, `status` and
+    `compare` above are not. (ADR 0059 §1, ADR 0058 §10)"""
+    output = json.loads(ask(command, project))["hookSpecificOutput"]
+    assert output["permissionDecision"] == "ask"
+    reason = output["permissionDecisionReason"]
+    assert reason.startswith(f"digline {names} ")
+    assert "not a wall" in reason
+
+
 def _runnable_modules() -> set[str]:
     """Every module `python -m` can run under `src/digline/`, read off the tree:
     a package with a `__main__.py` (runnable by its own name and as
@@ -448,10 +490,21 @@ def test_what_the_docstring_says_is_not_read_is_not_read(
     )
 
 
-@pytest.mark.parametrize(
-    ("subcommand", "flag"), sorted(_hook().FLAGGED.items()), ids=lambda v: v
+#: Every flag the hook watches, with the subcommand and action it is read in.
+WATCHED_FLAGS = sorted(
+    (subcommand, rule.action, flag)
+    for subcommand, rules in _hook().FLAGGED.items()
+    for rule in rules
+    for flag in rule.flags
 )
-def test_a_watched_flag_has_no_spelling_but_its_own(subcommand: str, flag: str) -> None:
+
+
+@pytest.mark.parametrize(
+    ("subcommand", "action", "flag"), WATCHED_FLAGS, ids=lambda v: str(v)
+)
+def test_a_watched_flag_has_no_spelling_but_its_own(
+    subcommand: str, action: str | None, flag: str
+) -> None:
     """The hook matches a watched flag as a whole word, so the CLI must accept
     no other spelling of it — and argparse accepts every unambiguous prefix of
     an option unless the parser refuses abbreviations. On 0.20.0 `digline view
@@ -461,9 +514,23 @@ def test_a_watched_flag_has_no_spelling_but_its_own(subcommand: str, flag: str) 
     without anybody remembering to add it."""
     from digline.cli.main import build_parser
 
+    # A flag that takes a value is given one, so what is measured is the
+    # spelling, not a missing argument.
+    parser = build_parser()
+    commands = next(
+        cast("dict[str, argparse.ArgumentParser]", a.choices)  # pyright: ignore[reportUnknownMemberType]
+        for a in parser._actions  # pyright: ignore[reportPrivateUsage]
+        if isinstance(a.choices, dict)  # pyright: ignore[reportUnknownMemberType]
+    )
+    option = commands[subcommand]._option_string_actions[flag]  # pyright: ignore[reportPrivateUsage]
+    takes = option.nargs != 0
+    head = [subcommand, *([action] if action else [])]
+
     def accepted(word: str) -> bool:
         try:
-            build_parser().parse_args([subcommand, "--suite", "s.py", word])
+            build_parser().parse_args(
+                [*head, "--suite", "s.py", word, *(["x"] if takes else [])]
+            )
         except SystemExit:
             return False
         return True

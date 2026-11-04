@@ -114,12 +114,42 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 | `tenant` | mandatory. The perimeter, and a directory: everything lands in `.digline/<tenant>/` |
 | `environment` | mandatory, no default. Where inside the perimeter this ran — `staging`, `production` |
 | `name` | mandatory. The suite's name, which is what a baseline is filed under |
-| `cases` | mandatory. The cases file, always a file |
+| `cases` | mandatory. The cases file, always a file, or an array of files read in order: `["cases.json", "captured.json"]` |
 | `samples` | how many times to ask the target per case. Default 1 |
 | `min_agreement` | mandatory as soon as `samples > 1`. Written as a count: `"2/3"` |
 | `artifacts` | files that *are* the thing under test — a prompt above all |
+| `deterministic_output` | `true` where the same input gives the same answer. Default `false`, never deduced from the checks. Read only by `digline record import`, where a yes then also writes the answer as an `expected`. Outside `config_hash` |
 
 `disclosure` is **not** settable here. See "What it cannot say".
+
+## `[capture]`
+
+Where the cases `digline record import` writes go, under which regime, and for
+which judged check:
+
+```toml
+[suite]
+cases = ["cases.json", "captured.json"]
+
+[capture]
+cases_file = "captured.json"
+repository = "private"
+check = "llm_rubric"
+```
+
+| Key | |
+|---|---|
+| `cases_file` | mandatory. Capture's own file, read from the suite file's directory |
+| `repository` | mandatory, no default: `"private"` or `"public"`. Under `"public"` the import lists and refuses to write |
+| `check` | the judged assertion the cases are reviewed for. Without it the import lists and refuses to write |
+
+The suite loads the file itself, as one of `cases`; one that declares
+`[capture]` and leaves the file out of `cases` is refused when it loads,
+naming the cases left out. Until the first import the file does not exist, and
+that is no case. A table in a reviewed file is the change ADR 0007 §7 asks for,
+so a data suite declares its source as a `suite.py` does
+([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§4). The import is in [`record.md`](record.md).
 
 A suite that samples without a floor, declares no assertions, repeats a case id
 or asks for a ratio no sample count can produce is refused when it loads — with

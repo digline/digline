@@ -15,8 +15,9 @@ It is four things:
   application;
 - **a switch**, `.digline/<tenant>/recorder.toml`, and `digline record on`,
   `off` and `status`;
-- **`digline record import`**, which lists a suite's recorded cases and writes
-  the ones a person names into a file the suite loads;
+- **`digline record import`**, which lists a suite's recorded answers and
+  writes the ones a person names, with their yes or no, into a file the suite
+  loads;
 - **`digline record compare`**, which shows a suite's recorded answers by case
   and by setup, and writes nothing.
 
@@ -331,8 +332,8 @@ client, in that process.
 
 ## From recordings to cases: `digline record import`
 
-The suite declares where its captured cases go, in a `suite.py`, and loads
-that file beside its own cases:
+The suite declares where its captured cases go, under which regime and for
+which judged check, and loads that file beside its own cases. In a `suite.py`:
 
 ```python
 from pathlib import Path
@@ -348,36 +349,86 @@ suite = Suite(
     name="category",
     assertions=[...],
     cases=[*my_cases, *read_cases(HERE / "captured.json")],
-    capture=CaptureSource(cases_file="captured.json", repository="private"),
+    samples=2,
+    min_agreement="2/2",
+    capture=CaptureSource(
+        cases_file="captured.json", repository="private", check="llm_rubric"
+    ),
 )
 ```
 
-`repository` has no default. `"private"` says the file is readable only inside
-the perimeter of whoever owns the text, and the input is written whole.
-`"public"` says it is not: the import lists and refuses to write, because a
-recorded case is that text. A suite that declares `capture` and does not load
-its file is refused when it is loaded, naming the cases it left out. A
-`suite.toml` cannot declare `capture` in this release.
+In a `suite.toml`, the same declaration is a `[capture]` table, and the file is
+one of `cases`:
+
+```toml
+[suite]
+cases = ["cases.json", "captured.json"]
+
+[capture]
+cases_file = "captured.json"
+repository = "private"
+check = "llm_rubric"
+```
+
+`repository` has no default, in either form. `"private"` says the file is
+readable only inside the perimeter of whoever owns the text, and the input and
+the answer are written whole. `"public"` says it is not: the import lists and
+refuses to write, because a recorded answer is that text. `check` is the
+judged assertion the cases are reviewed for, and the suite refuses a name that
+is not one of its judged assertions when it is loaded. A suite that declares a
+source and does not load its file is refused when it is loaded, naming the
+cases it left out.
 
 Then two invocations:
 
 ```console
 $ digline record import --tenant acme --suite eval/suite.py
-$ digline record import --tenant acme --suite eval/suite.py --positive cap-… --negative cap-…
+$ digline record import --tenant acme --suite eval/suite.py --good cap-…-9f8e7d6c --bad cap-…-4c3b2a1d --by "Ada Lovelace"
 ```
 
-The first lists and writes nothing. For each case: its id, its input, and
-what it answered under the setup in force. Recordings under earlier setups are
-counted and shown, and cannot be elected. Orphans, interrupted episodes and
-recordings over the ceiling of what a recording keeps are counted, and are
-never cases. The order is the files' order: nothing is ranked or preselected.
+Both print the declaration whole, tenant, suite, `cases_file`, `repository`
+and `check`: the first at its head, the second before the line of each case it
+writes, so a declaration copied from another suite is in front of you every
+time.
 
-The second writes the cases named, each with the label given, and no other. A
-case not named stays out. The case written carries the input and the label,
-never the recorded answer as an expected. The import writes the file and
-stops: the diff is the review, the commit is the signature. The next
-`digline run` runs the new cases, and `digline compare` reports them as new
-against a baseline that never saw them.
+**The first lists and writes nothing.** What you name is an answer: an input
+and one answer recorded for it. Its id is the input's (`cap-` and sixteen
+characters) and the first eight characters of the answer's digest, so two
+answers to one question are two ids. The answers are grouped by the shape of
+their output: a single call by its kind (`text`, `structured`,
+`conversation`), an episode by the actors of its steps in order and the last
+finish they carry. Each group says how many answers and recordings it holds;
+groups come in the order of their first answer, and answers in the files'
+order. For each answer: its id, its first date, the setups it was recorded
+under, how many times it came back, its input and its text, and whether it can
+be written. Nothing is ranked, nothing is proposed, and there is no way to
+write them all.
+
+An answer recorded only under an earlier setup is shown and cannot be written:
+a yes about an answer the setup in force did not give says nothing about it.
+Nor can one recorded without its input, which the judge reads, or a
+conversation, which a cases file cannot hold as an answer yet. Orphans,
+interrupted episodes and recordings over the ceiling are counted, and are never
+cases.
+
+**The second writes the answers named, and no other.** Each one becomes a
+[reviewed answer](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer)
+for the source's check: the recorded answer, its input, and your yes or no,
+`--good` or `--bad`. `--by NAME` is mandatory, and the cases carry it as
+`reviewed_by`: it is your mark, so it is never read from git or from the
+environment. The suite must sample at least twice, as a reviewed answer needs.
+No `expected` is written, with one exception: where the suite declares
+`deterministic_output = true`, a `--good` also writes an ordinary case with the
+input and the answer as its `expected`, with the same mark. A `--bad` never
+does, since *not this answer* names no answer.
+
+The import writes the file and stops: the diff is the review, the commit is the
+signature.
+
+> **A reviewed answer does not run yet.** Until schema 23 gives the run
+> document its key, `digline run` refuses a suite whose cases hold one, before
+> anything is called or written. So once you have written one, the suite
+> stops running until that release.
 
 Recordings of another tenant than the suite's are refused before anything is
 shown: bringing one tenant's material into another's suite is the bridge,
@@ -429,5 +480,5 @@ exits 0.
 ## Not yet
 
 - An application in another language than Python.
-- A label given at the import is a case's `label`, read by an aggregate that
-  counts a confusion matrix; a run's results do not show it yet.
+- A reviewed answer is written and not run: it runs from schema 23, and the
+  run then counts, apart from accuracy, where the judge disagreed with you.
