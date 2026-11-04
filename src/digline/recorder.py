@@ -1973,7 +1973,7 @@ def _settled(
     says the rules."""
     from dataclasses import replace
 
-    from digline.core.recording import steps_as_reported
+    from digline.core.run import steps_as_reported
 
     with collected.lock:
         calls = list(collected.calls)
@@ -2288,11 +2288,12 @@ def _record_episode(
     here raises, and each stage is its reason."""
     stage = "unexpected"
     try:
-        from digline.core.recording import Recording, setup_digest_of, steps_of
+        from digline.core.recording import Recording, setup_digest_of
         from digline.core.run import (
             MAX_RECORDED_CHARS,
             RecordedResponse,
             record_output,
+            steps_of,
             trajectory_chars,
         )
         from digline.store.file_store import FileResultStore, RecordingWriter

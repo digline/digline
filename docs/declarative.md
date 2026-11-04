@@ -86,7 +86,8 @@ another not:
 ```
 
 It is declared and loaded, and not run yet: `digline run` refuses a suite that
-declares one, before anything is called or written, until schema 23. What it
+declares one, before anything is called or written, until the run document
+has a key for it, which schema 23 does not have yet. What it
 is, and what it refuses, is in the
 [API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer).
 
