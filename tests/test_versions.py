@@ -1166,6 +1166,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.20.0": "'On 0.20.0, --a started the same server' — the release whose "
         "view accepted abbreviated options, told as why the flag is now spelled "
         "in full. History",
+        "1.6.31": "not a digline version: the uPlot release vendored in the "
+        "package, in the table of what the server serves. A test holds it to "
+        "the vendored file's header",
+    },
+    "src/digline/report/sheet.py": {
+        "1.6.31": "not a digline version: the uPlot release whose stylesheet "
+        "the sheet absorbs. A test holds it to the vendored script's header",
     },
     "src/digline/cli/view.py": {
         "0.21.1": "'(0.21.1 delta-pass, D-1)' — the pass that found the "
