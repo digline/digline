@@ -24,6 +24,8 @@ It is four things:
 The decision behind it is
 [ADR 0058](adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md),
 and the rules the import follows are [ADR 0023](adr/0023-capture.md)'s.
+What a recording file holds, for a program in another language that writes
+one, is [the recording document](recording-format.md).
 
 ## Wrapping the client
 
@@ -346,6 +348,10 @@ process. With
 `--suite`, it also says how many recordings the suite gained since its last
 import. In the application, `client.digline_counts` gives the counts of that
 client, in that process.
+
+A process that wrote recordings and keeps no counts file, as a program in
+another language does, is said as **not counted**: what it did not record is
+not known, which is not the same as nothing.
 
 ## From recordings to cases: `digline record import`
 

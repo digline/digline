@@ -333,6 +333,14 @@ named check and failing where the judge contradicts the person. The import
 no longer writes `Case.label`, and the `label` compartment of a recording
 stays what it is: a label given downstream, or a labelled archive.
 
+*Noted 2026-11-04 ([ADR 0062](0062-the-recorder-out-of-process-and-in-other-processes.md)
+§2), and the section and the note above kept as written.* The `label`
+compartment is out of the recording's contract, and is gone from the
+recording with it: no reader read it, and a writer in another language is not
+asked to fill a field nobody reads. A file written with one is still read,
+and the key ignored. A label given downstream, or a labelled archive, has no
+place in a recording in 1.1.
+
 ### 8. The setup of an episode
 
 **An episode's `setup_digest` is the digest of its children's setups and the

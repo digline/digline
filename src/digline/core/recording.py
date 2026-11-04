@@ -43,17 +43,33 @@ call's is its case's `messages`, an episode's is its whole case. The import
 copies it into a reviewed answer, beside the answer, for the judge to read,
 and refuses an answer recorded without one. The field was always in a
 recorded response, so `RECORDING_VERSION` stays 1.
+
+**A public contract** (ADR 0062 §2): a writer in another language writes these
+documents too, so what is fixed is held here, on write and on read alike.
+Three things were ruled for it, with the format unreleased, so
+`RECORDING_VERSION` stays 1:
+
+- a float enters `setup_digest` as text in one form two languages can both
+  write (`setup_digest_of`);
+- `recorded_at` has one form, UTC written with `+00:00`, refused by name in
+  any other, and is compared as an instant, never as text (`instant_of`);
+- the `label` compartment is gone. ADR 0059 ruled that the import no longer
+  reads it, and a field no reader reads is not one a writer should be asked
+  to fill. A document written with one is still read, and the key ignored, as
+  the reader ignores a key it does not know; `steps` beside the response is
+  the one it refuses by name, above.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any, cast
 
-from digline.core.aggregate import Label
 from digline.core.refused import RefusedError, Written
 from digline.core.run import (
     RecordedResponse,
@@ -65,8 +81,10 @@ __all__ = [
     "RECORDING_VERSION",
     "Recording",
     "RecordingRefusedError",
-    "recording_from_dict",
+    "float_text",
     "input_of",
+    "instant_of",
+    "recording_from_dict",
     "recording_to_dict",
     "setup_digest_of",
 ]
@@ -76,7 +94,14 @@ __all__ = [
 #: meets another version refuses it rather than guessing. (ADR 0058 §11)
 RECORDING_VERSION = 1
 
-_LABELS: frozenset[str] = frozenset({"positive", "negative"})
+#: `recorded_at`'s one form: a date, a time to the second with up to six
+#: digits after it, and the UTC offset written `+00:00`. What Python's
+#: `datetime.isoformat()` writes for an instant in UTC, which leaves the
+#: fraction out when it is zero. (ADR 0062 §2)
+_RECORDED_AT = re.compile(
+    r"\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])"
+    r"T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,6})?\+00:00"
+)
 
 
 class RecordingRefusedError(RefusedError):
@@ -105,15 +130,87 @@ def _json_value(value: object, where: str) -> object:
 
 def setup_digest_of(setup: Mapping[str, object]) -> str:
     """The digest of a single call's setup: the first 16 hex characters of the
-    SHA-256 of its JSON, keys sorted. An episode's digest is made otherwise
-    (ADR 0058 §8) and is passed in, not computed here."""
+    SHA-256 of its JSON, keys sorted, each float written as text in the form
+    `float_text` gives. An episode's digest is made otherwise (ADR 0058 §8)
+    and is passed in, not computed here.
+
+    **A float is text in the digest, and only there** (ADR 0062 §2). A writer
+    in another language computes this digest too, and two languages write one
+    float as different text: Java writes `1.0E-5` and `1.0E16` where Python
+    writes `1e-05` and `1e+16`, so the same setup would hash two ways. Strings
+    and integers were measured written alike. The setup itself keeps the
+    float as a number; what changes is only the text the digest is taken of.
+    The cost: a float and the string of its text hash alike, `0.7` and
+    `"0.7"`. Accepted, because a model's parameter is sent as a number or as
+    a string, and the same setup does not send it both ways.
+    """
     payload = json.dumps(
-        _json_value(dict(setup), "setup"),
+        _floats_as_text(_json_value(dict(setup), "setup")),
         sort_keys=True,
         separators=(",", ":"),
         allow_nan=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def float_text(value: float) -> str:
+    """A float as the digest writes it: the shortest digits that read back as
+    the same float, in positional notation, without trailing zeros or a
+    trailing point. `0.7` is `"0.7"`, `1e-05` is `"0.00001"`, `100.0` is
+    `"100"`, and both zeros are `"0"`.
+
+    Chosen because Java writes the same text from the same double, with
+    `new BigDecimal(Double.toString(d)).stripTrailingZeros().toPlainString()`
+    and `"0"` for a zero: from JDK 19, `Double.toString` gives the shortest
+    digits that read back, as `repr` does here. Measured equal on ten values
+    with JDK 21 against Python 3.13, and different on one: the smallest
+    subnormal, which Java writes `4.9E-324` and Python `5e-324`. A setup is a
+    model's parameters, where that value does not occur.
+    """
+    if value == 0:
+        # `-0.0` is `"0"`: Java's `BigDecimal` has no negative zero.
+        return "0"
+    return format(Decimal(repr(value)).normalize(), "f")
+
+
+def _floats_as_text(value: object) -> object:
+    """`value`, already JSON, with each float replaced by `float_text`. A
+    `bool` is not a float here, nor an `int`."""
+    if isinstance(value, float):
+        return float_text(value)
+    if isinstance(value, dict):
+        return {
+            key: _floats_as_text(item)
+            for key, item in cast(dict[str, object], value).items()
+        }
+    if isinstance(value, list):
+        return [_floats_as_text(item) for item in cast(list[object], value)]
+    return value
+
+
+def instant_of(recorded_at: str) -> str:
+    """`recorded_at` as a key that sorts as the instants do, which is how a
+    reader compares two. In the one form the texts nearly sort as the
+    instants, and not quite: one instant has more than one text, since the
+    fraction may have from one to six digits and is left out when it is
+    zero, so `08:00:00.100+00:00`, as a writer that keeps milliseconds
+    writes it, sorts before `08:00:00.100000+00:00`, as Python writes it.
+    The key pads the fraction to six digits, and every value has the one
+    offset, so equal instants have equal keys and the order of the keys is
+    the order of the instants.
+
+    Text and not a `datetime`, because the core reads no clock and imports
+    none of its module (`tests/test_layering.py`). The form is the one
+    `Recording` holds a value to, so this reads only what it accepts. A day
+    the month does not have, `2026-02-30`, is not refused here."""
+    if not _RECORDED_AT.fullmatch(recorded_at):
+        raise RecordingRefusedError(
+            f"recorded_at {recorded_at[:40]!r} is not in the recording's form: "
+            "UTC, written with its offset as +00:00, for example "
+            "2026-11-04T08:00:00.123456+00:00"
+        )
+    seconds, _, fraction = recorded_at[: -len("+00:00")].partition(".")
+    return f"{seconds}.{fraction.ljust(6, '0')}"
 
 
 def input_of(question: object) -> str:
@@ -146,8 +243,7 @@ class Recording:
     `suite` is the name the call site gave, or `_unassigned` (§2). `episode` is
     the id of the episode the call belongs to, `None` for a single call made
     outside one (§5), and for an episode the id of the episode it is nested
-    in. `label` is `Case.label` before the case exists, empty until a person
-    gives one (§7).
+    in.
 
     `id` is an episode's own id, and only an episode carries one: its presence
     is what makes a recording an episode (`is_episode`). The episode's steps
@@ -176,7 +272,6 @@ class Recording:
     setup_digest: str
     response: RecordedResponse
     episode: str | None = None
-    label: Label | None = None
     #: `module:function` of the call that named no suite, so a person can
     #: assign it (ADR 0058 §2). `None` where the call named its suite.
     call_site: str | None = None
@@ -186,8 +281,9 @@ class Recording:
     #: An episode's own id: what its children carry in `episode`, and what makes
     #: the recording an episode. `None` on a single call.
     id: str | None = None
-    #: When the recording was written, ISO 8601 with its offset, read from the
-    #: system clock by the host. `None` where nothing recorded it.
+    #: When the recording was written, in UTC with its offset written
+    #: `+00:00`, read from the system clock by the host. `None` where nothing
+    #: recorded it. Any other form is refused (ADR 0062 §2).
     recorded_at: str | None = None
 
     def __post_init__(self) -> None:
@@ -206,16 +302,13 @@ class Recording:
                 "Recording.episode must be a non-empty string, or None for a "
                 "call made outside an episode"
             )
-        if self.label is not None and self.label not in _LABELS:
-            raise RecordingRefusedError(
-                f"Recording.label must be 'positive', 'negative' or None, got "
-                f"{self.label!r}"
-            )
         for name in ("id", "recorded_at"):
             if getattr(self, name) == "":
                 raise RecordingRefusedError(
                     f"Recording.{name} must be a non-empty string, or None"
                 )
+        if self.recorded_at is not None:
+            instant_of(self.recorded_at)
         if not self.is_episode and (self.interrupted or self.unrecorded_children):
             raise RecordingRefusedError(
                 "only an episode is interrupted or has unrecorded children, and "
@@ -262,8 +355,7 @@ def _compartment(value: object, name: str) -> Mapping[str, object]:
 
 def recording_to_dict(recording: Recording) -> dict[str, object]:
     """The document. Absent rather than emptied, like every payload field of a
-    run document: no `episode` outside an episode, no `label` until one is
-    given."""
+    run document: no `episode` outside an episode."""
     payload: dict[str, object] = {
         "recording_version": RECORDING_VERSION,
         "source_tenant": recording.source_tenant,
@@ -276,8 +368,6 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
     }
     if recording.episode is not None:
         payload["episode"] = recording.episode
-    if recording.label is not None:
-        payload["label"] = recording.label
     if recording.call_site is not None:
         payload["call_site"] = recording.call_site
     if recording.interrupted:
@@ -339,7 +429,6 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             setup_digest=_text(document, "setup_digest"),
             response=recorded_response_from_dict(cast(Mapping[str, Any], response)),
             episode=_optional_text(document, "episode"),
-            label=cast(Label | None, _optional_text(document, "label")),
             call_site=_optional_text(document, "call_site"),
             interrupted=_flag(document, "interrupted"),
             unrecorded_children=_count(document, "unrecorded_children"),
