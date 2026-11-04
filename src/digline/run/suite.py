@@ -97,10 +97,17 @@ class CaptureSource:
     Outside `config_hash`, like `record_responses`: declaring a source moves
     no score; what moves a baseline is the cases it adds, and they move
     `cases_digest`.
+
+    `check` is the judged assertion the cases written from it are reviewed
+    for: a person's yes or no at the import becomes a `ReviewedAnswer` for
+    that check, and only that check runs on it (ADR 0059 §1). A source without
+    one lists, and refuses to write, by name. The suite refuses a `check` that
+    is not one of its judged assertions when it is loaded.
     """
 
     cases_file: Path
     repository: Literal["private", "public"]
+    check: str | None = None
 
     def __post_init__(self) -> None:
         # `str` accepted and made a `Path` here, the rule `artifacts` follows.
@@ -112,6 +119,13 @@ class CaptureSource:
                 'CaptureSource.repository must be "private" or "public", and '
                 "has no default: whether the text may be written is declared, "
                 "never looked up (ADR 0023 §8)"
+            )
+        if self.check is not None and (
+            not isinstance(self.check, str) or not self.check  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise RefusedError(
+                "CaptureSource.check must name a judged assertion of the suite, "
+                "or be left unset: an empty name is a check nobody can run"
             )
 
 
@@ -541,6 +555,14 @@ class Suite:
     #: in this release (ADR 0023 §3). Outside `config_hash`, for the reason
     #: `record_responses` is. (ADR 0058 §4)
     capture: CaptureSource | None = None
+    #: Whether the target's output is deterministic: the same input gives the
+    #: same answer. Declared, **never deduced from the checks' `KIND`**: a
+    #: suite of deterministic checks over a sampled model has a deterministic
+    #: check and an output that is not. Read by `digline record import` alone:
+    #: where it is true, a yes at the import also writes the answer as a case's
+    #: `expected`, with the person's mark. Outside `config_hash`, for the reason
+    #: `capture` is. (ADR 0059 §2)
+    deterministic_output: bool = False
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -705,6 +727,7 @@ class Suite:
         self._check_calibrations()
         self._check_trajectories()
         self._check_reviewed_answers()
+        self._check_capture()
         # Validated on the *declared* set, so a refusal names what the author
         # wrote rather than a copy the expansion made.
         self._check_aggregates()
@@ -926,6 +949,47 @@ class Suite:
                         "no judge to agree or disagree with them",
                     )
                 )
+
+    def _check_capture(self) -> None:
+        """A capture source's `check` names one judged assertion of this suite,
+        for the reasons a reviewed answer's must: the cases written from it are
+        reviewed answers for that check. Refused when the suite is loaded, so a
+        mistyped name is met before an import writes a case the suite would
+        then refuse. (ADR 0059 §1)"""
+        if type(self.deterministic_output) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+            raise RefusedError(
+                f"suite {self.name!r} declares deterministic_output="
+                f"{self.deterministic_output!r}: it is true or false, and is "
+                "declared, never read off a value that is merely truthy"
+            )
+        check = None if self.capture is None else self.capture.check
+        if check is None:
+            return
+        matches = [a for a in self.assertions if a.name == check]
+        if len(matches) != 1:
+            available = sorted({a.name for a in self.assertions})
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} declares a capture source for ",
+                    NameRef("verdict_name", check),
+                    ", which "
+                    + (
+                        "no assertion is called. Declared: "
+                        if not matches
+                        else f"{len(matches)} assertions share. Declared: "
+                    ),
+                    *_listed("verdict_name", available),
+                )
+            )
+        if not judged(_unwrapped(matches[0])):
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} declares a capture source for ",
+                    NameRef("verdict_name", check),
+                    ", which is not a judged check: the cases it writes are a "
+                    "person's yes or no about an answer, which measures a judge",
+                )
+            )
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be
