@@ -277,6 +277,11 @@ belongs to a different record:
   operator. Several operators need a person's *identity*: revocable, and
   perhaps recorded on the promotion. That is authentication, and it belongs to
   the `--host` record that 0032 §4 filed under decision 9.
+
+  *Noted 2026-11-03 ([ADR 0061](0061-a-local-page-whose-views-other-packages-may-extend.md)
+  §4), and the bullet above kept as written.* No `--host` record follows:
+  `digline view` takes no `--host`, so it is never off loopback, and
+  authentication on a network is not a question it asks.
 - **The reviewed diff moves.** 0032 §4 treats the committed `baselines/` diff
   as the wall a promotion ends at. If the store sits in a client's perimeter,
   the baseline is not in the developer's reviewed diff, and where a world-2

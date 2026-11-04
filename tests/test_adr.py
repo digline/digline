@@ -255,6 +255,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "the target's call, and no `Subsequence`, `Before`, `Never` or "
         "`MaxSteps`"
     ),
+    "0061-a-local-page-whose-views-other-packages-may-extend": (
+        "accepted, and before any code: `digline view` has no view of the "
+        "recorder, no write but promotion, no `--allow-record` and no "
+        "`digline.views` group, and it still takes `--host`"
+    ),
 }
 
 
