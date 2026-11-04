@@ -8,6 +8,38 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+- **`digline view` listens on 127.0.0.1 and nowhere else, and `--host` is
+  gone**: a command that passes it is refused, exit `64`. A CLI option
+  removed, which moves the minor (*Choosing the version*). Anyone who served
+  the view beyond loopback loses that, and it is the case ADR 0032 §4a filed
+  (ADR 0061 §4.1).
+- **Every response of `digline view` carries a Content-Security-Policy**,
+  `default-src 'none'; style-src 'self'; script-src 'self'; form-action
+  'self'; frame-ancestors 'none'`, with `X-Content-Type-Options: nosniff`
+  and `Referrer-Policy: no-referrer`. No page carries a style or a script
+  inline, and a test parses every page the server sends to hold that
+  (ADR 0061 §4.4).
+- **One stylesheet for the HTML report and the view, and the report's look
+  changes with it**: system fonts, tabular figures, and a light and a dark
+  theme from `prefers-color-scheme`. `digline report` still writes one
+  self-contained file with the sheet inline and no script; the view links
+  to it at `/static/digline.css`. What a report says, and its order, do not
+  change. `digline.report.VIEW_CSS` is gone, folded into
+  `digline.report.SHEET` (ADR 0061 §7).
+- **uPlot 1.6.31 (MIT) is shipped inside the package**, with its licence
+  beside it, and served with one script of digline's for the comparison
+  across setups that the recorder's views will bring. No screen in this
+  release runs either, and every page reads without JavaScript
+  (ADR 0061 §7).
+- **`digline view --allow-record`**, accepted and serving nothing yet: the
+  two writes it is for, the recorder's switch and an imported case, arrive
+  with the recorder's views (ADR 0061 §4).
+- **Views from other packages**: an entry point in `digline.views` adds a
+  read-only page at `/x/<name>/`, listed in every screen's menu with the
+  package beside it and loaded the first time it is asked for. The contract
+  is `digline.report.View`, `ViewContext` and `MenuEntry`. A name that is
+  not lowercase letters, digits and hyphens, or one two entry points share,
+  stops the server at its start, named (ADR 0061 §5).
 - **A judge says whether `spent_usd` is the whole of its cost**:
   `JudgeBase.every_cost_known`, new and additive. It is `False` from the
   first call whose usage was not read or whose cost could not be computed,
