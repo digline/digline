@@ -52,9 +52,10 @@ tolerance = 0.05
 
 A case is a JSON object whose keys are `Case`'s fields, so the file needs no
 schema of its own: `id`, `vars`, `expected`, `label`, `group`, `context`,
-`metadata`, `suspended`, `canary`, `calibration`. Name one that does not exist
-and the loader lists the ones that do. `calibration` is the one field that is an
-object, and its own keys are refused by name the same way:
+`metadata`, `suspended`, `canary`, `calibration`, `reviewed_answer`. Name one
+that does not exist and the loader lists the ones that do. `calibration` and
+`reviewed_answer` are the two fields that are objects, and their own keys are
+refused by name the same way:
 
 ```json
 {"id": "half-supported",
@@ -66,6 +67,28 @@ object, and its own keys are refused by name the same way:
 
 What it is, and what it refuses, is in the
 [API reference](api.md#casecalibration-watching-the-judges-scale).
+
+A reviewed answer is a recorded answer and a person's yes or no about it,
+`good` as JSON's `true` or `false`. Here one answer was reviewed good and
+another not:
+
+```json
+[
+  {"id": "cap-5c1e0a9d2b7f4e31-9f8e7d6c",
+   "reviewed_answer": {"output": "Fourteen days from the day the parcel is back with us.",
+                       "check": "llm_rubric", "good": true,
+                       "input": "How long does a refund take?"}},
+  {"id": "cap-5c1e0a9d2b7f4e31-4c3b2a1d",
+   "reviewed_answer": {"output": "Refunds are instant.",
+                       "check": "llm_rubric", "good": false,
+                       "input": "How long does a refund take?"}}
+]
+```
+
+It is declared and loaded, and not run yet: `digline run` refuses a suite that
+declares one, before anything is called or written, until schema 23. What it
+is, and what it refuses, is in the
+[API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer).
 
 Then the cycle you already know:
 

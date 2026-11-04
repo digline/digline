@@ -77,7 +77,7 @@ from digline.host.toml_errors import (
     unknown_key,
     unknown_type,
 )
-from digline.run import Calibration, Case, Suite, Target
+from digline.run import Calibration, Case, ReviewedAnswer, Suite, Target
 from digline.targets import (
     HttpTarget,
     ModelPrice,
@@ -561,6 +561,11 @@ def _cases(path: Path, where: str) -> list[Case]:
                 **arguments,
                 "calibration": _calibration(arguments["calibration"], spot),
             }
+        if "reviewed_answer" in arguments:
+            arguments = {
+                **arguments,
+                "reviewed_answer": _reviewed_answer(arguments["reviewed_answer"], spot),
+            }
         try:
             built.append(Case(**cast("Any", arguments)))
         except (TypeError, ValueError) as exc:
@@ -585,6 +590,28 @@ def _calibration(raw: object, spot: str) -> Calibration:
     _refuse_unknown(given, set(_init_fields(Calibration)), where, "field")
     try:
         return Calibration(**cast("Any", given))
+    except (TypeError, ValueError) as exc:
+        raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
+
+
+def _reviewed_answer(raw: object, spot: str) -> ReviewedAnswer:
+    """`"reviewed_answer": {"output": …, "check": …, "good": …, "input": …}`.
+
+    Built here for `calibration`'s reason: an object inside a case, whose
+    unknown key is refused by name. `good` is JSON's `true` or `false`, and the
+    type refuses anything else. (ADR 0059 §1)
+    """
+    where = f"{spot}, reviewed_answer"
+    if not isinstance(raw, Mapping):
+        raise UsageError(
+            f"{where}: this is an object — output, check, good and input: the "
+            "recorded answer, the judged check it was reviewed for, the "
+            "person's true or false, and the question it replies to"
+        )
+    given = cast("Mapping[str, object]", raw)
+    _refuse_unknown(given, set(_init_fields(ReviewedAnswer)), where, "field")
+    try:
+        return ReviewedAnswer(**cast("Any", given))
     except (TypeError, ValueError) as exc:
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 

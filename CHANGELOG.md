@@ -39,6 +39,12 @@ notes under them are this file, verbatim.
   the steps, or `tools` where there are none; `MaxSteps` reads the steps
   alone. A suite that declares two of them that cannot both pass is refused
   (ADR 0060 §4).
+- **`Case.reviewed_answer`**, declared and not run yet: a recorded answer and
+  a person's yes or no about it, `ReviewedAnswer(output, check, good, input)`,
+  in Python and in a cases file. The suite checks that `check` is one judged
+  assertion and that it samples at least twice. `digline run`, `rejudge` and
+  `execute()` refuse a suite that declares one before anything is called or
+  written, until schema 23 gives the run document its key (ADR 0059 §1).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 
