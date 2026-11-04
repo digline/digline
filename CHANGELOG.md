@@ -64,13 +64,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   change. `digline.report.VIEW_CSS` is gone, folded into
   `digline.report.SHEET` (ADR 0061 §7).
 - **uPlot 1.6.31 (MIT) is shipped inside the package**, with its licence
-  beside it, and served with one script of digline's for the comparison
-  across setups that the recorder's views will bring. No screen in this
-  release runs either, and every page reads without JavaScript
-  (ADR 0061 §7).
-- **`digline view --allow-record`**, accepted and serving nothing yet: the
-  two writes it is for, the recorder's switch and an imported case, arrive
-  after the recorder's views (ADR 0061 §4).
+  beside it, and served with one script of digline's: uPlot draws one case
+  over time across setups, and digline's script keeps the command line under
+  each form equal to the form. Every page reads, and every form writes,
+  without JavaScript (ADR 0061 §7).
+- **`digline view --allow-record`** serves the page's two writes: the
+  recorder switched on or off, and recorded answers written as cases with a
+  person's yes or no and the name they type. Each calls the function the
+  command calls, answers a `303` to the page that reads it back, and needs
+  the cookie of the browser that opened the printed address. Under each
+  button is the command that does the same thing. Without the flag there is
+  no form, and a POST is a `404` (ADR 0061 §2, §4).
 - **The recorder's three views in `digline view`**, in the menu of every
   screen: the recordings of the suite as `digline record import` lists them,
   each answer with the first 200 characters and a page for the whole of it;
@@ -78,8 +82,8 @@ nothing. No public name is removed or renamed and no exit code changes.
   setups side by side with the keys they differ on, and a chart of one case
   over time; and the tenant's recorder as `digline record status` says it,
   opening with four figures. Each calls the command's own host function and
-  says what the command says, refusals included. They read only: a POST to
-  any of them is a `404` (ADR 0061 §1).
+  says what the command says, refusals included. Without `--allow-record`
+  they read only (ADR 0061 §1).
 - **Views from other packages**: an entry point in `digline.views` adds a
   read-only page at `/x/<name>/`, listed in every screen's menu with the
   package beside it and loaded the first time it is asked for. The contract
