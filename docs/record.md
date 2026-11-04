@@ -1,13 +1,13 @@
 # `digline record` — the calls your application makes, kept as cases
 
-> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
-> `digline.recorder` do not exist.
-
 While an application is being built, the calls it makes to a model are the
 material a suite is made of. The recorder keeps them, at the place where the
 application makes them, in the shape a suite reads: what the call was asked,
 what decided how it answered, and what it answered. A person then reads them
 back and names the ones that become cases.
+
+> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
+> `digline.recorder` do not exist.
 
 It is three things:
 
@@ -128,9 +128,14 @@ async with recorder.episode(client, suite="order-agent", case={"ticket": t}) as 
   so every task created inside it, `asyncio.gather` among them, is in it. A
   task created before it is not: there, `async with recorder.attach(ep.id)`
   puts the task's calls in it, and without it they are orphans.
-- **A recording is written inside the event loop.** It is a small file, and
-  holding the loop for it was measured at about 0.4 ms a recording, from the
-  second recording on, so it is not moved to a thread. **The first recording
+- **A recording is written inside the event loop, and never `fsync`ed.** It
+  is a small file, written beside its place and linked into it, so no reader
+  sees half of one. It is durable at the operating system's pace: a crash of
+  the machine may lose the last recordings written before it. A recording is
+  a sample, not a ledger. Writing one holds the caller, and an event loop
+  with it, under 2 ms on the CI's Linux runner, the least of three launches
+  on each of three Pythons (measured on 2026-11-03), so it is not moved to a
+  thread. **The first recording
   imports digline's core**, about 90 ms where it was measured, which holds
   the loop when the client is asynchronous. So when the recorder is on as the
   client is wrapped, `wrap()` imports the core then, at the application's

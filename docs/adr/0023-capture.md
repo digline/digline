@@ -319,6 +319,16 @@ name its direction. The case's expected comes from the label alone (§5), so a
 case captured against an old judge is still a correct test of the current one,
 and may simply be a wall that already holds.
 
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §4),
+and the section above kept as written.* For the import of recordings the
+declaration is code only where it carries a reader, and it carries none: a
+`[capture]` table in a `suite.toml` declares `cases_file` and `repository`.
+The ceremony this section borrows from ADR 0007 §7 asks for *"a change
+somebody wrote"*. A table in a versioned, reviewed file is that change as
+much as a line of Python, and a template is copied in either. The remedy is
+a rule, in both forms: `repository` mandatory with no default, `"public"`
+refusing, and the whole declaration printed at every use.
+
 ### 4. Proposed by pattern, elected by a person
 
     digline capture --suite suite.py                     lists; writes nothing
@@ -361,6 +371,13 @@ ranked, scored, starred or pre-selected; grouped by direction of error;
 `max_per_pattern` refused by name; no *elect all*, no *elect this pattern*,
 no threshold under which it elects on its own. A page built from *"§4's
 mechanism is superseded"* alone, without this paragraph, would rank.
+
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §3),
+and the section above kept as written. One sentence is added:* Where the
+material is recordings, which carry no verdict and no label to pair, the
+listing groups by the shape of the output — the core's `OutputKind`, the
+finish, and an episode's actors in order — and prints each group's count, in
+the files' order and never ranked.
 
 ### 5. The expected is the label, verbatim
 
@@ -881,6 +898,13 @@ at the data owner's side and produces a line at the software house; nothing
 else outside the draft is touched, and still no commit is made where there is
 no git. The other six items stand.
 
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §2),
+and the list above kept as written. Item 1 gains one sentence:* An expected a
+person named at the import, in a suite that declares `deterministic_output`,
+carries that person's mark and is not inferred: the person said that this
+answer is the answer. *The field's name is ADR 0059's proposal, which its
+acceptance takes or removes.*
+
 ## Consequences
 
 **The suite grows by what the judge gets wrong, and slowly.** Two exemplars per
@@ -1049,6 +1073,12 @@ which log shapes it would cover is open. It gets built rather than ruled.
 The cost of letting it go is ADR 0007 §7's hazard: a `"private"` taken from a
 template and copied to a client whose repository is not inside the perimeter
 commits text where it must not go.
+
+*Noted 2026-11-03: decided by
+[ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§4, for a source without a reader. It does not stay in Python. The hazard is
+the same in either form, and the remedy is a rule: `repository` mandatory
+with no default, and the whole declaration printed at every use.*
 
 **Whether a case written by hand inside the owner's perimeter carries what an
 election carries** — a kind, the limits of §4, a recorded party (§8,
