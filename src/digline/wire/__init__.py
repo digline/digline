@@ -31,6 +31,11 @@ from digline.wire.contract import (
 from digline.wire.diff import check_json, diff_json, interval_json
 from digline.wire.explain import explain_json, fact_json
 from digline.wire.log import log_json
+from digline.wire.record_compare import (
+    RecordComparison,
+    SetupValue,
+    record_compare_json,
+)
 from digline.wire.recorder import (
     SuiteRecordings,
     TenantRecorder,
@@ -47,6 +52,8 @@ __all__ = [
     "EXIT_USAGE",
     "EXIT_WORSE",
     "OUTPUT_VERSION",
+    "RecordComparison",
+    "SetupValue",
     "SuiteRecordings",
     "TenantRecorder",
     "WITHHELD",
@@ -62,6 +69,7 @@ __all__ = [
     "fact_json",
     "interval_json",
     "log_json",
+    "record_compare_json",
     "recorder_status_json",
     "refusal_text",
     "run_document",

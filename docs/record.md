@@ -9,14 +9,16 @@ back and names the ones that become cases.
 > **Arrives with digline 1.1.** On 1.0.3, `digline record` and
 > `digline.recorder` do not exist.
 
-It is three things:
+It is four things:
 
 - **`digline.recorder.wrap`**, around the provider's own client, in the
   application;
 - **a switch**, `.digline/<tenant>/recorder.toml`, and `digline record on`,
   `off` and `status`;
 - **`digline record import`**, which lists a suite's recorded cases and writes
-  the ones a person names into a file the suite loads.
+  the ones a person names into a file the suite loads;
+- **`digline record compare`**, which shows a suite's recorded answers by case
+  and by setup, and writes nothing.
 
 The decision behind it is
 [ADR 0058](adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md),
@@ -379,6 +381,47 @@ shown: bringing one tenant's material into another's suite is the bridge,
 which is planned and not built, and until then the recordings stay in the
 perimeter [ADR 0034](adr/0034-the-store-outside-and-the-reference-that-names-nothing.md)
 §1 keeps them in.
+
+## Comparing setups: `digline record compare`
+
+What the application answered, case by case, under each setup it ran with:
+
+```console
+$ digline record compare --tenant acme --suite eval/suite.py
+$ digline record compare --tenant acme --suite eval/suite.py --setup 1a2b3c4d 5e6f7a8b --show-setup
+```
+
+A case is the recordings with the same input, under the id the import gives
+it. Under each setup, in the order of its first answer, come the answers in the
+order they were recorded, each with its date and the first eight characters of
+its digest. An answer recorded several times in a row under the same setup is
+one line with how many times, and the date it ran to. Nothing is hidden: the
+same answer recorded again after a different one is a line of its own.
+Orphans, interrupted episodes and recordings over the ceiling are counted, as
+the import counts them.
+
+It shows, and judges nothing. No answer is ranked, and no word calls one better
+or worse: whether a setup answered as it should is for the person reading. It
+writes nothing, and does not move the import's `examined_through`.
+
+- `--case ID` keeps one case.
+- `--since WHEN` keeps the recordings made at or after an instant, written as
+  `recorded_at` is, with its offset (`2026-11-03T08:00:00+00:00`). A recording
+  with no `recorded_at` is then left out, and counted.
+- `--setup A B` keeps two setups, by the eight characters the listing prints,
+  and shows each case's answers under one beside its answers under the other.
+- `--show-setup`, only with `--setup`, adds the keys the two setups differ
+  on. Each value is shown by its first line, up to 60 characters, and its
+  length, so a prompt is never printed whole.
+- `--json` is the same structure for a program. It carries digests, never the
+  recorded text (fixed decision 9): the cases by their ids, the setups and
+  the answers by their digests, the dates, the counts, and for `--show-setup`
+  the keys that differ, never their values. The words are in the terminal's
+  text, for the person who ran the command.
+
+Recordings of another tenant than the suite's are refused before anything is
+shown, as the import refuses them. A suite with nothing recorded says so, and
+exits 0.
 
 ## Not yet
 
