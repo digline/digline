@@ -57,7 +57,7 @@ from digline.core.aggregate import per_sample_outcomes
 from digline.core.projection import project_served
 from digline.core.run import run_from_dict
 from digline.core.tokens import TokenKind
-from digline.report.explain import explain_text, facts
+from digline.report.explain import TallyFact, explain_text, facts
 from digline.report.log import _population  # pyright: ignore[reportPrivateUsage]
 from digline.report.render import headline, render_run_html, reviewed_section
 from digline.report.shape import shape
@@ -523,6 +523,12 @@ def test_explain_names_each_contradiction_and_its_direction() -> None:
         {"case_id": "no-good", "check": "llm_rubric", "direction": "passed_no"},
         {"case_id": "yes-bad", "check": "llm_rubric", "direction": "failed_yes"},
     ]
+    [compared] = [
+        f
+        for f in facts(found, compare(found, found))
+        if isinstance(f, TallyFact) and f.kind == "reviewed"
+    ]
+    assert [c.case_id for c in compared.contradictions] == ["no-good", "yes-bad"]
     [said] = [
         line
         for line in explain_text(facts(found), locale="it")

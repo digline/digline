@@ -16,8 +16,8 @@ from collections.abc import Mapping
 
 import pytest
 
-from digline.core import JudgeReply, LlmRubric, Run
-from digline.report.explain import explain_text, facts
+from digline.core import JudgeReply, LlmRubric, Run, compare
+from digline.report.explain import TallyFact, explain_text, facts
 from digline.report.render import calibration_section
 from digline.run import Calibration, Case, Response, Suite, execute
 from digline.wire import explain_json
@@ -126,6 +126,21 @@ def test_the_json_lists_each_case_beside_the_count() -> None:
             "high": 0.4,
             "side": "above",
         },
+    ]
+
+
+def test_a_comparison_names_them_too() -> None:
+    """The reading against a reference carries the same list as the reading
+    of a run alone: the bands are read off the run either way."""
+    found = run()
+    [fact] = [
+        f
+        for f in facts(found, compare(found, found))
+        if isinstance(f, TallyFact) and f.kind == "calibration"
+    ]
+    assert [(item.case_id, item.side) for item in fact.bands] == [
+        ("cal-h3", "below"),
+        ("cal-l3", "above"),
     ]
 
 
