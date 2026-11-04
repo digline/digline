@@ -916,6 +916,7 @@ def test_the_script_quotes_as_the_server_does() -> None:
         "Ada Lovelace",
         "it's",
         "a/b.c-d_e",
+        "ada@example.org+x%",
         "x=1,2:3",
         "é",
         "$HOME",
@@ -1085,6 +1086,17 @@ def test_promotion_alone_serves_no_write_of_the_recorder(root: Path) -> None:
             assert browser.ask("POST", target, "action=off").status == 404, target
             assert 'method="post"' not in browser.ask("GET", target).body, target
         assert tree(root) == before
+
+
+def test_another_suite_s_recordings_take_no_write(writing: Served) -> None:
+    """The server writes the cases of the suite it was started with, at that
+    suite's address; another suite's address is no route."""
+    before = tree(writing.root)
+    long_id = answer_id(REFUND, LONG_ANSWER)
+    body = urllib.parse.urlencode({f"answer:{long_id}": "good", "by": "Ada"})
+    answer = writing.ask("POST", recordings_address("acme", "other"), body)
+    assert answer.status == 404
+    assert tree(writing.root) == before
 
 
 def test_the_recorder_s_flag_alone_does_not_promote(writing: Served) -> None:
