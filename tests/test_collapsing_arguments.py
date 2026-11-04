@@ -96,7 +96,7 @@ def type_names_in(value: object) -> set[str]:
 
 
 @pytest.mark.parametrize(
-    ("value", "at", "name"), COLLAPSING, ids=lambda v: repr(v)[:30]
+    ("value", "at", "name"), COLLAPSING, ids=[f"{n}{a}" for _, a, n in COLLAPSING]
 )
 def test_collapsing_finds_what_canonical_reduces_to_its_type(
     value: object, at: str, name: str
@@ -105,7 +105,7 @@ def test_collapsing_finds_what_canonical_reduces_to_its_type(
     assert name in type_names_in(canonical(value))
 
 
-@pytest.mark.parametrize("value", KEPT, ids=lambda v: repr(v)[:30])
+@pytest.mark.parametrize("value", KEPT, ids=[type(v).__name__ for v in KEPT])
 def test_collapsing_lets_through_what_canonical_keeps(value: object) -> None:
     assert collapsing(value) is None
     assert not type_names_in(canonical(value))
