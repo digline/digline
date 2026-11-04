@@ -730,10 +730,16 @@ def _output_version_at(tag: str) -> int | None:
 
 
 def _release_tags() -> list[str]:
-    """This repository's `v0.*` tags, newest first; a skip, or a failure in
-    the `readers` job, where the checkout has none."""
+    """This repository's core release tags, `v0.*` and `v1.*`, newest first;
+    a skip, or a failure in the `readers` job, where the checkout has none.
+
+    It was `v0.*`, the pattern the `readers` job's fetch had until 1.0.1, and
+    it could not see `v1.0.0`: the newest release it read was 0.35.0, under
+    `OUTPUT_VERSION = 4`, so under 5, which 1.0.0 shipped, every key added in
+    `_ADDED` read as a bump that did not fold. A plugin's tag begins with its
+    package's name and is not matched."""
     listed = subprocess.run(  # noqa: S603
-        ["git", "-C", str(ROOT), "tag", "-l", "v0.*", "--sort=-v:refname"],  # noqa: S607
+        ["git", "-C", str(ROOT), "tag", "-l", "v[0-9]*", "--sort=-v:refname"],  # noqa: S607
         capture_output=True,
         text=True,
         check=True,
@@ -783,7 +789,7 @@ def test_a_bump_since_the_last_release_leaves_added_empty() -> None:
 
 
 def _last_release_under_an_older_version() -> str:
-    """The newest `v0.*` tag whose contract declares an `OUTPUT_VERSION` below
+    """The newest release tag whose contract declares an `OUTPUT_VERSION` below
     this tree's: the last release a key added under this version cannot be in.
     """
     for tag in _release_tags():
