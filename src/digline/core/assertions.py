@@ -43,6 +43,7 @@ from digline.core.types import (
     Verdict,
     at_precision,
     canonical,
+    collapsing,
     declared_floor,
     meets,
     normalize_output,
@@ -1426,6 +1427,19 @@ class ToolCalledWith(AssertionBase):
         if self.match not in ("exact", "subset"):
             raise RefusedError(
                 f"ToolCalledWith.match must be 'exact' or 'subset', got {self.match!r}"
+            )
+        # A value `canonical` reduces to its type's name cannot be checked:
+        # refused when the suite is written, not met in a verdict. (ADR 0018
+        # §5, noted 2026-11-04)
+        found = collapsing(dict(self.arguments))
+        if found is not None:
+            at, name = found
+            raise RefusedError(
+                f"ToolCalledWith.arguments{at} is a {name}, which digline "
+                f"compares as the text '<{name}>': it would match only that "
+                f"text, or any other {name}. Declare the value the way the "
+                "model sends it: a date or a time as its ISO 8601 text, in "
+                "quotes in a TOML suite."
             )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
