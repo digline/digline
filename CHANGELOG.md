@@ -33,7 +33,16 @@ notes under them are this file, verbatim.
   (ADR 0061 §7).
 - **`digline view --allow-record`**, accepted and serving nothing yet: the
   two writes it is for, the recorder's switch and an imported case, arrive
-  with the recorder's views (ADR 0061 §4).
+  after the recorder's views (ADR 0061 §4).
+- **The recorder's three views in `digline view`**, in the menu of every
+  screen: the recordings of the suite as `digline record import` lists them,
+  each answer with the first 200 characters and a page for the whole of it;
+  its answers across setups as `digline record compare` shows them, two
+  setups side by side with the keys they differ on, and a chart of one case
+  over time; and the tenant's recorder as `digline record status` says it,
+  opening with four figures. Each calls the command's own host function and
+  says what the command says, refusals included. They read only: a POST to
+  any of them is a `404` (ADR 0061 §1).
 - **Views from other packages**: an entry point in `digline.views` adds a
   read-only page at `/x/<name>/`, listed in every screen's menu with the
   package beside it and loaded the first time it is asked for. The contract
