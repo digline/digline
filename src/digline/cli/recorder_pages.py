@@ -178,11 +178,14 @@ def _input(field: Field, label: str) -> str:
             f'<label><input type="checkbox" {common} value="{escape(field.value)}"'
             f"{checked}> {escape(label)}</label>\n"
         )
-    step = ' step="any"' if field.kind == "number" else ""
-    kind = "number" if field.kind == "number" else "text"
+    # Text, with a numeric keyboard where a number is asked for, and not
+    # `type="number"`: a browser shows that in the system's locale, `0,5`, and
+    # what is typed should be what the line and the form carry. One that is not
+    # a number is refused in the command's words.
+    mode = ' inputmode="decimal"' if field.kind == "number" else ""
     return (
         f"<label>{escape(label)} "
-        f'<input type="{kind}"{step} {common} value="{escape(field.value)}">'
+        f'<input type="text"{mode} {common} value="{escape(field.value)}">'
         "</label>\n"
     )
 
