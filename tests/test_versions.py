@@ -288,6 +288,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "audited its own output",
     },
     "src/digline/wire/contract.py": {
+        "1.0.3": (
+            "'was born after 1.0.3' — the release before the record status "
+            "document existed, in that document's record: history"
+        ),
         "1.0.0": (
             "'1.0.0, which writes 5, is the first to carry it' — the release "
             "that first carried `unpriced`, in that key's record: history"
@@ -367,6 +371,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.15.1": "the delta-pass over 0.15.1 — which release's pass found "
         "the reading this file now prints, told as history. The pass dates "
         "the lesson; moving the number would claim a later pass audited it",
+    },
+    "docs/record.md": {
+        "1.0.3": (
+            "'On 1.0.3, digline record and digline.recorder do not exist' — the "
+            "release on PyPI while 1.1.0 is unreleased, under the notice that "
+            "turns false at the tag; the release pull request of 1.1.0 removes "
+            "the line, as RELEASING.md's row owed to the next version says"
+        ),
     },
     "RELEASING.md": {
         "1.0.3": (
