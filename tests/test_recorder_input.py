@@ -89,8 +89,6 @@ def test_a_call_made_records_its_messages_and_the_import_writes_them(
     root: Path,
 ) -> None:
     ask(wrap(an_anthropic(), app="support", tenant="acme", root=root))
-    assert recorded_input(root) == [ASKED]
-    assert input_of(QUESTION) == ASKED
     reviewed = imported(root, {"messages": QUESTION}, "Paris")
     assert reviewed == {
         "output": "Paris",
@@ -98,14 +96,16 @@ def test_a_call_made_records_its_messages_and_the_import_writes_them(
         "good": True,
         "input": ASKED,
     }
+    assert recorded_input(root) == [ASKED]
+    assert input_of(QUESTION) == ASKED
 
 
 def test_a_call_streamed_records_the_same_input(root: Path) -> None:
     client = wrap(an_anthropic(), app="support", tenant="acme", root=root)
     for _ in ask(client, stream=True):
         pass
-    assert recorded_input(root) == [ASKED]
     assert imported(root, {"messages": QUESTION}, "Paris")["input"] == ASKED
+    assert recorded_input(root) == [ASKED]
 
 
 def test_a_call_awaited_records_the_same_input(root: Path) -> None:
@@ -115,8 +115,8 @@ def test_a_call_awaited_records_the_same_input(root: Path) -> None:
         return await ask(client)
 
     asyncio.run(call())
-    assert recorded_input(root) == [ASKED]
     assert imported(root, {"messages": QUESTION}, "Paris")["input"] == ASKED
+    assert recorded_input(root) == [ASKED]
 
 
 def test_the_instructions_moved_into_the_setup_are_not_in_the_input(
@@ -145,9 +145,9 @@ def test_an_episode_records_its_case_and_the_import_writes_it(root: Path) -> Non
                 messages=QUESTION,
                 suite="triage-step",
             )
-    # The calls' own recordings carry their messages; the episode's, its case.
     asked = '{"order":"A1","ticket":"Où est mon remboursement ?"}'
-    assert sorted(map(str, recorded_input(root))) == sorted([ASKED] * 3 + [asked])
     reviewed = imported(root, case, "Your refund is on its way.")
     assert reviewed["input"] == asked
     assert reviewed["output"] == "Your refund is on its way."
+    # The calls' own recordings carry their messages; the episode's, its case.
+    assert sorted(map(str, recorded_input(root))) == sorted([ASKED] * 3 + [asked])
