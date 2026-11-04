@@ -1189,6 +1189,7 @@ def cmd_view(args: argparse.Namespace) -> int:
         allow_promote=args.allow_promote,
         allow_record=args.allow_record,
         root=args.root,
+        module=loaded.module,
     )
     return EXIT_OK
 
@@ -2002,7 +2003,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-record",
         action="store_true",
         help=(
-            "serve the writes that arrive with the recorder's views; this "
+            "serve the writes that arrive after the recorder's views; this "
             "release has none yet, and accepts the flag"
         ),
     )

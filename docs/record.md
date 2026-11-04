@@ -493,6 +493,19 @@ Recordings of another tenant than the suite's are refused before anything is
 shown, as the import refuses them. A suite with nothing recorded says so, and
 exits 0.
 
+## The page
+
+`digline view --suite eval/suite.py` shows the same three things in a browser,
+beside its screens over the runs: the recordings as `record import` lists
+them, the answers across setups as `record compare` shows them, with a chart
+for one case, and the recorder as `record status` says it. Each page calls the
+function its command calls, and says what the command says.
+
+The page reads and writes nothing in this release. Switching the recorder and
+importing a case stay on the command line for now; on the page they will sit
+behind `digline view --allow-record`, under each button the command that does
+the same thing. See [the recorder's views](view.md#the-recorders-views).
+
 ## Not yet
 
 - An application in another language than Python.

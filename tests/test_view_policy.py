@@ -139,6 +139,11 @@ def every_response(
         "/case/capital-it",
         "/suspend/capital-it?reason=a+%3Cp+style%3Dx%3E+reason",
         f"/compare?run={key}",
+        # The recorder's views. This suite declares no capture source, so the
+        # recordings answer the import's refusal; the other two read.
+        "/recordings/acme-bank/qa/",
+        "/setups/acme-bank/qa/",
+        "/recorder/acme-bank/",
         "/no-such-page",
         "/x/no-such-view/",
         SHEET_ADDRESS,
@@ -174,7 +179,7 @@ def test_no_page_the_server_sends_carries_anything_inline(
     ]
     # The screens are among them, so a server that answered every page with a
     # bare error would not pass on an empty list.
-    assert sum(1 for _target, answer in pages if answer.status == 200) >= 7
+    assert sum(1 for _target, answer in pages if answer.status == 200) >= 9
     for target, answer in pages:
         assert inline_in(answer.body) == [], target
 
