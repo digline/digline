@@ -478,7 +478,12 @@ the model called the same tool more than once, any one matching call satisfies
 this. Use `subset` when a framework adds keys of its own — under `exact` a
 `request_id` nobody declared is a failure. Arguments that do not decode are an
 **error**, not a failure, for the reason `json_schema` reports an undecodable
-output as one.
+output as one. **A declared value has to be one digline tells apart from
+another of its type**: text, a number, a boolean, `None`, a list, a mapping,
+bytes, a set or a dataclass. A `date`, a `time`, a class or a function would
+be compared as the text `"<date>"`, `"<type>"` and so on, which only that
+placeholder matches, so the check is refused when it is built. Declare a date
+or a time as its ISO 8601 text.
 
 ### `Subsequence`
 

@@ -220,6 +220,13 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             '`cases = "cases.json"` — because a suite is rules and cases are '
             "data, and a diff has to say which one moved (ADR 0007 §4)"
         )
+    if not isinstance(table["cases"], str):
+        # Said without the value: a table or an array written here holds
+        # cases, and a case is the end company's payload.
+        raise UsageError(
+            f"{where}, [suite]: `cases` must be the path of a JSON file, not a "
+            "table or an array"
+        )
 
     declared = dict(table)
     declared["cases"] = _cases(
