@@ -276,6 +276,14 @@ first is new: today the request is built by `ProviderTarget.__call__`
 with 1.1. Without digline a plugin has nothing to write to, and without a
 plugin digline cannot separate a provider's call.
 
+*Noted 2026-11-04, and the paragraph above kept as written: one map shipped
+before 1.1.* `digline-anthropic` 0.8.0, published on 2026-11-03, carries its
+recording map, declared under `digline.recording_maps`. It is inert until
+digline itself has `digline.recorder`: 1.0.3, the latest release on PyPI when
+this note was written, has none, so no released digline loads the map before
+1.1. `digline-openai` 0.6.0 and `digline-bedrock` 0.7.0 carry no map, and
+their minors still come with 1.1.
+
 **In the layers**, the wrapper reads files and the clock (§10), so it sits with
 `digline.host`, the one layer allowed to. `digline.core` gains nothing that
 does I/O, and `tests/test_layering.py` stays as it is.

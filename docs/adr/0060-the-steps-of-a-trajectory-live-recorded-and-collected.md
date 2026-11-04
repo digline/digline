@@ -127,6 +127,12 @@ indexed from 0. It is the only place steps are made:
   `recorder.py:1971`;
 - the collection of §3 calls it over the calls of a case.
 
+*Noted 2026-11-04, by Alessandro Prandini's ruling, and the list above kept as
+written.* A second function, `steps_as_reported` in `digline.core.recording`,
+not exported from `digline.core`, lays each tool step over its call in the live
+form of §2: `steps_of` decides the order and the indices, and it is still the
+only place steps are made.
+
 `RecordedStep` moves from `digline.core.recording` to `digline.core.run`,
 beside `RecordedToolCall`. Its docstring says it is in `recording` *"because
 the run document does not hold steps"*, and §5 ends that reason.
@@ -175,6 +181,14 @@ it.
   injected client is wrapped reports its one call twice, through
   `as_metadata()` and through the collection; they are the same `Completion`,
   and the collection's is the one used, so nothing is counted twice.
+
+  *Noted 2026-11-04, by Alessandro Prandini's ruling, and the bullet above
+  kept as written: the hook's `settle` composes, in `digline.recorder`; the
+  driver applies it.* The calls collected are `Completion`s and their prices
+  are a target's list, both in `digline.targets`, which `digline.run` does not
+  import. So the context manager `around_target` gives, on entering, a
+  `settle` that composes the response, and the driver applies it to what the
+  target returned.
 - **What a collection sums.** `usage`, summed over the calls. Latency, summed
   over the calls, which is **the time spent waiting for the model and excludes
   the time the tools took**: it is not the duration of the case, and the
