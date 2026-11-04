@@ -9,14 +9,16 @@ back and names the ones that become cases.
 > **Arrives with digline 1.1.** On 1.0.3, `digline record` and
 > `digline.recorder` do not exist.
 
-It is three things:
+It is four things:
 
 - **`digline.recorder.wrap`**, around the provider's own client, in the
   application;
 - **a switch**, `.digline/<tenant>/recorder.toml`, and `digline record on`,
   `off` and `status`;
 - **`digline record import`**, which lists a suite's recorded cases and writes
-  the ones a person names into a file the suite loads.
+  the ones a person names into a file the suite loads;
+- **`digline record compare`**, which shows a suite's recorded answers by case
+  and by setup, and writes nothing.
 
 The decision behind it is
 [ADR 0058](adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md),
