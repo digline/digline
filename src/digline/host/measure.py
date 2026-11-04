@@ -39,6 +39,7 @@ from digline.run import (
     judges,
     planned_calls,
     price_digest_of,
+    refuse_reviewed_answers,
     target_config,
 )
 from digline.store import (
@@ -144,7 +145,11 @@ def prepare(
     Every refusal here happens **before the first call of the new leg** — and
     before the journal is opened at all, which is the other half of the same
     promise: a refused resume costs no call *and* leaves no file behind.
+
+    A suite this build cannot run is the first of them: `execute` refuses it
+    too, and by then the journal would be open. (ADR 0059 §1)
     """
+    refuse_reviewed_answers(suite)
     header = JournalHeader(
         tenant=suite.tenant,
         environment=suite.environment,

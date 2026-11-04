@@ -28,7 +28,13 @@ from digline.core import (
     ToolsCalled,
     restore_output,
 )
-from digline.run.driver import Mapper, Response, default_mapper, execute
+from digline.run.driver import (
+    Mapper,
+    Response,
+    default_mapper,
+    execute,
+    refuse_reviewed_answers,
+)
 from digline.run.suite import Case, Suite
 
 __all__ = ["Replay", "ReplayError", "rejudge"]
@@ -144,7 +150,12 @@ def _check(suite: Suite, source: Run) -> None:
     check *is* the defect ADR 0018 was written to close, so a replay that
     produced one quietly would be the gate-that-is-not-a-gate wearing a
     different hat. (ADR 0018 §4)
+
+    Before all five, the refusal `execute` makes of a suite that declares
+    reviewed answers: met here, it would read as *no recorded answer*, which
+    is not why. (ADR 0059 §1)
     """
+    refuse_reviewed_answers(suite)
     if source.tenant != suite.tenant:
         raise ReplayError(
             f"the stored run belongs to tenant {source.tenant!r} and this "

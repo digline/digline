@@ -57,7 +57,8 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.protocols import AroundTarget, DeclaresPrice
-from digline.core.refused import RefusedError, Written
+from digline.core.refused import NameRef, RefusedError, Written
+from digline.core.run import SCHEMA_VERSION
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
     "judge_config",
     "judge_totals",
     "judges",
+    "refuse_reviewed_answers",
     "target_config",
 ]
 
@@ -807,6 +809,11 @@ def _run_case(
         return _calibrate(
             suite, mapper, case, case.calibration, judge_samples, declared
         )
+    if case.reviewed_answer is not None:
+        # Never reached through `execute`, which refuses the suite before its
+        # first case: this is where the reviewed answer's own branch goes when
+        # the run document can say what it is (ADR 0059 §1, schema 23).
+        refuse_reviewed_answers(suite)
 
     line = NO_CALLS
     samples: list[EvaluatorInputs] = []
@@ -999,6 +1006,8 @@ def _asked(suite: Suite, case: Case) -> frozenset[str]:
         return frozenset()
     if case.calibration is not None:
         return frozenset({suite.calibrated(case.calibration).identity})
+    if case.reviewed_answer is not None:
+        return frozenset({suite.reviewed(case.reviewed_answer).identity})
     return frozenset(a.identity for a in suite.assertions)
 
 
@@ -1223,6 +1232,50 @@ def check_target(target: object) -> None:
     target_config(target)
 
 
+#: The schema whose run document can say that a case is a reviewed answer,
+#: and what the person said. Until this build writes it, a reviewed answer is
+#: declared and loaded, and not run. (ADR 0059 §1)
+REVIEWED_ANSWERS_SCHEMA = 23
+
+
+def refuse_reviewed_answers(suite: Suite) -> None:
+    """Refuse a suite that declares reviewed answers, while this build's run
+    document has no key for them.
+
+    **A refusal of the suite, not an error of a case.** Run as an ordinary
+    case, a reviewed answer would be written into a document that cannot say
+    what it is, and every reader would count it where ADR 0059 §1 keeps it
+    out; errored, it would stand in the run as a case that could not be
+    judged, which is not what happened. So nothing is called and nothing is
+    written: `execute` asks this before its first call, and the host before
+    it opens a journal. (ADR 0059 §1)
+
+    **Unconditional, and not read off `SCHEMA_VERSION`.** Schema 23 may open
+    for another passenger first, and a refusal that lifted itself then would
+    run a reviewed answer down the ordinary path. It goes when the reviewed
+    answer's own branch arrives, in the same change.
+    """
+    reviewed = [case.id for case in suite.cases if case.reviewed_answer is not None]
+    if not reviewed:
+        return
+    named: list[str | NameRef] = []
+    for case_id in reviewed:
+        if named:
+            named.append(", ")
+        named.append(NameRef("case_id", case_id, quoted=False))
+    raise RefusedError(
+        Written.said(
+            f"suite {suite.name!r} declares reviewed answers (",
+            *named,
+            f"): reviewed answers run from schema {REVIEWED_ANSWERS_SCHEMA} "
+            f"(ADR 0059 §1); this build is on schema {SCHEMA_VERSION}. Its run "
+            "document has no key for a person's yes or no, so nothing was "
+            "called and nothing was written. To run the suite now, leave the "
+            "reviewed answers out of its cases",
+        )
+    )
+
+
 def execute(
     suite: Suite,
     target: Target,
@@ -1321,6 +1374,9 @@ def execute(
             "that cannot fire is worse than declaring none. The caller reads "
             "them with `digline.host.read_pinned` and passes `pinned=`"
         )
+    # Before anything is called, and before the checks below: a suite this
+    # build cannot run is refused whole. (ADR 0059 §1)
+    refuse_reviewed_answers(suite)
     if judge_samples:
         # Imported here: `replay` imports this module.
         from digline.run.replay import Replay
