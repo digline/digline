@@ -49,8 +49,8 @@ from tests.test_view_policy import WANTED, inline_in
 from digline.cli import recorder_pages
 from digline.cli.recorder_pages import SHOWN_CHARS
 from digline.cli.view import HOST, ViewHandler, self_netlocs
-from digline.core.recording import RecordedStep, Recording, setup_digest_of
-from digline.core.run import RecordedResponse
+from digline.core.recording import Recording, setup_digest_of
+from digline.core.run import RecordedResponse, RecordedStep
 from digline.host import (
     import_listing,
     imported_since,
