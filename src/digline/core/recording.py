@@ -30,6 +30,12 @@ keys added to a format that has not shipped, so `RECORDING_VERSION` stays 1.
 the files alone can join them back; and `recorded_at`, the system time the
 recording was written at, so that a case elected from it can carry the
 watermark ADR 0023 §9 reads.
+
+**The response's `input` is the question, as JSON text** (`input_of`): a single
+call's is its case's `messages`, an episode's is its whole case. The import
+copies it into a reviewed answer, beside the answer, for the judge to read,
+and refuses an answer recorded without one. The field was always in a
+recorded response, so `RECORDING_VERSION` stays 1.
 """
 
 from __future__ import annotations
@@ -58,6 +64,7 @@ __all__ = [
     "Recording",
     "RecordingRefusedError",
     "recording_from_dict",
+    "input_of",
     "recording_to_dict",
     "setup_digest_of",
 ]
@@ -105,6 +112,27 @@ def setup_digest_of(setup: Mapping[str, object]) -> str:
         allow_nan=False,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+def input_of(question: object) -> str:
+    """The question a recorded answer replies to, as a recorded response's
+    `input` holds it: JSON text, keys sorted, compact, non-ASCII kept as it was
+    written, the form `record_output` gives a structured answer.
+
+    `question` is a single call's case's `messages`, or an episode's whole case
+    (`episode(case=...)`). Not the messages the provider received: the leading
+    instructions an OpenAI map moves into the setup are the setup's, and the
+    case is what the import groups answers by, so every recording of one
+    answer carries one input. Strict as the compartments are, and for the same
+    reason: a value JSON cannot carry is refused, not rewritten.
+    """
+    return json.dumps(
+        _json_value(question, "input"),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 @dataclass(frozen=True, slots=True)
