@@ -4,7 +4,7 @@ Pure functions — the caller writes the file. Depends on `digline.core` and on
 nothing else in digline.
 """
 
-from digline.report import diff, explain, pages
+from digline.report import diff, explain, pages, views
 from digline.report.explain import (
     CheckFact,
     Fact,
@@ -26,7 +26,6 @@ from digline.report.log import (
     log_text,
 )
 from digline.report.pages import (
-    VIEW_CSS,
     LeftOutPart,
     case_page,
     compare_page,
@@ -68,17 +67,21 @@ from digline.report.render import (
     visible,
 )
 from digline.report.shape import Shape, ShapeSide, shape
+from digline.report.sheet import SHEET
 from digline.report.text import LOCALES, TEXT, Locale, phrase
+from digline.report.views import MenuEntry, View, ViewContext
 
 __all__ = [
     "LOCALES",
-    "VIEW_CSS",
+    "SHEET",
     "CaseEntry",
     "CaseHistory",
     "CheckFact",
     "Fact",
     "SettingFact",
     "TallyFact",
+    "View",
+    "ViewContext",
     "RUN_SECTIONS",
     "SECTIONS",
     "SUMMARY_OUTCOMES",
@@ -88,6 +91,7 @@ __all__ = [
     "IdentityLog",
     "IdentitySpan",
     "Locale",
+    "MenuEntry",
     "Reference",
     "Replay",
     "Roll",
@@ -136,5 +140,6 @@ __all__ = [
     "scale_lost",
     "shape",
     "escape",
+    "views",
     "visible",
 ]

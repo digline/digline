@@ -52,7 +52,7 @@ from digline.core import (
     key_of,
 )
 from digline.report import (
-    VIEW_CSS,
+    SHEET,
     LeftOutPart,
     Locale,
     case_history,
@@ -67,7 +67,12 @@ from digline.report import (
     suspension_snippet,
 )
 from digline.report import escape as report_escape
+from digline.report.pages import SHEET_ADDRESS
 from digline.store import FileResultStore
+
+#: The sheet as the report carries it, and as a served page links to it.
+INLINE = f"<style>\n{SHEET}</style>\n"
+LINKED = f'<link rel="stylesheet" href="{SHEET_ADDRESS}">\n'
 
 AGREES = "agrees_with_mark"
 
@@ -287,9 +292,11 @@ def test_the_page_is_the_report_plus_a_bar() -> None:
     """If the page and the exported document ever disagreed *about a run*, that
     would be a defect rather than a difference of medium.
 
-    Two things are added and nothing else: the bar, and the rules that style it.
-    Take both away and what is left must be byte for byte what `digline
-    report` writes — same dates, same six decimals, same width.
+    Two things change and nothing else: the bar is added, and the sheet the
+    report carries inline is linked instead, because the server serves it and
+    its policy admits no inline style (ADR 0061 §4.4). Undo both and what is
+    left must be byte for byte what `digline report` writes — same dates, same
+    six decimals, same width.
     """
     page = compare_page(RUN_B, RUN_A, locale="en", suite="brief", declared=None)
     document = render_html(
@@ -298,7 +305,7 @@ def test_the_page_is_the_report_plus_a_bar() -> None:
 
     start = page.index('<nav class="bar">')
     end = page.index("</nav>\n") + len("</nav>\n")
-    stripped = (page[:start] + page[end:]).replace(VIEW_CSS, "", 1)
+    stripped = (page[:start] + page[end:]).replace(LINKED, INLINE, 1)
     assert stripped == document
 
 
@@ -323,13 +330,13 @@ def test_the_single_run_page_is_the_report_plus_a_bar() -> None:
     """Before the first promotion `/compare` serves the run on its own, and it
     is held to the comparison page's rule: take the bar and its rules away and
     what is left is byte for byte what `digline report` writes in the same
-    state."""
+    state, the sheet put back inline where the page links to it."""
     page = run_page(RUN_A, locale="en", suite="brief")
     document = render_run_html(RUN_A, locale="en")
 
     start = page.index('<nav class="bar">')
     end = page.index("</nav>\n") + len("</nav>\n")
-    stripped = (page[:start] + page[end:]).replace(VIEW_CSS, "", 1)
+    stripped = (page[:start] + page[end:]).replace(LINKED, INLINE, 1)
     assert stripped == document
 
 
@@ -1977,9 +1984,11 @@ def test_a_server_that_promotes_says_nothing_about_being_one() -> None:
     be telling nobody anything."""
     body = runs_html(allow_promote=True).split("</head>")[1]
     assert "readonly" not in body and "--allow-promote" not in body
-    # The stylesheet carries the rule either way, which is why the assertions
-    # above read the body: a page-wide search would pass on the wrong evidence.
-    assert "nav.bar .readonly" in runs_html(allow_promote=True)
+    # The sheet carries the rule either way, and the page links to it, which is
+    # why the assertions above read the body: a search of the page and its
+    # sheet would pass on the wrong evidence.
+    assert "nav.bar .readonly" in SHEET
+    assert SHEET_ADDRESS in runs_html(allow_promote=True)
 
 
 def test_the_free_comparison_is_below_the_table_and_drops_the_baseline() -> None:
