@@ -44,6 +44,7 @@ from digline.core import (
     Run,
     Written,
     compare,
+    contradicted,
     diff,
     key_of,
     nothing_judged,
@@ -405,6 +406,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             key = "one" if errored == 1 else "many"
             say(
                 f"digline: {phrase('en', f'fact.errored_checks.{key}', count=errored)}",
+                err=True,
+            )
+        # And a reviewed answer the judge contradicted, beside it: the run
+        # exits 0, and report, explain and compare exit 1 on it, so the person
+        # who ran the command hears it here first. The `next:` line below then
+        # names explain, because promote refuses such a run. (ADR 0059 §1)
+        against = len(contradicted(measured.run))
+        if against:
+            key = "one" if against == 1 else "many"
+            say(
+                f"digline: {phrase('en', f'fact.contradicted.{key}', count=against)}",
                 err=True,
             )
         # Only the key on stdout, so a shell can capture it:

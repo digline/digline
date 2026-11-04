@@ -191,6 +191,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # above zero; `run --json` carries the number always. (#654)
         "fact.errored_checks.one": "1 check could not run.",
         "fact.errored_checks.many": "{count} checks could not run.",
+        # Said by `digline run` beside the bill, as the errored checks are: a
+        # contradiction exits 1 from report, explain and compare, and the
+        # person who ran the command should not learn it there first.
+        # (ADR 0059 §1)
+        "fact.contradicted.one": (
+            "the judge contradicted a person on 1 reviewed answer."
+        ),
+        "fact.contradicted.many": (
+            "the judge contradicted a person on {count} reviewed answers."
+        ),
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1782,6 +1792,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.errored_checks.one": "1 controllo non ha potuto essere eseguito.",
         "fact.errored_checks.many": (
             "{count} controlli non hanno potuto essere eseguiti."
+        ),
+        "fact.contradicted.one": (
+            "il giudice ha contraddetto una persona su 1 risposta rivista."
+        ),
+        "fact.contradicted.many": (
+            "il giudice ha contraddetto una persona su {count} risposte riviste."
         ),
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
