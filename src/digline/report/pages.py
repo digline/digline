@@ -26,6 +26,7 @@ deliberate departures, both because a screen is not a document:
 
 from __future__ import annotations
 
+import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
@@ -51,6 +52,7 @@ from digline.report.views import MenuEntry, address
 
 __all__ = [
     "SHEET_ADDRESS",
+    "answer_address",
     "case_page",
     "compare_page",
     "diff_page",
@@ -61,11 +63,16 @@ __all__ = [
     "locale_of",
     "nav",
     "phrase",
+    "recorder_address",
+    "recordings_address",
     "run_page",
     "runs_page",
+    "screen",
+    "setups_address",
     "suspend_page",
     "suspension_snippet",
     "with_menu",
+    "with_screens",
 ]
 
 #: Where the server serves `SHEET`, and what every page here links to.
@@ -108,6 +115,55 @@ def with_menu(document: str, entries: Sequence[MenuEntry], *, here: str = "") ->
         for entry in entries
     )
     return document.replace(spacer, links + spacer, 1)
+
+
+def _segment(name: str) -> str:
+    """One path segment, every character that is not one quoted."""
+    return urllib.parse.quote(name, safe="")
+
+
+def recordings_address(tenant: str, suite: str) -> str:
+    """Where a suite's recordings are listed, as the import lists them."""
+    return f"/recordings/{_segment(tenant)}/{_segment(suite)}/"
+
+
+def answer_address(tenant: str, suite: str, answer: str) -> str:
+    """Where one recorded answer is shown whole."""
+    return recordings_address(tenant, suite) + _segment(answer)
+
+
+def setups_address(tenant: str, suite: str) -> str:
+    """Where a suite's answers are shown by case and by setup."""
+    return f"/setups/{_segment(tenant)}/{_segment(suite)}/"
+
+
+def recorder_address(tenant: str) -> str:
+    """Where a tenant's recorder is shown."""
+    return f"/recorder/{_segment(tenant)}/"
+
+
+def with_screens(
+    document: str, *, tenant: str, suite: str, locale: Locale, here: str = ""
+) -> str:
+    """A page's navigation bar, with the recorder's three views after the runs.
+
+    They are digline's own and sit beside the runs, before the suite's name:
+    the recordings, the answers across setups and the recorder (ADR 0061 §1).
+    `here` names the one being shown.
+    """
+    marker = '<span class="suite">'
+    if document.count(marker) != 1:
+        raise ValueError("this document has no navigation bar to add a view to")
+    links: list[str] = []
+    for name, href in (
+        ("recordings", recordings_address(tenant, suite)),
+        ("setups", setups_address(tenant, suite)),
+        ("recorder", recorder_address(tenant)),
+    ):
+        mark = ' class="here"' if name == here else ""
+        label = escape(phrase(locale, f"view.nav.{name}"))
+        links.append(f'<a href="{escape(href)}?locale={locale}"{mark}>{label}</a>')
+    return document.replace(marker, "".join(links) + marker, 1)
 
 
 # --------------------------------------------------------------------------- #
@@ -1043,5 +1099,11 @@ def extension_page(name: str, body: str, *, locale: Locale, suite: str) -> str:
     The view escapes what it puts in `body` (ADR 0061 §5); this escapes the
     name, which is the page's title. The server adds the menu and its headers.
     """
-    bar = nav(locale, here=name, suite=suite)
-    return _document(name, locale, f"{bar}{body}", wide=True)
+    return screen(name, body, locale=locale, suite=suite, here=name)
+
+
+def screen(title: str, body: str, *, locale: Locale, suite: str, here: str) -> str:
+    """A body already rendered, in digline's document: the sheet and the bar.
+    `title` is escaped here; `body` is markup its caller escaped."""
+    bar = nav(locale, here=here, suite=suite)
+    return _document(title, locale, f"{bar}{body}", wide=True)
