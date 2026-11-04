@@ -628,3 +628,36 @@ def test_collecting_alone_writes_none_of_the_targets_calls(
     assert tools_of(response.metadata) == AGENT_TOOLS
     assert recordings(tmp_path) == []
     assert client.digline_counts["recorded"] == 0
+
+
+def test_a_measured_run_records_none_of_its_judges_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What `digline run` and the MCP server call: `measure` enters
+    `running()` itself, so a judge's calls through a wrapped client, which
+    no collection reads, are not written either."""
+    from digline.host.measure import measure, prepare
+    from digline.store import FileResultStore
+
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    client = wrap(anthropic(AGENT), app="support", tenant="acme", root=tmp_path)
+    suite = Suite(
+        tenant="acme",
+        environment="test",
+        name="agent",
+        assertions=[judged_through(client)],
+        cases=[Case(id="c")],
+    )
+
+    def target(case: Case) -> Response:
+        return Response(output="refunded")
+
+    prepared = prepare(
+        suite, target, now="2026-11-04T00:00:00Z", git_commit=None, artifacts={}
+    )
+    measured = measure(
+        suite, target, store=FileResultStore(tmp_path), prepared=prepared
+    )
+    assert measured.run.results[0].verdicts[0].status == "pass"
+    assert recordings(tmp_path) == []
+    assert client.digline_counts["recorded"] == 0
