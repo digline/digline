@@ -1612,6 +1612,14 @@ _ADDED: tuple[_AddedKey, ...] = (
         },
         _BANDS,
     ),
+    # The processes that wrote recordings and keep no counts file, which a
+    # writer outside digline's recorder never keeps.
+    _AddedKey(
+        "record_status.recordings",
+        "uncounted",
+        _INT,
+        "ADR 0062 §2; the counts file is not part of the recording's contract",
+    ),
 )
 
 

@@ -1598,6 +1598,16 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             if suite.noted:
                 said = ", ".join(f"{what} {n}" for what, n in suite.noted.items())
                 say(f"    recorded, and noted: {said}")
+        if tenant.uncounted:
+            who = (
+                "1 process keeps"
+                if tenant.uncounted == 1
+                else f"{tenant.uncounted} processes keep"
+            )
+            say(
+                f"  not counted: {who} recordings and no counts, so what "
+                "was not recorded there is not known"
+            )
         if tenant.unreadable:
             what = (
                 "file that is not a recording"

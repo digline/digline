@@ -30,6 +30,10 @@
     §10, *"The wrapper is Python. An application in another language is not
     served by it in 1.1"*, and its *Not decided here*, *"An application in
     another language"*, which this record decides for 1.1
+  - *Added 2026-11-04, with the contract's code:* ADR 0058 §7, *"Every
+    recording carries a `label` compartment, empty"*, which §2 takes out of
+    the contract. The note there was owed from this record's acceptance and
+    was missing from this list
 - Assumes: [ADR 0058](0058-the-recorder-a-call-recorded-where-the-application-makes-it.md)
   §1 (tenant, app, suite), §3 (three compartments), §4 (where a recording
   lives, and the import that refuses another tenant), §5 (the episode), §8
