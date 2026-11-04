@@ -13,7 +13,7 @@ import math
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from typing import Any, cast, get_args
+from typing import Any, Literal, cast, get_args
 
 from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
@@ -63,6 +63,7 @@ __all__ = [
     "NO_CALLS",
     "CaseResult",
     "RecordedResponse",
+    "RecordedStep",
     "RecordedToolCall",
     "Run",
     "RunUsage",
@@ -76,8 +77,13 @@ __all__ = [
     "config_to_dict",
     "record_finish",
     "record_output",
+    "record_steps",
     "record_tools",
     "record_trajectory",
+    "recorded_step_to_dict",
+    "step_calls",
+    "steps_as_reported",
+    "steps_of",
     "totals_from_dict",
     "totals_to_dict",
     "trajectory_chars",
@@ -276,14 +282,16 @@ __all__ = [
 #    digline's: every configuration key and every non-builtin metadata key is
 #    a token. (ADR 0034 §17)
 #
-# 23: two passengers on a recorded response, additive, and the step writes
-#    nothing for either: `finish` and `tools`, the two keys `ToolsCalled` reads
-#    live and the document did not keep, so a replay judged a reply that ended
-#    on a tool call and named none, or whose two lists disagreed, on another
-#    trajectory than the live run. Written only where the target reported them,
-#    under `record_responses`, on `usage`'s model; absent is *not recorded*, and
-#    the replay then derives the names from `tool_calls` as before. Outside
-#    `config_hash`: each is something a run measured (ADR 0014 §1). (ADR 0057)
+# 23: three passengers on a recorded response, additive, and the step writes
+#    nothing for any of them. `finish` and `tools`, the two keys `ToolsCalled`
+#    reads live and the document did not keep, so a replay judged a reply that
+#    ended on a tool call and named none, or whose two lists disagreed, on
+#    another trajectory than the live run (ADR 0057); and `steps`, the
+#    trajectory as the checks on steps read it live (ADR 0060 §5). Written only
+#    where the target reported them, under `record_responses`, on `usage`'s
+#    model; absent is *not recorded*, and the replay then derives the names
+#    from `tool_calls` as before and has no steps to give. Outside
+#    `config_hash`: each is something a run measured (ADR 0014 §1).
 SCHEMA_VERSION = 23
 
 
@@ -1081,6 +1089,193 @@ class RecordedToolCall:
             )
 
 
+#: Who acted in a step. `engine`, declared by hand, is a later release's
+#: (ADR 0058 §9); 1.1 produces these two.
+type Actor = Literal["model", "tool"]
+_ACTORS: frozenset[str] = frozenset({"model", "tool"})
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedStep:
+    """One step of a trajectory. (ADR 0058 §7, §9; ADR 0060 §1, §5)
+
+    `index` is the step's place in the trajectory, from 0, for the order the
+    checks on steps read. A `model` step is one call to a model and carries the
+    `finish` its reply reported, `None` where none was reported; a `tool` step
+    is one tool call the model asked for, carries it as `call`, and never a
+    finish, because a tool does not end a reply.
+
+    **Here, beside `RecordedToolCall`, since schema 23**, because the run
+    document holds steps on a recorded response (ADR 0060 §5); a recording
+    holds them too. A tool step's call is written by this module's serializer
+    of a tool call, inline in the step, so a call has one written form
+    wherever it is kept.
+
+    `finish` is the text the target gave, not checked against `Finish`'s
+    words: a finish nobody normalised is carried as given (ADR 0058 §12).
+    """
+
+    index: int
+    actor: Actor
+    finish: str | None = None
+    call: RecordedToolCall | None = None
+
+    def __post_init__(self) -> None:
+        # `bool` is an `int` in Python, and `True` is not a place in a list.
+        if type(self.index) is not int or self.index < 0:
+            raise RefusedError("RecordedStep.index must be an integer from 0")
+        if self.actor not in _ACTORS:
+            raise RefusedError(
+                f"RecordedStep.actor must be 'model' or 'tool', got "
+                f"{str(self.actor)[:40]!r}"
+            )
+        if self.actor == "model" and self.call is not None:
+            raise RefusedError(
+                "a model step carries no tool call: the call the model asked "
+                "for is the tool step after it"
+            )
+        if self.actor == "tool":
+            if self.call is None:
+                raise RefusedError("a tool step carries its call")
+            if self.finish is not None:
+                raise RefusedError(
+                    "a tool step carries no finish: a tool does not end a reply "
+                    "(ADR 0058 §7)"
+                )
+        if self.finish == "":
+            raise RefusedError(
+                "RecordedStep.finish must be a non-empty string, or None where "
+                "none was reported"
+            )
+
+
+def steps_of(
+    calls: Iterable[tuple[str | None, Sequence[RecordedToolCall] | None]],
+) -> tuple[RecordedStep, ...]:
+    """The steps of a trajectory, from its calls to a model, in order.
+    (ADR 0060 §1)
+
+    Each call is the `finish` its reply reported and the tool calls it asked
+    for. It becomes one `model` step with that finish, then one `tool` step
+    per tool call, indexed from 0 across the whole trajectory. A call whose
+    tool calls are `None`, nobody said, is its model step alone.
+
+    The one place steps are made: a reply's metadata, a run's collection and
+    the close of an episode all come here, so the three cannot order a
+    trajectory three ways.
+    """
+    steps: list[RecordedStep] = []
+    for finish, called in calls:
+        steps.append(RecordedStep(index=len(steps), actor="model", finish=finish))
+        for call in called or ():
+            steps.append(RecordedStep(index=len(steps), actor="tool", call=call))
+    return tuple(steps)
+
+
+def steps_as_reported(
+    calls: Sequence[tuple[str | None, Sequence[Mapping[str, object]] | None]],
+) -> list[dict[str, object]] | None:
+    """The steps as `metadata["response"]["steps"]` holds them, or `None`.
+    (ADR 0060 §1, §2)
+
+    Each call is its `finish` and its tool calls in the form
+    `metadata["response"]["tool_calls"]` already uses. `steps_of` decides the
+    order and the indices; each tool step then carries its call in that live
+    form, inline beside `index` and `actor`, so a reader finds the same call
+    the same way in both keys.
+
+    `None` where any call's tool calls are `None`: steps that left a call's
+    tools out would say it called none, so a check that counts tool steps
+    would pass on what nobody reported. The calls are read by
+    `record_trajectory`, the run document's own reader, and a malformed one is
+    refused there rather than skipped.
+    """
+    recorded: list[tuple[str | None, Sequence[RecordedToolCall]]] = []
+    live: list[Mapping[str, object]] = []
+    for finish, called in calls:
+        if called is None:
+            return None
+        recorded.append((finish, record_trajectory({"tool_calls": called}) or ()))
+        live.extend(called)
+    reported: list[dict[str, object]] = []
+    at = iter(live)
+    for step in steps_of(recorded):
+        entry: dict[str, object] = {"index": step.index, "actor": step.actor}
+        if step.actor == "tool":
+            entry.update(next(at))
+        elif step.finish is not None:
+            entry["finish"] = step.finish
+        reported.append(entry)
+    return reported
+
+
+def record_steps(metadata: Mapping[str, object]) -> tuple[RecordedStep, ...] | None:
+    """The steps a target reported, as the document will hold them, or `None`.
+    (ADR 0060 §5)
+
+    Reads `metadata["steps"]`, the form `steps_as_reported` writes. `None`
+    where the target reported none, which is *not recorded* and never `()`:
+    an empty list would say the target took no step.
+
+    **Strict about shape, as `record_trajectory` is**, and for its reason: a
+    step silently dropped would write a document that understates the
+    trajectory, and a run file that disagrees with the checks that judged it
+    is worse than one that refuses to be written. Each step is indexed in
+    order from 0; a `model` step carries at most its `finish`; a `tool` step
+    carries one call, read by `record_trajectory`.
+    """
+    found = metadata.get("steps")
+    if found is None:
+        return None
+    if isinstance(found, str) or not isinstance(found, Sequence):
+        raise RefusedError(
+            f"a target reported its steps as a {type(found).__name__}, not a "
+            "sequence of steps: there is no trajectory to record"
+        )
+    steps: list[RecordedStep] = []
+    for at, raw in enumerate(cast("Sequence[object]", found)):
+        if not isinstance(raw, Mapping):
+            raise RefusedError(
+                f"a target reported step {at} as a {type(raw).__name__}, not a "
+                "mapping with an 'index' and an 'actor'"
+            )
+        entry = dict(cast("Mapping[str, object]", raw))
+        index = entry.pop("index", None)
+        actor = entry.pop("actor", None)
+        if type(index) is not int or index != at:
+            raise RefusedError(
+                f"a target reported step {at} with the index {index!r}: steps "
+                "are indexed from 0, in the order they were taken"
+            )
+        if actor == "model":
+            finish = entry.pop("finish", None)
+            if entry or (finish is not None and not isinstance(finish, str)):
+                raise RefusedError(
+                    f"a target reported model step {at} with keys a model step "
+                    "does not carry: only its 'finish', a string"
+                )
+            steps.append(RecordedStep(index=at, actor="model", finish=finish))
+        elif actor == "tool":
+            # One entry in, one call out: `record_trajectory` returns `None`
+            # only for an absent key, which this one is not.
+            call = cast(
+                "tuple[RecordedToolCall, ...]",
+                record_trajectory({"tool_calls": [entry]}),
+            )[0]
+            steps.append(RecordedStep(index=at, actor="tool", call=call))
+        else:
+            raise RefusedError(
+                f"a target reported step {at} with the actor "
+                f"{str(actor)[:40]!r}: a step's actor is 'model' or 'tool'"
+            )
+    return tuple(steps)
+
+
+def step_calls(steps: Sequence[RecordedStep]) -> tuple[RecordedToolCall, ...]:
+    """The tool calls a trajectory's steps carry, in order."""
+    return tuple(step.call for step in steps if step.call is not None)
+
+
 @dataclass(frozen=True, slots=True)
 class RecordedResponse:
     """One answer the target gave, kept where it was born.
@@ -1155,6 +1350,14 @@ class RecordedResponse:
     #: alone. `None` is *not recorded*, and the replay then derives the names
     #: from `tool_calls`, as every replay did before schema 23. (ADR 0057)
     tools: tuple[str | None, ...] | None = None
+    #: The trajectory as steps, as the target reported them under `steps`:
+    #: one `model` step per call to a model, then a `tool` step per tool call
+    #: it asked for. The checks on steps read them live, so the replay hands
+    #: them back. `None` is *not recorded*, never `()`, which would say the
+    #: target took no step: a target that reported none, or a document before
+    #: schema 23. Recorded under `record_responses`, on `usage`'s model, whole
+    #: or nothing with the text. Last in the field order. (ADR 0060 §5)
+    steps: tuple[RecordedStep, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.withheld and self.oversize:
@@ -1167,6 +1370,7 @@ class RecordedResponse:
             self.tool_calls is not None
             or self.tools is not None
             or self.finish is not None
+            or self.steps is not None
             or any(
                 value is not None
                 for value in (
@@ -1196,6 +1400,7 @@ class RecordedResponse:
             # what a trajectory assertion reads. (ADR 0057)
             or self.tools is not None
             or self.finish is not None
+            or self.steps is not None
         ):
             raise ValueError(
                 "RecordedResponse declares itself oversize but carries text: "
@@ -1253,6 +1458,14 @@ class RecordedResponse:
         from schema 23, where before it was refused. (ADR 0057)
         """
         return self.tools is not None or self.tool_calls is not None
+
+    @property
+    def replayable_steps(self) -> bool:
+        """Whether a check that counts steps can be handed this answer again:
+        the steps were recorded. Nothing else gives them back, since counting
+        turns from tool calls would read three calls of one turn as three.
+        (ADR 0060 §4, §5)"""
+        return self.steps is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -3108,6 +3321,23 @@ def _response_to_dict(response: RecordedResponse) -> dict[str, object]:
         payload["tools"] = list(response.tools)
     if response.finish is not None:
         payload["finish"] = response.finish
+    # Absent where not recorded, never `[]`. A tool step's call is written
+    # inline, as `tool_calls` writes it, so a call has one written form
+    # wherever it is kept. (ADR 0060 §5)
+    if response.steps is not None:
+        payload["steps"] = [recorded_step_to_dict(step) for step in response.steps]
+    return payload
+
+
+def recorded_step_to_dict(step: RecordedStep) -> dict[str, object]:
+    """`index` and `actor`, then a model step's finish where one was reported,
+    or a tool step's call as a run document writes one, inline. A recording
+    writes its steps with this too. (ADR 0058 §11, ADR 0060 §5)"""
+    payload: dict[str, object] = {"index": step.index, "actor": step.actor}
+    if step.finish is not None:
+        payload["finish"] = step.finish
+    if step.call is not None:
+        payload.update(_tool_call_to_dict(step.call))
     return payload
 
 
@@ -3309,6 +3539,53 @@ def _recorded_tools(raw: Mapping[str, Any]) -> tuple[str | None, ...] | None:
     return tuple(cast("Sequence[str | None]", entries))
 
 
+def _recorded_steps(raw: Mapping[str, Any]) -> tuple[RecordedStep, ...] | None:
+    """The steps, absent as *not recorded*, a null refused like every other
+    null here, each step in order from 0. (ADR 0060 §5)"""
+    if "steps" not in raw:
+        return None
+    found = raw["steps"]
+    if isinstance(found, str) or not isinstance(found, Sequence):
+        raise ValueError(
+            f"recorded response: 'steps' is {type(found).__name__}, not a list "
+            "of steps: a response whose target reported none omits the key"
+        )
+    steps: list[RecordedStep] = []
+    for at, item in enumerate(cast("Sequence[object]", found)):
+        if not isinstance(item, Mapping):
+            raise ValueError(f"recorded response: step {at} is not an object")
+        entry = dict(cast("Mapping[str, Any]", item))
+        index = entry.pop("index", None)
+        actor = entry.pop("actor", None)
+        finish = entry.pop("finish", None)
+        if type(index) is not int or index != at:
+            raise ValueError(
+                f"recorded response: step {at} has the index {index!r}: steps "
+                "are written in order from 0"
+            )
+        if finish is not None and not isinstance(finish, str):
+            raise ValueError(
+                f"recorded response: step {at} has a finish that is not text"
+            )
+        if actor == "tool":
+            steps.append(
+                RecordedStep(
+                    index=at,
+                    actor="tool",
+                    finish=finish,
+                    call=_tool_call_from_dict(entry),
+                )
+            )
+            continue
+        if entry:
+            raise ValueError(
+                f"recorded response: step {at} is a model step and carries a tool "
+                "call's keys"
+            )
+        steps.append(RecordedStep(index=at, actor=cast(Actor, actor), finish=finish))
+    return tuple(steps)
+
+
 def _recorded_finish(raw: Mapping[str, Any]) -> str | None:
     """Why the reply ended, absent as *not recorded*, a null or a non-string
     refused. (ADR 0057)"""
@@ -3362,6 +3639,7 @@ def _response_from_dict(raw: Mapping[str, Any]) -> RecordedResponse:
             oversize=oversize,
             finish=_recorded_finish(raw),
             tools=_recorded_tools(raw),
+            steps=_recorded_steps(raw),
         )
     except DocumentRefusedError:
         # Already says where it is: `declared_integer` was told. (#379)

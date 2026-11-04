@@ -58,7 +58,13 @@ from digline.core import (
 )
 from digline.core.protocols import AroundTarget, DeclaresPrice
 from digline.core.refused import NameRef, RefusedError, Written
-from digline.core.run import SCHEMA_VERSION, record_finish, record_tools
+from digline.core.run import (
+    SCHEMA_VERSION,
+    record_finish,
+    record_steps,
+    record_tools,
+    step_calls,
+)
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -615,10 +621,25 @@ def recorded(response: Response) -> RecordedResponse:
     # and kept or dropped with them as one trajectory. (ADR 0057)
     finish = record_finish(response.metadata)
     tools = record_tools(response.metadata)
+    # And the steps, strict as the calls are. Where both are reported, the tool
+    # steps name the same calls in the same order, or the target contradicted
+    # itself and the answer is refused rather than recorded with one of the
+    # two: the checks would judge one trajectory and the document hold another.
+    # (ADR 0060 §2, §5)
+    steps = record_steps(response.metadata)
+    if steps is not None and calls is not None and step_calls(steps) != calls:
+        raise RefusedError(
+            "the target reported steps whose tool calls are not its "
+            "`tool_calls`, in the same order: the trajectory cannot be recorded "
+            "from a report that disagrees with itself"
+        )
+    # The trajectory counts once against the ceiling, on its steps where there
+    # are steps: their calls are the calls. (ADR 0060 §5)
+    trajectory = step_calls(steps) if steps is not None else calls or ()
     if (
         len(text) > MAX_RECORDED_CHARS
         or (response.input is not None and len(response.input) > MAX_RECORDED_CHARS)
-        or trajectory_chars(calls or ()) + sum(len(name or "") for name in tools or ())
+        or trajectory_chars(trajectory) + sum(len(name or "") for name in tools or ())
         > MAX_RECORDED_CHARS
     ):
         return RecordedResponse(
@@ -639,6 +660,7 @@ def recorded(response: Response) -> RecordedResponse:
         usage=response.usage,
         finish=finish,
         tools=tools,
+        steps=steps,
     )
 
 
@@ -1239,12 +1261,6 @@ def check_target(target: object) -> None:
     target_config(target)
 
 
-#: The schema whose run document can say that a case is a reviewed answer,
-#: and what the person said. Until this build writes it, a reviewed answer is
-#: declared and loaded, and not run. (ADR 0059 §1)
-REVIEWED_ANSWERS_SCHEMA = 23
-
-
 def refuse_reviewed_answers(suite: Suite) -> None:
     """Refuse a suite that declares reviewed answers, while this build's run
     document has no key for them.
@@ -1274,11 +1290,11 @@ def refuse_reviewed_answers(suite: Suite) -> None:
         Written.said(
             f"suite {suite.name!r} declares reviewed answers (",
             *named,
-            f"): reviewed answers run from schema {REVIEWED_ANSWERS_SCHEMA} "
-            f"(ADR 0059 §1); this build is on schema {SCHEMA_VERSION}. Its run "
-            "document has no key for a person's yes or no, so nothing was "
-            "called and nothing was written. To run the suite now, leave the "
-            "reviewed answers out of its cases",
+            "): reviewed answers run once the run document has a key for a "
+            f"person's yes or no (ADR 0059 §1), and this build's, at schema "
+            f"{SCHEMA_VERSION}, has none, so nothing was called and nothing was "
+            "written. To run the suite now, leave the reviewed answers out of "
+            "its cases",
         )
     )
 

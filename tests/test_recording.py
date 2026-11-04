@@ -30,14 +30,15 @@ import pytest
 from digline.core import RecordedResponse, RecordedToolCall, Usage
 from digline.core.recording import (
     RECORDING_VERSION,
-    RecordedStep,
     Recording,
     RecordingRefusedError,
     recording_from_dict,
     recording_to_dict,
     setup_digest_of,
 )
+from digline.core.refused import RefusedError
 from digline.core.run import (
+    RecordedStep,
     _response_from_dict,  # pyright: ignore[reportPrivateUsage]
     _response_to_dict,  # pyright: ignore[reportPrivateUsage]
     _tool_call_from_dict,  # pyright: ignore[reportPrivateUsage]
@@ -211,7 +212,10 @@ def test_an_orphan_comes_back_as_it_was_written() -> None:
     ],
 )
 def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> None:
-    with pytest.raises(RecordingRefusedError, match=match):
+    # A step's rules are the run document's since schema 23 (ADR 0060 §5), so
+    # they raise the base refusal; a recording read with one re-raises it as
+    # its own.
+    with pytest.raises(RefusedError, match=match):
         step()  # pyright: ignore[reportCallIssue]
 
 

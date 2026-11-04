@@ -26,12 +26,16 @@ from tests._tags import archived_source
 
 from digline.core import (
     MAX_RECORDED_CHARS,
+    Before,
     CaseResult,
     Contains,
+    MaxSteps,
     Message,
+    Never,
     RecordedResponse,
     RecordedToolCall,
     Run,
+    Subsequence,
     ToolCalledWith,
     ToolsCalled,
     record_output,
@@ -41,7 +45,7 @@ from digline.core import (
     run_to_json,
     without_responses,
 )
-from digline.core.run import SCHEMA_VERSION
+from digline.core.run import SCHEMA_VERSION, steps_as_reported
 from digline.report import headline, render_html
 from digline.run import (
     Case,
@@ -700,6 +704,20 @@ def _calls(*names: str | None, arguments: object = None) -> list[dict[str, objec
     return [{"tool": name, "arguments": arguments} for name in names]
 
 
+def _agent(last_finish: str = "end_turn") -> dict[str, object]:
+    """Three calls to a model: a lookup, then a policy check and a refund in
+    one reply, then an answer. Reported as steps and as calls, which agree."""
+    turns = [("tool_use", _calls("lookup")), ("tool_use", _calls("policy", "refund"))]
+    turns.append((last_finish, []))
+    calls = [call for _, made in turns for call in made]
+    return {
+        "tools": [call["tool"] for call in calls],
+        "tool_calls": calls,
+        "steps": steps_as_reported(turns),
+        "finish": last_finish,
+    }
+
+
 @pytest.mark.parametrize(
     ("reported", "check"),
     [
@@ -754,6 +772,45 @@ def _calls(*names: str | None, arguments: object = None) -> list[dict[str, objec
             {"tools": ["lookup"], "tool_calls": _calls("lookup", arguments="{id: 7")},
             ToolCalledWith(tool="lookup", arguments={"id": 7}),
             id="arguments-not-decodable",
+        ),
+        # An agent of three calls, reported as steps beside its calls, judged
+        # live and re-judged from schema 23's `steps`. (ADR 0060 §5)
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=3, count="model"),
+            id="steps-max-model-within",
+        ),
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=2, count="model"),
+            id="steps-max-model-over",
+        ),
+        pytest.param(
+            _agent(),
+            MaxSteps(limit=2, count="tool"),
+            id="steps-max-tool-over",
+        ),
+        pytest.param(
+            _agent(),
+            Subsequence(tools=["lookup", "refund"]),
+            id="steps-subsequence",
+        ),
+        pytest.param(
+            _agent(),
+            Before(first="refund", then="lookup"),
+            id="steps-before-fails",
+        ),
+        pytest.param(
+            _agent(),
+            Never(tool="policy"),
+            id="steps-never-fails",
+        ),
+        pytest.param(
+            # The reply contradicts itself on a step: an error live, and the
+            # same error replayed, not a verdict.
+            _agent(last_finish="tool_use"),
+            MaxSteps(limit=9, count="model"),
+            id="steps-tool-use-with-no-tool-step",
         ),
         # A declared `datetime` stood here, `arguments-collapse-to-type-name`:
         # `canonical` wrote both sides as "<datetime>", and live and replayed
