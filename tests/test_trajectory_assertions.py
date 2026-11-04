@@ -368,6 +368,22 @@ def test_a_replay_judges_an_order_check_from_the_recorded_names() -> None:
     assert verdict.status == "pass"
 
 
+def test_a_replay_refuses_an_order_check_over_a_run_with_no_trajectory() -> None:
+    declared = Suite(
+        tenant="acme",
+        environment="test",
+        name="refunds",
+        assertions=[Contains(needle="refunded")],
+        cases=[Case(id="refund")],
+        record_responses=True,
+    )
+    source = execute(
+        declared, lambda case: Response(output="refunded"), created_at=CREATED
+    )
+    with pytest.raises(ReplayError, match="reported no trajectory"):
+        rejudge(suite(NEVER_DELETE), source, key="src", created_at=LATER)
+
+
 def test_a_replay_refuses_a_check_that_counts_steps() -> None:
     with pytest.raises(
         ReplayError, match="steps are not in the run document before schema 23"
