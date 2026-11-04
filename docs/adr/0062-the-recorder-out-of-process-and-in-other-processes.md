@@ -1,6 +1,14 @@
 # ADR 0062 — The recorder out of process, and in other processes
 
-- Status: proposed 2026-11-04. **Its direction was ruled before this record
+- Status: accepted 2026-11-04, by Alessandro Prandini, the text first, as it
+  stands at `836b190e`: every item marked *decided here* taken, with the
+  names it proposes (`digline record proxy`, the headers `X-Digline-Suite`,
+  `X-Digline-App` and `X-Digline-Episode`, the path prefix `/suite/<name>/`,
+  the entry point `digline.recording_wire`, the files `DiglineRecorder.java`,
+  `DiglineOkHttp.java`, `DiglineAnthropic.java` and `DiglineAws.java`, the
+  façade `Digline.ask`, the CI job `recorder-java`, and the pages
+  `docs/recording-format.md` and `docs/record-java.md`).
+  Proposed 2026-11-04. **Its direction was ruled before this record
   was written**, by Alessandro Prandini on 2026-11-04, in the conversation of
   the session that wrote it: 1.1 serves the "before" to an application that is
   not written in Python, as widely as it can, and tells it language by
@@ -9,6 +17,7 @@
   the contract's fixed fields, the reading of a reply off the wire, and what
   the measurement below changed in the ruled shape. Each is proposed, for
   acceptance to take or remove item by item. Nothing in it is implemented
+  but §2's `input`, which #901 writes, landed before the acceptance
 - Shipped: unreleased
 - Date: 2026-11-04
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no

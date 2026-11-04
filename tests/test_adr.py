@@ -263,7 +263,7 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "and no write but promotion"
     ),
     "0062-the-recorder-out-of-process-and-in-other-processes": (
-        "proposed, and before any code: no `digline record proxy`, no "
+        "accepted, and before any code: no `digline record proxy`, no "
         "`digline.recording_wire` entry point and no Java file exist. The "
         "in-process recorder's `input`, §7's first item, is #901's"
     ),
