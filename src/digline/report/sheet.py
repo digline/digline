@@ -239,6 +239,24 @@ ul.note li { overflow-wrap: anywhere; }
 .setup.s2 { color: var(--s2); }
 .setup.s3 { color: var(--s3); }
 
+/* The recorder's views: a declaration read back, four figures, a chart. */
+p.declaration { font-family: var(--mono); font-size: .85rem; overflow-wrap: anywhere;
+                background: var(--surface); border: 1px solid var(--line);
+                border-radius: var(--radius); padding: .6rem .9rem; }
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+           gap: .75rem; margin: 1rem 0; }
+.figure { background: var(--surface); border: 1px solid var(--line);
+          border-radius: var(--radius); padding: .7rem .9rem; }
+.figure .label, .figure small { display: block; color: var(--muted); font-size: .8rem; }
+.figure .value { display: block; font-size: 1.3rem;
+                 font-variant-numeric: tabular-nums; }
+td.said { max-width: 32rem; overflow-wrap: anywhere; }
+.card { background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius); margin: 1rem 0; }
+.chart { padding: .5rem .25rem 0; }
+.legend-note { font-size: .82rem; color: var(--muted); padding: 0 1.1rem .9rem;
+                margin: 0; }
+
 /* ---------------------------------------------------------------- uPlot
    uPlot 1.6.31, dist/uPlot.min.css, absorbed verbatim so there is one sheet.
    Copyright (c) 2022 Leon Sorokin. MIT licence: static/uPlot.LICENSE.

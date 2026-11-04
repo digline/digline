@@ -1,8 +1,11 @@
-"""`digline view`: the four screens over `.digline/`, served locally.
+"""`digline view`: the four screens over `.digline/`, served locally, and the
+recorder's three views beside them.
 
 Transport only. Every screen is a pure function in `digline.report.pages`,
 so what is tested is the page and not the socket, and what is served can never
-disagree with what `digline report` writes to a file. Views other packages
+disagree with what `digline report` writes to a file. The recorder's views are
+pure functions too, in `digline.cli.recorder_pages`, over the structures the
+commands' own host functions return (ADR 0061 §1). Views other packages
 declare in `digline.views` are served at `/x/<name>/`, read-only, in the same
 document (ADR 0061 §5).
 
@@ -76,14 +79,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import EntryPoint, entry_points
 from importlib.resources import files
 from pathlib import Path
+from types import ModuleType
 
+from digline.cli import recorder_pages
 from digline.cli.output import flush, say
 from digline.core import RefusedError, key_of
 from digline.host import (
     REFUSALS,
     SuiteRuns,
+    import_listing,
+    imported_since,
     left_out_parts,
     promote_priced,
+    record_compare,
+    recorder_status,
     suite_runs,
     utc_now_iso,
 )
@@ -389,13 +398,17 @@ class ViewHandler(BaseHTTPRequestHandler):
         allow_record: bool = False,
         extensions: Mapping[str, Extension] | None = None,
         root: str = "",
+        module: ModuleType | None = None,
         **kwargs: object,
     ) -> None:
         self.suite = suite
         self.store = store
-        #: Whether `--allow-record` was typed. Accepted and nothing more, until
-        #: the recorder's views bring the two writes it serves: there is no
-        #: form and no route for it yet (ADR 0061 §4).
+        #: The module the suite was loaded from, which says where its capture
+        #: file is when the suite names it relative to its own file.
+        self.module = module
+        #: Whether `--allow-record` was typed. The recorder's views read with
+        #: or without it; the two writes it serves arrive after them, and until
+        #: then there is no form and no route for it (ADR 0061 §4).
         self.allow_record = allow_record
         #: The views other packages declared, by name, read when the server
         #: started and loaded only when one is asked for (ADR 0061 §5).
@@ -458,9 +471,21 @@ class ViewHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
 
-    def _page(self, document: str) -> None:
-        """A screen, with the views other packages added in its menu."""
-        self._send(200, pages.with_menu(document, self._menu()))
+    def _page(self, document: str, *, locale: Locale, here: str = "") -> None:
+        """A screen, with the recorder's views and those other packages added
+        in its menu."""
+        self._send(
+            200, pages.with_menu(self._screens(document, here, locale), self._menu())
+        )
+
+    def _screens(self, document: str, here: str, locale: Locale) -> str:
+        return pages.with_screens(
+            document,
+            tenant=self.suite.tenant,
+            suite=self.suite.name,
+            locale=locale,
+            here=here,
+        )
 
     def _menu(self) -> tuple[MenuEntry, ...]:
         return tuple(
@@ -635,6 +660,12 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_suspend(
                     locale, urllib.parse.unquote(path[len("/suspend/") :]), query
                 )
+            elif path.startswith("/recordings/"):
+                self._screen_recordings(locale, path)
+            elif path.startswith("/setups/"):
+                self._screen_setups(locale, path, query)
+            elif path.startswith("/recorder/"):
+                self._screen_recorder(locale, path)
             elif path in STATIC:
                 self._static(path)
             elif path.startswith(EXTENSION_PREFIX):
@@ -662,6 +693,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 ignored=left_out_parts(listed, locale=locale),
                 message=message,
             ),
+            here="runs",
+            locale=locale,
         )
 
     def _screen_compare(
@@ -728,6 +761,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                     suite=self.suite.name,
                     keys=(key, other),
                 ),
+                locale=locale,
             )
             return
 
@@ -736,7 +770,10 @@ class ViewHandler(BaseHTTPRequestHandler):
             # same state — not a 404. The first baseline is promoted from this
             # server, and a refusal here left the aggregates as the only thing
             # to promote from.
-            self._page(pages.run_page(run, locale=locale, suite=self.suite.name))
+            self._page(
+                pages.run_page(run, locale=locale, suite=self.suite.name),
+                locale=locale,
+            )
             return
         self._page(
             pages.compare_page(
@@ -746,6 +783,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 suite=self.suite.name,
                 declared=self.suite.declared(),
             ),
+            locale=locale,
         )
 
     def _screen_case(self, locale: Locale, case_id: str) -> None:
@@ -759,6 +797,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 suite=self.suite.name,
                 ignored=left_out_parts(listed, locale=locale),
             ),
+            locale=locale,
         )
 
     def _screen_suspend(
@@ -769,6 +808,125 @@ class ViewHandler(BaseHTTPRequestHandler):
             pages.suspend_page(
                 case_id, reason=reason, locale=locale, suite=self.suite.name
             ),
+            locale=locale,
+        )
+
+    # -- the recorder's views (ADR 0061 §1) ---------------------------------- #
+
+    def _segments(self, path: str, prefix: str, count: int) -> list[str] | None:
+        """The segments after `prefix`, decoded, when there are `count` of
+        them and the path ends where its address does; `None` otherwise, which
+        is the 404 any unknown path gets."""
+        parts = path[len(prefix) :].split("/")
+        if len(parts) != count + 1 or not all(parts[:count]):
+            return None
+        return [urllib.parse.unquote(part) for part in parts[: count + 1]]
+
+    def _this_suite(self, suite: str) -> bool:
+        """Whether the address names the suite this server was started for. A
+        server reads one suite: another's file is not one it loaded."""
+        if suite == self.suite.name:
+            return True
+        self._error(
+            404,
+            f"no such page: this server serves suite {self.suite.name!r}, not "
+            f"{suite!r}",
+        )
+        return False
+
+    def _screen_recordings(self, locale: Locale, path: str) -> None:
+        """`/recordings/<tenant>/<suite>/`, and one answer whole at
+        `/recordings/<tenant>/<suite>/<answer>`: what `digline record import`
+        lists, from `import_listing`, which writes nothing."""
+        parts = self._segments(path, "/recordings/", 2)
+        if parts is None:
+            self._error(404, f"no such page: {path}")
+            return
+        tenant, suite, answer = parts
+        if not self._this_suite(suite):
+            return
+        found = import_listing(Path(self.root), self.suite, self.module, tenant)
+        if not answer:
+            self._page(
+                recorder_pages.recordings_page(
+                    found, locale=locale, allow_record=self.allow_record
+                ),
+                here="recordings",
+                locale=locale,
+            )
+            return
+        named = next((item for item in found.answers if item.id == answer), None)
+        if named is None:
+            self._error(
+                404,
+                pages.phrase(
+                    locale, "view.answer.missing", answer=answer, suite=self.suite.name
+                ),
+            )
+            return
+        self._page(
+            recorder_pages.answer_page(found, named, locale=locale),
+            here="recordings",
+            locale=locale,
+        )
+
+    def _screen_setups(
+        self, locale: Locale, path: str, query: Mapping[str, Sequence[str]]
+    ) -> None:
+        """`/setups/<tenant>/<suite>/`: what `digline record compare` shows,
+        from `record_compare`. `case` keeps one case; two `setup` values put
+        those two side by side, with the keys they differ on, as `--setup A B
+        --show-setup` does. Every refusal is the command's."""
+        parts = self._segments(path, "/setups/", 2)
+        if parts is None or parts[2]:
+            self._error(404, f"no such page: {path}")
+            return
+        tenant, suite, _ = parts
+        if not self._this_suite(suite):
+            return
+        case = (query.get("case") or [""])[0] or None
+        setups = [value for value in query.get("setup", []) if value]
+        found = record_compare(
+            Path(self.root),
+            self.suite,
+            tenant,
+            case=case,
+            setups=setups or None,
+            show_setup=bool(setups),
+        )
+        self._page(
+            recorder_pages.setups_page(found, locale=locale),
+            here="setups",
+            locale=locale,
+        )
+
+    def _screen_recorder(self, locale: Locale, path: str) -> None:
+        """`/recorder/<tenant>/`: what `digline record status` says, from
+        `recorder_status`. What is still to import is read for this server's
+        suite, in its own tenant, when the suite declares where captured cases
+        go, as `digline record status --suite` reads it; every other suite
+        says *not read*."""
+        parts = self._segments(path, "/recorder/", 1)
+        if parts is None or parts[1]:
+            self._error(404, f"no such page: {path}")
+            return
+        tenant = parts[0]
+        root = Path(self.root)
+        imports: dict[str, tuple[int | None, int]] = {}
+        if tenant == self.suite.tenant and self.suite.capture is not None:
+            imports[self.suite.name] = imported_since(
+                root, self.suite, self.module, tenant
+            )
+        [status] = recorder_status(root, tenant, imports)
+        self._page(
+            recorder_pages.recorder_page(
+                status,
+                suite=self.suite.name,
+                locale=locale,
+                allow_record=self.allow_record,
+            ),
+            here="recorder",
+            locale=locale,
         )
 
     def _static(self, path: str) -> None:
@@ -822,7 +980,13 @@ class ViewHandler(BaseHTTPRequestHandler):
         self._send(
             200,
             pages.with_menu(
-                pages.extension_page(name, body, locale=locale, suite=self.suite.name),
+                self._screens(
+                    pages.extension_page(
+                        name, body, locale=locale, suite=self.suite.name
+                    ),
+                    "",
+                    locale,
+                ),
                 self._menu(),
                 here=name,
             ),
@@ -995,6 +1159,7 @@ def serve(
     allow_promote: bool = False,
     allow_record: bool = False,
     root: str = ".",
+    module: ModuleType | None = None,
 ) -> None:
     """Serve until interrupted, on loopback and nowhere else: this server has
     no authentication because it has no user, only a developer at the same
@@ -1030,6 +1195,7 @@ def serve(
         allow_record=allow_record,
         extensions=extensions,
         root=root,
+        module=module,
     )
     with ThreadingHTTPServer((HOST, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         known.update(self_netlocs(HOST, int(httpd.server_address[1])))
