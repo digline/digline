@@ -432,11 +432,10 @@ does, since *not this answer* names no answer.
 The import writes the file and stops: the diff is the review, the commit is the
 signature.
 
-> **A reviewed answer does not run yet.** Until the run document has a key for
-> it, which schema 23 does not have yet, `digline run` refuses a suite whose
-> cases hold one, before
-> anything is called or written. So once you have written one, the suite
-> stops running until that release.
+A reviewed answer runs with the suite: the target is not asked for it, the
+check it names judges the answer you read, and a judge that says the other of
+what you said fails the case, so `digline report` and `digline compare` exit
+`1`, and the report names the case and which way the judge went.
 
 Recordings of another tenant than the suite's are refused before anything is
 shown: bringing one tenant's material into another's suite is the bridge,
@@ -488,6 +487,3 @@ exits 0.
 ## Not yet
 
 - An application in another language than Python.
-- A reviewed answer is written and not run: it runs once the run document has
-  a key for it, and the run then counts, apart from accuracy, where the judge
-  disagreed with you.

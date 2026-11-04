@@ -85,10 +85,10 @@ another not:
 ]
 ```
 
-It is declared and loaded, and not run yet: `digline run` refuses a suite that
-declares one, before anything is called or written, until the run document
-has a key for it, which schema 23 does not have yet. What it
-is, and what it refuses, is in the
+The target is not asked for it, the check it names judges the answer, and a
+judge that says the other of what the person said fails the case: `digline
+report` and `digline compare` exit `1`. What it is, and what it refuses, is in
+the
 [API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer).
 
 Then the cycle you already know:
