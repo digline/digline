@@ -68,6 +68,12 @@ from digline.report.pages import (
 )
 from digline.run import Suite
 from digline.store.file_store import FileResultStore, RecordingWriter
+from digline.wire.record_compare import (
+    ComparedAnswer,
+    ComparedCase,
+    ComparedSetup,
+    RecordComparison,
+)
 
 LONG_PROMPT = "Be brief and kind.\n" + "Never promise a refund. " * 20
 SETUP_1: dict[str, object] = {"model": "m", "system": "Be brief.", "temperature": 0}
@@ -597,3 +603,76 @@ def test_the_command_hands_the_server_the_suite_s_module(root: Path) -> None:
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+def test_two_setups_in_the_query_are_setup_and_show_setup(served: Served) -> None:
+    """The pair the form sends is what `--setup A B --show-setup` names: the
+    two side by side, and the keys they differ on."""
+    target = setups_address("acme", "triage") + f"?setup={S1[:8]}&setup={S2[:8]}"
+    page = unescape(served.ask("GET", target).body)
+    assert f"A {S1[:8]}, B {S2[:8]}" in page
+    assert "Keys the two setups differ on (2 the same)" in page
+
+
+def test_the_served_recorder_reads_the_suite_s_import(served: Served) -> None:
+    """The server's own suite, in its own tenant, is read; another tenant's
+    page has no draft to read and says so."""
+    read = figures(served.ask("GET", recorder_address("acme")).body)
+    assert read[3] == "8"  # never imported: every recording of the suite
+    other = figures(served.ask("GET", recorder_address("globex")).body)
+    assert other[3] == "not read"
+
+
+def test_the_data_block_cannot_be_closed_by_what_it_carries() -> None:
+    """A setup's digest is read from a recording file, and the block carries
+    its first eight characters: a `<` is written `\\u003c`, so nothing the
+    files hold can end the block and start markup."""
+    hostile = "</script><p>x"
+    found = ComparedCase(
+        id="c",
+        vars={},
+        kind="call",
+        setups=(
+            ComparedSetup(
+                setup=hostile,
+                answers=(
+                    ComparedAnswer(
+                        digest="d",
+                        text="t",
+                        first_at="2026-11-03T08:01:00+00:00",
+                        last_at="2026-11-03T08:01:00+00:00",
+                        times=1,
+                    ),
+                ),
+            ),
+        ),
+    )
+    comparison = compared_with(found)
+    page = recorder_pages.setups_page(comparison, locale="en")
+    block = page[page.index('id="series-data">') :]
+    block = block[: block.index("</script>")]
+    assert "<" not in block.removeprefix('id="series-data">')
+    assert json.loads(block.removeprefix('id="series-data">'))["setups"] == [
+        hostile[:8]
+    ]
+
+
+def compared_with(case_: ComparedCase) -> RecordComparison:
+    return RecordComparison(
+        tenant="acme",
+        suite="triage",
+        case=case_.id,
+        since=None,
+        setups=tuple(setup.setup for setup in case_.setups),
+        pair=None,
+        setup_keys=None,
+        same_keys=None,
+        cases=(case_,),
+        recordings=1,
+        orphans=0,
+        detached=0,
+        interrupted=0,
+        oversize=0,
+        unreadable=0,
+        undated=0,
+    )
