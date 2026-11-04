@@ -226,6 +226,29 @@ def test_a_cases_file_cannot_carry_a_date_into_expected(tmp_path: Path) -> None:
         load(tmp_path, '"x"', cases='[[cases]]\nid = "a"\nexpected = 1999-09-09\n')
 
 
+@pytest.mark.parametrize(
+    "written",
+    ['[{ id = "a", expected = 1999-09-09 }]', '{ id = "a", expected = "secret" }'],
+    ids=["array", "table"],
+)
+def test_cases_written_in_the_suite_are_refused_without_quoting_them(
+    tmp_path: Path, written: str
+) -> None:
+    """The refusal names the file and the key, and quotes nothing of what was
+    written there: a case is the end company's payload."""
+    body = SUITE.format(when='"x"').replace(
+        'cases = "cases.json"', f"cases = {written}"
+    )
+    (tmp_path / "suite.toml").write_text(body, encoding="utf-8")
+    with pytest.raises(UsageError) as refused:
+        load_toml_suite(tmp_path / "suite.toml")
+    sentence = str(refused.value)
+    assert sentence == (
+        "suite.toml, [suite]: `cases` must be the path of a JSON file, not a "
+        "table or an array"
+    )
+
+
 def test_equals_compares_a_nested_date_as_it_is() -> None:
     """`Equals` normalises containers and leaves a value as it is, so two
     dates are compared as dates: not collapsed."""
