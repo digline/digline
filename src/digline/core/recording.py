@@ -314,7 +314,9 @@ def _step(
     try:
         return RecordedStep(index=index, actor=actor, finish=finish, call=call)
     except RefusedError as exc:
-        raise RecordingRefusedError(f"a recording's step {at}: {exc}") from exc
+        raise RecordingRefusedError(
+            Written.of(exc, f"a recording's step {at}: ", named=False)
+        ) from exc
 
 
 def recording_from_dict(raw: object, *, where: str = "this recording") -> Recording:
