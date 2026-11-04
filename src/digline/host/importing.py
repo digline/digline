@@ -78,6 +78,7 @@ from digline.core.refused import RefusedError
 from digline.core.run import RecordedResponse, restore_output
 from digline.core.types import OutputKind
 from digline.host.toml_suite import read_cases, within_perimeter
+from digline.recorder import UNASSIGNED
 from digline.run.suite import CaptureSource, Case, Suite
 from digline.store.file_store import FileResultStore
 
@@ -123,11 +124,15 @@ class Declaration:
     cases_file: Path
     repository: str
     check: str | None
+    #: Where the recordings were read from when it is not the suite itself:
+    #: `_unassigned`, the calls that named no suite. `None` is the suite's own.
+    taken_from: str | None = None
 
     def line(self) -> str:
         check = self.check if self.check is not None else "none declared"
+        taken = "" if self.taken_from is None else f" · read from {self.taken_from}"
         return (
-            f"tenant {self.tenant!r} · suite {self.suite} · writes to "
+            f"tenant {self.tenant!r} · suite {self.suite}{taken} · writes to "
             f"{self.cases_file} · repository {self.repository} · check {check}"
         )
 
@@ -166,7 +171,9 @@ class ImportAnswer:
     made under, in the order first met. `elected` is the person's yes or no the
     draft already holds for this answer, or `None`. `refusal` says why it
     cannot be elected, or is `None` where it can. `attached` is, for an
-    episode, how many calls were found carrying its id."""
+    episode, how many calls were found carrying its id. `call_sites` are the
+    functions the calls were made from, where they named no suite, in the
+    order first met: what a person reads to give them one."""
 
     id: str
     case: str
@@ -180,6 +187,7 @@ class ImportAnswer:
     elected: bool | None
     refusal: str | None
     attached: int
+    call_sites: tuple[str, ...] = ()
 
     @property
     def electable(self) -> bool:
@@ -422,15 +430,33 @@ def _refusal(
 
 
 def import_listing(
-    root: Path, suite: Suite, module: ModuleType | None, tenant: str
+    root: Path,
+    suite: Suite,
+    module: ModuleType | None,
+    tenant: str,
+    *,
+    taken_from: str | None = None,
 ) -> ImportListing:
-    """Everything the person sees before naming an answer. Writes nothing."""
+    """Everything the person sees before naming an answer. Writes nothing.
+
+    `taken_from` is `_unassigned` to list the calls that named no suite as
+    this suite's: eligible as its own are, under its capture declaration, and
+    written into its cases file. The recordings stay where they are, and what
+    was elected from them is read back by the pair, as for the suite's own.
+    No other name is taken: a call that named another suite is that suite's.
+    """
+    if taken_from is not None and taken_from != UNASSIGNED:
+        raise RefusedError(
+            f"--from takes {UNASSIGNED}, the calls that named no suite, and "
+            f"nothing else: a call that named suite {taken_from!r} is that "
+            "suite's, and is imported from it"
+        )
     refuse_another_tenant(tenant, suite)
     source, path = capture_file(suite, module, root)
     store = FileResultStore(root)
     draft = _draft(path)
     everything, unreadable = read_recordings(store, tenant)
-    split = split_recordings(everything, suite.name)
+    split = split_recordings(everything, taken_from or suite.name)
     setup = _setup_in_force(split.eligible)
 
     by_answer: dict[str, list[Recording]] = {}
@@ -462,6 +488,9 @@ def import_listing(
                 elected=elected,
                 refusal=_refusal(recordings, setup, elected, held),
                 attached=sum(split.attached.get(r.id, 0) for r in recordings if r.id),
+                call_sites=tuple(
+                    dict.fromkeys(r.call_site for r in recordings if r.call_site)
+                ),
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -472,6 +501,7 @@ def import_listing(
             cases_file=path,
             repository=source.repository,
             check=source.check,
+            taken_from=taken_from,
         ),
         setup=setup,
         deterministic_output=suite.deterministic_output,
@@ -728,9 +758,11 @@ def _say_answer(answer: ImportAnswer, setup: str | None) -> list[str]:
     )
     times = f" · ×{answer.times}" if answer.times > 1 else ""
     attached = f" · {answer.attached} calls attached" if answer.attached else ""
+    made = [f"    made at: {', '.join(answer.call_sites)}"] if answer.call_sites else []
     return [
         f"  {answer.id} · {answer.first_at or 'undated'} · setup {setups}"
         f"{times}{attached}",
+        *made,
         f"    input:  {input_line(answer)}",
         f"    answer: {answer.text}",
         f"    {answer_state(answer)}",

@@ -840,3 +840,71 @@ def test_the_import_options_belong_to_import(
 ) -> None:
     assert main([*command, "--root", str(root)]) == EXIT_USAGE
     assert "belongs to" in capsys.readouterr().err
+
+
+# -- the calls that named no suite --------------------------------------------- #
+
+
+def unassigned(root: Path) -> list[Path]:
+    """Three calls that named no suite, with their call site."""
+    writer = RecordingWriter(FileResultStore(root))
+    return [
+        writer.write(
+            recording(
+                case(question),
+                S2,
+                answer,
+                at,
+                suite="_unassigned",
+                call_site="app.support:answer",
+            )
+        )
+        for question, answer, at in (
+            ("refund?", "fourteen days", "20"),
+            ("hours?", "nine to five", "21"),
+            ("refund?", "fourteen days", "22"),
+        )
+    ]
+
+
+def test_the_calls_that_named_no_suite_are_listed_as_the_suites(root: Path) -> None:
+    files = unassigned(root)
+    suite, module = loaded(root)
+    found = import_listing(root, suite, module, "acme", taken_from="_unassigned")
+    assert found.declaration.taken_from == "_unassigned"
+    assert "· suite triage · read from _unassigned ·" in found.declaration.line()
+    assert sorted(a.text for a in found.answers) == ["fourteen days", "nine to five"]
+    assert found.recordings == 3
+    # The suite's own recordings are not among them, and the listing alone
+    # does not list these.
+    assert "fourteen days" not in {a.text for a in listed(root).answers}
+    [refund] = [a for a in found.answers if a.text == "fourteen days"]
+    written = import_elect(found, good=[refund.id], by="Ada")
+    assert written == (refund.id,)
+    # Written into the suite's own cases file, under its declaration.
+    entry = json.loads((root / "captured.json").read_text(encoding="utf-8"))[-1]
+    assert entry["reviewed_answer"]["output"] == "fourteen days"
+    assert entry["metadata"]["examined_through"] == "2026-11-03T08:22:00+00:00"
+    # The recordings stay where they are, and the next listing reads the yes.
+    assert all(path.is_file() for path in files)
+    again = import_listing(root, suite, module, "acme", taken_from="_unassigned")
+    assert {a.id: a.elected for a in again.answers}[refund.id] is True
+
+
+def test_from_takes_unassigned_and_nothing_else(root: Path) -> None:
+    suite, module = loaded(root)
+    with pytest.raises(RefusedError, match="--from takes _unassigned"):
+        import_listing(root, suite, module, "acme", taken_from="other")
+
+
+def test_the_command_reads_from_unassigned(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    unassigned(root)
+    assert main([*argv(root), "--from", "_unassigned"]) == 0
+    out = capsys.readouterr().out
+    assert "read from _unassigned" in out
+    assert "nine to five" in out
+    # The function each call was made from, where the person would name the
+    # suite instead.
+    assert "    made at: app.support:answer" in out.splitlines()

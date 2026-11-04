@@ -55,7 +55,14 @@ reply = client.messages.create(
   the same name as that suite's `Suite(name=...)`. It is a name, where
   `--suite` on the command line is a path to the suite's file. A call that
   names no suite is recorded under `_unassigned`, with the function it was
-  made from, and enters no suite until a person gives it one.
+  made from, and enters no suite until a person gives it one. There are two
+  ways to give it one: name the suite at that call site, `suite=...`, the
+  function the listing below prints as `made at:`; or import from it,
+  `digline record import --tenant T --suite S --from _unassigned`, which lists
+  the calls that named no suite as suite `S`'s, under `S`'s capture
+  declaration, and writes the ones you name into `S`'s cases file. The
+  recordings stay where they are, and the next listing shows what you said
+  of each.
 - **`digline_vars=`**, on the call, adds the variables a template was filled
   with to the case, beside the messages, where the user message mixes a
   template and the data.
