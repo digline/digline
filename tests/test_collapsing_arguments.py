@@ -244,8 +244,8 @@ def test_cases_written_in_the_suite_are_refused_without_quoting_them(
         load_toml_suite(tmp_path / "suite.toml")
     sentence = str(refused.value)
     assert sentence == (
-        "suite.toml, [suite]: `cases` must be the path of a JSON file, not a "
-        "table or an array"
+        "suite.toml, [suite]: `cases` must be the path of a JSON file or an "
+        "array of paths, not a table or cases written in the suite"
     )
 
 

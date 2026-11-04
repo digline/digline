@@ -391,6 +391,19 @@ def test_a_capture_table_is_refused_by_name(
         loaded(tmp_path, "suite.toml")
 
 
+@pytest.mark.parametrize("cases", ['["cases.json", 3]', "[]"], ids=["mixed", "empty"])
+def test_cases_is_a_path_or_an_array_of_paths(tmp_path: Path, cases: str) -> None:
+    """Anything else is refused with the sentence that quotes nothing of what
+    was written, since a value there may be a case."""
+    toml_suite(tmp_path, cases=cases)
+    with pytest.raises(UsageError) as refused:
+        loaded(tmp_path, "suite.toml")
+    assert str(refused.value) == (
+        "suite.toml, [suite]: `cases` must be the path of a JSON file or an "
+        "array of paths, not a table or cases written in the suite"
+    )
+
+
 def test_capture_inside_suite_points_at_the_table(tmp_path: Path) -> None:
     toml_suite(tmp_path, extra='capture = "captured.json"')
     with pytest.raises(
