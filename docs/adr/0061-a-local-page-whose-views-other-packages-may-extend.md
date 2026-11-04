@@ -46,7 +46,7 @@
   §4 (the import refuses another tenant), §8 (an episode's setup, declared in
   code with `setup=`) and §10 (the switch);
   [ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md),
-  proposed, §1 (the yes or no and the person's mark) and §3 (the grouped
+  accepted, §1 (the yes or no and the person's mark) and §3 (the grouped
   listing)
 - Touches: nothing in `CLAUDE.md`'s *fixed* section moves. Decision 5 is
   upheld: the page makes no network call and loads nothing from outside the
@@ -153,7 +153,7 @@ package added (§5), the name of the package that added it.
    `switch_off`, with the values `digline record on` takes.
 2. **A recorded case imported, with the person's yes or no**, through
    `import_listing` and `import_elect`. Where the import asks for the person's
-   mark (ADR 0059 §1, proposed), the person types it in the form, as on the
+   mark (ADR 0059 §1, accepted), the person types it in the form, as on the
    command line, and the page reads it from nowhere else.
 
 **The same host code, and under every button the line of the command.** Each
