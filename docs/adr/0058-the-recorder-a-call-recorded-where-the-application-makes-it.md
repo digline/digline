@@ -401,6 +401,13 @@ watermark.
 **The wrapper is Python.** An application in another language is not served by
 it in 1.1.
 
+*Noted 2026-11-04 ([ADR 0062](0062-the-recorder-out-of-process-and-in-other-processes.md)),
+and the sentence above kept as written: it stays true of the wrapper, and is
+no longer the whole of the recorder.* An application in another language is
+served in 1.1 by two other doors that write the same recording: a proxy,
+`digline record proxy`, between its SDK and the provider, and an interceptor
+copied into a Java project. The recording's format becomes a public contract.
+
 *Decided here, what off costs, and how it is held:*
 
 - **Off must not import `digline.core`.** Importing it is not cheap: measured
@@ -557,6 +564,11 @@ land in `_unassigned` (§10).
   design it.
 - **How redaction is implemented**, at deployment.
 - **An application in another language.**
+
+  *Noted 2026-11-04 ([ADR 0062](0062-the-recorder-out-of-process-and-in-other-processes.md)),
+  and the item above kept as written.* Decided there for 1.1: the proxy for
+  any SDK that takes a base URL, and an interceptor for Java. .NET, Node and
+  Go interceptors are left after it.
 - **A review interface over recordings, and recording a response flagged from
   inside the application.** Neither is part of this record.
 

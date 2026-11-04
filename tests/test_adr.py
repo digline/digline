@@ -262,6 +262,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "serves the views of `digline.views`. It has no view of the recorder "
         "and no write but promotion"
     ),
+    "0062-the-recorder-out-of-process-and-in-other-processes": (
+        "proposed, and before any code: no `digline record proxy`, no "
+        "`digline.recording_wire` entry point and no Java file exist, and the "
+        "in-process recorder writes no `input`"
+    ),
 }
 
 
