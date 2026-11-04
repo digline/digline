@@ -423,6 +423,19 @@ def test_a_call_after_the_collection_closed_reaches_nothing(tmp_path: Path) -> N
     assert collected(response)["calls"] == 1
 
 
+def test_a_stream_that_ends_after_the_collection_closed_reaches_nothing(
+    tmp_path: Path,
+) -> None:
+    client = wrap(anthropic(AGENT), app="support", tenant="acme", root=tmp_path)
+    with collecting() as settle:
+        stream = ask(client, stream=True)
+    for _ in stream:
+        pass
+    response = settle(Response(output="x"))
+    assert "steps" not in response.metadata
+    assert collected(response)["unread"] == 1
+
+
 def test_an_empty_collection_leaves_the_response_as_it_came() -> None:
     answered = Response(output="x", metadata={"tools": ["a"]}, latency_ms=3.0)
 
