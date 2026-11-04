@@ -300,6 +300,71 @@ makes a good calibration — four claims, two supported — is your craft, and
 nothing checks it. Reasoning in
 [ADR 0024](adr/0024-the-judge-as-an-instrument.md) §4.
 
+### `Case.reviewed_answer`: a person's yes or no about an answer
+
+> **Declared and loaded, not run yet.** A suite that declares a reviewed
+> answer is refused by `digline run`, `rejudge` and `execute()` before
+> anything is called or written: *reviewed answers run from schema 23 (ADR
+> 0059 §1); this build is on schema 22*. The run document gains the key that
+> says what the person said with schema 23.
+
+An answer the application gave, and a person's yes or no about it. Here a
+person read two recorded answers to the same question, said yes to one and no
+to the other:
+
+```python
+from digline.run import Case, ReviewedAnswer
+
+question = "How long does a refund take?"
+cases = [
+    Case(
+        id="cap-5c1e0a9d2b7f4e31-9f8e7d6c",
+        reviewed_answer=ReviewedAnswer(
+            output="Fourteen days from the day the parcel is back with us.",
+            check="llm_rubric",
+            good=True,
+            input=question,
+        ),
+    ),
+    Case(
+        id="cap-5c1e0a9d2b7f4e31-4c3b2a1d",
+        reviewed_answer=ReviewedAnswer(
+            output="Refunds are instant.",
+            check="llm_rubric",
+            good=False,
+            input=question,
+        ),
+    ),
+]
+```
+
+It has a calibration case's mechanics and a verdict of its own:
+
+- **the answer is fixed**, the one the person read, so the target is not called
+  for it;
+- **only the named check runs** on it, and it must be a judged check of the
+  suite;
+- **the expected verdict is the person's**: for `good=True` the check passes,
+  for `good=False` it does not, and a judge that contradicts the person fails
+  the case;
+- it is kept in the gate and out of the aggregate accuracy.
+
+It is not a calibration case: a calibration band lies strictly between `0` and
+`1`, so that a judge collapsed onto an extreme is seen, and a yes or a no asks
+for exactly an extreme.
+
+What it refuses at construction: an empty `output`, `check` or `input`; a
+`good` that is not `True` or `False` (`1` and `"yes"` are refused, not read as
+truthy); and a case that is also a calibration case, a canary, or declares a
+`label`, a `group` or an `expected`, each named beside `reviewed_answer`. The
+suite refuses a `check` that names no assertion or two, a check whose class
+does not declare `KIND = "judged"` (read through `Repeated`), and `samples < 2`:
+one judgement that disagrees with the person would fail the gate for noise
+nobody chose. `output` and `input` are payload, in the cases file only.
+Reasoning in
+[ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§1.
+
 ### `Case`
 
 | Field | Type | Default |
@@ -314,6 +379,7 @@ nothing checks it. Reasoning in
 | `group` | `str \| None` | `None` |
 | `canary` | `bool` | `False` |
 | `calibration` | `Calibration \| None` | `None` |
+| `reviewed_answer` | `ReviewedAnswer \| None` | `None` |
 
 `id` is the key `compare()` pairs on: renaming it produces a `new` plus a
 `missing`. Choose it stable and **with no production data inside**.
