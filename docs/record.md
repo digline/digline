@@ -232,8 +232,12 @@ them (`status`, `result` and `result_absence` are left out below).
   steps of every call it made inside the case, in the order their replies
   were read. `digline run` and the MCP server open the collection around each
   call of the target, recorder on or off, and close it before the assertions
-  run, so a judge's calls are never the agent's. Off, nothing is written to
-  disk.
+  run, so a judge's calls are never the agent's. **On or off, nothing of a
+  run is recorded**: the target's calls and a judge's are the gate's, not
+  your application's traffic, so they write no recording and move no count,
+  and an `episode()` opened inside one is an empty context. A program that
+  calls `execute()` itself enters `digline.recorder.running()` around it for
+  the same.
 - **A target that does not wrap its client** has what it reports: a function
   that returns its last call's response reports that call alone, and one that
   returns text reports no steps.

@@ -26,7 +26,7 @@ from digline.core import (
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.host.environment import this_process
-from digline.recorder import collecting
+from digline.recorder import collecting, running
 from digline.run import (
     CallPlan,
     Mapper,
@@ -437,22 +437,26 @@ def measure(
         seed_observed(suite, target, prepared.resume)
     journal = store.open_journal(prepared.header)
     unpriced: list[str] = []
-    run = execute(
-        suite,
-        target,
-        created_at=prepared.created_at,
-        mapper=mapper,
-        git_commit=prepared.header.git_commit,
-        run_metadata=run_metadata,
-        artifacts=artifacts,
-        pinned=pinned,
-        modules_unchecked=modules_unchecked,
-        done=prepared.done,
-        spent=prepared.spent,
-        on_case=journal.append,
-        on_unpriced=unpriced.append,
-        around_target=around_target(target),
-    )
+    # Inside `running()`: the recorder, on or off, writes nothing of a run's
+    # calls, the target's or a judge's, which are the gate's and not the
+    # application's traffic.
+    with running():
+        run = execute(
+            suite,
+            target,
+            created_at=prepared.created_at,
+            mapper=mapper,
+            git_commit=prepared.header.git_commit,
+            run_metadata=run_metadata,
+            artifacts=artifacts,
+            pinned=pinned,
+            modules_unchecked=modules_unchecked,
+            done=prepared.done,
+            spent=prepared.spent,
+            on_case=journal.append,
+            on_unpriced=unpriced.append,
+            around_target=around_target(target),
+        )
     ref = store.write_run(run)
     journal.complete()
     return Measured(
