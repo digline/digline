@@ -938,6 +938,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.absent": "not in {side}",
         "view.setups.chars": "{chars} characters",
         "view.setups.case": "Case {case_id} · {kind}",
+        "view.setups.digest": (
+            "setup {digest}: shown by its first 8 characters, as digline record "
+            "compare prints it; the cases file holds it whole"
+        ),
         "view.setups.over_time": "this case alone, over time",
         "view.setups.every_case": "every case",
         "view.setups.column.when": "Recorded",
@@ -2469,6 +2473,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.absent": "assente in {side}",
         "view.setups.chars": "{chars} caratteri",
         "view.setups.case": "Caso {case_id} · {kind}",
+        "view.setups.digest": (
+            "setup {digest}: mostrato dai suoi primi 8 caratteri, come lo stampa "
+            "digline record compare; il file dei casi lo tiene intero"
+        ),
         "view.setups.over_time": "solo questo caso, nel tempo",
         "view.setups.every_case": "tutti i casi",
         "view.setups.column.when": "Registrata",

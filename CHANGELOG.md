@@ -53,9 +53,15 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **Every response of `digline view` carries a Content-Security-Policy**,
   `default-src 'none'; style-src 'self'; script-src 'self'; form-action
   'self'; frame-ancestors 'none'`, with `X-Content-Type-Options: nosniff`
-  and `Referrer-Policy: no-referrer`. No page carries a style or a script
+  and `Referrer-Policy: same-origin`. No page carries a style or a script
   inline, and a test parses every page the server sends to hold that
-  (ADR 0061 §4.4).
+  (ADR 0061 §4.4). `same-origin` and not `no-referrer`, under which Chrome
+  sends `Origin: null` on a form posted to its own page, the origin check
+  refused it, and no form wrote, promotion included; a request with
+  `Origin: null` is refused in a sentence that says what sends it.
+- **`digline record import` says the cases file from the repository**, in
+  the declaration and in the line after a write, the same from a `suite.py`
+  and a `suite.toml`: one printed it whole and the other as typed.
 - **One stylesheet for the HTML report and the view, and the report's look
   changes with it**: system fonts, tabular figures, and a light and a dark
   theme from `prefers-color-scheme`. `digline report` still writes one
