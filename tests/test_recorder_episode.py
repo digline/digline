@@ -3,8 +3,9 @@
 
 What is held here:
 
-- an episode with three calls is one recording whose steps are the calls'
-  trajectory, and three recordings that carry its id;
+- an episode with three calls is one recording whose response's steps are
+  the calls' trajectory (ADR 0060 §6), and three recordings that carry its
+  id;
 - a tool's result, which the wrapper never sees, is absent from its step and
   says `not_reported`, never filled in;
 - two levels of nesting, each recording carrying its parent's id;
@@ -169,11 +170,11 @@ def recordings(root: Path) -> list[dict[str, Any]]:
 
 
 def episodes(root: Path) -> list[dict[str, Any]]:
-    return [found for found in recordings(root) if "steps" in found]
+    return [found for found in recordings(root) if "id" in found]
 
 
 def calls(root: Path) -> list[dict[str, Any]]:
-    return [found for found in recordings(root) if "steps" not in found]
+    return [found for found in recordings(root) if "id" not in found]
 
 
 def counts(client: RecordedClient) -> dict[str, Any]:
@@ -215,7 +216,7 @@ def test_an_episode_of_three_calls_is_one_recording_and_three_children(
     ]
     assert [
         (step["index"], step["actor"], step.get("finish"), step.get("tool"))
-        for step in turn["steps"]
+        for step in turn["response"]["steps"]
     ] == [
         (0, "model", "tool_use", None),
         (1, "tool", None, "lookup"),
@@ -223,7 +224,7 @@ def test_an_episode_of_three_calls_is_one_recording_and_three_children(
         (3, "tool", None, "refund"),
         (4, "model", "stop", None),
     ]
-    assert turn["steps"][1]["arguments"] == '{"order":"A1"}'
+    assert turn["response"]["steps"][1]["arguments"] == '{"order":"A1"}'
     assert "interrupted" not in turn
     assert "unrecorded_children" not in turn
     assert counts(client) == {
@@ -243,7 +244,7 @@ def test_a_tools_result_is_absent_from_its_step_never_invented(
         ask(client)
         ask(client)
     [turn] = episodes(tmp_path)
-    [tool] = [step for step in turn["steps"] if step["actor"] == "tool"]
+    [tool] = [step for step in turn["response"]["steps"] if step["actor"] == "tool"]
     assert "result" not in tool
     assert tool["result_absence"] == "not_reported"
     assert tool["status"] == "not_reported"
@@ -287,7 +288,7 @@ def test_an_episode_with_an_output_and_no_call_has_no_steps(tmp_path: Path) -> N
     with episode(client, suite="support-agent", case=CASE) as ep:
         ep.output({"route": "human"})
     [turn] = episodes(tmp_path)
-    assert turn["steps"] == []
+    assert "steps" not in turn["response"]
     assert turn["response"]["output"] == '{"route":"human"}'
     assert turn["response"]["kind"] == "structured"
     assert turn["response"]["tool_calls"] == []
@@ -330,12 +331,13 @@ def test_two_levels_of_nesting_carry_their_parents_id(tmp_path: Path) -> None:
         outer.id,
     ]
     # The inner episode's steps are the outer's, where it closed.
-    assert [step["actor"] for step in by_suite["refunds"]["steps"]] == [
+    assert [step["actor"] for step in by_suite["refunds"]["response"]["steps"]] == [
         "model",
         "tool",
     ]
     assert [
-        (step["actor"], step.get("tool")) for step in by_suite["support-agent"]["steps"]
+        (step["actor"], step.get("tool"))
+        for step in by_suite["support-agent"]["response"]["steps"]
     ] == [
         ("model", None),
         ("tool", "lookup"),
@@ -433,7 +435,7 @@ def test_a_call_in_a_pool_thread_without_attach_is_an_orphan(tmp_path: Path) -> 
     assert orphan["orphan"] is True
     assert "orphan" not in first
     # Attached to nothing: the episode's trajectory is its one child.
-    assert [step["actor"] for step in turn["steps"]] == ["model", "tool"]
+    assert [step["actor"] for step in turn["response"]["steps"]] == ["model", "tool"]
     assert counts(client)["orphan"] == 1
 
 
@@ -454,7 +456,11 @@ def test_a_call_in_a_pool_thread_with_attach_is_a_child(tmp_path: Path) -> None:
     [turn] = episodes(tmp_path)
     assert [child["episode"] for child in calls(tmp_path)] == [ep.id, ep.id]
     assert not any("orphan" in child for child in calls(tmp_path))
-    assert [step["actor"] for step in turn["steps"]] == ["model", "tool", "model"]
+    assert [step["actor"] for step in turn["response"]["steps"]] == [
+        "model",
+        "tool",
+        "model",
+    ]
     assert counts(client)["orphan"] == 0
 
 
@@ -523,7 +529,7 @@ def test_a_spawned_process_attaches_by_id(tmp_path: Path) -> None:
     assert len(folders) == 2
     # The parent's trajectory holds what this process saw.
     [turn] = episodes(tmp_path)
-    assert [step["actor"] for step in turn["steps"]] == ["model"]
+    assert [step["actor"] for step in turn["response"]["steps"]] == ["model"]
 
 
 # -- the episode never fails the application ---------------------------------- #
@@ -544,7 +550,7 @@ def test_an_exception_inside_propagates_and_the_episode_is_written_interrupted(
     assert caught.value is raised
     [turn] = episodes(tmp_path)
     assert turn["interrupted"] is True
-    assert [step["actor"] for step in turn["steps"]] == ["model", "tool"]
+    assert [step["actor"] for step in turn["response"]["steps"]] == ["model", "tool"]
     assert recorder._CURRENT.get() is None  # pyright: ignore[reportPrivateUsage]
     assert recorder._OPEN == {}  # pyright: ignore[reportPrivateUsage]
 
@@ -617,7 +623,7 @@ def test_over_the_ceiling_the_episode_keeps_no_text_and_no_steps(
     assert turn["response"]["oversize"] is True
     assert "output" not in turn["response"]
     assert "tool_calls" not in turn["response"]
-    assert turn["steps"] == []
+    assert "steps" not in turn["response"]
 
 
 @pytest.mark.usefixtures("on", "commit")

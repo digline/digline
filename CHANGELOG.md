@@ -27,7 +27,9 @@ nothing. No public name is removed or renamed and no exit code changes.
     recorded steps, and refused by name where it did not; `Subsequence`,
     `Before` and `Never` read the steps where they were recorded, and the
     names otherwise. Steps whose calls are not the response's `tool_calls`,
-    in the same order, are refused rather than recorded.
+    in the same order, are refused rather than recorded. A recording keeps
+    them in its response too, a single call's as an episode's, and an episode
+    is told by the id of its own (ADR 0060 §6).
   - **The replay's refusal narrows.** A target that reported names and no
     calls is re-judged for `ToolsCalled`, where it was refused.
     `ToolCalledWith` reads the arguments, which only `tool_calls` carries, and

@@ -341,7 +341,7 @@ def split_recordings(everything: Sequence[Recording], suite: str) -> SuiteRecord
     the counted. A call made inside an episode is part of that episode's case;
     orphans, interrupted episodes, calls whose episode is not among the files
     and recordings with no answer kept are counted, and are not cases."""
-    episodes = {r.id for r in everything if r.steps is not None and r.id is not None}
+    episodes = {r.id for r in everything if r.id is not None}
     attached: dict[str, int] = {}
     for recording in everything:
         if recording.episode is not None:
@@ -376,13 +376,14 @@ def split_recordings(everything: Sequence[Recording], suite: str) -> SuiteRecord
 
 
 def _shape(recording: Recording) -> Shape:
-    if recording.steps is None:
+    if not recording.is_episode:
         return Shape(episode=False, kind=recording.response.kind)
-    finishes = [step.finish for step in recording.steps if step.finish is not None]
+    steps = recording.response.steps or ()
+    finishes = [step.finish for step in steps if step.finish is not None]
     return Shape(
         episode=True,
         kind=recording.response.kind,
-        actors=tuple(step.actor for step in recording.steps),
+        actors=tuple(step.actor for step in steps),
         finish=finishes[-1] if finishes else None,
     )
 

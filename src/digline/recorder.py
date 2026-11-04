@@ -2086,16 +2086,18 @@ class Episode:
       recorded response has a text and an empty one would be an answer
       nobody gave. Its `tool_calls` are its children's, in order, and `None`
       if any child's plugin said nothing about tools;
-    - **steps**: one `model` step per call, with the finish its reply
-      reported, followed by a `tool` step per tool call it asked for. A tool's
-      result is not visible to the wrapper — it is the application's, sent in
-      the next request — so a tool step's result is absent and says
-      `not_reported`, never filled in. A nested episode's steps are spliced in
-      where it closed.
+    - **steps**, the response's, as a single call's are (ADR 0060 §6): one
+      `model` step per call, with the finish its reply reported, followed by a
+      `tool` step per tool call it asked for. A tool's result is not visible
+      to the wrapper — it is the application's, sent in the next request — so
+      a tool step's result is absent and says `not_reported`, never filled
+      in. A nested episode's steps are spliced in where it closed. Where
+      nothing inside it was recorded, the response carries no steps: absent
+      is *not recorded*, never an empty list.
 
     Over `MAX_RECORDED_CHARS`, whole or nothing as a run's recorded response
-    is: the response says `oversize` and the steps, which carry the calls'
-    arguments, are written empty.
+    is: the response says `oversize` and carries no steps, which carry the
+    calls' arguments.
 
     **The episode never fails the application.** An exception raised inside
     the block propagates as it was raised; the recording is still written,
@@ -2345,6 +2347,10 @@ def _record_episode(
                 kind=kind,
                 latency_ms=elapsed_ms,
                 tool_calls=None if trajectory is None else tuple(trajectory),
+                # The response's, as a single call's are (ADR 0060 §6). Over
+                # the ceiling there are none: the steps carry the calls'
+                # arguments, so they go with the text (ADR 0015 §3).
+                steps=tuple(steps) or None,
             )
         )
 
@@ -2371,9 +2377,6 @@ def _record_episode(
             response=response,
             episode=ep._parent,  # pyright: ignore[reportPrivateUsage]
             call_site=ep._site,  # pyright: ignore[reportPrivateUsage]
-            # Over the ceiling, whole or nothing: the steps carry the calls'
-            # arguments, so they go with the text (ADR 0015 §3).
-            steps=() if oversize else tuple(steps),
             interrupted=interrupted,
             unrecorded_children=collector.children_unrecorded(),
             id=ep.id,

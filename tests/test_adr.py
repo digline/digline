@@ -249,11 +249,10 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no run counts the judge against the person"
     ),
     "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
-        "§1 to §5 built and not released: `steps_of`, the live steps, the "
-        "collection around the target's call, the four checks on steps, and "
-        "`steps` on `RecordedResponse` at schema 23. §6 is in no file: a "
-        "recording still keeps an episode's steps as `Recording.steps`. Meant "
-        "for 1.1"
+        "built and not released: `steps_of`, the live steps, the collection "
+        "around the target's call, the four checks on steps, `steps` on "
+        "`RecordedResponse` at schema 23, and a recording's steps in its "
+        "response, with `Recording.steps` gone. Meant for 1.1"
     ),
     "0061-a-local-page-whose-views-other-packages-may-extend": (
         "the foundations exist: `digline view` binds loopback alone with no "

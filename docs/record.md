@@ -164,9 +164,11 @@ attached to it.
   `case` are the same case at the import.
 - **`ep.output(...)`** is the turn's final answer. Without it, the episode's
   answer is the text of the last model call made inside it.
-- Its trajectory is a list of steps: one `model` step per call, then a `tool`
-  step per tool the model asked for. The recorder never sees what your tool
-  returned, so a tool step says its result was `not_reported`.
+- Its trajectory is a list of steps, kept in its response as a single call's
+  are: one `model` step per call, then a `tool` step per tool the model asked
+  for. The recorder never sees what your tool returned, so a tool step says
+  its result was `not_reported`. What makes the recording an episode is the
+  `id` of its own, which the calls inside it carry.
 - An exception inside the block propagates as it was raised, and the episode
   is still written with what was seen, marked `interrupted`.
 - A call made in another thread or process does not inherit the episode. Pass
