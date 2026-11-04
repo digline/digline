@@ -28,6 +28,7 @@ import hashlib
 import http.client
 import json
 import os
+import queue
 import signal
 import statistics
 import subprocess
@@ -243,9 +244,13 @@ def recordings(root: Path, at_least: int = 1) -> list[dict[str, Any]]:
     reply has been passed on, so after the call has returned."""
     deadline = time.monotonic() + 5
     while True:
+        # Not a name that starts with a dot, as no reader reads one: the
+        # writer's file before it is renamed, which `Path.glob` finds on
+        # Linux and is gone a moment later.
         found = [
             json.loads(path.read_text(encoding="utf-8"))
             for path in sorted((root / ".digline").glob("*/recordings/*/*.json"))
+            if not path.name.startswith(".")
         ]
         if len(found) >= at_least or time.monotonic() > deadline:
             return found
@@ -615,6 +620,56 @@ def test_the_latency_the_proxy_adds_is_measured(
 # -- the command ------------------------------------------------------------- #
 
 
+#: The command, as `digline` runs it, with Ctrl-C put back first: a
+#: pytest-xdist worker ignores SIGINT, a child inherits that, and Python then
+#: installs no handler of its own. Put back in the child, not with
+#: `preexec_fn`, which is unsafe in a process with threads.
+LAUNCH = (
+    "import signal, sys, runpy; "
+    "signal.signal(signal.SIGINT, signal.default_int_handler); "
+    "sys.argv = ['digline', 'record', 'proxy', '--tenant', 'acme', "
+    "'--port', '0', *sys.argv[1:]]; "
+    "runpy.run_module('digline.cli', run_name='__main__')"
+)
+
+
+class Lines:
+    """What a process prints, read by a thread of its own, since a read that
+    blocks cannot be given a deadline: each line awaited 10 seconds at most,
+    so a proxy that says nothing is a red, not a test that waits."""
+
+    def __init__(self, started: subprocess.Popen[str]) -> None:
+        assert started.stdout is not None
+        stream = started.stdout
+        self._arrived: queue.Queue[str] = queue.Queue()
+
+        def read() -> None:
+            for line in stream:
+                self._arrived.put(line.rstrip("\n"))
+
+        self._reader = threading.Thread(target=read, daemon=True)
+        self._reader.start()
+
+    def first(self, count: int) -> list[str]:
+        lines: list[str] = []
+        while len(lines) < count:
+            try:
+                lines.append(self._arrived.get(timeout=10))
+            except queue.Empty:
+                raise AssertionError(
+                    f"the proxy said {len(lines)} lines in 10 seconds: {lines}"
+                ) from None
+        return lines
+
+    def rest(self) -> list[str]:
+        """Every line after, once the process has closed its output."""
+        self._reader.join(timeout=10)
+        found: list[str] = []
+        while not self._arrived.empty():
+            found.append(self._arrived.get_nowait())
+        return found
+
+
 @pytest.mark.parametrize(
     ("on", "stop"),
     [(False, signal.SIGINT), (True, signal.SIGTERM)],
@@ -631,29 +686,24 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
     if on:
         environment[recorder.ENVIRONMENT_VARIABLE] = "1"
     started = subprocess.Popen(
-        [
-            sys.executable,
-            "-u",
-            "-m",
-            "digline.cli",
-            "record",
-            "proxy",
-            "--tenant",
-            "acme",
-            "--root",
-            str(tmp_path),
-            "--port",
-            "0",
-        ],
+        [sys.executable, "-u", "-c", LAUNCH, "--root", str(tmp_path)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
         env=environment,
     )
-    assert started.stdout is not None
-    lines = [started.stdout.readline().rstrip("\n") for _ in range(9)]
-    started.send_signal(stop)
-    out, _ = started.communicate(timeout=10)
+    said = Lines(started)
+    try:
+        lines = said.first(9)
+        started.send_signal(stop)
+        # A proxy that does not stop is a red in seconds, never a job held
+        # until the runner gives up.
+        started.wait(timeout=10)
+    finally:
+        if started.poll() is None:
+            started.kill()
+            started.wait()
+    after = said.rest()
     assert lines[0].startswith("digline record proxy: listening on http://127.0.0.1:")
     address = lines[0].rsplit(" ", 1)[1]
     assert lines[1] == "  tenant:     acme, app proxy"
@@ -667,9 +717,9 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
         )
     assert f"    ANTHROPIC_BASE_URL={address}" in lines
     assert f"    OPENAI_BASE_URL={address}/v1" in lines
-    assert out.rstrip("\n").endswith(
+    assert after == [
         "digline record proxy: stopped; open episodes and the counts are written"
-    )
+    ]
     assert started.returncode == 0
 
 
