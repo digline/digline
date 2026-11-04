@@ -1,5 +1,6 @@
 """Read a PreToolUse payload and ask a person before a person's decision:
-`digline promote`, `digline register`, or `digline view --allow-promote`.
+`digline promote`, `digline register`, `digline view --allow-promote`,
+`digline record import` with `--good` or `--bad`, or `digline record on`.
 
 Started by `ask-a-person`, which has already decided that the project is a
 digline project. Standard library only: it runs in the project's `.venv`, but
@@ -21,6 +22,15 @@ in the store for as long as the server is up. So the reach changes from *the
 first word* to *the first word and, for one subcommand, its flags*, and what is
 matched is still a word of the parsed simple command — `grep -r "digline view
 --allow-promote" notes/` is still a grep. (ADR 0032 §3)
+
+**`record` is read past its first word too, for the same reason.** Bare
+`digline record import` lists and writes nothing; with `--good` or `--bad` it
+writes a person's yes or no, under their name, into the suite's cases (ADR
+0059 §1). `digline record on` decides what of an application's calls is kept
+(ADR 0058 §10). `off`, `status`, `compare` and the listing read, and are not
+asked about. The action is found as a word of the parsed command, never as a
+string, and an extra word that happens to be `on` asks once too often rather
+than once too few.
 
 **What is read, stated as the construction, because a list goes stale.** A
 simple command is digline when its first word — after any `NAME=value`
@@ -45,6 +55,7 @@ import re
 import shlex
 import sys
 from collections.abc import Iterator
+from typing import NamedTuple
 
 REASONS = {
     "promote": (
@@ -61,12 +72,41 @@ REASONS = {
         "the promote decision taken once and left standing for every run in "
         "the store, for as long as the server is up"
     ),
+    "record import": (
+        "digline record import with --good or --bad writes a person's yes or no "
+        "about a recorded answer, under the name given to --by, into the "
+        "suite's cases"
+    ),
+    "record on": (
+        "digline record on switches the recorder on for a tenant, which decides "
+        "what of an application's calls is kept under "
+        ".digline/<tenant>/recordings/"
+    ),
 }
 
-#: The subcommands decided by a flag rather than by their name alone. `view`
-#: reads the store and is not asked about; the flag is what turns it into a
-#: surface that writes the committed reference. (ADR 0032 §3)
-FLAGGED = {"view": "--allow-promote"}
+
+class Rule(NamedTuple):
+    """When a subcommand is a decision: `action`, the word after it, where it
+    has one; `flags`, any one of which makes it a decision, or none where the
+    action alone does; and the `REASONS` key it is asked under."""
+
+    action: str | None
+    flags: tuple[str, ...]
+    key: str
+
+
+#: The subcommands decided by more than their name. `view` reads the store and
+#: is not asked about; `--allow-promote` turns it into a surface that writes
+#: the committed reference (ADR 0032 §3). `record import` lists until `--good`
+#: or `--bad` names an answer, and `record on` is a decision by its action
+#: alone (ADR 0059 §1, ADR 0058 §10).
+FLAGGED: dict[str, tuple[Rule, ...]] = {
+    "view": (Rule(None, ("--allow-promote",), "view --allow-promote"),),
+    "record": (
+        Rule("import", ("--good", "--bad"), "record import"),
+        Rule("on", (), "record on"),
+    ),
+}
 
 # The shell's own operators, plus a newline: each ends one simple command.
 OPERATORS = "();<>|&\n"
@@ -150,12 +190,19 @@ def subcommand(arguments: list[str]) -> tuple[str, list[str]] | None:
     return (arguments[0], arguments[1:]) if arguments else None
 
 
+def _given(flag: str, words: list[str]) -> bool:
+    """`flag` as a whole word, or with its value after `=`, which argparse
+    takes as the same option."""
+    return any(word == flag or word.startswith(f"{flag}=") for word in words)
+
+
 def key_for(arguments: list[str]) -> str | None:
     """The `REASONS` key this invocation deserves, or None.
 
-    A flagged subcommand is watched only when its flag is present, and it is
-    matched as a whole word. That is complete only because the CLI accepts no
-    other spelling: `view` refuses abbreviated options, and
+    A subcommand in `FLAGGED` is watched only where one of its rules holds:
+    its action is a word of the command, and one of its flags is present, as a
+    whole word or with `=`. That is complete only because the CLI accepts no
+    other spelling: `view` and `record` refuse abbreviated options, and
     `tests/test_claude_plugin.py` holds every flag in `FLAGGED` to that.
 
     **This used to say a prefix match "would only ever widen this past what the
@@ -170,9 +217,15 @@ def key_for(arguments: list[str]) -> str | None:
     if found is None:
         return None
     name, rest = found
-    if (flag := FLAGGED.get(name)) is not None:
-        return f"{name} {flag}" if flag in rest else None
-    return name
+    rules = FLAGGED.get(name)
+    if rules is None:
+        return name
+    for rule in rules:
+        if rule.action is not None and rule.action not in rest:
+            continue
+        if not rule.flags or any(_given(flag, rest) for flag in rule.flags):
+            return rule.key
+    return None
 
 
 def watched(command: str) -> str | None:
