@@ -325,7 +325,7 @@ def test_the_hook_asks_a_person_before_a_persons_decision(
         # Bare `view` is a reading tool and stays in this company. The one
         # spelling that no longer belongs here has a test of its own below.
         "digline view --suite s.py",
-        "digline view --host 0.0.0.0 --port 0 --suite s.py",
+        "digline view --port 0 --suite s.py",
         'grep -r "digline view --allow-promote" notes/',
         "echo digline promote",
         "cat notes.md | grep 'digline promote'",

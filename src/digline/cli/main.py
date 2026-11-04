@@ -1183,10 +1183,11 @@ def cmd_view(args: argparse.Namespace) -> int:
     serve(
         suite,
         store,
-        host=args.host,
         port=args.port,
         pricing=_pricing(args, loaded),
         allow_promote=args.allow_promote,
+        allow_record=args.allow_record,
+        root=args.root,
     )
     return EXIT_OK
 
@@ -2036,7 +2037,6 @@ def build_parser() -> argparse.ArgumentParser:
         allow_abbrev=False,
     )
     common(view_p)
-    view_p.add_argument("--host", default="127.0.0.1", help="bind address")
     view_p.add_argument("--port", type=int, default=7373, help="bind port")
     view_p.add_argument("--target", help=TARGET_HELP)
     view_p.add_argument(
@@ -2046,6 +2046,14 @@ def build_parser() -> argparse.ArgumentParser:
             "serve the promote button and POST /promote, for the browser that "
             "opens the address it prints; without it there is neither, for "
             "every run and for as long as the server is up"
+        ),
+    )
+    view_p.add_argument(
+        "--allow-record",
+        action="store_true",
+        help=(
+            "serve the writes that arrive with the recorder's views; this "
+            "release has none yet, and accepts the flag"
         ),
     )
     view_p.set_defaults(func=cmd_view)

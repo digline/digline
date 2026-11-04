@@ -272,35 +272,30 @@ def test_the_developer_can_type_localhost() -> None:
     most people use."""
     known = self_netlocs("127.0.0.1", 7373)
     for netloc in ("127.0.0.1:7373", "localhost:7373", "[::1]:7373"):
-        assert _is_self(netloc, known, wildcard=False), netloc
+        assert _is_self(netloc, known), netloc
 
 
 def test_the_right_name_at_the_wrong_port_is_not_us() -> None:
     """A different server on the same machine. The port is in every entry of
     the set for this reason."""
     known = self_netlocs("127.0.0.1", 7373)
-    assert not _is_self("localhost:9999", known, wildcard=False)
-    assert not _is_self("localhost", known, wildcard=False)
+    assert not _is_self("localhost:9999", known)
+    assert not _is_self("localhost", known)
 
 
-def test_a_name_is_refused_even_when_bound_to_every_interface() -> None:
-    """The wildcard exception admits address *literals*, which is what keeps it
-    from being a hole: the attack needs a name pointed at the loopback address,
-    and a literal does not resolve at all."""
-    known = self_netlocs("0.0.0.0", 7373)  # noqa: S104
-    assert _is_self("192.168.1.10:7373", known, wildcard=True)
-    assert _is_self("127.0.0.1:7373", known, wildcard=True)
-    assert not _is_self("evil.example:7373", known, wildcard=True)
-    # And with a normal bind the literal of another interface is not us either.
-    assert not _is_self(
-        "192.168.1.10:7373", self_netlocs("127.0.0.1", 7373), wildcard=False
-    )
+def test_the_literal_of_another_interface_is_not_us() -> None:
+    """The server binds loopback alone, so an address literal of another
+    interface names some other server. There used to be a wildcard bind that
+    admitted every literal; it went with `--host` (ADR 0061 §4.1)."""
+    known = self_netlocs("127.0.0.1", 7373)
+    assert not _is_self("192.168.1.10:7373", known)
+    assert not _is_self("evil.example:7373", known)
 
 
 def test_an_origin_is_checked_against_the_server_not_the_request() -> None:
     """The defect, as a unit. `_allowed_origin` no longer sees `Host` at all."""
     known = self_netlocs("127.0.0.1", 7373)
-    assert _allowed_origin("", known, wildcard=False)  # curl: no Origin
-    assert _allowed_origin("http://127.0.0.1:7373", known, wildcard=False)
-    assert not _allowed_origin("http://evil.example:7373", known, wildcard=False)
-    assert not _allowed_origin("https://evil.com", known, wildcard=False)
+    assert _allowed_origin("", known)  # curl: no Origin
+    assert _allowed_origin("http://127.0.0.1:7373", known)
+    assert not _allowed_origin("http://evil.example:7373", known)
+    assert not _allowed_origin("https://evil.com", known)
