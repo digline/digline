@@ -104,6 +104,11 @@ from digline.wire.record_compare import (
     SetupValue,
     record_compare_json,
 )
+from digline.wire.recorder import (
+    SuiteRecordings,
+    TenantRecorder,
+    recorder_status_json,
+)
 
 CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
@@ -673,6 +678,58 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
                 compared, case=None, since=None, pair=None, setup_keys=None
             )
         ),
+    )
+
+    # `record status`: a tenant whose switch is valid, with a suite asked
+    # about, and one with no switch file, where the values are `null`.
+    recording = TenantRecorder(
+        tenant="acme",
+        switch_path=".digline/acme/recorder.toml",
+        switch="valid",
+        on=True,
+        sample=0.5,
+        redact="none",
+        ceiling=1000,
+        interval=2.0,
+        declared=("sample",),
+        refusal=None,
+        production_refusal="production declares sample, redact and ceiling",
+        recordings_path=".digline/acme/recordings",
+        suites=(
+            SuiteRecordings(
+                suite="qa",
+                calls=3,
+                episodes=1,
+                orphans=0,
+                inside_episodes=1,
+                interrupted=0,
+                not_recorded={"sampled out": 2},
+                noted={"usage not reported": 1},
+                imported=True,
+                since_last_import=1,
+            ),
+        ),
+        unreadable=0,
+        size=512,
+        stopped_at_ceiling=False,
+    )
+    absent = dataclasses.replace(
+        recording,
+        tenant="globex",
+        switch="absent",
+        on=False,
+        sample=None,
+        redact=None,
+        ceiling=None,
+        interval=None,
+        declared=(),
+        production_refusal=None,
+        suites=(SuiteRecordings(suite="qa", calls=1, episodes=0, orphans=1),),
+    )
+    yield (
+        "recorder_status_json",
+        "record_status",
+        recorder_status_json([recording, absent]),
     )
 
 

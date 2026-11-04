@@ -1402,11 +1402,6 @@ _BASE: Mapping[str, Mapping[str, _Key]] = {
 }
 
 
-#: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
-#: entry each, with the issue or ADR that added it. Appended to, never edited:
-#: changing an entry's types is a change a consumer can see, and the rule for
-#: that is a bump. The keys added under 2, 3 and 4 are in `_BASE`, each beside
-#: the provenance its entry carried (#669, #678, and the bump to 5).
 def _shape_added(
     shape: str, keys: Mapping[str, _Key], ref: str
 ) -> tuple[_AddedKey, ...]:
@@ -1420,6 +1415,21 @@ def _shape_added(
 #: `--show-setup` were not given, `case` and `since` where the filter was not.
 _RECORD_COMPARE = "ADR 0058; digline record compare, piece D4 of 1.1"
 
+#: `digline record status --json` (ADR 0058 §10), a document of its own. It
+#: was born after 1.0.3, under `OUTPUT_VERSION = 5`, which 1.0.0 shipped, and
+#: it was emitted without a line here until this entry: a key nobody listed,
+#: which this table exists to refuse. Counts, sizes and a tenant's switch,
+#: never a recording. `not_recorded` and `noted` are keyed by the reasons the
+#: recorder writes, an open set. The switch's values are `null` unless it is
+#: `valid`; `imported` and `since_last_import` are `null` where the status was
+#: not asked about the suite.
+_RECORD_STATUS = "ADR 0058 §10; digline record status, emitted since 1.1's piece 2"
+
+#: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
+#: entry each, with the issue or ADR that added it. Appended to, never edited:
+#: changing an entry's types is a change a consumer can see, and the rule for
+#: that is a bump. The keys added under 2, 3 and 4 are in `_BASE`, each beside
+#: the provenance its entry carried (#669, #678, and the bump to 5).
 _ADDED: tuple[_AddedKey, ...] = (
     *_shape_added(
         "record_compare",
@@ -1479,6 +1489,66 @@ _ADDED: tuple[_AddedKey, ...] = (
             "undated": _INT,
         },
         _RECORD_COMPARE,
+    ),
+    *_shape_added(
+        "record_status",
+        {
+            "output_version": _INT,
+            "tenants": _k(_arr(_Obj("record_status.tenant"))),
+        },
+        _RECORD_STATUS,
+    ),
+    *_shape_added(
+        "record_status.tenant",
+        {
+            "tenant": _STR,
+            "switch": _k(_Obj("record_status.switch")),
+            "recordings": _k(_Obj("record_status.recordings")),
+        },
+        _RECORD_STATUS,
+    ),
+    *_shape_added(
+        "record_status.switch",
+        {
+            "path": _STR,
+            "state": _STR,
+            "on": _BOOL,
+            "sample": _NUM_OR_NULL,
+            "redact": _STR_OR_NULL,
+            "ceiling": _k("integer", "null"),
+            "interval": _NUM_OR_NULL,
+            "declared": _STRINGS,
+            "refusal": _STR_OR_NULL,
+            "production_refusal": _STR_OR_NULL,
+        },
+        _RECORD_STATUS,
+    ),
+    *_shape_added(
+        "record_status.recordings",
+        {
+            "path": _STR,
+            "size": _INT,
+            "stopped_at_ceiling": _BOOL,
+            "unreadable": _INT,
+            "suites": _k(_arr(_Obj("record_status.suite"))),
+        },
+        _RECORD_STATUS,
+    ),
+    *_shape_added(
+        "record_status.suite",
+        {
+            "suite": _STR,
+            "calls": _INT,
+            "episodes": _INT,
+            "orphans": _INT,
+            "inside_episodes": _INT,
+            "interrupted": _INT,
+            "not_recorded": _k(_COUNTS),
+            "noted": _k(_COUNTS),
+            "imported": _k("boolean", "null"),
+            "since_last_import": _k("integer", "null"),
+        },
+        _RECORD_STATUS,
     ),
 )
 
