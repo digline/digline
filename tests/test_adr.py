@@ -262,9 +262,10 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "(#904), and the views of `digline.views`"
     ),
     "0062-the-recorder-out-of-process-and-in-other-processes": (
-        "accepted, and before any code: no `digline record proxy`, no "
-        "`digline.recording_wire` entry point and no Java file exist. The "
-        "in-process recorder's `input`, §7's first item, is #901's"
+        "§2 is built: the in-process recorder's `input` (#901), and the "
+        "contract `docs/recording-format.md` states, which the readers hold a "
+        "recording to (#905). No `digline record proxy`, no "
+        "`digline.recording_wire` entry point and no Java file exist"
     ),
 }
 

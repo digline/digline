@@ -982,6 +982,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "The recorder stopped at the ceiling.",
         "view.recorder.unreadable": "{count} file(s) that are not recordings",
+        "view.recorder.uncounted": (
+            "Not counted: {count} process(es) keep recordings and no counts, so "
+            "what was not recorded there is not known."
+        ),
         "view.recorder.column.suite": "Suite",
         "view.recorder.column.calls": "Calls",
         "view.recorder.column.inside": "In an episode",
@@ -2484,6 +2488,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "Il registratore si è fermato al tetto.",
         "view.recorder.unreadable": "{count} file che non sono registrazioni",
+        "view.recorder.uncounted": (
+            "Non contato: {count} processo/i hanno registrazioni e nessun "
+            "conteggio, quindi non si sa cosa non vi è stato registrato."
+        ),
         "view.recorder.column.suite": "Suite",
         "view.recorder.column.calls": "Chiamate",
         "view.recorder.column.inside": "In un episodio",
