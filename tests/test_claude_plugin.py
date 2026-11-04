@@ -328,6 +328,7 @@ def test_the_hook_asks_a_person_before_a_persons_decision(
         "digline view --suite s.py",
         "digline view --port 0 --suite s.py",
         'grep -r "digline view --allow-promote" notes/',
+        'grep -r "digline view --allow-record" notes/',
         "echo digline promote",
         "cat notes.md | grep 'digline promote'",
         "python -m pytest -k promote",
@@ -424,6 +425,14 @@ def test_the_hook_asks_before_the_flag_that_makes_the_decision_ambient(
             "digline record --tenant acme on --sample 0.5",
             "python -m digline.cli record on --tenant acme --production",
         )
+    ]
+    + [
+        (command, "view --allow-record")
+        for command in (
+            "digline view --allow-record --suite s.py",
+            "digline --root . view --suite s.py --allow-record",
+            "uvx digline view --port 0 --allow-record",
+        )
     ],
 )
 def test_the_hook_asks_before_a_record_that_decides(
@@ -432,7 +441,9 @@ def test_the_hook_asks_before_a_record_that_decides(
     """An import that names an answer writes a person's yes or no under their
     name, and `record on` decides what of an application's calls is kept: each
     is a person's, so each is asked, and the listing, `off`, `status` and
-    `compare` above are not. (ADR 0059 §1, ADR 0058 §10)"""
+    `compare` above are not. `view --allow-record` serves both from a page, for
+    as long as the server is up, and is asked the same way. (ADR 0059 §1, ADR
+    0058 §10, ADR 0061 §4)"""
     output = json.loads(ask(command, project))["hookSpecificOutput"]
     assert output["permissionDecision"] == "ask"
     reason = output["permissionDecisionReason"]
