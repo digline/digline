@@ -291,16 +291,14 @@ def test_the_response_compartment_is_what_a_run_document_writes(name: str) -> No
 
 @pytest.mark.parametrize("name", sorted(RESPONSES))
 def test_a_recording_comes_back_as_it_was_written(name: str) -> None:
-    recording = a_recording(
-        RESPONSES[name], episode="ep-1", label="positive", call_site="app:answer"
-    )
+    recording = a_recording(RESPONSES[name], episode="ep-1", call_site="app:answer")
     document = json.loads(json.dumps(recording_to_dict(recording)))
     assert recording_from_dict(document) == recording
 
 
 def test_what_is_not_given_is_absent_not_emptied() -> None:
     written = recording_to_dict(a_recording())
-    assert "episode" not in written and "label" not in written
+    assert "episode" not in written
     assert written["recording_version"] == RECORDING_VERSION == 1
     assert set(written) == {
         "recording_version",
@@ -340,7 +338,6 @@ def test_a_value_json_cannot_carry_is_refused_not_collapsed() -> None:
         ("setup_digest", ""),
         ("episode", ""),
         ("call_site", ""),
-        ("label", "yes"),
     ],
 )
 def test_a_field_without_a_value_is_refused(field: str, value: object) -> None:

@@ -127,6 +127,15 @@ nothing. No public name is removed or renamed and no exit code changes.
   `messages`, made, streamed or awaited, and an episode's whole case, as JSON
   text. Without it no answer the recorder kept could be written as a reviewed
   answer. `RECORDING_VERSION` stays 1.
+- **The recording is a public contract**, on a page of its own,
+  [`docs/recording-format.md`](docs/recording-format.md), for a program in
+  another language that writes one. A float enters `setup_digest` as text in
+  one form Java and Python both write. `recorded_at` is UTC written with
+  `+00:00` and nothing else, refused by name otherwise, and the import
+  compares it as an instant. The `label` compartment is gone, and a file
+  written with one is still read. `digline record status` says *not counted*
+  of a process that keeps no counts file, and `--json` carries it as
+  `recordings.uncounted`. `RECORDING_VERSION` stays 1 (ADR 0062 §2).
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

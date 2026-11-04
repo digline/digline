@@ -66,6 +66,9 @@ class TenantRecorder:
     written, readable and unreadable alike, and the measure the recorder holds
     against the ceiling; the disk holds more, a block per file at the least.
     `stopped_at_ceiling` is the marker the recorder leaves when it stops.
+    `uncounted` is how many processes wrote recordings and keep no counts
+    file, so that what they did not record is *not counted* rather than
+    *nothing*: a writer outside digline's recorder keeps none (ADR 0062 §2).
     """
 
     tenant: str
@@ -84,6 +87,7 @@ class TenantRecorder:
     unreadable: int
     size: int
     stopped_at_ceiling: bool
+    uncounted: int = 0
 
 
 def recorder_status_json(tenants: Sequence[TenantRecorder]) -> dict[str, object]:
@@ -116,6 +120,7 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
             "size": tenant.size,
             "stopped_at_ceiling": tenant.stopped_at_ceiling,
             "unreadable": tenant.unreadable,
+            "uncounted": tenant.uncounted,
             "suites": [
                 {
                     "suite": suite.suite,

@@ -248,6 +248,16 @@ def _tenant(
             counts[4] += recording.interrupted
     missed = _not_recorded(directory)
     noted = _not_recorded(directory, "noted")
+    # A process that wrote recordings and keeps no counts file: what it did
+    # not record is not known, which is not the same as nothing. A writer
+    # outside this recorder keeps none, since the file is not part of the
+    # recording's contract (ADR 0062 §2).
+    uncounted = sum(
+        1
+        for place in sorted(directory.glob("*/"))
+        if not (place / COUNTS_FILENAME).is_file()
+        and any(not item.name.startswith(".") for item in place.glob("*.json"))
+    )
     for name in (*missed, *noted):
         suites.setdefault(name, [0, 0, 0, 0, 0])
     return TenantRecorder(
@@ -282,4 +292,5 @@ def _tenant(
         unreadable=unreadable,
         size=size,
         stopped_at_ceiling=store.ceiling_marker_path(tenant).is_file(),
+        uncounted=uncounted,
     )
