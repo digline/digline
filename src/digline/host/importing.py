@@ -73,7 +73,7 @@ from types import ModuleType
 from typing import cast
 
 from digline.core.capture import capture_id
-from digline.core.recording import Recording
+from digline.core.recording import Recording, RecordingRefusedError, instant_of
 from digline.core.refused import RefusedError
 from digline.core.run import RecordedResponse, restore_output
 from digline.core.types import OutputKind
@@ -457,7 +457,7 @@ def import_listing(
                 kind=first.response.kind,
                 input=first.response.input,
                 times=len(recordings),
-                first_at=min(dated) if dated else None,
+                first_at=min(dated, key=instant_of) if dated else None,
                 setups=tuple(dict.fromkeys(r.setup_digest for r in recordings)),
                 elected=elected,
                 refusal=_refusal(recordings, setup, elected, held),
@@ -486,18 +486,23 @@ def import_listing(
         interrupted=split.interrupted,
         oversize=split.oversize,
         unreadable=unreadable,
-        examined_through=max(stamps) if stamps else None,
+        examined_through=max(stamps, key=instant_of) if stamps else None,
     )
 
 
 def _setup_in_force(eligible: Sequence[Recording]) -> str | None:
-    """The setup of the newest eligible recording: by `recorded_at` where the
-    recordings carry it, and otherwise the last in the files' order."""
+    """The setup of the newest eligible recording: by `recorded_at` as an
+    instant where the recordings carry it, the later in the files' order
+    among equal instants, and otherwise the last in the files' order."""
     if not eligible:
         return None
-    dated = [r for r in eligible if r.recorded_at is not None]
+    dated = [(i, r) for i, r in enumerate(eligible) if r.recorded_at is not None]
     if dated:
-        return max(dated, key=lambda r: cast(str, r.recorded_at)).setup_digest
+        _, newest = max(
+            dated,
+            key=lambda pair: (instant_of(cast(str, pair[1].recorded_at)), pair[0]),
+        )
+        return newest.setup_digest
     return eligible[-1].setup_digest
 
 
@@ -675,7 +680,7 @@ def imported_since(
     were written after the newest `examined_through` its draft holds, and how
     many it has in all. `None` for the first is *never imported*: no case of
     the draft came from the recordings. A recording with no `recorded_at` is
-    never counted as after the watermark."""
+    never counted as after the watermark. Both are compared as instants."""
     _, path = capture_file(suite, module, root)
     marks = [
         mark
@@ -687,9 +692,17 @@ def imported_since(
     mine = [r for r in everything if r.suite == suite.name]
     if not marks:
         return None, len(mine)
-    newest = max(marks)
+    try:
+        newest = max(instant_of(mark) for mark in marks)
+    except RecordingRefusedError:
+        raise RefusedError(
+            f"{path}: a case's examined_through is not in the form the import "
+            "writes it, a recorded_at in UTC with +00:00"
+        ) from None
     return sum(
-        1 for r in mine if r.recorded_at is not None and r.recorded_at > newest
+        1
+        for r in mine
+        if r.recorded_at is not None and instant_of(r.recorded_at) > newest
     ), len(mine)
 
 

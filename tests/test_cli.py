@@ -1399,10 +1399,16 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
 ) -> None:
     """Only a file path needs the treatment: `package.module:attr` is already
     importable, and widening the path for it would be reaching into the
-    caller's environment for no reason."""
+    caller's environment for no reason.
+
+    What an earlier test's suite left is taken out first: `load_suite` takes
+    it out itself before it loads (ADR 0052 §1), and measured with it the
+    test would see that rule and not the form it is about."""
     from digline.host.loader import UsageError as _UsageError
+    from digline.host.loader import _take_out  # pyright: ignore[reportPrivateUsage]
     from digline.host.loader import load_suite as _load_suite
 
+    _take_out()
     before = list(sys.path)
     with pytest.raises(_UsageError):
         _load_suite("a_module_that_does_not_exist:suite")
@@ -1411,11 +1417,14 @@ def test_a_suite_given_as_a_module_path_leaves_sys_path_alone(
 
 def test_loading_twice_does_not_grow_sys_path(tmp_path: Path) -> None:
     """Several suites in one directory, or one loaded twice, must not make
-    `sys.path` accumulate copies of the same entry."""
+    `sys.path` accumulate copies of the same entry. What an earlier test's
+    suite left is taken out first, for the reason the test above gives."""
+    from digline.host.loader import _take_out  # pyright: ignore[reportPrivateUsage]
     from digline.host.loader import load_suite as _load_suite
 
     write_suite(tmp_path)
     path = str(tmp_path.resolve())
+    _take_out()
     # Measured as a delta, not against global uniqueness: pytest's own sys.path
     # already carries a duplicate, and asserting on it would be testing pytest.
     before = list(sys.path)
@@ -1426,6 +1435,33 @@ def test_loading_twice_does_not_grow_sys_path(tmp_path: Path) -> None:
         assert sys.path.count(path) == 1
         assert len(sys.path) == len(before) + 1
         assert sys.path[0] == path  # inserted at the front, like `python file.py`
+    finally:
+        sys.path[:] = before
+
+
+def test_a_suites_directory_stays_until_the_next_load_takes_it_out(
+    tmp_path: Path,
+) -> None:
+    """ADR 0052 §1: the directory a suite loaded from a file put on `sys.path`
+    stays there for its run, since the target imports the application when it
+    is called, and the next load takes it out. After two loads only the second
+    directory is there, and after `_take_out` the path is as it was."""
+    from digline.host.loader import _take_out  # pyright: ignore[reportPrivateUsage]
+    from digline.host.loader import load_suite as _load_suite
+
+    first, second = tmp_path / "first", tmp_path / "second"
+    for directory in (first, second):
+        directory.mkdir()
+        write_suite(directory)
+    _take_out()
+    before = list(sys.path)
+    try:
+        _load_suite(str(first / "suite_qa.py"))
+        assert sys.path == [str(first.resolve()), *before]
+        _load_suite(str(second / "suite_qa.py"))
+        assert sys.path == [str(second.resolve()), *before]
+        _take_out()
+        assert sys.path == before
     finally:
         sys.path[:] = before
 
