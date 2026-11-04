@@ -251,28 +251,35 @@ def test_the_sheet_and_the_script_name_one_uplot_release() -> None:
 
 
 def test_view_takes_no_host(repo: Path) -> None:
-    """The option is gone, not ignored: argparse refuses it by name."""
-    done = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "digline.cli",
-            "view",
-            "--suite",
-            "suite_qa.py",
-            "--host",
-            "0.0.0.0",
-            "--port",
-            "0",
-        ],  # noqa: S104
+    """The option is gone, not ignored: argparse refuses it by name, with the
+    usage exit code, before anything is served.
+
+    The first line of standard output is read rather than waited for. A server
+    that started prints its address there and keeps running, and a test that
+    only waited would fail on a timeout that says nothing about what it saw.
+    Refused, the process ends, and the line is empty.
+    """
+    process = subprocess.Popen(
+        [sys.executable, "-m", "digline.cli", "view", "--suite", "suite_qa.py"]
+        + ["--host", "0.0.0.0", "--port", "0"],  # noqa: S104
         cwd=repo,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=30,
-        check=False,
     )
-    assert done.returncode == EXIT_USAGE
-    assert "unrecognized arguments: --host" in done.stderr
+    try:
+        assert process.stdout is not None and process.stderr is not None
+        first = process.stdout.readline()
+        assert first == "", f"a server started on --host: {first!r}"
+        err = process.stderr.read()
+        assert process.wait(timeout=30) == EXIT_USAGE
+    finally:
+        process.kill()
+        process.wait(timeout=10)
+    # argparse's own sentence for an option the parser does not have.
+    assert err.rstrip().splitlines()[-1] == (
+        "digline: error: unrecognized arguments: --host 0.0.0.0"
+    )
 
 
 def test_allow_record_is_accepted_and_opens_no_route(repo: Path) -> None:
