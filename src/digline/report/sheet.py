@@ -250,7 +250,10 @@ p.declaration { font-family: var(--mono); font-size: .85rem; overflow-wrap: anyw
 .figure .label, .figure small { display: block; color: var(--muted); font-size: .8rem; }
 .figure .value { display: block; font-size: 1.3rem;
                  font-variant-numeric: tabular-nums; }
-td.said { max-width: 32rem; overflow-wrap: anywhere; }
+/* A recorded answer and a sentence about it wrap, where a wide page's cells
+   do not: one long answer would otherwise push the table off the page. */
+body.wide td.said, body.wide td.state { white-space: normal; min-width: 10rem;
+                                        overflow-wrap: anywhere; }
 .card { background: var(--surface); border: 1px solid var(--line);
         border-radius: var(--radius); margin: 1rem 0; }
 .chart { padding: .5rem .25rem 0; }

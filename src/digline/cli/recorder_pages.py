@@ -174,7 +174,7 @@ def _answer_row(
         f"<td>{setups}</td>"
         f'<td class="said">{escape(shown)}{more}</td>'
         f'<td class="num">×{answer.times}</td>'
-        f"<td>{escape(answer_state(answer))}</td>"
+        f'<td class="state">{escape(answer_state(answer))}</td>'
         "</tr>"
     )
 
