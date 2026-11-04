@@ -56,7 +56,7 @@ from digline.core import (
     unreconciled_verdict,
     with_noise_interval,
 )
-from digline.core.protocols import DeclaresPrice
+from digline.core.protocols import AroundTarget, DeclaresPrice
 from digline.core.refused import RefusedError, Written
 from digline.run.suite import Calibration, Case, Suite
 
@@ -743,6 +743,21 @@ def _replaying(target: Target) -> bool:
     return isinstance(target, Replay)
 
 
+def _called(
+    target: Target, case: Case, around_target: AroundTarget[Response] | None
+) -> Response:
+    """One call of the target, inside `around_target` where there is one, and
+    settled by it. What is not a `Response` is not settled: the shape check
+    after the call says what it is."""
+    if around_target is None:
+        return target(case)
+    with around_target() as settle:
+        answered = target(case)
+        if not isinstance(answered, Response):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return answered
+        return settle(answered)
+
+
 def _run_case(
     suite: Suite,
     target: Target,
@@ -751,6 +766,7 @@ def _run_case(
     judge_samples: int,
     declared: Declared,
     unpriced: dict[str, None],
+    around_target: AroundTarget[Response] | None = None,
 ) -> tuple[CaseResult, Cause, CallTotals]:
     """The case, which layer errored it, and what its calls consumed.
 
@@ -800,7 +816,7 @@ def _run_case(
     answers: list[RecordedResponse] = []
     for _ in range(suite.samples):
         try:
-            response = target(case)
+            response = _called(target, case, around_target)
         except Exception as exc:  # noqa: BLE001 — a target that raises errors the case
             # The failure cannot be handed to the assertions. What they may read
             # of `EvaluatorInputs.metadata` is what a *response* reported —
@@ -1224,6 +1240,7 @@ def execute(
     pricing: str | None = None,
     judge_samples: int = 0,
     spent: CallTotals | None = None,
+    around_target: AroundTarget[Response] | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -1278,6 +1295,14 @@ def execute(
     answers move too, and the range would be the target's and the judge's
     together under the judge's name. The run returned carries no marker of it;
     `rejudge` stamps `Run.judge_samples` beside `rejudged_from`. (ADR 0024 §5.2)
+
+    `around_target` is entered around **each call of the target**, and only
+    that call, and its `settle` is applied to what the target returned before
+    the mapper and the assertions read it. `None`, the default, is no hook: the
+    response is the target's. `digline.host` passes
+    `digline.recorder.collecting`, so a run reads the calls a target makes
+    through wrapped clients; a library caller passes it the same way, and
+    without it a target's response is what it reports. (ADR 0060 §3)
     """
     # **The invariant that catches a disconnected caller**, and it is here rather
     # than in a test because a test cannot be forgotten into existence. A suite
@@ -1379,7 +1404,14 @@ def execute(
             results.append(reuse[case.id])
             continue
         result, cause, line = _run_case(
-            suite, target, mapper, case, judge_samples, declared, unpriced
+            suite,
+            target,
+            mapper,
+            case,
+            judge_samples,
+            declared,
+            unpriced,
+            around_target,
         )
         results.append(result)
         billed = billed + line

@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
@@ -45,6 +45,7 @@ from digline.core.refused import RefusedError, Written
 from digline.core.run import (
     RecordedResponse,
     RecordedToolCall,
+    record_trajectory,
     recorded_response_from_dict,
     recorded_response_to_dict,
     recorded_tool_call_from_dict,
@@ -59,6 +60,8 @@ __all__ = [
     "recording_from_dict",
     "recording_to_dict",
     "setup_digest_of",
+    "steps_as_reported",
+    "steps_of",
 ]
 
 #: The recording's format version. Independent of `SCHEMA_VERSION` and of
@@ -163,6 +166,66 @@ class RecordedStep:
                 "RecordedStep.finish must be a non-empty string, or None where "
                 "none was reported"
             )
+
+
+def steps_of(
+    calls: Iterable[tuple[str | None, Sequence[RecordedToolCall] | None]],
+) -> tuple[RecordedStep, ...]:
+    """The steps of a trajectory, from its calls to a model, in order.
+    (ADR 0060 §1)
+
+    Each call is the `finish` its reply reported and the tool calls it asked
+    for. It becomes one `model` step with that finish, then one `tool` step
+    per tool call, indexed from 0 across the whole trajectory. A call whose
+    tool calls are `None`, nobody said, is its model step alone.
+
+    The one place steps are made: a reply's metadata, a run's collection and
+    the close of an episode all come here, so the three cannot order a
+    trajectory three ways.
+    """
+    steps: list[RecordedStep] = []
+    for finish, called in calls:
+        steps.append(RecordedStep(index=len(steps), actor="model", finish=finish))
+        for call in called or ():
+            steps.append(RecordedStep(index=len(steps), actor="tool", call=call))
+    return tuple(steps)
+
+
+def steps_as_reported(
+    calls: Sequence[tuple[str | None, Sequence[Mapping[str, object]] | None]],
+) -> list[dict[str, object]] | None:
+    """The steps as `metadata["response"]["steps"]` holds them, or `None`.
+    (ADR 0060 §1, §2)
+
+    Each call is its `finish` and its tool calls in the form
+    `metadata["response"]["tool_calls"]` already uses. `steps_of` decides the
+    order and the indices; each tool step then carries its call in that live
+    form, inline beside `index` and `actor`, so a reader finds the same call
+    the same way in both keys.
+
+    `None` where any call's tool calls are `None`: steps that left a call's
+    tools out would say it called none, so a check that counts tool steps
+    would pass on what nobody reported. The calls are read by
+    `record_trajectory`, the run document's own reader, and a malformed one is
+    refused there rather than skipped.
+    """
+    recorded: list[tuple[str | None, Sequence[RecordedToolCall]]] = []
+    live: list[Mapping[str, object]] = []
+    for finish, called in calls:
+        if called is None:
+            return None
+        recorded.append((finish, record_trajectory({"tool_calls": called}) or ()))
+        live.extend(called)
+    reported: list[dict[str, object]] = []
+    at = iter(live)
+    for step in steps_of(recorded):
+        entry: dict[str, object] = {"index": step.index, "actor": step.actor}
+        if step.actor == "tool":
+            entry.update(next(at))
+        elif step.finish is not None:
+            entry["finish"] = step.finish
+        reported.append(entry)
+    return reported
 
 
 @dataclass(frozen=True, slots=True)

@@ -118,6 +118,7 @@ from digline.core.projection import (
     project_served,
 )
 from digline.core.protocols import (
+    AroundTarget,
     Assertion,
     AsyncJudge,
     ClaimJudge,
@@ -289,6 +290,7 @@ __all__ = [
     "F1",
     "Accuracy",
     "Affix",
+    "AroundTarget",
     "Assertion",
     "AssertionBase",
     "AssertionShapeError",
