@@ -16,6 +16,12 @@ notes under them are this file, verbatim.
   to `spent_usd`, so a `0.0` could be a judge that cost nothing or one none
   of whose calls could be priced, and outside a run nothing told the two
   apart (#569; reported by the brief project). `spent_usd` does not change.
+- **A recording is no longer `fsync`ed**: it is still written to a temporary
+  file and linked into place, so no reader sees half of one, and it is
+  durable at the operating system's pace, so a crash of the machine may lose
+  the last recordings. On a CI Linux runner, writing one recording with its
+  sync took 21 to 117 ms, and held the caller, an event loop among them, for
+  as long (ADR 0058 §10).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

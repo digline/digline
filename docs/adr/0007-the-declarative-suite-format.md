@@ -485,6 +485,14 @@ cost for world 2's software house, and it is the right one: the case where a
 payload leaves a perimeter is the case that should be hard to reach by
 accident.
 
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §4),
+and the section above kept as written.* The rule stands for `Disclosure`. It
+no longer covers a capture source, which ADR 0023 §3 had borrowed it for. A
+`[capture]` table in a versioned, reviewed file is *"a change somebody
+wrote"* as much as Python is, and a copied template is copied in either. So
+`repository` stays mandatory with no default in both forms, and the import
+prints the whole declaration at every use.
+
 ### 8. Built for machine generation and human review
 
 The format is designed to be **written by a program and read by a person**,

@@ -1946,6 +1946,16 @@ class RecordingWriter:
     rule as a journal leg's `O_CREAT|O_EXCL`, for a file that must be whole
     before anybody sees it.
 
+    **A recording is never `fsync`ed.** It is durable at the operating
+    system's pace, and a crash of the machine may lose the last recordings
+    written before it. A recording is a sample, not a ledger: losing one to a
+    crash is accepted, and holding every call while the disk syncs is not.
+    Measured on a CI Linux runner on 2026-11-03, writing one recording with
+    its `fsync` took 21 to 117 ms, where the layout and the link together took
+    under 1 ms. Only the recording's own file is concerned: the
+    temporary file and `os.link` stay, so a reader still never sees half of
+    one. (ADR 0058 §10)
+
     One writer may be shared by threads: choosing a subdirectory and a number
     happens under a lock.
     """
@@ -2002,10 +2012,9 @@ class RecordingWriter:
         path = self._next_path(_check_name(recording.source_tenant, "tenant"))
         fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
         try:
+            # Closed, which flushes it, and never `fsync`ed: see the class.
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 handle.write(payload)
-                handle.flush()
-                os.fsync(handle.fileno())
             try:
                 os.link(tmp, path)
             except FileExistsError:
