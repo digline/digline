@@ -53,6 +53,12 @@ notes under them are this file, verbatim.
   declares it as a `[capture]` table, with `cases` an array of files.
   `Suite.deterministic_output` makes a yes also write an `expected`. The
   declaration is printed at every use (ADR 0059 §2–§4).
+- **The Claude Code plugin's hook asks before an import that writes and
+  before `digline record on`**: `digline record import` with `--good` or
+  `--bad`, and `record on`, which decides what of an application's calls is
+  kept. The listing, `off`, `status` and `compare` are not asked about.
+  `digline record` now refuses an abbreviated option, so `--good` and `--bad`
+  have no other spelling for the hook to miss.
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

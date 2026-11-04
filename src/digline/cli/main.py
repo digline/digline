@@ -2044,6 +2044,11 @@ def build_parser() -> argparse.ArgumentParser:
     rec_p = subparsers.add_parser(
         "record",
         help="switch the recorder on or off for a tenant, or read its status",
+        # `--good` and `--bad` are watched by name, as `view --allow-promote`
+        # is: the Claude Code plugin's hook asks a person before an import
+        # that writes, and a prefix argparse took for them would pass it in
+        # silence. So the full word is the only spelling. (ADR 0059 §1)
+        allow_abbrev=False,
     )
     rec_p.add_argument(
         "action",

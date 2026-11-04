@@ -424,8 +424,9 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/mcp.md`](docs/mcp.md) · [`docs/pytest.md`](docs/pytest.md) — the two front ends that are not the CLI
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`plugins/digline/`](plugins/digline/README.md) — the same rules as a Claude Code
-  plugin, with the MCP server and a hook that asks a person before `promote` or
-  `register`
+  plugin, with the MCP server and a hook that asks a person before `promote`,
+  `register`, `view --allow-promote`, an import that writes a yes or no, and
+  `record on`
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
 ## License
