@@ -205,9 +205,14 @@ def test_max_steps_passes_within_the_limit() -> None:
 
 def test_max_steps_fails_over_the_limit_counting_the_actor_named() -> None:
     assert status(MaxSteps(limit=2, count="model"), steps=GOOD) == "fail"
-    verdict = judged(MaxSteps(limit=2, count="tool"), steps=GOOD)
+    # Two turns and four calls: each count is read from its own actor.
+    busy = steps(
+        model(), tool("a"), tool("b"), tool("c"), model(), tool("d"), model("stop")
+    )
+    assert status(MaxSteps(limit=3, count="model"), steps=busy) == "pass"
+    verdict = judged(MaxSteps(limit=3, count="tool"), steps=busy)
     assert verdict.status == "fail"
-    assert verdict.score.metadata == {"steps": 3, "limit": 2}
+    assert verdict.score.metadata == {"steps": 4, "limit": 3}
 
 
 def test_max_steps_errors_without_steps_and_names_wrap() -> None:
