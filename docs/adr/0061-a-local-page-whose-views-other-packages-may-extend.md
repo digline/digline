@@ -218,6 +218,25 @@ whatever the server prints.
    `Content-Security-Policy: default-src 'none'; style-src 'self';
    script-src 'self'; form-action 'self'; frame-ancestors 'none'`, with
    `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
+
+   *Noted 2026-11-04, the sentence above kept as written: `Referrer-Policy`
+   is `same-origin`.* Measured that day in HeadlessChrome 156 on macOS, with a
+   page served under each policy and a form posting to its own origin, the
+   server logging what arrived:
+
+   | `Referrer-Policy` | `Origin` | `Referer` |
+   |---|---|---|
+   | `no-referrer` | `null` | absent |
+   | `same-origin` | the page's origin | the page's address |
+   | `strict-origin-when-cross-origin` | the page's origin | the page's address |
+
+   Under `no-referrer` the origin check of §4.1 refused every form the page
+   posted, promotion's included, and no write reached the store from a real
+   browser. `same-origin` is the stricter of the two that send the origin: to
+   another origin it sends no referrer at all, so a run key in an address
+   still does not leave with a link. `Origin: null` stays refused, in a
+   sentence of its own: it is what a page opened from a file, a sandboxed
+   frame or an extension sends, and none of them is this server's page.
    - **Styles and scripts come from the server's own files** (§7), and from
      nowhere else: no `style` attribute, no `<style>` element, and no
      `<script>` with a body that runs. The one `<script>` without a `src` that

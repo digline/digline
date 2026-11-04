@@ -37,6 +37,7 @@ import shlex
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlencode
 
 from digline.host.importing import (
     ImportAnswer,
@@ -97,10 +98,14 @@ def _hue(setup: str, order: Sequence[str]) -> str:
     return f"setup s{index % 3 + 1}"
 
 
-def _tag(setup: str, order: Sequence[str], suffix: str = "") -> str:
+def _tag(setup: str, order: Sequence[str], locale: Locale, suffix: str = "") -> str:
+    """A setup by the first eight characters of its digest, as `digline record
+    compare` prints it; the whole digest, which the cases file holds, is in the
+    title, so a browser shows it without a script."""
+    title = phrase(locale, "view.setups.digest", digest=setup)
     return (
-        f'<code class="{_hue(setup, order)}">{escape(setup[:SHORT])}</code>'
-        f"{escape(suffix)}"
+        f'<code class="{_hue(setup, order)}" title="{escape(title)}">'
+        f"{escape(setup[:SHORT])}</code>{escape(suffix)}"
     )
 
 
@@ -295,7 +300,7 @@ def _answer_row(
     whole = answer_address(declaration.tenant, declaration.suite, answer.id)
     earlier = f" ({phrase(locale, 'view.recordings.earlier')})"
     setups = ", ".join(
-        _tag(setup, order, "" if setup == found.setup else earlier)
+        _tag(setup, order, locale, "" if setup == found.setup else earlier)
         for setup in answer.setups
     )
     shown = answer.text[:SHOWN_CHARS]
@@ -358,7 +363,7 @@ def answer_page(found: ImportListing, answer: ImportAnswer, *, locale: Locale) -
         + f"<dt>{escape(phrase(locale, 'view.recordings.column.when'))}</dt>"
         + f"<dd>{escape(when)}</dd>"
         + f"<dt>{escape(phrase(locale, 'view.recordings.column.setup'))}</dt>"
-        + f"<dd>{', '.join(_tag(setup, order) for setup in answer.setups)}</dd>"
+        + f"<dd>{', '.join(_tag(s, order, locale) for s in answer.setups)}</dd>"
         + f"<dt>{escape(phrase(locale, 'view.recordings.column.times'))}</dt>"
         + f"<dd>×{answer.times}</dd>"
         + f"<dt>{escape(phrase(locale, 'view.recordings.column.state'))}</dt>"
@@ -393,7 +398,7 @@ def setups_page(found: RecordComparison, *, locale: Locale) -> str:
             "note",
         ),
         f"<h2>{escape(phrase(locale, 'view.setups.setups'))}</h2>\n",
-        f"<p>{' '.join(_tag(setup, order) for setup in order) or '—'}</p>\n",
+        f"<p>{' '.join(_tag(s, order, locale) for s in order) or '—'}</p>\n",
     ]
     if len(order) > 1:
         body.append(_pair_form(found, locale))
@@ -509,11 +514,15 @@ def _case(
     found: RecordComparison, case: ComparedCase, order: Sequence[str], locale: Locale
 ) -> str:
     heading = phrase(locale, "view.setups.case", case_id=case.id, kind=case.kind)
-    alone = setups_address(found.tenant, found.suite)
+    # The pair chosen stays chosen: the case alone, side by side as before.
+    query = [("case", case.id)]
+    query += [("setup", setup[:SHORT]) for setup in found.pair or ()]
+    query.append(("locale", locale))
+    alone = setups_address(found.tenant, found.suite) + "?" + urlencode(query)
     link = (
         ""
         if found.case is not None
-        else f' <a href="{escape(alone)}?case={escape(case.id)}&amp;locale={locale}">'
+        else f' <a href="{escape(alone)}">'
         f"{escape(phrase(locale, 'view.setups.over_time'))}</a>"
     )
     columns = _head("view.setups.column", ("when", "setup", "digest", "answer"), locale)
@@ -523,7 +532,7 @@ def _case(
         side = ""
         if found.pair is not None:
             side = "A " if setup.setup == found.pair[0] else "B "
-        tag = f"{escape(side)}{_tag(setup.setup, order)}"
+        tag = f"{escape(side)}{_tag(setup.setup, order, locale)}"
         if not setup.answers:
             rows.append(
                 f'<tr><td></td><td>{tag}</td><td colspan="3" class="absent">'

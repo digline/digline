@@ -164,7 +164,7 @@ def test_every_response_carries_the_policy(
     for target, answer in every_response(port, key, newer, launch):
         assert answer.header("Content-Security-Policy") == WANTED, target
         assert answer.header("X-Content-Type-Options") == "nosniff", target
-        assert answer.header("Referrer-Policy") == "no-referrer", target
+        assert answer.header("Referrer-Policy") == "same-origin", target
 
 
 def test_no_page_the_server_sends_carries_anything_inline(
