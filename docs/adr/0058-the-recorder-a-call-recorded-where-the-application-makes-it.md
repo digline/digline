@@ -302,6 +302,15 @@ the target already uses.
 name and the same type as the field it becomes. The collision between the
 working name and `Case.label` was what showed that they were one datum.
 
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)),
+and the section above kept as written.* The yes or no at the import is not
+`Case.label`. `Label` is the class of the input where a suite has ground
+truth, and the person at the import judges the recorded answer. So the yes
+or no makes a case of a kind of its own, a reviewed answer, judged by the
+named check and failing where the judge contradicts the person. The import
+no longer writes `Case.label`, and the `label` compartment of a recording
+stays what it is: a label given downstream, or a labelled archive.
+
 ### 8. The setup of an episode
 
 **An episode's `setup_digest` is the digest of its children's setups and the

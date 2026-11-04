@@ -610,6 +610,14 @@ company's documents — and it is a separate decision under ADR 0015's rules.
 **The canary watches whether the model is still that model; the calibration
 case watches whether the scale is still a scale.**
 
+*Noted 2026-11-03 ([ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §1):
+this section does not change, and a kind of case is set beside it.* A
+person's yes or no on a recorded answer is not a calibration case: it asks
+for an extreme, and a band here lies strictly between 0 and 1. It borrows
+§4.1's fixed answer and §4.3's single check. It fails the case where the
+judge contradicts the person, never `scale_lost`, and it is kept in the gate
+and out of the aggregate accuracy.
+
 #### 4.1 It is a fixed answer, not a flag on a generated one
 
 A canary asks the target. A calibration case cannot: its whole premise is an
