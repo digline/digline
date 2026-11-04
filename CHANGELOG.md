@@ -29,6 +29,11 @@ notes under them are this file, verbatim.
   through `execute(around_target=...)`, which `digline run` and the MCP server
   pass; the response then sums usage and the model's time, without the tools'
   (ADR 0060 §1–§3).
+- **Four checks on an agent's steps**: `Subsequence`, `Before`, `Never` and
+  `MaxSteps(limit, count=)`, in Python and in TOML. The three on order read
+  the steps, or `tools` where there are none; `MaxSteps` reads the steps
+  alone. A suite that declares two of them that cannot both pass is refused
+  (ADR 0060 §4).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

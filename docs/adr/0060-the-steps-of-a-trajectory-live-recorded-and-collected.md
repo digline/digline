@@ -198,6 +198,16 @@ it.
   a price list is priced with it. The reason is measured: a recording map
   reads a reply with no price list (`digline_openai/recording.py:76`, an empty
   one), and a function target has none the driver could read.
+
+  *Noted 2026-11-04, by Alessandro Prandini's ruling, and the bullet above
+  kept as written: priced at the model each call reports.* A target with a
+  price list is every `ProviderTarget`, whether the suite declared its prices
+  or the plugin shipped them. Each collected call is priced at the model the
+  call reports, its resolved id, and not at the model the target was asked
+  for, because an agent may call two. A call whose model the list does not
+  have is not priced, and `unpriced` names the model. Bedrock's reply names no
+  model, so a call collected through it is never priced. One call not priced
+  leaves the case's cost unknown, because a partial cost is not a cost.
 - **An episode the application opens inside the target.** Off, it is the empty
   context it is today (`recorder.py:1795`), and its calls reach the case's
   collection. On, it records as it does today, and its calls reach the
