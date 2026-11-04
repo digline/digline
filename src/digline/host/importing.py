@@ -89,13 +89,18 @@ __all__ = [
     "Shape",
     "SuiteRecorded",
     "answer_id",
+    "answer_state",
     "capture_file",
+    "closing_lines",
+    "group_line",
     "import_elect",
     "import_listing",
     "imported_since",
+    "input_line",
     "listing_lines",
     "read_recordings",
     "refuse_another_tenant",
+    "setup_line",
     "split_recordings",
     "unloaded_capture",
     "written_lines",
@@ -687,24 +692,34 @@ def imported_since(
     ), len(mine)
 
 
+def answer_state(answer: ImportAnswer) -> str:
+    """Whether an answer can be named, said as the listing says it: already in
+    the file with the flag that put it there, why it cannot be, or
+    `electable`."""
+    if answer.elected is not None:
+        return f"already in the file, {'--good' if answer.elected else '--bad'}"
+    if answer.refusal is not None:
+        return f"not electable: {answer.refusal}"
+    return "electable"
+
+
+def input_line(answer: ImportAnswer) -> str:
+    """The input an answer was given, as the listing prints it."""
+    return json.dumps(answer.vars, ensure_ascii=False, sort_keys=True)
+
+
 def _say_answer(answer: ImportAnswer, setup: str | None) -> list[str]:
     setups = ", ".join(
         f"{s[:SHORT]}{'' if s == setup else ' (earlier)'}" for s in answer.setups
     )
     times = f" · ×{answer.times}" if answer.times > 1 else ""
     attached = f" · {answer.attached} calls attached" if answer.attached else ""
-    if answer.elected is not None:
-        state = f"already in the file, {'--good' if answer.elected else '--bad'}"
-    elif answer.refusal is not None:
-        state = f"not electable: {answer.refusal}"
-    else:
-        state = "electable"
     return [
         f"  {answer.id} · {answer.first_at or 'undated'} · setup {setups}"
         f"{times}{attached}",
-        f"    input:  {json.dumps(answer.vars, ensure_ascii=False, sort_keys=True)}",
+        f"    input:  {input_line(answer)}",
         f"    answer: {answer.text}",
-        f"    {state}",
+        f"    {answer_state(answer)}",
     ]
 
 
@@ -716,22 +731,38 @@ def listing_lines(found: ImportListing) -> list[str]:
     """The listing as the person reads it: the declaration, then each group
     with its count, then what is not a case. Built here, laid out by the CLI,
     and in no order but the files'."""
-    lines = [found.declaration.line()]
-    lines.append(
-        f"  setup in force: {(found.setup or 'none')[:SHORT]} · "
-        f"deterministic_output {'true' if found.deterministic_output else 'false'}"
-    )
+    lines = [found.declaration.line(), f"  {setup_line(found)}"]
     for number, group in enumerate(found.groups, start=1):
         lines.append("")
-        lines.append(
-            f"group {number} · {group.shape.says()} · "
-            f"{_many(len(group.answers), 'answer')} from "
-            f"{_many(group.recordings, 'recording')}"
-        )
+        lines.append(group_line(number, group))
         for answer in group.answers:
             lines.extend(_say_answer(answer, found.setup))
     lines.append("")
-    lines.append(
+    lines.extend(closing_lines(found))
+    return lines
+
+
+def setup_line(found: ImportListing) -> str:
+    """The setup in force and whether the suite's output is deterministic."""
+    return (
+        f"setup in force: {(found.setup or 'none')[:SHORT]} · "
+        f"deterministic_output {'true' if found.deterministic_output else 'false'}"
+    )
+
+
+def group_line(number: int, group: ImportGroup) -> str:
+    """A group's heading: its number, its shape and what it counts."""
+    return (
+        f"group {number} · {group.shape.says()} · "
+        f"{_many(len(group.answers), 'answer')} from "
+        f"{_many(group.recordings, 'recording')}"
+    )
+
+
+def closing_lines(found: ImportListing) -> list[str]:
+    """What the listing says after its groups: what it counted and what is not
+    a case, then why nothing can be written or how to write."""
+    lines = [
         f"{_many(len(found.answers), 'answer')} in "
         f"{_many(len(found.groups), 'group')}, from "
         f"{_many(found.recordings, 'recording')} of the suite; not cases: "
@@ -739,7 +770,7 @@ def listing_lines(found: ImportListing) -> list[str]:
         f"among the files, {found.interrupted} interrupted episodes, "
         f"{found.oversize} over the ceiling of a recording, {found.unreadable} "
         "files that are not readable recordings"
-    )
+    ]
     if found.declaration.repository == "public":
         lines.append(
             'repository = "public": this lists, and writing is refused, because '
