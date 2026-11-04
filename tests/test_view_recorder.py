@@ -30,25 +30,38 @@ from __future__ import annotations
 import hashlib
 import http.client
 import json
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 import threading
-from collections.abc import Iterator
-from dataclasses import dataclass
+import urllib.parse
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
 from email.message import Message
 from functools import partial
 from html import unescape
 from html.parser import HTMLParser
 from http.server import ThreadingHTTPServer
+from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from tests.test_view_policy import WANTED, inline_in
 
-from digline.cli import recorder_pages
-from digline.cli.recorder_pages import SHOWN_CHARS
-from digline.cli.view import HOST, ViewHandler, self_netlocs
+from digline.cli import EXIT_OK, recorder_pages
+from digline.cli.main import build_parser, main
+from digline.cli.recorder_pages import (
+    SHOWN_CHARS,
+    Field,
+    command_line,
+    import_fields,
+    switch_fields,
+)
+from digline.cli.view import HOST, Launch, ViewHandler, self_netlocs
 from digline.core.recording import RecordedStep, Recording, setup_digest_of
 from digline.core.run import RecordedResponse
 from digline.host import (
@@ -74,6 +87,13 @@ from digline.wire.record_compare import (
     ComparedSetup,
     RecordComparison,
 )
+
+#: The flags every command under a button carries, on a server started from
+#: the store's directory with `--suite suites/suite.py`.
+WRITES = ["--tenant", "acme", "--suite", "suites/suite.py"]
+
+#: And every `digline record on|off` under a button of the recorder's page.
+SWITCH = ["--tenant", "acme"]
 
 LONG_PROMPT = "Be brief and kind.\n" + "Never promise a refund. " * 20
 SETUP_1: dict[str, object] = {"model": "m", "system": "Be brief.", "temperature": 0}
@@ -213,7 +233,7 @@ def test_the_recordings_page_says_the_listing_s_own_sentences(root: Path) -> Non
     """The declaration, the setup in force, each group's heading and the
     closing lines are the host's, the ones `digline record import` prints."""
     found = listing(root)
-    page = recorder_pages.recordings_page(found, locale="en", allow_record=False)
+    page = recorder_pages.recordings_page(found, locale="en", writes=None)
     said = unescape(page)
     sentences = [
         found.declaration.line(),
@@ -230,7 +250,7 @@ def test_the_recordings_page_says_the_listing_s_own_sentences(root: Path) -> Non
 
 def test_each_answer_is_a_row_with_its_id_date_setup_and_count(root: Path) -> None:
     found = listing(root)
-    page = recorder_pages.recordings_page(found, locale="en", allow_record=False)
+    page = recorder_pages.recordings_page(found, locale="en", writes=None)
     repeated = answer_id(REFUND, "refunds in 14 days")
     assert f'<code class="key">{repeated}</code>' in page
     row = page[page.index(repeated) :]
@@ -244,7 +264,7 @@ def test_each_answer_is_a_row_with_its_id_date_setup_and_count(root: Path) -> No
 
 def test_a_long_answer_is_cut_with_a_link_to_the_whole_of_it(root: Path) -> None:
     found = listing(root)
-    page = recorder_pages.recordings_page(found, locale="en", allow_record=False)
+    page = recorder_pages.recordings_page(found, locale="en", writes=None)
     long_id = answer_id(REFUND, LONG_ANSWER)
     whole = answer_address("acme", "triage", long_id)
     assert unescape(LONG_ANSWER[:SHOWN_CHARS]) + "…" in unescape(page)
@@ -261,9 +281,7 @@ def test_a_long_answer_is_cut_with_a_link_to_the_whole_of_it(root: Path) -> None
 
 
 def test_markup_in_an_answer_is_text(root: Path) -> None:
-    page = recorder_pages.recordings_page(
-        listing(root), locale="en", allow_record=False
-    )
+    page = recorder_pages.recordings_page(listing(root), locale="en", writes=None)
     assert inline_in(page) == []
     assert MARKUP in text_of(page)
 
@@ -278,7 +296,7 @@ def test_nothing_is_ranked_pre_selected_or_offered_for_many(root: Path) -> None:
     advance, and nothing that acts on more than one answer."""
     found = listing(root)
     for locale in ("en", "it"):
-        page = recorder_pages.recordings_page(found, locale=locale, allow_record=True)
+        page = recorder_pages.recordings_page(found, locale=locale, writes=WRITES)
         seen = text_of(page).lower()
         for word in RANKING:
             assert word not in seen, (locale, word)
@@ -290,12 +308,8 @@ def test_nothing_is_ranked_pre_selected_or_offered_for_many(root: Path) -> None:
 def test_the_note_on_writes_is_there_without_the_flag(root: Path) -> None:
     found = listing(root)
     note = "served only by digline view --allow-record"
-    assert note in recorder_pages.recordings_page(
-        found, locale="en", allow_record=False
-    )
-    assert note not in recorder_pages.recordings_page(
-        found, locale="en", allow_record=True
-    )
+    assert note in recorder_pages.recordings_page(found, locale="en", writes=None)
+    assert note not in recorder_pages.recordings_page(found, locale="en", writes=WRITES)
 
 
 # -- across setups ------------------------------------------------------------- #
@@ -400,7 +414,7 @@ def figures(page: str) -> list[str]:
 def test_the_recorder_opens_with_its_four_figures(root: Path) -> None:
     status = status_of(root, read=True)
     page = recorder_pages.recorder_page(
-        status, suite="triage", locale="en", allow_record=False
+        status, suite="triage", locale="en", writes=None
     )
     held = sum(s.calls + s.episodes for s in status.suites)
     [triage] = [s for s in status.suites if s.suite == "triage"]
@@ -419,7 +433,7 @@ def test_the_recorder_opens_with_its_four_figures(root: Path) -> None:
 
 def test_to_import_says_not_read_where_no_draft_was_read(root: Path) -> None:
     page = recorder_pages.recorder_page(
-        status_of(root, read=False), suite="triage", locale="en", allow_record=False
+        status_of(root, read=False), suite="triage", locale="en", writes=None
     )
     assert figures(page)[3] == "not read"
     assert "0" not in figures(page)[3]
@@ -439,10 +453,29 @@ class Answer:
 class Served:
     port: int
     root: Path
+    #: The cookie of the browser that opened the address, on a server that
+    #: writes; empty on one that does not.
+    cookie: str = ""
 
-    def ask(self, method: str, target: str, body: str = "") -> Answer:
+    @property
+    def writing(self) -> bool:
+        return bool(self.cookie)
+
+    def ask(
+        self,
+        method: str,
+        target: str,
+        body: str = "",
+        *,
+        cookie: bool = True,
+        origin: str = "",
+    ) -> Answer:
         connection = http.client.HTTPConnection(HOST, self.port, timeout=10)
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
+        if cookie and self.cookie:
+            headers["Cookie"] = self.cookie
+        if origin:
+            headers["Origin"] = origin
         connection.request(method, target, body=body or None, headers=headers)
         answer = connection.getresponse()
         text = answer.read().decode("utf-8")
@@ -450,20 +483,27 @@ class Served:
         return Answer(answer.status, answer.msg, text)
 
 
-@pytest.fixture(params=[False, True], ids=["read-only", "allow-record"])
-def served(root: Path, request: pytest.FixtureRequest) -> Iterator[Served]:
+@contextmanager
+def serving(
+    root: Path, *, allow_record: bool, allow_promote: bool = False
+) -> Generator[tuple[Served, Launch | None]]:
     """The server in this process, on loopback, in a thread, as `serve()`
-    builds it: the suite and the module it was loaded from."""
+    builds it: the suite, the module it was loaded from, `--suite` as typed,
+    and a launch key where a flag asks for one. Its address not yet opened."""
     found = loaded(root)
     known: set[str] = set()
+    launch = Launch.minted() if allow_record or allow_promote else None
     handler = partial(
         ViewHandler,
         suite=found.suite,
         store=FileResultStore(root),
         known=known,
-        allow_record=request.param,
+        launch=launch,
+        promote=allow_promote,
+        allow_record=allow_record,
         root=str(root),
         module=found.module,
+        suite_arg="suites/suite.py",
     )
     httpd = ThreadingHTTPServer((HOST, 0), handler)  # pyright: ignore[reportArgumentType]
     port = int(httpd.server_address[1])
@@ -471,11 +511,36 @@ def served(root: Path, request: pytest.FixtureRequest) -> Iterator[Served]:
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     try:
-        yield Served(port, root)
+        yield Served(port, root), launch
     finally:
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=10)
+
+
+def opened(served: Served, launch: Launch) -> Served:
+    """The address opened in a browser: the key spent, the cookie kept."""
+    handed = served.ask("GET", f"/?launch={launch.key}")
+    assert handed.status == 303, handed.body
+    cookie = handed.headers.get("Set-Cookie", "").split(";")[0]
+    assert cookie, "the hand-over set no cookie"
+    return Served(served.port, served.root, cookie)
+
+
+@pytest.fixture(params=[False, True], ids=["read-only", "allow-record"])
+def served(root: Path, request: pytest.FixtureRequest) -> Iterator[Served]:
+    """The read-only server, and the one started with `--allow-record` whose
+    address a browser has opened."""
+    with serving(root, allow_record=request.param) as (server, launch):
+        yield server if launch is None else opened(server, launch)
+
+
+@pytest.fixture
+def writing(root: Path) -> Iterator[Served]:
+    """`digline view --allow-record`, its address opened."""
+    with serving(root, allow_record=True) as (server, launch):
+        assert launch is not None
+        yield opened(server, launch)
 
 
 def views(served: Served) -> list[str]:
@@ -515,11 +580,17 @@ def test_a_get_writes_nothing(served: Served) -> None:
     assert tree(served.root) == before
 
 
-def test_a_post_to_any_view_is_the_404_of_an_unknown_path(served: Served) -> None:
-    """There is no write in this release, with the flag or without it: a POST
-    is answered as any path the server does not have (ADR 0032 §2)."""
+def test_a_post_where_there_is_no_write_is_the_404_of_an_unknown_path(
+    served: Served,
+) -> None:
+    """Without `--allow-record` no view takes a POST; with it, the two that
+    write do, and the answer page and the setups still do not. Each is
+    answered as any path the server does not have (ADR 0032 §2)."""
+    writes = (recordings_address("acme", "triage"), recorder_address("acme"))
     before = tree(served.root)
     for target in views(served):
+        if served.writing and target.split("?")[0] in writes:
+            continue
         answer = served.ask("POST", target, "good=x&by=Ada")
         assert answer.status == 404, target
         assert "no such action" in answer.body, target
@@ -676,3 +747,419 @@ def compared_with(case_: ComparedCase) -> RecordComparison:
         unreadable=0,
         undated=0,
     )
+
+
+# -- the two writes (ADR 0061 §2, §4, §6) ----------------------------------------- #
+
+
+class Forms(HTMLParser):
+    """The forms that write on a page: each field with its attributes, and the
+    line under the button with the base the page's script starts from."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.fields: list[dict[str, str | None]] = []
+        self.bases: list[str] = []
+        self.lines: list[str] = []
+        self._in_line = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        named = dict(attrs)
+        if tag in ("input", "select", "textarea"):
+            self.fields.append({"tag": tag, **named})
+        if tag == "pre" and "data-base" in named:
+            self.bases.append(named["data-base"] or "")
+            self.lines.append("")
+            self._in_line = True
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "pre":
+            self._in_line = False
+
+    def handle_data(self, data: str) -> None:
+        if self._in_line:
+            self.lines[-1] += data
+
+
+def forms_of(page: str) -> Forms:
+    parser = Forms()
+    parser.feed(page)
+    parser.close()
+    return parser
+
+
+def switch_page(root: Path, writes: list[str] | None) -> str:
+    return recorder_pages.recorder_page(
+        status_of(root, read=True), suite="triage", locale="en", writes=writes
+    )
+
+
+def test_without_the_flag_there_is_no_form(root: Path) -> None:
+    for page in (
+        recorder_pages.recordings_page(listing(root), locale="en", writes=None),
+        switch_page(root, None),
+    ):
+        assert 'method="post"' not in page
+        assert forms_of(page).lines == []
+
+
+def test_the_import_form_is_served_with_nothing_chosen(root: Path) -> None:
+    """Every answer that can be named has a yes and a no, neither chosen, and
+    the line under the button is the command for the form as served: the
+    listing, which names nothing."""
+    found = listing(root)
+    page = recorder_pages.recordings_page(found, locale="en", writes=WRITES)
+    forms = forms_of(page)
+    radios = [f for f in forms.fields if f.get("type") == "radio"]
+    electable = [a for a in found.answers if a.electable]
+    assert len(electable) == 3 and len(radios) == 2 * len(electable)
+    assert all("checked" not in radio for radio in radios)
+    assert forms.lines == [
+        "digline record import --tenant acme --suite suites/suite.py"
+    ]
+    assert forms.bases == forms.lines
+    # An answer that cannot be named has no choice beside it.
+    held = {f["data-value"] for f in radios}
+    assert held == {a.id for a in electable}
+
+
+def test_the_switch_form_is_served_with_the_file_s_values(root: Path) -> None:
+    """`sample` is declared in the file, so it is in its field and in the line;
+    the rest are defaults, empty, as flags not given."""
+    forms = forms_of(switch_page(root, SWITCH))
+    assert forms.lines == [
+        "digline record on --tenant acme --sample 0.5",
+        "digline record off --tenant acme",
+    ]
+    sample = next(f for f in forms.fields if f.get("name") == "sample")
+    assert sample["value"] == "0.5" and sample["data-flag"] == "--sample"
+    production = next(f for f in forms.fields if f.get("name") == "production")
+    assert "checked" not in production
+
+
+def test_every_line_served_is_parsed_by_digline_s_own_parser(root: Path) -> None:
+    """A renamed flag turns the page red here, not in a person's terminal
+    (ADR 0061 §6)."""
+    lines = [
+        *forms_of(
+            recorder_pages.recordings_page(listing(root), locale="en", writes=WRITES)
+        ).lines,
+        *forms_of(switch_page(root, SWITCH)).lines,
+    ]
+    parsed = [build_parser().parse_args(shlex.split(line)[1:]) for line in lines]
+    assert [(p.command, p.action, p.tenant) for p in parsed] == [
+        ("record", "import", "acme"),
+        ("record", "on", "acme"),
+        ("record", "off", "acme"),
+    ]
+    assert parsed[0].suite == "suites/suite.py" and parsed[1].sample == 0.5
+
+
+def test_every_field_the_script_reads_names_a_flag_the_command_takes(
+    root: Path,
+) -> None:
+    """The page's script joins what each field names and holds no flag of its
+    own, so every field a person fills carries one, and each is an option of
+    `digline record` (ADR 0061 §7)."""
+    pages = (
+        recorder_pages.recordings_page(listing(root), locale="en", writes=WRITES),
+        switch_page(root, SWITCH),
+    )
+    flags: set[str] = set()
+    for page in pages:
+        for field in forms_of(page).fields:
+            if field.get("type") == "hidden":
+                assert "data-flag" not in field, field
+                continue
+            assert field.get("data-flag"), field
+            flags.add(cast(str, field["data-flag"]))
+    assert flags == {
+        "--good",
+        "--bad",
+        "--by",
+        "--production",
+        "--sample",
+        "--redact",
+        "--ceiling",
+        "--interval",
+    }
+    for flag in flags:
+        words = ["record", "on", "--tenant", "a", flag]
+        if flag != "--production":
+            words.append("1")
+        build_parser().parse_args(words)
+
+
+def test_the_script_quotes_as_the_server_does() -> None:
+    """The line the script writes and the line the server writes quote a word
+    the same way: the pattern of words left bare is read out of `chart.js`
+    and held equal to `shlex.quote`'s."""
+    script = (
+        files("digline.report")
+        .joinpath("static", "chart.js")
+        .read_text(encoding="utf-8")
+    )
+    found = re.search(r"if \(/(\^\[.+?\]\+\$)/\.test\(word\)\) return word;", script)
+    assert found is not None, "the script's quoting is not where this test reads it"
+    bare = re.compile(found.group(1).replace("\\/", "/"))
+
+    def quoted(word: str) -> str:
+        if word == "":
+            return "''"
+        if bare.fullmatch(word):
+            return word
+        return "'" + word.replace("'", "'\"'\"'") + "'"
+
+    for word in (
+        "",
+        "acme",
+        "Ada Lovelace",
+        "it's",
+        "a/b.c-d_e",
+        "x=1,2:3",
+        "é",
+        "$HOME",
+    ):
+        assert quoted(word) == shlex.quote(word), word
+
+
+def chosen(fields: list[Field], picks: dict[str, str]) -> list[Field]:
+    """The fields as a person leaves them: `picks` maps a field's name to the
+    value they chose or typed."""
+    out: list[Field] = []
+    for field in fields:
+        if field.name not in picks:
+            out.append(replace(field, set=False) if field.kind == "radio" else field)
+            continue
+        pick = picks[field.name]
+        if field.kind == "radio":
+            out.append(replace(field, set=field.value == pick))
+        elif field.kind == "checkbox":
+            out.append(replace(field, set=bool(pick)))
+        else:
+            out.append(replace(field, value=pick, word=pick, set=bool(pick)))
+    return out
+
+
+def form_body(fields: list[Field], extra: dict[str, str]) -> str:
+    """What a browser posts for these fields: the set ones, by name."""
+    pairs = list(extra.items())
+    pairs += [(f.name, f.value) for f in fields if f.set]
+    return urllib.parse.urlencode(pairs)
+
+
+def by_command(root: Path, line: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The line run as a person runs it, from the store's directory."""
+    words = shlex.split(line)
+    assert words[0] == "digline"
+    with monkeypatch.context() as patched:
+        patched.chdir(root)
+        assert main(words[1:]) == EXIT_OK, line
+
+
+def copy_of(root: Path, factory: pytest.TempPathFactory) -> Path:
+    where = factory.mktemp("by-command")
+    shutil.copytree(root, where, dirs_exist_ok=True)
+    return where
+
+
+def test_the_import_form_writes_what_its_command_writes(
+    writing: Served,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A test runs the form and the command on two copies of one store, and
+    the two stores come out identical (ADR 0061 §6). The mark has a space, so
+    the line quotes it."""
+    other = copy_of(writing.root, tmp_path_factory)
+    long_id = answer_id(REFUND, LONG_ANSWER)
+    hours_id = answer_id(HOURS, "nine to five")
+    fields = chosen(
+        import_fields(listing(writing.root)),
+        {
+            f"answer:{long_id}": "good",
+            f"answer:{hours_id}": "bad",
+            "by": "Ada Lovelace",
+        },
+    )
+    line = command_line(["digline", "record", "import", *WRITES], fields)
+    assert line == (
+        "digline record import --tenant acme --suite suites/suite.py "
+        f"--good {long_id} --bad {hours_id} --by 'Ada Lovelace'"
+    )
+    by_command(other, line, monkeypatch)
+    answer = writing.ask(
+        "POST",
+        recordings_address("acme", "triage"),
+        form_body(fields, {"locale": "en"}),
+    )
+    assert answer.status == 303, answer.body
+    assert tree(writing.root) == tree(other)
+    assert (writing.root / "suites" / "captured.json").is_file()
+
+
+def test_the_switch_forms_write_what_their_commands_write(
+    writing: Served,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    other = copy_of(writing.root, tmp_path_factory)
+    fields = chosen(
+        switch_fields(status_of(writing.root, read=False)),
+        {"production": "1", "sample": "0.25", "redact": "none", "ceiling": "4096"},
+    )
+    on = command_line(["digline", "record", "on", "--tenant", "acme"], fields)
+    assert on == (
+        "digline record on --tenant acme --production --sample 0.25 --redact none "
+        "--ceiling 4096"
+    )
+    by_command(other, on, monkeypatch)
+    answer = writing.ask(
+        "POST", recorder_address("acme"), form_body(fields, {"action": "on"})
+    )
+    assert answer.status == 303, answer.body
+    assert tree(writing.root) == tree(other)
+
+    by_command(other, "digline record off --tenant acme", monkeypatch)
+    answer = writing.ask("POST", recorder_address("acme"), "action=off&locale=it")
+    assert answer.status == 303, answer.body
+    assert tree(writing.root) == tree(other)
+    assert "on = false" in (writing.root / ".digline/acme/recorder.toml").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_a_write_is_a_303_to_the_page_that_reads_it(writing: Served) -> None:
+    long_id = answer_id(REFUND, LONG_ANSWER)
+    body = urllib.parse.urlencode(
+        {"locale": "it", f"answer:{long_id}": "good", "by": "Ada"}
+    )
+    answer = writing.ask("POST", recordings_address("acme", "triage"), body)
+    assert answer.status == 303
+    assert answer.headers.get("Location") == (
+        recordings_address("acme", "triage") + "?locale=it"
+    )
+    assert answer.headers.get("Content-Security-Policy") == WANTED
+    before = tree(writing.root)
+    page = writing.ask("GET", answer.headers["Location"]).body
+    assert "already in the file, --good" in page
+    assert tree(writing.root) == before  # the reload reads, and writes nothing
+
+
+def test_a_post_without_the_cookie_is_refused_and_writes_nothing(
+    writing: Served,
+) -> None:
+    before = tree(writing.root)
+    for target, body in (
+        (recorder_address("acme"), "action=off"),
+        (recordings_address("acme", "triage"), "by=Ada"),
+    ):
+        bare = writing.ask("POST", target, body, cookie=False)
+        assert bare.status == 403, target
+        assert "writes the recorder's switch and a suite's cases only for" in (
+            unescape(bare.body)
+        )
+        foreign = writing.ask("POST", target, body, origin="http://evil.example")
+        assert foreign.status == 403, target
+    assert tree(writing.root) == before
+
+
+def test_the_address_opens_one_browser(root: Path) -> None:
+    with serving(root, allow_record=True) as (server, launch):
+        assert launch is not None
+        first = opened(server, launch)
+        second = server.ask("GET", f"/?launch={launch.key}")
+        assert second.status == 403
+        assert "already been opened" in second.body
+        assert first.ask("POST", recorder_address("acme"), "action=off").status == 303
+
+
+def test_promotion_alone_serves_no_write_of_the_recorder(root: Path) -> None:
+    """`--allow-promote` without `--allow-record`: the key is there, and the
+    recorder's routes are still absent, a 404, with no form drawn."""
+    with serving(root, allow_record=False, allow_promote=True) as (server, launch):
+        assert launch is not None
+        browser = opened(server, launch)
+        before = tree(root)
+        for target in (recorder_address("acme"), recordings_address("acme", "triage")):
+            assert browser.ask("POST", target, "action=off").status == 404, target
+            assert 'method="post"' not in browser.ask("GET", target).body, target
+        assert tree(root) == before
+
+
+def test_the_recorder_s_flag_alone_does_not_promote(writing: Served) -> None:
+    assert writing.ask("POST", "/promote", "run=x&replacing=none").status == 404
+    assert 'action="/promote"' not in writing.ask("GET", "/").body
+
+
+def test_a_refusal_is_the_command_s_sentence_and_writes_nothing(
+    writing: Served,
+) -> None:
+    before = tree(writing.root)
+    long_id = answer_id(REFUND, LONG_ANSWER)
+    cases = (
+        (
+            recordings_address("acme", "triage"),
+            urllib.parse.urlencode({f"answer:{long_id}": "good"}),
+            "--by NAME is missing",
+        ),
+        (
+            recordings_address("acme", "triage"),
+            "by=Ada",
+            "no answer named: --good ID or --bad ID",
+        ),
+        (
+            recorder_address("acme"),
+            "action=on&sample=x",
+            "argument --sample: invalid float value: 'x'",
+        ),
+        (recorder_address("acme"), "action=on&production=1", "redact"),
+    )
+    for target, body, sentence in cases:
+        answer = writing.ask("POST", target, body)
+        assert answer.status == 400, (body, answer.body)
+        assert "Nothing was written." in answer.body, body
+        assert sentence in unescape(answer.body), (body, answer.body)
+    assert tree(writing.root) == before
+
+
+def test_the_command_serves_the_writes_behind_its_flag(root: Path) -> None:
+    """`digline view --allow-record` as a person starts it: the line says so,
+    the key is printed once, and the opened browser switches the recorder
+    off."""
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            "-m",
+            "digline.cli",
+            "view",
+            "--suite",
+            "suites/suite.py",
+            "--port",
+            "0",
+            "--allow-record",
+        ],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None
+        line: str = process.stdout.readline()
+        assert "the recorder's writes enabled, for the first browser" in line, line
+        address = urllib.parse.urlparse(line.split()[3])
+        assert address.port is not None
+        key = urllib.parse.parse_qs(address.query)["launch"][0]
+        browser = opened(Served(address.port, root), Launch(key=key))
+        page = browser.ask("GET", recordings_address("acme", "triage")).body
+        assert "--suite suites/suite.py" in forms_of(page).lines[0]
+        answer = browser.ask("POST", recorder_address("acme"), "action=off")
+        assert answer.status == 303, answer.body
+        assert "on = false" in (root / ".digline/acme/recorder.toml").read_text(
+            encoding="utf-8"
+        )
+    finally:
+        process.terminate()
+        process.wait(timeout=10)

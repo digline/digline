@@ -967,6 +967,25 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.recorder.column.not_recorded": "Not recorded",
         "view.recorder.never": "never imported, {count} in all",
         "view.recorder.no_suite": "No suite has recordings in this tenant.",
+        # The two writes (ADR 0061 §2). A flag is not translated: it is what the
+        # command takes, and the line under the button carries it.
+        "view.recordings.column.elect": "Name it",
+        "view.import.by": "Your name, the mark each case carries (--by)",
+        "view.import.button": "Write the answers named",
+        "view.command.note": (
+            "The command that does what the button does. It follows the form as "
+            "you fill it in where the page's script runs, and otherwise shows the "
+            "form as it was served."
+        ),
+        "view.switch.title": "Switch the recorder",
+        "view.switch.on": "Switch on",
+        "view.switch.off": "Switch off",
+        "view.switch.production": "production (--production)",
+        "view.switch.sample": "sample (--sample)",
+        "view.switch.redact": "redact (--redact)",
+        "view.switch.ceiling": "ceiling, bytes (--ceiling)",
+        "view.switch.interval": "interval, seconds (--interval)",
+        "view.write.refused": "Nothing was written. {why}",
         "view.baseline": "baseline",
         "view.column.key": "Run",
         "view.column.aggregate_note": "change against the baseline",
@@ -2419,6 +2438,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.recorder.column.not_recorded": "Non registrate",
         "view.recorder.never": "mai importata, {count} in tutto",
         "view.recorder.no_suite": "Nessuna suite ha registrazioni in questo tenant.",
+        "view.recordings.column.elect": "Nominala",
+        "view.import.by": "Il tuo nome, il marchio di ogni caso (--by)",
+        "view.import.button": "Scrivi le risposte nominate",
+        "view.command.note": (
+            "Il comando che fa quello che fa il bottone. Segue il form mentre lo "
+            "compili dove lo script della pagina gira, e altrimenti mostra il "
+            "form come è stato servito."
+        ),
+        "view.switch.title": "Accendi o spegni il registratore",
+        "view.switch.on": "Accendi",
+        "view.switch.off": "Spegni",
+        "view.switch.production": "produzione (--production)",
+        "view.switch.sample": "campione (--sample)",
+        "view.switch.redact": "redazione (--redact)",
+        "view.switch.ceiling": "tetto, byte (--ceiling)",
+        "view.switch.interval": "intervallo, secondi (--interval)",
+        "view.write.refused": "Non è stato scritto niente. {why}",
         "view.baseline": "riferimento",
         "view.column.key": "Esecuzione",
         "view.column.aggregate_note": "variazione rispetto al riferimento",

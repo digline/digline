@@ -18,12 +18,24 @@ a socket.
 first answer; nothing is pre-selected and there is nothing that acts on many.
 The one number the page draws that the command does not print is an answer's
 length, in the chart, and it is the length of the text the table shows.
+
+**The two writes, and under each button the command** (ADR 0061 §2). On a
+server started with `--allow-record`, the recordings carry a form that names
+answers good or bad with the person's mark, and the recorder two forms that
+switch it on and off. Each form is drawn from a list of `Field`s, each naming
+the flag it fills, and the line under its button is `command_line` of that
+list as the form is served: the command that does what the button does. The
+page's script keeps the line equal to the fields as they are edited, reading
+the flags from the attributes written here; it holds none of its own (ADR 0061
+§7). Without the flag the page has no form, and says where the writes are.
 """
 
 from __future__ import annotations
 
 import json
+import shlex
 from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 from digline.host.importing import (
@@ -38,6 +50,7 @@ from digline.host.importing import (
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
     answer_address,
+    recorder_address,
     recordings_address,
     screen,
     setups_address,
@@ -47,7 +60,11 @@ from digline.wire.recorder import TenantRecorder
 
 __all__ = [
     "SHOWN_CHARS",
+    "Field",
     "answer_page",
+    "command_line",
+    "import_fields",
+    "switch_fields",
     "recorder_page",
     "recordings_page",
     "setups_page",
@@ -62,6 +79,10 @@ _SCRIPTS = (
     '<script src="/static/uPlot.iife.min.js"></script>\n'
     '<script src="/static/chart.js"></script>\n'
 )
+
+#: digline's one script, on a page with a form and no chart: the half of it
+#: that keeps a command line equal to its form (ADR 0061 §7).
+_GLUE = '<script src="/static/chart.js"></script>\n'
 
 
 def _p(text: str, cls: str = "") -> str:
@@ -93,8 +114,77 @@ def _head(
     )
 
 
-def _writes_note(locale: Locale, allow_record: bool) -> str:
-    return "" if allow_record else _p(phrase(locale, "view.writes.behind"), "note")
+def _writes_note(locale: Locale, writes: Sequence[str] | None) -> str:
+    if writes is not None:
+        return ""
+    return _p(phrase(locale, "view.writes.behind"), "note")
+
+
+# --------------------------------------------------------------------------- #
+# The command under each button
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class Field:
+    """One field of a form that writes, as the command line reads it.
+
+    `name` and `value` are what the form posts. `flag` is the option the field
+    fills, and `word` the value the line gives it: the field's own value where
+    the person types it, the answer's id for a yes or no, nothing for a switch.
+    `set` is whether the form is served with it filled or chosen."""
+
+    name: str
+    value: str
+    flag: str
+    word: str | None
+    set: bool
+    kind: str = "text"
+
+
+def command_line(base: Sequence[str], fields: Sequence[Field]) -> str:
+    """The command a form runs: its base and, in the form's order, each field
+    that is set, its flag and its word. Quoted as a POSIX shell reads it, the
+    way the page's script quotes it."""
+    words = list(base)
+    for field in fields:
+        if not field.set:
+            continue
+        words.append(field.flag)
+        if field.word is not None:
+            words.append(field.word)
+    return shlex.join(words)
+
+
+def _command(base: Sequence[str], fields: Sequence[Field], locale: Locale) -> str:
+    """The line under a button, and the base the page's script starts from."""
+    return (
+        f'<pre class="snippet command" data-base="{escape(shlex.join(base))}">'
+        f"{escape(command_line(base, fields))}</pre>\n"
+        f"{_p(phrase(locale, 'view.command.note'), 'note')}"
+    )
+
+
+def _input(field: Field, label: str) -> str:
+    """A field the person fills, with the flag it fills written on it."""
+    common = f'name="{escape(field.name)}" data-flag="{escape(field.flag)}"' + (
+        ""
+        if field.word is None or field.kind in ("text", "number")
+        else f' data-value="{escape(field.word)}"'
+    )
+    if field.kind == "checkbox":
+        checked = " checked" if field.set else ""
+        return (
+            f'<label><input type="checkbox" {common} value="{escape(field.value)}"'
+            f"{checked}> {escape(label)}</label>\n"
+        )
+    step = ' step="any"' if field.kind == "number" else ""
+    kind = "number" if field.kind == "number" else "text"
+    return (
+        f"<label>{escape(label)} "
+        f'<input type="{kind}"{step} {common} value="{escape(field.value)}">'
+        "</label>\n"
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -102,9 +192,31 @@ def _writes_note(locale: Locale, allow_record: bool) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def recordings_page(found: ImportListing, *, locale: Locale, allow_record: bool) -> str:
+def import_fields(found: ImportListing) -> list[Field]:
+    """The import's form as it is served: for each answer that can be named,
+    a yes and a no, neither chosen, then the person's mark, empty. Nothing is
+    chosen in advance (ADR 0037 §6)."""
+    fields: list[Field] = []
+    for answer in found.answers:
+        if not answer.electable:
+            continue
+        for value, flag in (("good", "--good"), ("bad", "--bad")):
+            fields.append(
+                Field(f"answer:{answer.id}", value, flag, answer.id, False, "radio")
+            )
+    fields.append(Field("by", "", "--by", "", False))
+    return fields
+
+
+def recordings_page(
+    found: ImportListing, *, locale: Locale, writes: Sequence[str] | None
+) -> str:
     """A suite's recordings, grouped, under the declaration that says where a
-    named answer would go: `listing_lines`' sentences, and each answer a row."""
+    named answer would go: `listing_lines`' sentences, and each answer a row.
+
+    `writes` is the flags every command of this page carries, `--tenant`,
+    `--suite` and `--root` as the server was started with them, on a server
+    that writes; `None` on one that does not, and then there is no form."""
     declaration = found.declaration
     title = phrase(locale, "view.title.recordings", suite=declaration.suite)
     order = tuple(
@@ -115,11 +227,31 @@ def recordings_page(found: ImportListing, *, locale: Locale, allow_record: bool)
         _p(declaration.line(), "declaration"),
         _p(setup_line(found), "note"),
     ]
+    fields = import_fields(found)
+    form = writes is not None and len(fields) > 1
+    if form:
+        address = recordings_address(declaration.tenant, declaration.suite)
+        body.append(
+            f'<form method="post" action="{escape(address)}" class="writes" '
+            "data-writes>\n"
+            f'<input type="hidden" name="locale" value="{locale}">\n'
+        )
     for number, group in enumerate(found.groups, start=1):
         body.append(f"<h2>{escape(group_line(number, group))}</h2>\n")
-        body.append(_answers_table(found, group.answers, order, locale))
+        body.append(_answers_table(found, group.answers, order, locale, form=form))
+    if form and writes is not None:
+        base = ["digline", "record", "import", *writes]
+        by = fields[-1]
+        body.append(
+            '<div class="picker">'
+            + _input(by, phrase(locale, "view.import.by"))
+            + f'<button type="submit">{escape(phrase(locale, "view.import.button"))}'
+            "</button></div>\n" + _command(base, fields, locale) + "</form>\n"
+        )
     body.extend(_p(line, "note") for line in closing_lines(found))
-    body.append(_writes_note(locale, allow_record))
+    body.append(_writes_note(locale, writes))
+    if form:
+        body.append(_GLUE)
     return screen(
         title,
         "".join(body),
@@ -134,16 +266,27 @@ def _answers_table(
     answers: Sequence[ImportAnswer],
     order: Sequence[str],
     locale: Locale,
+    *,
+    form: bool = False,
 ) -> str:
     head = _head("view.recordings.column", ("id", "when", "setup", "answer"), locale)
     head += _head("view.recordings.column", ("times",), locale, numbers=True)
     head += _head("view.recordings.column", ("state",), locale)
-    rows = "".join(_answer_row(found, answer, order, locale) for answer in answers)
+    if form:
+        head += _head("view.recordings.column", ("elect",), locale)
+    rows = "".join(
+        _answer_row(found, answer, order, locale, form=form) for answer in answers
+    )
     return f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>\n"
 
 
 def _answer_row(
-    found: ImportListing, answer: ImportAnswer, order: Sequence[str], locale: Locale
+    found: ImportListing,
+    answer: ImportAnswer,
+    order: Sequence[str],
+    locale: Locale,
+    *,
+    form: bool = False,
 ) -> str:
     declaration = found.declaration
     whole = answer_address(declaration.tenant, declaration.suite, answer.id)
@@ -175,8 +318,24 @@ def _answer_row(
         f'<td class="said">{escape(shown)}{more}</td>'
         f'<td class="num">×{answer.times}</td>'
         f'<td class="state">{escape(answer_state(answer))}</td>'
+        f"{_elect(answer) if form else ''}"
         "</tr>"
     )
+
+
+def _elect(answer: ImportAnswer) -> str:
+    """A yes and a no for an answer that can be named, neither chosen; nothing
+    for one that cannot. The flag is the label: it is what the command takes,
+    and a flag is not translated."""
+    if not answer.electable:
+        return "<td></td>"
+    choices = "".join(
+        f'<label class="pick"><input type="radio" name="answer:{escape(answer.id)}" '
+        f'value="{value}" data-flag="{flag}" data-value="{escape(answer.id)}"> '
+        f"{flag}</label>"
+        for value, flag in (("good", "--good"), ("bad", "--bad"))
+    )
+    return f'<td class="act">{choices}</td>'
 
 
 def answer_page(found: ImportListing, answer: ImportAnswer, *, locale: Locale) -> str:
@@ -467,12 +626,81 @@ def _not_shown(found: RecordComparison, locale: Locale) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def switch_fields(status: TenantRecorder) -> list[Field]:
+    """`digline record on`'s form as it is served: each value the switch file
+    declares already in its field, so the line under the button is the command
+    that writes the file as it is, and an empty field keeps what the file has,
+    as an absent flag does."""
+    declared = set(status.declared)
+
+    def value(key: str, held: object) -> str:
+        return "" if key not in declared or held is None else str(held)
+
+    fields = [
+        Field(
+            "production",
+            "1",
+            "--production",
+            None,
+            "production" in declared,
+            "checkbox",
+        ),
+    ]
+    for key, held, kind in (
+        ("sample", status.sample, "number"),
+        ("redact", status.redact, "text"),
+        ("ceiling", status.ceiling, "number"),
+        ("interval", status.interval, "number"),
+    ):
+        shown = value(key, held)
+        fields.append(Field(key, shown, f"--{key}", shown, bool(shown), kind))
+    return fields
+
+
+def _switch_forms(status: TenantRecorder, writes: Sequence[str], locale: Locale) -> str:
+    """The recorder switched on, with its values, and switched off: two forms,
+    each with the command under its button."""
+    address = recorder_address(status.tenant)
+    fields = switch_fields(status)
+    inputs = "".join(
+        _input(field, phrase(locale, f"view.switch.{field.name}")) for field in fields
+    )
+    hidden = f'<input type="hidden" name="locale" value="{locale}">\n'
+    on = (
+        f'<form method="post" action="{escape(address)}" class="writes" data-writes>\n'
+        f"{hidden}"
+        '<input type="hidden" name="action" value="on">\n'
+        f'<div class="picker">{inputs}'
+        f'<button type="submit">{escape(phrase(locale, "view.switch.on"))}</button>'
+        "</div>\n"
+        + _command(["digline", "record", "on", *writes], fields, locale)
+        + "</form>\n"
+    )
+    off = (
+        f'<form method="post" action="{escape(address)}" class="writes" data-writes>\n'
+        f"{hidden}"
+        '<input type="hidden" name="action" value="off">\n'
+        '<div class="picker">'
+        f'<button type="submit">{escape(phrase(locale, "view.switch.off"))}</button>'
+        "</div>\n"
+        + _command(["digline", "record", "off", *writes], [], locale)
+        + "</form>\n"
+    )
+    return f"<h2>{escape(phrase(locale, 'view.switch.title'))}</h2>\n{on}{off}"
+
+
 def recorder_page(
-    status: TenantRecorder, *, suite: str, locale: Locale, allow_record: bool
+    status: TenantRecorder,
+    *,
+    suite: str,
+    locale: Locale,
+    writes: Sequence[str] | None,
 ) -> str:
     """A tenant's recorder: four figures, the switch and its values, where it
     writes, and its recordings by suite. `suite` is the suite this server was
-    started for, the one whose import is read; every other says *not read*."""
+    started for, the one whose import is read; every other says *not read*.
+    `writes` is as `recordings_page` has it: the flags every command of the
+    page carries, on a server that writes, and `None` on one that does not."""
     title = phrase(locale, "view.title.recorder", tenant=status.tenant)
     state = (
         "on"
@@ -516,7 +744,10 @@ def recorder_page(
                 "note",
             )
         )
-    body.append(_writes_note(locale, allow_record))
+    if writes is not None:
+        body.append(_switch_forms(status, writes, locale))
+        body.append(_GLUE)
+    body.append(_writes_note(locale, writes))
     return screen(title, "".join(body), locale=locale, suite=suite, here="recorder")
 
 
