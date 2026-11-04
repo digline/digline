@@ -216,6 +216,10 @@ you already had leaves `runs/` out.
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
 | `ToolsCalled` | the target is an agent — a function, or an OpenAI, Anthropic or Bedrock target, whose plugins record every tool call — which tools it called, in order: an answer produced without the lookup that should have produced it |
 | `ToolCalledWith` | the other half of a trajectory: the arguments a tool was called with — the right tool asked the wrong question |
+| `Subsequence` | these tools in this order, with anything between them: the lookup came before the refund |
+| `Before` | no call to one tool without a call to another before it: no refund of an order nobody looked up |
+| `Never` | a tool that must not be called: the account is never deleted |
+| `MaxSteps` | at most so many of the model's turns, or of its tool calls: an agent that loops is caught |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
 

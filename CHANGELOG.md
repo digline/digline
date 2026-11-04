@@ -34,6 +34,11 @@ notes under them are this file, verbatim.
   `--since`, two setups side by side with `--setup A B`, the keys they
   differ on with `--show-setup`, and `--json`, which carries digests and
   never the recorded text. It judges nothing and writes nothing.
+- **Four checks on an agent's steps**: `Subsequence`, `Before`, `Never` and
+  `MaxSteps(limit, count=)`, in Python and in TOML. The three on order read
+  the steps, or `tools` where there are none; `MaxSteps` reads the steps
+  alone. A suite that declares two of them that cannot both pass is refused
+  (ADR 0060 §4).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

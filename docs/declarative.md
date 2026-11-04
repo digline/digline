@@ -122,8 +122,8 @@ the report prints and what a comparison pairs on.
 
 **Per case:** `equals`, `contains`, `not_contains`, `affix`, `is_json`,
 `json_schema`, `length`, `levenshtein`, `regex`, `llm_rubric`, `faithfulness`,
-`pii_absent`, `tools_called`, `tool_called_with`, `cost_budget`,
-`latency_budget`, `repeated`.
+`pii_absent`, `tools_called`, `tool_called_with`, `subsequence`, `before`,
+`never`, `max_steps`, `cost_budget`, `latency_budget`, `repeated`.
 
 **Per run:** `precision`, `recall`, `accuracy`, `f1`.
 
@@ -266,7 +266,9 @@ Your application, on the other end of a URL. It can be written in anything.
 
 Without one of these, `tools_called` and `tool_called_with` **load and then
 error on every case** — a check that cannot be answered rather than one that
-refuses, which is the worse of the two.
+refuses, which is the worse of the two. `subsequence`, `before` and `never`
+read the same names. `max_steps` counts an agent's steps, which an HTTP
+target does not report, so it errors on every case of this target.
 
 Declare `tool_calls_path` alone and you are done: the names come from the calls,
 so the two cannot disagree. Declaring both is allowed, and they must agree in
