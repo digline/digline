@@ -45,6 +45,13 @@ notes under them are this file, verbatim.
   assertion and that it samples at least twice. `digline run`, `rejudge` and
   `execute()` refuse a suite that declares one before anything is called or
   written, until schema 23 gives the run document its key (ADR 0059 §1).
+- **A suite that declares a tool argument digline cannot tell apart is
+  refused, and this breaks a suite that loaded before**: a `date`, a `time`,
+  a class, a function or any value that `ToolCalledWith` compared as
+  `"<TypeName>"`. From TOML the right value sent as JSON text failed, and only
+  the placeholder passed; from Python any other `date` passed. The refusal
+  says where the value is and to declare it as the model sends it, a date or
+  a time as its ISO 8601 text (ADR 0018 §5).
 - **`digline record import` writes reviewed answers**, by `--good ID` and
   `--bad ID` with a mandatory `--by NAME`, in place of `--positive` and
   `--negative`, which never shipped. An id names an answer to an input, and

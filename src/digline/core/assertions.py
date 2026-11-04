@@ -43,6 +43,7 @@ from digline.core.types import (
     Verdict,
     at_precision,
     canonical,
+    collapsing,
     declared_floor,
     meets,
     normalize_output,
@@ -1392,10 +1393,11 @@ class ToolCalledWith(AssertionBase):
     set's elements go through `str` and are sorted. Any other value — not
     `None`, `bool`, `int`, `str`, `float`, `bytes` or `bytearray`, a `Mapping`,
     an `AbstractSet`, a `Sequence`, or a dataclass instance — becomes
-    `"<TypeName>"`. So a declared argument of such a type does not
-    discriminate: against an object of the same type it always matches, and
-    against a value decoded from JSON it matches only the string
-    `"<TypeName>"`.
+    `"<TypeName>"`. Such an argument could not discriminate: against an
+    object of the same type it would always match, and against a value
+    decoded from JSON only the string `"<TypeName>"`. So it is **refused when
+    the check is built**, with the path to it and what to declare instead: a
+    date or a time as its ISO 8601 text. (ADR 0018 §5, noted 2026-11-04)
 
     Nothing the model sent reaches `Score.metadata` — only how much of what was
     declared matched. An argument is the end company's data by construction, and
@@ -1426,6 +1428,19 @@ class ToolCalledWith(AssertionBase):
         if self.match not in ("exact", "subset"):
             raise RefusedError(
                 f"ToolCalledWith.match must be 'exact' or 'subset', got {self.match!r}"
+            )
+        # A value `canonical` reduces to its type's name cannot be checked:
+        # refused when the suite is written, not met in a verdict. (ADR 0018
+        # §5, noted 2026-11-04)
+        found = collapsing(dict(self.arguments))
+        if found is not None:
+            at, name = found
+            raise RefusedError(
+                f"ToolCalledWith.arguments{at} is a {name}, which digline "
+                f"compares as the text '<{name}>': it would match only that "
+                f"text, or any other {name}. Declare the value the way the "
+                "model sends it: a date or a time as its ISO 8601 text, in "
+                "quotes in a TOML suite."
             )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
