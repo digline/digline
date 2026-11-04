@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from digline.core.refused import NameRef, RefusedError, Written
 from digline.core.types import at_precision
@@ -120,6 +120,14 @@ class ScaleLost:
     samples: Sequence[float]
     low: float
     high: float
+
+    @property
+    def side(self) -> Literal["above", "below"]:
+        """Which side of its band the score landed on: `above` past `high`,
+        `below` short of `low`. Derived from the numbers the band holds, so a
+        reader that names the side cannot disagree with one that names the
+        score. A score outside a band is on one side of it."""
+        return "above" if self.score > self.high else "below"
 
 
 def scale_lost(run: Run) -> tuple[ScaleLost, ...]:

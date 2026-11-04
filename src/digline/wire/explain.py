@@ -123,6 +123,20 @@ def fact_json(
             # Only on `shape`, so every other fact is byte for byte what it was.
             if fact.shape is not None:
                 payload["shape"] = shape_json(fact.shape)
+            # Only where a band was left, for the same reason: each case beside
+            # the count, what the report's section shows. (ADR 0024 §4.5)
+            if fact.bands:
+                payload["bands"] = [
+                    {
+                        "case_id": item.case_id,
+                        "check": item.check,
+                        "score": item.score,
+                        "low": item.low,
+                        "high": item.high,
+                        "side": item.side,
+                    }
+                    for item in fact.bands
+                ]
             return payload
     assert_never(fact)
 

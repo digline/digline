@@ -1448,6 +1448,12 @@ _RECORD_STATUS = "ADR 0058 §10; digline record status, emitted since 1.1's piec
 #: person's yes or no on a case of the run document, `null` on every other.
 _REVIEWED = "ADR 0059 §1; reviewed answers run, schema 23"
 
+#: `explain --json` names each calibration case outside its band beside the
+#: count: the case, the check, the score, the band and the side it landed on,
+#: what the report's section shows. Only on the `calibration` tally, and only
+#: where a band was left, so every other fact is byte for byte what it was.
+_BANDS = "ADR 0024 §4.5; the reading of a lost band, beside the count"
+
 #: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
@@ -1580,6 +1586,21 @@ _ADDED: tuple[_AddedKey, ...] = (
     _AddedKey("delta", "reviewed", _BOOL, _REVIEWED),
     _AddedKey("run_document.case", "reviewed", _k(_Obj("reviewed"), "null"), _REVIEWED),
     *_shape_added("reviewed", {"check": _STR, "good": _BOOL}, _REVIEWED),
+    _AddedKey(
+        "fact.tally", "bands", _k(_arr(_Obj("fact.tally.band")), optional=True), _BANDS
+    ),
+    *_shape_added(
+        "fact.tally.band",
+        {
+            "case_id": _STR,
+            "check": _STR,
+            "score": _NUM,
+            "low": _NUM,
+            "high": _NUM,
+            "side": _STR,
+        },
+        _BANDS,
+    ),
 )
 
 

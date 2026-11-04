@@ -32,6 +32,7 @@ from digline.core import (
     Expansion,
     Noise,
     Run,
+    ScaleLost,
     Scope,
     SuiteDelta,
     SystemConfig,
@@ -303,6 +304,11 @@ class TallyFact:
     #: Only on `shape`, whose numbers are neither a count nor a state: the two
     #: shares, their counts and what each side left out.
     shape: Shape | None = None
+    #: Only on `calibration`: each case outside its band, with its check, its
+    #: score, the band and the side it landed on, what the report's section
+    #: shows. The count is their number, and it stays beside them. (ADR 0024
+    #: §4.5)
+    bands: Sequence[ScaleLost] = ()
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -378,7 +384,7 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # all, which is a stronger caveat than a judge that moved — a moved judge
     # still measures on a scale, just a different one. It is inserted last so
     # the comparability fact below cannot displace it. (ADR 0024 §4.6)
-    lost = len(scale_lost(run))
+    lost = scale_lost(run)
     against = len(contradicted(run))
     gaps = len(unreconciled(run))
 
@@ -389,7 +395,7 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         if against:
             out.insert(0, TallyFact("reviewed", count=against))
         if lost:
-            out.insert(0, TallyFact("calibration", count=lost))
+            out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
         if gaps:
             out.insert(0, TallyFact("unreconciled", count=gaps))
         return out
@@ -429,7 +435,7 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     if against:
         out.insert(0, TallyFact("reviewed", count=against))
     if lost:
-        out.insert(0, TallyFact("calibration", count=lost))
+        out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
     # Above even the lost scale: that one says what the numbers were measured
     # on, this one says the run does not know what it measured. (ADR 0027 §7)
     #
@@ -776,6 +782,21 @@ def _suspensions(run: Run) -> list[Fact]:
 # --------------------------------------------------------------------------- #
 
 
+def _band_left(item: ScaleLost, locale: Locale) -> str:
+    """One case outside its band, as the report's section reads it: the case,
+    the check, the score and which side of which band."""
+    return phrase(
+        locale,
+        "explain.tally.calibration.case",
+        case=item.case_id,
+        check=item.check,
+        score=fmt_score(item.score),
+        side=phrase(locale, f"explain.side.{item.side}"),
+        low=fmt_score(item.low),
+        high=fmt_score(item.high),
+    )
+
+
 def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
     """The reading, in sentences. One line per fact, in the list's order, but
     for the unjudged tally of a run that judged no case, which says nothing
@@ -885,6 +906,7 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
                 locale,
                 f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
+                cases="; ".join(_band_left(item, locale) for item in fact.bands),
             )
         case "reviewed":
             return phrase(

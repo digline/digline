@@ -1212,17 +1212,24 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "that could not be judged."
         ),
         "explain.tally.calibration.one": (
-            "1 calibration case scored outside its declared band: the judged "
-            "scores in this run are not placed on the scale they are compared "
-            "on. It is counted in no aggregate, and the target was not asked "
-            "for it."
+            "1 calibration case scored outside its declared band: {cases}. The "
+            "judged scores in this run are not placed on the scale they are "
+            "compared on. It is counted in no aggregate, and the target was not "
+            "asked for it."
         ),
         "explain.tally.calibration.many": (
-            "{count} calibration cases scored outside their declared bands: the "
-            "judged scores in this run are not placed on the scale they are "
-            "compared on. They are counted in no aggregate, and the target was "
-            "not asked for them."
+            "{count} calibration cases scored outside their declared bands: "
+            "{cases}. The judged scores in this run are not placed on the scale "
+            "they are compared on. They are counted in no aggregate, and the "
+            "target was not asked for them."
         ),
+        # The report's section, in a clause: the case, the check, the score,
+        # and which side of which band. (ADR 0024 §4.5)
+        "explain.tally.calibration.case": (
+            "{case} for {check} at {score}, {side} {low}–{high}"
+        ),
+        "explain.side.above": "above",
+        "explain.side.below": "below",
         "explain.tally.reviewed.one": (
             "The judge contradicted a person on 1 reviewed answer, and the case "
             "fails. It is counted in no aggregate, and the target was not asked "
@@ -2694,17 +2701,22 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "tra i controlli non valutati."
         ),
         "explain.tally.calibration.one": (
-            "1 caso di calibrazione è fuori dalla banda dichiarata: i punteggi "
-            "giudicati in questa esecuzione non stanno sulla scala su cui "
-            "vengono confrontati. Non entra in nessun aggregato, e al sistema "
-            "sotto esame non è stato chiesto nulla per esso."
+            "1 caso di calibrazione è fuori dalla banda dichiarata: {cases}. I "
+            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
+            "cui vengono confrontati. Non entra in nessun aggregato, e al "
+            "sistema sotto esame non è stato chiesto nulla per esso."
         ),
         "explain.tally.calibration.many": (
-            "{count} casi di calibrazione sono fuori dalla banda dichiarata: i "
-            "punteggi giudicati in questa esecuzione non stanno sulla scala su "
-            "cui vengono confrontati. Non entrano in nessun aggregato, e al "
-            "sistema sotto esame non è stato chiesto nulla per essi."
+            "{count} casi di calibrazione sono fuori dalla banda dichiarata: "
+            "{cases}. I punteggi giudicati in questa esecuzione non stanno sulla "
+            "scala su cui vengono confrontati. Non entrano in nessun aggregato, "
+            "e al sistema sotto esame non è stato chiesto nulla per essi."
         ),
+        "explain.tally.calibration.case": (
+            "{case} per {check} a {score}, {side} {low}–{high}"
+        ),
+        "explain.side.above": "sopra",
+        "explain.side.below": "sotto",
         "explain.tally.reviewed.one": (
             "Il giudice ha contraddetto una persona su 1 risposta rivista, e il "
             "caso fallisce. Non entra in nessun aggregato, e al sistema sotto "
