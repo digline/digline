@@ -93,6 +93,50 @@ that used to be built by hand with a script.
 writes nothing. A suspension lives in the code, so the reason travels with the
 case in the same review as everything else.
 
+## The recorder's views
+
+Three more views sit beside the screens, in the menu of every page, for the
+suite the server was started with and its tenant. Each calls the function its
+command calls and renders what it returns, so a page and a command cannot say
+two different things about the same recordings.
+([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §1)
+
+**Recordings** (`/recordings/<tenant>/<suite>/`) — what
+[`digline record import`](record.md#from-recordings-to-cases-digline-record-import)
+lists, from the same `import_listing`. The declaration that says where a case
+would go is at the head, then the setup in force, then each group with its
+count, in the sentences the command prints. Each answer is a row: its id, when
+it was first recorded, the setups it was recorded under, the first 200
+characters of the answer, and how many recordings gave the same answer. A
+longer answer links to a page that shows it whole, with the input it was given
+(`/recordings/<tenant>/<suite>/<id>`). Nothing is ranked, scored or chosen in
+advance, and nothing acts on more than one answer.
+
+**Across setups** (`/setups/<tenant>/<suite>/`) — what
+[`digline record compare`](record.md#comparing-setups-digline-record-compare)
+shows, from the same `record_compare`: per case, the answers under each setup
+in the order they were recorded, each with its digest. `?case=ID` keeps one
+case, and two `setup` values put those two setups side by side with the keys
+they differ on, as `--setup A B --show-setup` does: each value by its first
+line, up to 60 characters, never a prompt whole. For one case a chart draws
+each answer's length over time, one colour per setup: the same answer recorded
+again is a point at the same height. It shows, and judges nothing.
+
+**Recorder** (`/recorder/<tenant>/`) — what
+[`digline record status`](record.md#switching-it-on) says, from the same
+`recorder_status`. Four figures open it: the size of the recordings as written,
+the ceiling, the recordings held, and those still to import. The last is a
+number only for the suite the server was started with, when it declares where
+captured cases go, and otherwise says *not read*: the draft is the suite's
+file, and only the suite says where it is. Then the switch, its values, each
+marked declared or default, where the recorder writes, and the recordings by
+suite.
+
+A refusal reaches the page as the command prints it: another tenant's
+recordings, a `setup` given once, a tenant name that is not a name. A suite
+other than the server's is no page. **The three views read and write nothing**,
+with or without `--allow-record`; the writes come after them.
+
 ## Promotion, and the flag that enables it
 
 `digline view --allow-promote` is the server that promotes. `digline view` is
@@ -213,8 +257,8 @@ figures, and a light and a dark theme that follow the system. `digline report`
 writes it inline, because a report is opened from disk; the server serves it at
 `/static/digline.css` and every page links to it.
 
-**Two scripts are served, and no screen in this release runs either.** They are
-for the comparison across setups that comes with the recorder's views:
+**Two scripts are served, on one page**: the answers across setups, for one
+case, where they draw the chart. Every other page carries no script.
 
 | File | Bytes | Licence |
 |---|---|---|
@@ -227,9 +271,11 @@ JavaScript every page still reads.
 ## `--allow-record`
 
 The flag that will serve the page's two writes: the recorder switched on or
-off, and a recorded case imported with a person's yes or no. They arrive with
-the recorder's views; this release accepts the flag and serves no write for it,
-so a POST still gets the `404` any unknown path gets. Like `--allow-promote`,
+off, and a recorded case imported with a person's yes or no. The recorder's
+views read with or without it, and the writes arrive after them; this release
+accepts the flag and serves no write for it, so a POST still gets the `404` any
+unknown path gets. Until they arrive, a page that would write says it writes
+nothing. Like `--allow-promote`,
 it is spelled in full, and the Claude Code plugin asks a person before a
 command that carries it.
 ([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §4)
@@ -267,8 +313,10 @@ the group name is `digline.report.views.GROUP`.
 ## What keeps it honest
 
 Every screen is a pure function in `digline.report.pages`, so the tests are
-about the page and not about a socket. Two of them are structural rather than
-cosmetic:
+about the page and not about a socket. The recorder's views are pure functions
+too, in `digline.cli.recorder_pages`, because the import's structure lives in
+`digline.host`, which the report may not import. Two of the tests are
+structural rather than cosmetic:
 
 - the comparison page, with the navigation bar stripped out and the sheet put
   back inline where the page links to it, must equal what `render_html`

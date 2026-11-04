@@ -58,6 +58,13 @@ reply = client.messages.create(
   with to the case, beside the messages, where the user message mixes a
   template and the data.
 
+A recording keeps the call in three compartments: the **case**, the messages
+(less the leading instructions, for OpenAI) and the `digline_vars`; the
+**setup**, everything else the call decided; and the **response**, the answer
+with its measurements. The response also carries its **input**, the case's
+messages as JSON text: the question the import puts beside the answer for the
+judge, whether the call was made, streamed or awaited.
+
 `suite=` and `digline_vars=` are taken out of the call before it reaches the
 provider's SDK, whether the recorder is on or off. The client returned is the
 client: everything but the call is its own.
@@ -161,7 +168,10 @@ attached to it.
 
 - **`case=` is required**: the input that started the turn, a mapping of
   names to JSON values, as the case will hold it. Two turns with the same
-  `case` are the same case at the import.
+  `case` are the same case at the import. The case, as JSON text, is also the
+  episode's input, the question the judge reads beside the turn's answer;
+  never the messages of one of its calls, which may be a step on the way or
+  carry a tool's result.
 - **`ep.output(...)`** is the turn's final answer. Without it, the episode's
   answer is the text of the last model call made inside it.
 - Its trajectory is a list of steps, kept in its response as a single call's
@@ -483,6 +493,19 @@ writes nothing, and does not move the import's `examined_through`.
 Recordings of another tenant than the suite's are refused before anything is
 shown, as the import refuses them. A suite with nothing recorded says so, and
 exits 0.
+
+## The page
+
+`digline view --suite eval/suite.py` shows the same three things in a browser,
+beside its screens over the runs: the recordings as `record import` lists
+them, the answers across setups as `record compare` shows them, with a chart
+for one case, and the recorder as `record status` says it. Each page calls the
+function its command calls, and says what the command says.
+
+The page reads and writes nothing in this release. Switching the recorder and
+importing a case stay on the command line for now; on the page they will sit
+behind `digline view --allow-record`, under each button the command that does
+the same thing. See [the recorder's views](view.md#the-recorders-views).
 
 ## Not yet
 

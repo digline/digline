@@ -70,7 +70,16 @@ nothing. No public name is removed or renamed and no exit code changes.
   (ADR 0061 §7).
 - **`digline view --allow-record`**, accepted and serving nothing yet: the
   two writes it is for, the recorder's switch and an imported case, arrive
-  with the recorder's views (ADR 0061 §4).
+  after the recorder's views (ADR 0061 §4).
+- **The recorder's three views in `digline view`**, in the menu of every
+  screen: the recordings of the suite as `digline record import` lists them,
+  each answer with the first 200 characters and a page for the whole of it;
+  its answers across setups as `digline record compare` shows them, two
+  setups side by side with the keys they differ on, and a chart of one case
+  over time; and the tenant's recorder as `digline record status` says it,
+  opening with four figures. Each calls the command's own host function and
+  says what the command says, refusals included. They read only: a POST to
+  any of them is a `404` (ADR 0061 §1).
 - **Views from other packages**: an entry point in `digline.views` adds a
   read-only page at `/x/<name>/`, listed in every screen's menu with the
   package beside it and loaded the first time it is asked for. The contract
@@ -136,6 +145,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   declares it as a `[capture]` table, with `cases` an array of files.
   `Suite.deterministic_output` makes a yes also write an `expected`. The
   declaration is printed at every use (ADR 0059 §2–§4).
+- **The recorder writes each answer's input**, which the import puts beside
+  the answer for the judge and refuses an answer without: a call's case
+  `messages`, made, streamed or awaited, and an episode's whole case, as JSON
+  text. Without it no answer the recorder kept could be written as a reviewed
+  answer. `RECORDING_VERSION` stays 1.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
