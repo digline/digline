@@ -11,9 +11,9 @@ to lose. `--port` is available; `--port 0` lets the operating system choose
 and the printed line carries the bound port.
 
 **It listens on 127.0.0.1 and nowhere else.** There is no `--host`: it was
-removed, and a command that passes it is refused. The page will soon write
-the recorder's switch and a suite's cases, and a page that writes must not be
-one flag away from another network.
+removed, and a command that passes it is refused. Under `--allow-record` the
+page writes the recorder's switch and a suite's cases, and a page that writes
+must not be one flag away from another network.
 ([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §4)
 
 **It promotes nothing unless you say so.** Without `--allow-promote` there is
@@ -134,8 +134,10 @@ suite.
 
 A refusal reaches the page as the command prints it: another tenant's
 recordings, a `setup` given once, a tenant name that is not a name. A suite
-other than the server's is no page. **The three views read and write nothing**,
-with or without `--allow-record`; the writes come after them.
+other than the server's is no page. **Without `--allow-record` the three views
+read and write nothing**, and a page that would write says where the writes
+are. With it, the recordings and the recorder carry the two writes
+[below](#-allow-record).
 
 ## Promotion, and the flag that enables it
 
@@ -257,28 +259,62 @@ figures, and a light and a dark theme that follow the system. `digline report`
 writes it inline, because a report is opened from disk; the server serves it at
 `/static/digline.css` and every page links to it.
 
-**Two scripts are served, on one page**: the answers across setups, for one
-case, where they draw the chart. Every other page carries no script.
+**Two scripts are served.** uPlot runs on one page, the answers across setups
+for one case, where it draws the chart. digline's own script runs there and on
+every page with a form that writes, where it keeps the command line under the
+button equal to the form. Every other page carries no script.
 
 | File | Bytes | Licence |
 |---|---|---|
 | `/static/uPlot.iife.min.js`, uPlot 1.6.31 | 50 312 | MIT, Copyright (c) 2022 Leon Sorokin, `uPlot.LICENSE` beside it in the package |
-| `/static/chart.js`, digline's | 1 987 | digline's |
+| `/static/chart.js`, digline's | 3 705 | digline's |
 
 uPlot's own stylesheet, 1 857 bytes, is absorbed into the one sheet. Without
-JavaScript every page still reads.
+JavaScript every page still reads and every form still writes; what is missing
+is the chart, and a command line that follows the form as it is edited.
 
 ## `--allow-record`
 
-The flag that will serve the page's two writes: the recorder switched on or
-off, and a recorded case imported with a person's yes or no. The recorder's
-views read with or without it, and the writes arrive after them; this release
-accepts the flag and serves no write for it, so a POST still gets the `404` any
-unknown path gets. Until they arrive, a page that would write says it writes
-nothing. Like `--allow-promote`,
-it is spelled in full, and the Claude Code plugin asks a person before a
-command that carries it.
-([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §4)
+```console
+$ digline view --suite eval/suite.py --allow-record
+digline view on http://127.0.0.1:7373/?launch=… — the recorder's writes enabled, for the first browser that opens this address; --allow-promote to promote — ctrl-c to stop
+```
+
+The flag serves the page's two writes, and nothing else:
+
+- **The recorder switched on or off** for the tenant, on its page, through
+  `switch_on` and `switch_off`, the functions `digline record on` and `off`
+  call. The form is served with the values the switch file declares; a field
+  left empty keeps what the file has, as a flag not given does.
+- **Recorded answers written as cases** with a person's yes or no, on the
+  recordings, through `import_listing` and `import_elect`, the functions
+  `digline record import` calls. Each answer that can be named has `--good`
+  and `--bad` beside it, neither chosen; the person types their own name in
+  the form, the `--by` the cases carry, and the page reads it from nowhere
+  else. There is no *import all*, nothing is chosen in advance, and nothing is
+  ranked.
+
+**Under each button, the command that does the same thing**, with the values
+in the form: `digline record on --tenant acme --sample 0.5`,
+`digline record import --tenant acme --suite eval/suite.py --good ID --by
+'Ada Lovelace'`. The server writes it for the form as served; digline's script
+keeps it equal to the fields as they are edited, and without the script it
+stays as served. A test parses every line the page serves with digline's own
+parser, and runs the form and the command on two copies of one store and
+finds them identical.
+
+**A write is a POST, answered with a `303`** to the page that reads what it
+wrote, so a reload reads and never writes again. A refusal is the command's
+sentence, with a `400`, and nothing written. Like promotion, every write needs
+the cookie of the browser that opened the address the server printed, the key
+is spent on that first opening, and a request from another origin is refused.
+Without the flag there is no form and no route: a POST gets the `404` any
+unknown path gets. `--allow-record` does not promote, and `--allow-promote`
+does not write the recorder; the two together share one key.
+
+Like `--allow-promote`, it is spelled in full, and the Claude Code plugin asks
+a person before a command that carries it.
+([ADR 0061](adr/0061-a-local-page-whose-views-other-packages-may-extend.md) §2, §4)
 
 ## Views from other packages
 
