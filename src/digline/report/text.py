@@ -1471,6 +1471,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.check.errored": "{where} could not be judged.",
         "explain.check.failing": "{where} is under its bar at {now}.",
+        "explain.check.contradicted.no": (
+            "{where} passed at {now}, and a person said no to the answer: the "
+            "judge contradicts the person, and the case fails."
+        ),
+        "explain.check.contradicted.yes": (
+            "{where} failed at {now}, and a person said yes to the answer: the "
+            "judge contradicts the person, and the case fails."
+        ),
         "explain.check.suspended": (
             "The case {case} was set aside, so nothing was measured on it. The "
             "stated reason is not carried here."
@@ -2979,6 +2987,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "explain.check.errored": "{where} non è stato valutato.",
         "explain.check.failing": "{where} è sotto la sua soglia, a {now}.",
+        "explain.check.contradicted.no": (
+            "{where} è promosso a {now}, e una persona ha detto no alla "
+            "risposta: il giudice contraddice la persona, e il caso fallisce."
+        ),
+        "explain.check.contradicted.yes": (
+            "{where} è bocciato a {now}, e una persona ha detto sì alla "
+            "risposta: il giudice contraddice la persona, e il caso fallisce."
+        ),
         "explain.check.suspended": (
             "Il caso {case} è stato messo da parte, quindi su di esso non è "
             "stato misurato nulla. Il motivo dichiarato non viaggia qui."

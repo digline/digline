@@ -539,6 +539,48 @@ def test_explain_names_each_contradiction_and_its_direction() -> None:
     assert "no-good per llm_rubric, promossa dove la persona ha detto no" in said
 
 
+@pytest.mark.parametrize(
+    ("case", "said"),
+    [
+        (
+            reviewed("no-good", GOOD, good=False),
+            "no-good · llm_rubric passed at 1.000000, and a person said no to the "
+            "answer: the judge contradicts the person, and the case fails.",
+        ),
+        (
+            reviewed("yes-bad", BAD, good=True),
+            "yes-bad · llm_rubric failed at 0.000000, and a person said yes to the "
+            "answer: the judge contradicts the person, and the case fails.",
+        ),
+    ],
+    ids=["passed-a-no", "failed-a-yes"],
+)
+def test_a_contradiction_is_what_the_run_found(case: Case, said: str) -> None:
+    """When it is the only finding, `What it found` says it, and never
+    *Nothing in this group*; alone and against a reference alike."""
+    found = run(case)
+    for reading, heading in (
+        (facts(found), "What it found"),
+        (facts(found, compare(found, found)), "What moved"),
+    ):
+        lines = explain_text(reading, locale="en")
+        # The last group is the checks: its heading, then the contradiction,
+        # where *Nothing in this group.* used to stand.
+        assert lines[-2:] == (heading, said)
+
+
+def test_explain_json_says_what_the_person_said_on_a_contradiction() -> None:
+    found = run(reviewed("no-good", GOOD, good=False), *AGREES)
+    document = json.loads(
+        json.dumps(explain_json(facts(found), reading="run", exit_code=1, run=found))
+    )
+    [check] = [f for f in document["facts"] if f.get("kind") == "contradicted"]
+    assert (check["case_id"], check["good"], check["after"]) == ("no-good", False, 1.0)
+    assert all(
+        "good" not in f for f in document["facts"] if f.get("kind") != "contradicted"
+    )
+
+
 def test_shape_leaves_it_out() -> None:
     """A yes or a no asks for an extreme, so counted it would inflate the
     share at 0 or 1 of the check it names. Only `by-hand`'s two samples are

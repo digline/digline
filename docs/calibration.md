@@ -150,6 +150,7 @@ How it was set up
 Nothing in this group.
 
 What it found
+said-no · llm_rubric passed at 0.900000, and a person said no to the answer: the judge contradicts the person, and the case fails.
 bad-1 · llm_rubric is under its bar at 0.000000. The bar is 0.700000.
 bad-2 · llm_rubric is under its bar at 0.000000. The bar is 0.700000.
 unsure · llm_rubric could not be judged.
@@ -169,7 +170,8 @@ The judge passed `said-no`, an answer the person said no to. That is a
 contradiction, and the case fails. Where to read it:
 
 - **`explain`** names each one, its check, and which way the judge went:
-  *passed where the person said no*, or *failed where the person said yes*;
+  *passed where the person said no*, or *failed where the person said yes*,
+  in the tally, and first among what the run found;
 - **`explain --json`** carries them beside the count, on the `reviewed` fact:
 
   ```json
