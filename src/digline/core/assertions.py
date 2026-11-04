@@ -1393,10 +1393,11 @@ class ToolCalledWith(AssertionBase):
     set's elements go through `str` and are sorted. Any other value — not
     `None`, `bool`, `int`, `str`, `float`, `bytes` or `bytearray`, a `Mapping`,
     an `AbstractSet`, a `Sequence`, or a dataclass instance — becomes
-    `"<TypeName>"`. So a declared argument of such a type does not
-    discriminate: against an object of the same type it always matches, and
-    against a value decoded from JSON it matches only the string
-    `"<TypeName>"`.
+    `"<TypeName>"`. Such an argument could not discriminate: against an
+    object of the same type it would always match, and against a value
+    decoded from JSON only the string `"<TypeName>"`. So it is **refused when
+    the check is built**, with the path to it and what to declare instead: a
+    date or a time as its ISO 8601 text. (ADR 0018 §5, noted 2026-11-04)
 
     Nothing the model sent reaches `Score.metadata` — only how much of what was
     declared matched. An argument is the end company's data by construction, and
