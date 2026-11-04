@@ -77,7 +77,14 @@ from digline.host.toml_errors import (
     unknown_key,
     unknown_type,
 )
-from digline.run import Calibration, Case, ReviewedAnswer, Suite, Target
+from digline.run import (
+    Calibration,
+    CaptureSource,
+    Case,
+    ReviewedAnswer,
+    Suite,
+    Target,
+)
 from digline.targets import (
     HttpTarget,
     ModelPrice,
@@ -185,7 +192,10 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
     perimeter = (root or path.parent).resolve()
 
     _refuse_unknown(
-        document, {"suite", "target", "assertions"}, f"{where}, top level", "table"
+        document,
+        {"suite", "target", "assertions", "capture"},
+        f"{where}, top level",
+        "table",
     )
     table = _table(document, "suite", where)
     assertions, aggregates = _assertions(document, where)
@@ -207,12 +217,9 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
         )
     if "capture" in table:
         raise UsageError(
-            f"{where}, [suite]: `capture` is not settable from a data file in "
-            "this release. A capture source writes third-party text into a "
-            "committed file, and ADR 0023 §3 keeps that declaration in a "
-            "suite.py; whether recordings may be declared as data is the "
-            "question ADR 0058 leaves open. A suite that imports recordings "
-            "is a suite.py"
+            f"{where}, [suite]: `capture` is a table of its own, `[capture]`, "
+            'with cases_file, repository ("private" or "public") and check '
+            "(ADR 0059 §4)"
         )
     if "cases" not in table:
         raise UsageError(
@@ -220,21 +227,34 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             '`cases = "cases.json"` — because a suite is rules and cases are '
             "data, and a diff has to say which one moved (ADR 0007 §4)"
         )
-    if not isinstance(table["cases"], str):
+    if not _paths(table["cases"]):
         # Said without the value: a table or an array written here holds
-        # cases, and a case is the end company's payload.
+        # cases, and a case is the end company's payload. An array of paths
+        # is files, and is read in order (ADR 0059 §4).
         raise UsageError(
-            f"{where}, [suite]: `cases` must be the path of a JSON file, not a "
-            "table or an array"
+            f"{where}, [suite]: `cases` must be the path of a JSON file or an "
+            "array of paths, not a table or cases written in the suite"
         )
 
     declared = dict(table)
-    declared["cases"] = _cases(
-        within_perimeter(
-            path.parent / str(declared.pop("cases")), perimeter, "cases", where
-        ),
-        where,
+    capture = (
+        _capture(_table(document, "capture", where), path, perimeter, where)
+        if "capture" in document
+        else None
     )
+    cases: list[Case] = []
+    for file in _case_files(declared.pop("cases")):
+        resolved = within_perimeter(path.parent / file, perimeter, "cases", where)
+        # The capture file is absent until the first import writes it, and a
+        # suite that names it is not broken before then: absent is no case,
+        # as `read_cases` has it for a `suite.py`. Any other file is required.
+        if capture is not None and resolved == capture.cases_file:
+            cases.extend(read_cases(resolved))
+        else:
+            cases.extend(_cases(resolved, where))
+    declared["cases"] = cases
+    if capture is not None:
+        declared["capture"] = capture
     if "artifacts" in declared:
         # An array here, `Path` there: the str-to-Path step is `Suite`'s own
         # (`__post_init__`), so the data form and the Python constructor coerce
@@ -319,6 +339,52 @@ def _table(
     if not isinstance(found, Mapping):
         raise UsageError(f"{where}: [{key}] is a {type(found).__name__}, not a table")
     return cast("Mapping[str, object]", found)
+
+
+def _paths(value: object) -> bool:
+    """Whether `cases` is a path, or a non-empty array of paths."""
+    if isinstance(value, str):
+        return True
+    if not isinstance(value, list):
+        return False
+    files = cast("list[object]", value)
+    return bool(files) and all(isinstance(f, str) and f for f in files)
+
+
+def _case_files(value: object) -> list[str]:
+    """`cases`: one file, or an array of files read in order, as `_paths`
+    has already held it. A suite that declares `[capture]` names its capture
+    file here too, as a `suite.py` loads it with `read_cases`, or it is
+    refused when it is loaded."""
+    return [value] if isinstance(value, str) else cast("list[str]", value)
+
+
+def _capture(
+    table: Mapping[str, object], path: Path, perimeter: Path, where: str
+) -> CaptureSource:
+    """`[capture]`: where captured cases go, under which regime, and for which
+    judged check. A table in a reviewed file is the change ADR 0007 §7 asks
+    for, so a data suite declares it as a `suite.py` does; `repository` has no
+    default here either. `cases_file` is read from the suite file's directory
+    and held to the perimeter. (ADR 0059 §4)"""
+    spot = f"{where}, [capture]"
+    _refuse_unknown(table, set(_init_fields(CaptureSource)), spot, "key")
+    if "repository" not in table:
+        raise UsageError(
+            f'{spot}: no `repository`. It is "private" or "public", with no '
+            "default: whether third-party text may be written is declared, "
+            "never looked up (ADR 0023 §8)"
+        )
+    if not isinstance(table.get("cases_file"), str):
+        raise UsageError(f"{spot}: `cases_file` is the path of capture's own file")
+    given = dict(table)
+    given["cases_file"] = within_perimeter(
+        path.parent / str(given["cases_file"]), perimeter, "capture", where
+    )
+    try:
+        return CaptureSource(**cast("Any", given))
+    except (TypeError, ValueError) as exc:
+        raise UsageError(Written.of(exc, f"{spot}: ", named=False)) from exc
 
 
 def _sequence(value: object, key: str, where: str) -> Sequence[object]:

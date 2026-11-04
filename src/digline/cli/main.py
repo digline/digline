@@ -62,6 +62,7 @@ from digline.host import (
     import_listing,
     imported_since,
     instant,
+    listing_lines,
     load_suite,
     load_target,
     measure,
@@ -77,7 +78,6 @@ from digline.host import (
     record,
     record_compare,
     recorder_status,
-    refuse_data_suite,
     refuse_unreadable_baseline,
     refused_exit,
     reported,
@@ -88,6 +88,7 @@ from digline.host import (
     unignored,
     unignored_notes,
     utc_now_iso,
+    written_lines,
 )
 from digline.report import (
     against_line,
@@ -1304,8 +1305,9 @@ def cmd_record(args: argparse.Namespace) -> int:
         "ceiling": ("on",),
         "interval": ("on",),
         "json": ("status", "compare"),
-        "positive": ("import",),
-        "negative": ("import",),
+        "good": ("import",),
+        "bad": ("import",),
+        "by": ("import",),
         "suite": ("import", "status", "compare"),
         "case": ("compare",),
         "since": ("compare",),
@@ -1356,9 +1358,8 @@ def cmd_record(args: argparse.Namespace) -> int:
 
 
 def _record_suite(args: argparse.Namespace) -> tuple[Suite, Loaded]:
-    """The suite `--suite` names, refused before it is loaded if it is data:
-    a `suite.toml` cannot declare where captured cases go. (ADR 0023 §3)"""
-    refuse_data_suite(args.suite)
+    """The suite `--suite` names, a `suite.py` or a `suite.toml`: either may
+    declare where captured cases go (ADR 0059 §4)."""
     return load_suite(args.suite, root=Path(args.root))
 
 
@@ -1390,78 +1391,27 @@ def _say_values(root: Path, tenant: str) -> None:
 
 
 def cmd_record_import(args: argparse.Namespace) -> int:
-    """Recordings made a suite's cases, in two invocations (ADR 0023 §4).
+    """Recorded answers made a suite's cases, in two invocations (ADR 0023 §4).
 
-    Without `--positive` or `--negative` it lists and writes nothing. With
-    them it writes the cases named, each with its label, and stops: no
-    commit, no run, no promotion. There is no dialogue, no default and no
-    preselection, and nothing serves it to an agent. (ADR 0058 §4)
+    Without `--good` or `--bad` it lists and writes nothing. With them, and
+    `--by`, it writes the answers named, each as a reviewed answer, and stops:
+    no commit, no run, no promotion. There is no dialogue, no default and no
+    preselection, and nothing serves it to an agent. What is read and said is
+    the host's; this lays it out. (ADR 0058 §4, ADR 0059)
     """
     if args.tenant is None or args.suite is None:
         raise UsageError("`digline record import` needs --tenant and --suite")
     suite, loaded = _record_suite(args)
     found = import_listing(Path(args.root), suite, loaded.module, args.tenant)
-    if args.positive or args.negative:
+    if args.good or args.bad or args.by is not None:
         written = import_elect(
-            found, positive=args.positive or (), negative=args.negative or ()
+            found, good=args.good or (), bad=args.bad or (), by=args.by
         )
-        say(f"wrote {len(written)} cases to {found.cases_file}:")
-        for case_id in written:
-            say(f"  {case_id}")
-        say(
-            "  the diff is the review and the commit is the signature: nothing "
-            "was committed, run or promoted (ADR 0023 §7)"
-        )
+        for line in written_lines(found, written):
+            say(line)
         return EXIT_OK
-    say(
-        f"tenant {found.tenant!r} · suite {found.suite} · writes to "
-        f"{found.cases_file} ({found.repository})"
-    )
-    say(f"  setup in force: {(found.setup or 'none')[:8]}")
-    for case in found.cases:
-        attached = (
-            f", {case.attached} recordings attached" if case.kind == "episode" else ""
-        )
-        state = (
-            f"already elected, {case.elected}"
-            if case.elected is not None
-            else "electable"
-            if case.electable
-            else "recorded only under earlier setups: seen, not electable"
-        )
-        say("")
-        say(f"case {case.id} · {case.kind}{attached} · {state}")
-        say(f"  input:  {json.dumps(case.vars, ensure_ascii=False, sort_keys=True)}")
-        # Identical answers under the setup in force are one line, counted:
-        # the same setup answering the same way is one fact, said once.
-        tally: dict[str, int] = {}
-        for answer in case.answers:
-            tally[answer] = tally.get(answer, 0) + 1
-        for answer, times in tally.items():
-            say(f"  answer: {answer}" + (f"  (×{times})" if times > 1 else ""))
-        if case.earlier:
-            say(
-                f"  earlier: {case.earlier} recordings under "
-                f"{case.earlier_setups} earlier setups"
-            )
-    say("")
-    say(
-        f"{len(found.cases)} cases from {found.recordings} recordings of the suite; "
-        f"not cases: {found.orphans} orphans, {found.detached} calls whose "
-        f"episode is not among the files, {found.interrupted} interrupted "
-        f"episodes, {found.oversize} over the ceiling of a recording, "
-        f"{found.unreadable} files that are not readable recordings"
-    )
-    if found.repository == "public":
-        say(
-            'repository = "public": this lists, and an election is refused, '
-            "because a recorded case is third-party text (ADR 0023 §8)"
-        )
-    elif any(case.electable for case in found.cases):
-        say(
-            "to write cases, name each one with its label: --positive ID, "
-            "--negative ID. A case not named stays out"
-        )
+    for line in listing_lines(found):
+        say(line)
     return EXIT_OK
 
 
@@ -2176,16 +2126,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="compare only, with --setup: the keys the two setups differ on",
     )
     rec_p.add_argument(
-        "--positive",
+        "--good",
         action="append",
         metavar="ID",
-        help="import only: write this case labelled positive; once per case",
+        help=(
+            "import only: write this recorded answer as reviewed good, by the "
+            "id the listing prints; once per answer"
+        ),
     )
     rec_p.add_argument(
-        "--negative",
+        "--bad",
         action="append",
         metavar="ID",
-        help="import only: write this case labelled negative; once per case",
+        help=(
+            "import only: write this recorded answer as reviewed bad, by the "
+            "id the listing prints; once per answer"
+        ),
+    )
+    rec_p.add_argument(
+        "--by",
+        metavar="NAME",
+        help=(
+            "import only, mandatory with --good or --bad: your own name, the "
+            "mark the cases carry; never read from git or the environment"
+        ),
     )
     rec_p.set_defaults(func=cmd_record)
 

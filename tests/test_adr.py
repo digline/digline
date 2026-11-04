@@ -245,9 +245,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "The rich import is in no file. Meant for 1.1"
     ),
     "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
-        "accepted, and before any code: no reviewed answer, no grouped listing, "
-        "no `[capture]` table and no `--good` or `--bad` exist; the import still "
-        "writes `Case.label` from `--positive` and `--negative`"
+        "a reviewed answer is declared, imported and refused at run: the run "
+        "document has no key for what the person said until schema 23, and no "
+        "run counts the judge against the person"
     ),
     "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
         "accepted, and before any code: no `steps_of`, no `steps` in a "
