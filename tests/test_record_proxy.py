@@ -206,7 +206,7 @@ def proxying(root: Path, upstream: Upstream, **extra: Any) -> Proxy:
             "routes",
             [f"openai={upstream.address}/v1", f"anthropic={upstream.address}"],
         ),
-        episode_idle=extra.pop("episode_idle", 0.2),
+        episode_idle=extra.pop("episode_idle", 0.5),
         timeout=extra.pop("timeout", 5.0),
         **extra,
     )
@@ -357,12 +357,17 @@ def test_no_suite_is_unassigned_with_the_sdk_and_the_path(
 
 
 def a_turn(proxy: Proxy, **headers: str) -> None:
+    """Two calls, a pause between them shorter than the idle interval: one
+    episode, not two."""
     client = an_openai(f"{proxy.address}/v1", **SUITE, **headers)
-    for _ in range(2):
-        client.chat.completions.create(model="gpt-test", messages=QUESTION)
+    client.chat.completions.create(model="gpt-test", messages=QUESTION)
+    time.sleep(0.2)
+    client.chat.completions.create(model="gpt-test", messages=QUESTION)
 
 
 def the_episode(root: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    found = recordings(root, 3)
+    time.sleep(0.6)
     found = recordings(root, 3)
     [episode] = [r for r in found if "id" in r]
     return episode, [r for r in found if "id" not in r]

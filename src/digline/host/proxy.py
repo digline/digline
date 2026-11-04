@@ -10,10 +10,10 @@ the same switch, the same writer, the same digest and the same counts
 **Which map reads a call is its route**, the path, as each plugin's entry in
 `digline.recording_wire` says (`/chat/completions` is OpenAI's, `/v1/messages`
 Anthropic's). **Where it goes** is `--upstream ROUTE=URL` where that names the
-route; otherwise the provider whose SDK the request's headers show, the
-route's own first (`anthropic-version` or `x-api-key` Anthropic's, a bearer
-key without them OpenAI's: both SDKs send their key as a bearer), at that
-provider's own address; otherwise the route's. A call over a path no plugin
+route; otherwise the provider whose SDK the request's headers show
+(`anthropic-version` or `x-api-key` Anthropic's, a bearer key without them
+OpenAI's: both SDKs send their key as a bearer), at that provider's own
+address; otherwise the route's. A call over a path no plugin
 reads is forwarded the same way and not recorded.
 
 **The suite, the app and the episode** come from `X-Digline-Suite`,
@@ -355,15 +355,12 @@ class _Handler(BaseHTTPRequestHandler):
         self, route: str | None, headers: Mapping[str, str]
     ) -> tuple[str, str] | None:
         """Where the call goes, and whose route's base the path is read
-        against: `--upstream` for the route; else the provider whose key the
-        request carries; else the route's own provider."""
+        against: `--upstream` for the route; else the provider whose SDK the
+        headers show, which no two plugins claim alike; else the route's own
+        provider."""
         if route is not None and route in self.upstreams:
             return self.upstreams[route], route
-        # The route's own provider first: a key two providers' SDKs send alike
-        # goes where the path already says.
-        order = sorted(self.wires, key=lambda name: name != route)
-        for name in order:
-            wire = self.wires[name]
+        for name, wire in self.wires.items():
             if wire.claims(headers):
                 return self.upstreams.get(name, wire.upstream), name
         if route is not None:

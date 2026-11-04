@@ -324,9 +324,8 @@ endpoint, once per route:
 $ digline record proxy --tenant acme --upstream openai=https://generativelanguage.googleapis.com/v1beta/openai
 ```
 
-Without it, a call goes to the provider whose SDK its headers show, the
-route's own first: `anthropic-version` is Anthropic's, a bearer key without it
-OpenAI's. An endpoint that answers in OpenAI's shape, such as Gemini's
+Without it, a call goes to the provider whose SDK its headers show:
+`anthropic-version` is Anthropic's, a bearer key without it OpenAI's. An endpoint that answers in OpenAI's shape, such as Gemini's
 OpenAI-compatible one, is read by OpenAI's plugin. That was measured with a
 fake endpoint at another path whose replies have fewer fields than OpenAI's;
 Gemini itself was not called, so what it sends was not read. A

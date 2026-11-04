@@ -314,9 +314,9 @@ written.* What the code adds, by the maintainer's ruling of the same day:
   `proxy` unless it is given; and a call that names no suite carries the
   SDK's `User-Agent` and the path as its call site. Both are additions.
 - **The upstream from the headers** where `--upstream` does not name the
-  route, the route's own provider first. Measured: both SDKs send their key
-  as `Authorization: Bearer` (anthropic 2.3.0), so Anthropic's call is told
-  by `anthropic-version`, never by the key's header alone.
+  route. Measured: both SDKs send their key as `Authorization: Bearer`
+  (anthropic 2.3.0), so Anthropic's call is told by `anthropic-version`, and
+  OpenAI's is a bearer without it, never by the key's header alone.
 - **An episode off the wire is written by the proxy**, once its
   `X-Digline-Episode` has been idle for `--episode-idle` seconds (30) or the
   proxy stops: without it the calls would carry an id whose episode no file
