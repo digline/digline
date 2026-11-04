@@ -231,8 +231,8 @@ def test_the_cases_file_refuses_a_reviewed_answer_that_is_not_an_object(
 # -- not run yet -------------------------------------------------------------- #
 
 REFUSED = (
-    r"reviewed answers run from schema 23 \(ADR 0059 §1\); this build is on "
-    r"schema 22"
+    r"reviewed answers run once the run document has a key for a person's yes "
+    r"or no \(ADR 0059 §1\), and this build's, at schema 23, has none"
 )
 
 
@@ -324,7 +324,7 @@ def test_digline_run_refuses_it_and_writes_nothing(tmp_path: Path) -> None:
         check=False,
     )
     assert done.returncode == EXIT_USAGE, done.stderr
-    assert "reviewed answers run from schema 23 (ADR 0059 §1)" in done.stderr
+    assert "reviewed answers run once the run document has a key" in done.stderr
     assert "the target was called" not in done.stderr
     assert done.stdout == ""
     # No run and no journal: nothing under the store at all.

@@ -5325,6 +5325,14 @@ names.
    runs the same `ci` on the same commit, but that commit's run list keeps a
    cancelled `ci`: on 2026-10-19, at `253e6cd`, run 39229593661 (push,
    cancelled) and run 39229616911 (dispatch, green).
+   **When the release moved the schema, the floors move here too, with the
+   locks.** The floor of an example names the oldest digline that reads the
+   baseline committed beside it. A schema bump moves the baselines before the
+   tag, so from the tag to this step every floor names a release that no longer
+   reads them. So in this step each example's floor rises to the release just
+   tagged, in the same pull request as its lock. Why it waits for the tag is in
+   *Before the tag: moving the number*, step 5, *The floor of an example names
+   the oldest digline that reads the baseline committed beside it*.
 4. **The status block:** update *The index race* → *Status: what each path has
    proven* with what this tag proved and what the next one must show. It
    changes every release, so it is updated by this step, not from memory.

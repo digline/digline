@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from digline.core import ConfigValue, Finish, ResultAbsence, ToolStatus
-from digline.core.recording import steps_as_reported
+from digline.core.run import steps_as_reported
 from digline.targets.pricing import Usage
 
 __all__ = [

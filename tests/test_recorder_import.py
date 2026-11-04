@@ -40,9 +40,9 @@ import pytest
 
 from digline.cli.main import main
 from digline.core.capture import capture_id
-from digline.core.recording import RecordedStep, Recording, setup_digest_of
+from digline.core.recording import Recording, setup_digest_of
 from digline.core.refused import RefusedError
-from digline.core.run import RecordedResponse, RecordedToolCall
+from digline.core.run import RecordedResponse, RecordedStep, RecordedToolCall
 from digline.host import (
     UsageError,
     answer_id,

@@ -247,6 +247,11 @@ that calls `execute()` itself passes
 Four checks read the steps: `Subsequence`, `Before`, `Never` and `MaxSteps`
 ([the API](api.md#four-checks-on-the-steps)).
 
+**And in the run document.** A suite that records its responses keeps the steps
+on each recorded response, from schema 23, so a replay judges them again as the
+live run judged them. A response whose steps name other calls than its
+`tool_calls` is refused rather than recorded.
+
 The decision is
 [ADR 0060](adr/0060-the-steps-of-a-trajectory-live-recorded-and-collected.md)
 §1–§4.
@@ -425,8 +430,9 @@ does, since *not this answer* names no answer.
 The import writes the file and stops: the diff is the review, the commit is the
 signature.
 
-> **A reviewed answer does not run yet.** Until schema 23 gives the run
-> document its key, `digline run` refuses a suite whose cases hold one, before
+> **A reviewed answer does not run yet.** Until the run document has a key for
+> it, which schema 23 does not have yet, `digline run` refuses a suite whose
+> cases hold one, before
 > anything is called or written. So once you have written one, the suite
 > stops running until that release.
 
@@ -480,5 +486,6 @@ exits 0.
 ## Not yet
 
 - An application in another language than Python.
-- A reviewed answer is written and not run: it runs from schema 23, and the
-  run then counts, apart from accuracy, where the judge disagreed with you.
+- A reviewed answer is written and not run: it runs once the run document has
+  a key for it, and the run then counts, apart from accuracy, where the judge
+  disagreed with you.

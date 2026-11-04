@@ -359,7 +359,9 @@ def test_migrating_a_schema_19_document_writes_nothing() -> None:
     # 20 -> 21 writes nothing either (#563, #425), so the claim stands at 21.
     # 21 -> 22 writes nothing either: an absent `origin` on a verdict and
     # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
-    assert SCHEMA_VERSION == 22
+    # 22 -> 23 writes nothing either: an absent `finish` and an absent `tools`
+    # on a recorded response are *not recorded* (ADR 0057).
+    assert SCHEMA_VERSION == 23
     current = json.loads(run_to_json(make_run([judged(Contains(needle="hello"))])))
     at_nineteen = {**current, "schema_version": 19}
     upgraded = upgrade_document(at_nineteen)
