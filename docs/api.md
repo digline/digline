@@ -235,6 +235,9 @@ Reasoning in [ADR 0016](adr/0016-the-canary-case.md).
 
 ### `Case.calibration`: watching the judge's scale
 
+> The four ways of reading a judge, this one among them, in one suite:
+> [Calibrating a judge](calibration.md).
+
 The canary watches whether the model is still that model; a calibration case
 watches whether the scale is still a scale. A judge that has gone binary is
 *more* repeatable, not less — every answer at 1.00, every time — so no number of
@@ -301,6 +304,9 @@ nothing checks it. Reasoning in
 [ADR 0024](adr/0024-the-judge-as-an-instrument.md) §4.
 
 ### `Case.reviewed_answer`: a person's yes or no about an answer
+
+> Beside the other three ways of reading a judge:
+> [Calibrating a judge](calibration.md).
 
 An answer the application gave, and a person's yes or no about it. Here a
 person read two recorded answers to the same question, said yes to one and no

@@ -564,6 +564,38 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "explain",
         explain_json(facts(now), reading="run", exit_code=0, run=now),
     )
+    # A run whose calibration case left its band: the reading names it.
+    lost = dataclasses.replace(
+        now,
+        results=tuple(
+            dataclasses.replace(
+                case,
+                verdicts=tuple(
+                    _verdict(
+                        "llm_rubric",
+                        0.95,
+                        samples=(0.95, 0.95, 0.95),
+                        judged=True,
+                    )
+                    for _ in case.verdicts
+                ),
+            )
+            if case.calibration is not None
+            # And a reviewed answer the judge contradicted: the reading names
+            # it too. (ADR 0059 §1)
+            else dataclasses.replace(
+                case, reviewed=dataclasses.replace(case.reviewed, good=False)
+            )
+            if case.reviewed is not None
+            else case
+            for case in now.results
+        ),
+    )
+    yield (
+        "explain_json a band left",
+        "explain",
+        explain_json(facts(lost), reading="run", exit_code=1, run=lost),
+    )
     yield (
         "explain_json without its documents",
         "explain",

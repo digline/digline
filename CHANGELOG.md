@@ -136,6 +136,21 @@ nothing. No public name is removed or renamed and no exit code changes.
   `contradicted(run)` reads it from a run alone. `digline run` exits as it
   does for a lost scale (ADR 0059 §1). On the wire, `compare --json` and the
   run document gain the keys, and `OUTPUT_VERSION` stays 5.
+- **`explain` names each calibration case outside its band, and each
+  reviewed answer the judge contradicted**, where it said a count: the case,
+  the check, the score, the band and the side it landed on, `above` or
+  `below`, and for a reviewed answer which way the judge went. The text says
+  them in the tally's sentence; `explain --json` gains `bands` on the
+  `calibration` fact and `contradictions` on the `reviewed` one, beside the
+  count and only where there is one, added keys under `OUTPUT_VERSION` 5. The
+  report's sections said this already. The run document does not change
+  (ADR 0024 §4.5, ADR 0059 §1).
+- **A page, *Calibrating a judge*** (`docs/calibration.md`): reviewed
+  answers, calibration cases, the labelled aggregates and `Repeated`, in one
+  suite, with what to read and where. It writes down the convention the
+  confusion matrix counts by: a check's `pass` is agreement with the label,
+  so with a judge named as `over` a negative it rightly fails is counted a
+  false positive.
 - **A suite that declares a tool argument digline cannot tell apart is
   refused, and this breaks a suite that loaded before**: a `date`, a `time`,
   a class, a function or any value that `ToolCalledWith` compared as
