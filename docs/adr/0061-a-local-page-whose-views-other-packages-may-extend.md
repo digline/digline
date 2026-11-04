@@ -1,14 +1,16 @@
 # ADR 0061 — A local page over `.digline/`, whose views other packages may extend
 
-- Status: proposed 2026-11-03. **Its decisions were ruled before this record
+- Status: accepted 2026-11-04, by Alessandro Prandini, the text first, as it
+  stands at `84d8ca79`: every item marked *decided here* taken, with the
+  names it proposes (`--allow-record` and the address `/x/<name>/`).
+  Proposed 2026-11-03. **Its decisions were ruled before this record
   was written**, on 2026-11-03, in the conversation of the session that wrote
   it, after a reading of what `digline view` and `digline record` already
   hold. They are stated here as ruled. **What this record adds is marked
   *decided here***: the flag that serves the two writes, where the contract of
-  an extension lives, and the shape of an extension's name. Each is proposed,
-  and acceptance takes it or removes it, item by item. Acceptance is
-  Alessandro Prandini's. *Revised 2026-11-03, the same day, after a mockup
-  in two variants:* the maintainer chose a stylesheet of digline's own over a
+  an extension lives, and the shape of an extension's name. Each was proposed,
+  for acceptance to take or remove item by item. *Revised 2026-11-03, the
+  same day, after a mockup in two variants:* the maintainer chose a stylesheet of digline's own over a
   vendored framework, and §4.4, §5 and §7 carry what that choice ruled. The
   mockup was built outside the repository and is not part of this record
 - Shipped: unreleased
