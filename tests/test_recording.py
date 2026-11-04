@@ -136,6 +136,19 @@ def test_an_episode_comes_back_as_it_was_written(changes: dict[str, object]) -> 
     assert recording_from_dict(document) == recording
 
 
+def test_a_recording_whose_step_breaks_the_steps_rules_is_refused_as_a_recording() -> (
+    None
+):
+    """The step's rules are the run document's since schema 23, and a
+    recording read with one says so as a recording, naming the step."""
+    document = json.loads(json.dumps(recording_to_dict(an_episode())))
+    document["steps"][2]["finish"] = ""
+    with pytest.raises(
+        RecordingRefusedError, match="a recording's step 2: .*non-empty"
+    ):
+        recording_from_dict(document)
+
+
 def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
     written = recording_to_dict(an_episode())
     assert written["steps"] == [
