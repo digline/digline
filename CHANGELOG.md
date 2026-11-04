@@ -8,25 +8,35 @@ notes under them are this file, verbatim.
 
 ## 1.1.0 — unreleased
 
-- **Schema 23: a replay reads the trajectory the live run read** (ADR 0057).
-  `ToolsCalled` reads two keys of the target's report that the document did
-  not keep, so a replay could judge another trajectory than the live run. A
-  reply that ended on a tool call and named none was `error` live and `fail`
-  replayed, and a target whose two lists disagreed was judged on one live and
-  on the other replayed. A recorded response now carries both:
-  - **`RecordedResponse.finish`**, why the reply ended, and
-    **`RecordedResponse.tools`**, the names the target reported. Each is
-    written where the target reported it, under `record_responses`, with no
-    switch of its own, and an absent key is *not recorded*.
-  - The replay hands back what was recorded. Where `tools` was not recorded,
-    it derives the names from `tool_calls`, as before.
-  - **The replay's refusal narrows.** A target that reported names and no calls
-    is re-judged for `ToolsCalled`, where it was refused. `ToolCalledWith`
-    reads the arguments, which only `tool_calls` carries, and is still refused.
+digline **1.1.0**. **A minor, because the schema moves**: the run document is at
+schema 23, and `digline migrate` takes a document from 22 by a step that writes
+nothing. No public name is removed or renamed and no exit code changes.
 
-  A document written before 23 records neither, and **no stored document
-  changes its verdict**: absent is *not recorded*, so it replays exactly as it
-  did. The 22 -> 23 step writes nothing. A schema that moves is a minor.
+- **Schema 23: a recorded response keeps the trajectory the checks read live**,
+  three passengers, each additive and absent where it was not recorded:
+  - **`RecordedResponse.finish`**, why the reply ended, and
+    **`RecordedResponse.tools`**, the names the target reported (ADR 0057).
+    `ToolsCalled` reads both live, and the document did not keep them, so a
+    reply that ended on a tool call and named none was `error` live and `fail`
+    replayed, and a target whose two lists disagreed was judged on one live
+    and on the other replayed. Where `tools` was not recorded, the replay
+    derives the names from `tool_calls`, as before.
+  - **`RecordedResponse.steps`**, the trajectory as steps: a `model` step per
+    call to a model and a `tool` step per tool call it asked for (ADR 0060
+    §5). The replay hands them back, so `MaxSteps` is re-judged where the run
+    recorded steps, and refused by name where it did not; `Subsequence`,
+    `Before` and `Never` read the steps where they were recorded, and the
+    names otherwise. Steps whose calls are not the response's `tool_calls`,
+    in the same order, are refused rather than recorded.
+  - **The replay's refusal narrows.** A target that reported names and no
+    calls is re-judged for `ToolsCalled`, where it was refused.
+    `ToolCalledWith` reads the arguments, which only `tool_calls` carries, and
+    is still refused.
+
+  Each is written where the target reported it, under `record_responses`,
+  with no switch of its own. A document written before 23 records none of
+  them, and **no stored document changes its verdict**: absent is *not
+  recorded*, so it replays exactly as it did.
 
 - **A judge says whether `spent_usd` is the whole of its cost**:
   `JudgeBase.every_cost_known`, new and additive. It is `False` from the
