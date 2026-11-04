@@ -12,10 +12,11 @@ What is held here:
   whole or not at all, never over another;
 - the generated `.gitignore` keeps `*/recordings/` and `*/recorder.toml` out of
   git;
-- an episode's steps come back as written, a tool step's call by the run
-  document's own serializer of a tool call, and a step that breaks §7 is
-  refused: a finish on a tool step, a call on a model step, an index out of
-  order.
+- an episode is told by its own `id`, and its steps are its response's,
+  written by the run document's serializer, a tool step's call inline (ADR
+  0060 §6); a document that keeps them beside the response is refused, and a
+  step that breaks §7 is refused: a finish on a tool step, a call on a model
+  step, an index out of order.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -120,14 +122,23 @@ STEPS = (
 
 
 def an_episode(**changes: object) -> Recording:
-    fields: dict[str, object] = {"steps": STEPS, "episode": "f" * 32}
+    fields: dict[str, object] = {
+        "id": "a" * 32,
+        "episode": "f" * 32,
+        "response": replace(RESPONSES["text"], tool_calls=(LOOKUP,), steps=STEPS),
+    }
     fields.update(changes)
-    return a_recording(RESPONSES["text"], **fields)
+    return a_recording(**fields)
 
 
 @pytest.mark.parametrize(
     "changes",
-    [{}, {"interrupted": True}, {"unrecorded_children": 2}, {"steps": ()}],
+    [
+        {},
+        {"interrupted": True},
+        {"unrecorded_children": 2},
+        {"response": RESPONSES["text"]},
+    ],
     ids=["plain", "interrupted", "unrecorded", "no-steps"],
 )
 def test_an_episode_comes_back_as_it_was_written(changes: dict[str, object]) -> None:
@@ -142,16 +153,18 @@ def test_a_recording_whose_step_breaks_the_steps_rules_is_refused_as_a_recording
     """The step's rules are the run document's since schema 23, and a
     recording read with one says so as a recording, naming the step."""
     document = json.loads(json.dumps(recording_to_dict(an_episode())))
-    document["steps"][2]["finish"] = ""
-    with pytest.raises(
-        RecordingRefusedError, match="a recording's step 2: .*non-empty"
-    ):
+    document["response"]["steps"][2]["finish"] = ""
+    with pytest.raises(RecordingRefusedError, match="response: .*non-empty"):
         recording_from_dict(document)
 
 
-def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
-    written = recording_to_dict(an_episode())
-    assert written["steps"] == [
+def test_an_episodes_steps_are_its_responses() -> None:
+    """Written by the run document's serializer, a tool step's call inline,
+    and nowhere beside the response. (ADR 0060 §6)"""
+    written = json.loads(json.dumps(recording_to_dict(an_episode())))
+    assert "steps" not in written
+    assert written["response"] == _response_to_dict(an_episode().response)
+    assert written["response"]["steps"] == [
         {"index": 0, "actor": "model", "finish": "tool_use"},
         {"index": 1, "actor": "tool", **_tool_call_to_dict(LOOKUP)},
         {"index": 2, "actor": "model"},
@@ -162,7 +175,23 @@ def test_a_steps_tool_call_is_written_by_the_run_documents_serializer() -> None:
 
 def test_a_single_call_carries_none_of_an_episodes_keys() -> None:
     written = recording_to_dict(a_recording())
-    assert not {"steps", "interrupted", "unrecorded_children", "orphan"} & set(written)
+    assert not {"id", "interrupted", "unrecorded_children", "orphan"} & set(written)
+    assert not a_recording().is_episode
+
+
+def test_the_id_is_what_makes_a_recording_an_episode() -> None:
+    """A single call's steps are its response's too, so steps tell nothing
+    apart: the episode's own id does. (ADR 0060 §6)"""
+    with_steps = a_recording(replace(RESPONSES["text"], steps=STEPS[:1]))
+    assert not with_steps.is_episode
+    assert a_recording(id="a" * 32).is_episode
+
+
+def test_a_document_that_keeps_steps_beside_its_response_is_refused() -> None:
+    document = json.loads(json.dumps(recording_to_dict(an_episode())))
+    document["steps"] = document["response"].pop("steps")
+    with pytest.raises(RecordingRefusedError, match="beside its response"):
+        recording_from_dict(document)
 
 
 def test_an_episodes_id_and_the_time_come_back_as_written() -> None:
@@ -180,11 +209,10 @@ def test_an_episodes_id_and_the_time_come_back_as_written() -> None:
 @pytest.mark.parametrize(
     ("changes", "match"),
     [
-        ({"id": "a" * 32}, "only an episode carries an id"),
         ({"id": ""}, "Recording.id must be a non-empty string"),
         ({"recorded_at": ""}, "Recording.recorded_at must be a non-empty string"),
     ],
-    ids=["id-on-a-call", "empty-id", "empty-time"],
+    ids=["empty-id", "empty-time"],
 )
 def test_the_two_keys_refuse_what_no_writer_writes(
     changes: dict[str, object], match: str
@@ -235,14 +263,12 @@ def test_a_step_that_breaks_its_rules_is_refused(step: object, match: str) -> No
 @pytest.mark.parametrize(
     ("changes", "match"),
     [
-        ({"steps": (STEPS[1], STEPS[0])}, "in order"),
-        ({"steps": None, "interrupted": True}, "single call"),
-        ({"steps": None, "unrecorded_children": 1}, "single call"),
+        ({"id": None, "interrupted": True}, "single call"),
+        ({"id": None, "unrecorded_children": 1}, "single call"),
         ({"unrecorded_children": -1}, "from 0"),
         ({"orphan": True}, "only a single call"),
     ],
     ids=[
-        "order",
         "interrupted-call",
         "unrecorded-call",
         "negative",
@@ -263,7 +289,6 @@ def test_an_episode_that_breaks_its_rules_is_refused(
         ("interrupted", None, "true or not at all"),
         ("orphan", False, "true or not at all"),
         ("unrecorded_children", 0, "positive integer"),
-        ("steps", {}, "not a list"),
     ],
 )
 def test_a_document_that_writes_what_no_writer_writes_is_refused(
@@ -276,9 +301,17 @@ def test_a_document_that_writes_what_no_writer_writes_is_refused(
 
 
 def test_a_model_step_with_a_tool_calls_keys_is_refused() -> None:
-    document = recording_to_dict(an_episode())
-    document["steps"] = [{"index": 0, "actor": "model", "tool": "lookup"}]
+    document = json.loads(json.dumps(recording_to_dict(an_episode())))
+    document["response"]["steps"] = [{"index": 0, "actor": "model", "tool": "lookup"}]
     with pytest.raises(RecordingRefusedError, match="model step"):
+        recording_from_dict(document)
+
+
+def test_a_step_out_of_order_is_refused() -> None:
+    document = json.loads(json.dumps(recording_to_dict(an_episode())))
+    steps = document["response"]["steps"]
+    steps[0], steps[1] = steps[1], steps[0]
+    with pytest.raises(RecordingRefusedError, match="in order from 0"):
         recording_from_dict(document)
 
 

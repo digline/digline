@@ -26,6 +26,7 @@ from digline.core import (
     Comparison,
     ConfigDelta,
     ConfigValue,
+    Contradiction,
     Declared,
     Denominator,
     ErrorKind,
@@ -42,6 +43,7 @@ from digline.core import (
     case_count,
     causes_of_two,
     checked_denominator,
+    contradicted,
     counted_cases,
     directions,
     is_token,
@@ -55,6 +57,7 @@ from digline.core import (
     within,
 )
 from digline.core.compare import WIDTH_FIELD
+from digline.core.reviewed import Against
 from digline.report.sheet import SHEET
 from digline.report.text import Locale, phrase, strings
 
@@ -83,6 +86,8 @@ __all__ = [
     "run_tally",
     "calibration_fact",
     "calibration_section",
+    "reviewed_fact",
+    "reviewed_section",
     "scale_lost",
     "summary_lines",
     "suspended_cases",
@@ -294,6 +299,15 @@ class Headline:
     #: learns the scale is gone after reading "2 checks got worse" has already
     #: believed the 2. (ADR 0024 §4.5, §4.6)
     scale_lost: bool = False
+    #: How many reviewed answers the judge passed where the person said no,
+    #: and how many it failed where the person said yes: a judge that
+    #: contradicts a person fails the case, in the gate. Read by `exit_code()`,
+    #: which returns 1 for either, as for a regression and from the run alone:
+    #: the person's verdict is the expected one, and it needs no reference.
+    #: Counted apart, because a judge too lenient and a judge too strict are
+    #: two faults. (ADR 0059 §1)
+    reviewed_passed_no: int = 0
+    reviewed_failed_yes: int = 0
     #: How many run-level checks were measured over a different number of cases
     #: than the reference they are set beside. The fourteenth fact, and the
     #: first one added because a *sentence* was found saying something false
@@ -890,7 +904,7 @@ def headline(
     # `Comparison.counts` says: it places the judge, not the system, so it is
     # not a check this sentence is about. (#672)
     compared = any(
-        d.outcome in ("regressed", "improved", "unchanged") and not d.calibration
+        d.outcome in ("regressed", "improved", "unchanged") and not d.instrument
         for d in comparison.deltas
     )
     if regressed == 0 and judged_nothing and not compared:
@@ -913,7 +927,7 @@ def headline(
     # sentence about noise nobody measured is one the reader learns to skip, and
     # the clause that matters gets skipped with it.
     within_noise = sum(
-        1 for d in comparison.deltas if d.within_noise and not d.calibration
+        1 for d in comparison.deltas if d.within_noise and not d.instrument
     )
     if within_noise == 0:
         noise_text = ""
@@ -926,7 +940,7 @@ def headline(
     # the reason that one is read from the run: whether two aggregates counted
     # the same cases is a fact about a pair, which no run alone can answer.
     incomparable = sum(
-        1 for d in comparison.deltas if d.denominator_moved and not d.calibration
+        1 for d in comparison.deltas if d.denominator_moved and not d.instrument
     )
     if incomparable == 0:
         incomparable_text = ""
@@ -1067,6 +1081,8 @@ def headline(
     canary_text = _canary_fact(comparison, locale)
     lost = scale_lost(run)
     calibration_text = calibration_fact(lost, locale)
+    contradictions = contradicted(run)
+    reviewed_text = reviewed_fact(contradictions, locale)
     gaps = unreconciled(run)
     unreconciled_text = unreconciled_fact(gaps, locale)
     # **And the reference's own gaps, which nothing read until now.** ADR 0027
@@ -1154,6 +1170,8 @@ def headline(
         rejudged=run.rejudged_from is not None,
         canary_moved=comparison.canary_moved,
         scale_lost="scale_lost" in causes,
+        reviewed_passed_no=_directed(contradictions, "passed_no"),
+        reviewed_failed_yes=_directed(contradictions, "failed_yes"),
         denominator_moved=incomparable,
         unreconciled=len(gaps),
         reference_unreconciled=len(reference_gaps),
@@ -1180,6 +1198,10 @@ def headline(
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
                 calibration_text,
+                # Beside it, and for its reason: the judge contradicted a
+                # person about a known answer, so every judged number after it
+                # was graded by that judge. (ADR 0059 §1)
+                reviewed_text,
                 # Before the counts it would otherwise sit under: "Nothing got
                 # worse." about a run that judged nothing is the false sentence
                 # ADR 0049 exists to stop. (§1, §3)
@@ -1360,6 +1382,96 @@ def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:
     )
 
 
+def _directed(found: Sequence[Contradiction], direction: Against) -> int:
+    return sum(1 for c in found if c.direction == direction)
+
+
+def reviewed_fact(found: Sequence[Contradiction], locale: Locale) -> str:
+    """The clause a contradicted reviewed answer earns, or nothing at all.
+
+    Silent when the judge agreed with every person, and when a suite declares
+    no reviewed answer, for the canary's reason. The two directions are
+    counted apart, because a judge too lenient and a judge too strict are two
+    faults. (ADR 0059 §1)
+    """
+    if not found:
+        return ""
+    if len(found) == 1:
+        first = found[0]
+        return phrase(
+            locale,
+            f"fact.reviewed.one.{first.direction}",
+            case=first.case_id,
+            check=first.check,
+        )
+    return phrase(
+        locale,
+        "fact.reviewed.many",
+        count=len(found),
+        passed_no=_directed(found, "passed_no"),
+        failed_yes=_directed(found, "failed_yes"),
+    )
+
+
+def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
+    """What the judge said of each reviewed answer, beside what the person said.
+
+    Nothing at all when the run has no reviewed answer, so every report of a
+    suite that declares none stays byte for byte what it was. Open when the
+    judge contradicted a person, closed when it agreed with every one: the
+    calibration section's rule. Bound by `assertion_id`, as `contradicted` is,
+    so the two cannot disagree about which verdict a row is. (ADR 0059 §1)
+    """
+    rows: list[str] = []
+    against = 0
+    for case in run.results:
+        reviewed = case.reviewed
+        if reviewed is None:
+            continue
+        said = phrase(locale, f"reviewed.{'yes' if reviewed.good else 'no'}")
+        for verdict in case.verdicts:
+            if verdict.assertion_id != reviewed.assertion_id:
+                continue
+            if verdict.status == "error":
+                result, agreement = phrase(locale, "detail.errored"), ""
+            else:
+                agrees = (verdict.status == "pass") == reviewed.good
+                against += 0 if agrees else 1
+                score = verdict.score.score
+                result = verdict.status if score is None else fmt_score(score)
+                agreement = phrase(
+                    locale, f"reviewed.{'agrees' if agrees else 'contradicts'}"
+                )
+            why = verdict.reason if reasons else phrase(locale, "reason.unavailable")
+            rows.append(
+                "<tr>"
+                f"<td><code>{escape(case.case_id)}</code></td>"
+                f"<td><code>{escape(reviewed.check)}</code></td>"
+                f"<td>{escape(said)}</td>"
+                f"<td><b>{escape(result)}</b> {escape(agreement)}</td>"
+                f"<td>{escape(why)}</td>"
+                "</tr>"
+            )
+    if not rows:
+        return ""
+    title = escape(phrase(locale, "section.reviewed"))
+    table = _table(
+        (
+            "column.case",
+            "column.check",
+            "column.person",
+            "column.result",
+            "column.reason",
+        ),
+        rows,
+        locale,
+    )
+    open_attr = " open" if against else ""
+    return (
+        f"<details{open_attr}><summary>{title} ({len(rows)})</summary>{table}</details>"
+    )
+
+
 def calibration_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     """Where the judge placed each calibration answer, against its band.
 
@@ -1422,7 +1534,8 @@ def _calibration_block(run: Run, locale: Locale, *, reasons: bool) -> str:
     """`calibration_section` with its own line break, or nothing — so a report
     of a suite with no calibration case gains not even an empty line."""
     section = calibration_section(run, locale, reasons=reasons)
-    return f"{section}\n" if section else ""
+    reviewed = reviewed_section(run, locale, reasons=reasons)
+    return (f"{section}\n" if section else "") + (f"{reviewed}\n" if reviewed else "")
 
 
 def _incomparable_section(
@@ -1446,7 +1559,7 @@ def _incomparable_section(
     rows = [
         _row(d, locale, reasons=reasons)
         for d in comparison.deltas
-        if d.denominator_moved and not d.calibration
+        if d.denominator_moved and not d.instrument
     ]
     if not rows:
         return ""
@@ -1793,7 +1906,7 @@ def on_the_line_count(run: Run) -> int:
             *(
                 v
                 for case in run.results
-                if case.calibration is None
+                if case.calibration is None and case.reviewed is None
                 for v in case.verdicts
             ),
             *run.aggregate,
@@ -1877,10 +1990,10 @@ def _summarized(comparison: Comparison) -> Sequence[AssertionDelta]:
     regressed = [
         d
         for d in comparison.deltas
-        if d.outcome == "regressed" and not d.calibration and not d.denominator_moved
+        if d.outcome == "regressed" and not d.instrument and not d.denominator_moved
     ]
     incomparable = [
-        d for d in comparison.deltas if d.denominator_moved and not d.calibration
+        d for d in comparison.deltas if d.denominator_moved and not d.instrument
     ]
     unjudged = [
         d
@@ -2137,7 +2250,7 @@ def _section(
             for d in comparison.deltas
             if d.outcome in wanted
             and not d.denominator_moved
-            and (not d.calibration or _errored_now(d))
+            and (not d.instrument or _errored_now(d))
         ]
         # Read from the run, which is where a case says of what kind it errored:
         # a delta carries verdicts and not the case they sat on. (#425)
@@ -2804,6 +2917,10 @@ def _run_answer(run: Run, locale: Locale) -> str:
     # that declares none. (ADR 0024 §4.5)
     lost = calibration_fact(scale_lost(run), locale)
     lost_line = f"<p>{escape(lost)}</p>\n" if lost else ""
+    # Beside it, for its reason, and absent on a run whose judge agreed with
+    # every person or that declares no reviewed answer. (ADR 0059 §1)
+    against = reviewed_fact(contradicted(run), locale)
+    lost_line += f"<p>{escape(against)}</p>\n" if against else ""
     # Above the calibration line, for the headline's reason. Absent on a run
     # that reconciles, which is every run the shipped driver produced before
     # it, so those documents are byte for byte what they were. (ADR 0027 §7)
@@ -2972,7 +3089,10 @@ def _run_section(
             if verdict.status == status
             # Read in its own section, against its band, unless it could not be
             # judged at all. (ADR 0024 §4.4)
-            and (case.calibration is None or status == "error")
+            and (
+                (case.calibration is None and case.reviewed is None)
+                or status == "error"
+            )
         ]
         body = (
             empty

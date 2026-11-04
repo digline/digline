@@ -63,6 +63,16 @@ __all__ = [
 ]
 
 
+def _watching(case: Case) -> bool:
+    """Whether `case` watches the model or the judge rather than measuring the
+    system: a canary, a calibration case or a reviewed answer. Counted in no
+    aggregate, and asked for no label. (ADR 0016 §1, ADR 0024 §4.2, ADR 0059
+    §1)"""
+    return (
+        case.canary or case.calibration is not None or case.reviewed_answer is not None
+    )
+
+
 def _listed(kind: TokenKind, names: Iterable[str]) -> tuple[str | NameRef, ...]:
     """Names in a sentence, comma-separated and unquoted as `", ".join` wrote
     them, each one a name a front end that projects can mint. (ADR 0054 §8)"""
@@ -1045,11 +1055,10 @@ class Suite:
             return
         # A canary is exempt: it is not in the population being measured, so a
         # mark for it would be a mark nobody counts. (ADR 0016 §1)
-        # So is a calibration case, for the same reason. (ADR 0024 §4.2)
+        # So is a calibration case, for the same reason (ADR 0024 §4.2), and a
+        # reviewed answer, which is refused a label (ADR 0059 §1).
         unlabelled = sorted(
-            c.id
-            for c in self.cases
-            if c.label is None and not c.canary and c.calibration is None
+            c.id for c in self.cases if c.label is None and not _watching(c)
         )
         if unlabelled:
             raise RefusedError(
@@ -1067,12 +1076,8 @@ class Suite:
         reference, because a run document does not record it. (ADR 0049 §3)
         """
         return Declared(
-            subject=frozenset(
-                c.id for c in self.cases if not c.canary and c.calibration is None
-            ),
-            watching=frozenset(
-                c.id for c in self.cases if c.canary or c.calibration is not None
-            ),
+            subject=frozenset(c.id for c in self.cases if not _watching(c)),
+            watching=frozenset(c.id for c in self.cases if _watching(c)),
         )
 
     def config_hash(self, *, pricing: str = "") -> str:
@@ -1398,6 +1403,13 @@ class CallPlan:
     #: figure above is a floor, and the sentence says so rather than printing a
     #: figure that may be too low. (#565)
     calibration_minimum: bool = False
+    #: Reviewed answers that will be judged, and the judge calls they make,
+    #: counted as the calibration cases' are and for their reason: the target
+    #: is not called for them, and each is judged `samples` times by the check
+    #: it names. (ADR 0059 §1)
+    reviewed: int = 0
+    reviewed_calls: int = 0
+    reviewed_minimum: bool = False
     #: How many times a replay asks each judged check per recorded answer, and
     #: which checks those are, by name. Announced for the reason `repeats` is:
     #: the multiplication is the part that surprises people, and it is only
@@ -1455,6 +1467,15 @@ class CallPlan:
             floor = "at least " if self.calibration_minimum else ""
             text += (
                 f"; {_count(self.calibration, 'calibration case')} judged "
+                f"{floor}{_count(judgements, 'time')}, with no call to the target"
+            )
+        if self.reviewed:
+            judgements = self.reviewed_calls or self.samples * max(
+                self.judge_samples, 1
+            )
+            floor = "at least " if self.reviewed_minimum else ""
+            text += (
+                f"; {_count(self.reviewed, 'reviewed answer')} judged "
                 f"{floor}{_count(judgements, 'time')}, with no call to the target"
             )
         if self.judge_samples and self.judged:
@@ -1544,15 +1565,26 @@ def planned_calls(
     ]
     # A calibration case is judged and not called, so it is announced on its
     # own and kept out of the target's bill. (ADR 0024 §4.4)
-    called = [case for case in pending if case.calibration is None]
-    # Each calibration case is billed for the check it calibrates. (#565)
+    # So is a reviewed answer, for the same reason. (ADR 0059 §1)
+    called = [
+        case
+        for case in pending
+        if case.calibration is None and case.reviewed_answer is None
+    ]
+    # Each calibration case is billed for the check it calibrates (#565), and
+    # each reviewed answer for the check it names.
     calibration_calls, calibration_minimum = 0, False
+    reviewed_calls, reviewed_minimum, reviewed = 0, False, 0
     for case in pending:
-        if case.calibration is None:
-            continue
-        per_evaluation, known = _judge_calls(suite.calibrated(case.calibration))
-        calibration_calls += suite.samples * max(judge_samples, 1) * per_evaluation
-        calibration_minimum = calibration_minimum or not known
+        if case.calibration is not None:
+            per_evaluation, known = _judge_calls(suite.calibrated(case.calibration))
+            calibration_calls += suite.samples * max(judge_samples, 1) * per_evaluation
+            calibration_minimum = calibration_minimum or not known
+        elif case.reviewed_answer is not None:
+            per_evaluation, known = _judge_calls(suite.reviewed(case.reviewed_answer))
+            reviewed_calls += suite.samples * max(judge_samples, 1) * per_evaluation
+            reviewed_minimum = reviewed_minimum or not known
+            reviewed += 1
     return CallPlan(
         cases=len(called),
         samples=suite.samples,
@@ -1560,9 +1592,12 @@ def planned_calls(
         repeats=_repeats(suite.assertions),
         reused=sum(1 for case in suite.cases if case.suspended is None) - len(pending),
         retried=retried,
-        calibration=len(pending) - len(called),
+        calibration=len(pending) - len(called) - reviewed,
         calibration_calls=calibration_calls,
         calibration_minimum=calibration_minimum,
+        reviewed=reviewed,
+        reviewed_calls=reviewed_calls,
+        reviewed_minimum=reviewed_minimum,
         judge_samples=judge_samples,
         judged=tuple(a.name for a in suite.assertions if judged(a))
         if judge_samples

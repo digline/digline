@@ -104,6 +104,9 @@ def delta_json(delta: AssertionDelta) -> dict[str, object]:
         # a pipeline reading every row can tell why this one is not among them.
         # (ADR 0024 §4.4)
         "calibration": delta.calibration,
+        # And the row of a reviewed answer, for the same reason: its gate is
+        # the person's verdict, read off the run, never this row. (ADR 0059 §1)
+        "reviewed": delta.reviewed,
         # Two aggregates computed over different numbers of cases. It rides
         # beside the outcome for the reason `within_noise` does, and it is the
         # field a pipeline needed most: before it existed this row read

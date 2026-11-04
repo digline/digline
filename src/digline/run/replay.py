@@ -38,7 +38,6 @@ from digline.run.driver import (
     Response,
     default_mapper,
     execute,
-    refuse_reviewed_answers,
 )
 from digline.run.suite import Case, Suite
 
@@ -206,12 +205,7 @@ def _check(suite: Suite, source: Run) -> None:
     check *is* the defect ADR 0018 was written to close, so a replay that
     produced one quietly would be the gate-that-is-not-a-gate wearing a
     different hat. (ADR 0018 §4)
-
-    Before all five, the refusal `execute` makes of a suite that declares
-    reviewed answers: met here, it would read as *no recorded answer*, which
-    is not why. (ADR 0059 §1)
     """
-    refuse_reviewed_answers(suite)
     if source.tenant != suite.tenant:
         raise ReplayError(
             f"the stored run belongs to tenant {source.tenant!r} and this "
@@ -252,6 +246,10 @@ def _check(suite: Suite, source: Run) -> None:
             # it, so ADR 0015 §6's second refusal does not apply: a replay
             # re-judges it from the declaration, exactly as a live run does.
             # (ADR 0024 §4.7)
+            continue
+        if case.reviewed_answer is not None:
+            # The same: the answer is the person's, in the declaration, and the
+            # target is never asked for it. (ADR 0059 §1)
             continue
         stored = recorded.get(case.id)
         if stored is None or not stored.responses:

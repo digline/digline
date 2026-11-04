@@ -174,10 +174,13 @@ so where the suite declares it, with the reason, and leave its subject in
 place. If the gate itself is wrong, change the gate in a commit of its own,
 with its reason, never in the same change that makes a note disappear.
 
-`1` now has two causes and the headline says which: a check got worse, or a
-canary moved. They are separate fields — `worse` and `canary_moved` — because a
-canary that *improved* is a changed model too, and calling that "worse" would be
-a sentence nobody could reconcile with the number beside it.
+`1` now has three causes and the headline says which: a check got worse, a
+canary moved, or the judge contradicted a person about a reviewed answer. They
+are separate fields — `worse`, `canary_moved`, and `reviewed_passed_no` and
+`reviewed_failed_yes` — because a canary that *improved* is a changed model
+too, and calling that "worse" would be a sentence nobody could reconcile with
+the number beside it. A contradicted reviewed answer exits `1` with no
+reference at all: the expected verdict is the person's.
 
 `2` has six causes: a case could not be judged (`unjudged`), a calibration
 case scored outside its declared band (`scale_lost`), a pinned file drifted

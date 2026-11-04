@@ -38,6 +38,7 @@ from digline.core import (
     Verdict,
     case_count,
     checked_denominator,
+    contradicted,
     counted_cases,
     misnamed,
     on_the_line,
@@ -146,6 +147,10 @@ type TallyKind = Literal[
     # calibration cases left their band — and it reads the run alone, so it is
     # stated with or without a reference.
     "calibration",
+    # Beside it, from ADR 0059 §1 and by the same test: how many reviewed
+    # answers the judge contradicted a person about, which moves the exit code
+    # to 1 from the run alone, so it is stated with or without a reference.
+    "reviewed",
     # The sixth, and the second amendment ADR 0024 makes to ADR 0012 §3: the
     # share of a judged check's raw scores at 0 or 1, in this run and in the
     # reference. One fact per judged check, carrying its numbers in `shape`
@@ -374,9 +379,15 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # still measures on a scale, just a different one. It is inserted last so
     # the comparability fact below cannot displace it. (ADR 0024 §4.6)
     lost = len(scale_lost(run))
+    against = len(contradicted(run))
     gaps = len(unreconciled(run))
 
     if comparison is None:
+        # Beside the lost scale, and inserted before it so the lost scale stays
+        # on top: that one says the scale is gone, this one that the judge
+        # contradicted a person about a known answer. (ADR 0059 §1)
+        if against:
+            out.insert(0, TallyFact("reviewed", count=against))
         if lost:
             out.insert(0, TallyFact("calibration", count=lost))
         if gaps:
@@ -415,6 +426,8 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     # term — a reading is a list, and a list is read from the top. (ADR 0018 §8)
     if comparison.comparability_reduced:
         out.insert(0, TallyFact("comparability", state=True))
+    if against:
+        out.insert(0, TallyFact("reviewed", count=against))
     if lost:
         out.insert(0, TallyFact("calibration", count=lost))
     # Above even the lost scale: that one says what the numbers were measured
@@ -559,10 +572,12 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
 
     by_outcome: dict[str, list[AssertionDelta]] = {}
     for delta in comparison.deltas:
-        if delta.calibration and not _errored(delta):
+        if delta.instrument and not _errored(delta):
             # Not a check of the system, so not in a list of what moved in it:
             # its only gate is its band, which the tally states. An errored one
-            # stays, because it is unjudged like any other. (ADR 0024 §4.4)
+            # stays, because it is unjudged like any other. (ADR 0024 §4.4) A
+            # reviewed answer's gate is the person's verdict, stated there too.
+            # (ADR 0059 §1)
             continue
         if delta.outcome == "unchanged" and not _moved(delta):
             # A check that did not move at all is in the tally and nowhere
@@ -681,7 +696,11 @@ def _checks_alone(run: Run) -> list[Fact]:
         for verdict in case.verdicts
         # A calibration case's pass or fail is a threshold read against an
         # answer nobody generated; what it found is its band, in the tally.
-        if verdict.status == "fail" and case.calibration is None
+        # And a reviewed answer's, whose fail is the person's no when the judge
+        # agrees: its finding is the tally's. (ADR 0059 §1)
+        if verdict.status == "fail"
+        and case.calibration is None
+        and case.reviewed is None
     ]
     out.extend(
         CheckFact(
@@ -865,6 +884,12 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
             return phrase(
                 locale,
                 f"explain.tally.calibration.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "reviewed":
+            return phrase(
+                locale,
+                f"explain.tally.reviewed.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
         case "unreconciled":

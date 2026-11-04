@@ -57,15 +57,15 @@ from digline.core import (
     with_noise_interval,
 )
 from digline.core.protocols import AroundTarget, DeclaresPrice
-from digline.core.refused import NameRef, RefusedError, Written
+from digline.core.refused import RefusedError, Written
+from digline.core.reviewed import Reviewed
 from digline.core.run import (
-    SCHEMA_VERSION,
     record_finish,
     record_steps,
     record_tools,
     step_calls,
 )
-from digline.run.suite import Calibration, Case, Suite
+from digline.run.suite import Calibration, Case, ReviewedAnswer, Suite
 
 __all__ = [
     "Billable",
@@ -82,7 +82,6 @@ __all__ = [
     "judge_config",
     "judge_totals",
     "judges",
-    "refuse_reviewed_answers",
     "target_config",
 ]
 
@@ -839,10 +838,9 @@ def _run_case(
             suite, mapper, case, case.calibration, judge_samples, declared
         )
     if case.reviewed_answer is not None:
-        # Never reached through `execute`, which refuses the suite before its
-        # first case: this is where the reviewed answer's own branch goes when
-        # the run document can say what it is (ADR 0059 §1, schema 23).
-        refuse_reviewed_answers(suite)
+        return _review(
+            suite, mapper, case, case.reviewed_answer, judge_samples, declared
+        )
 
     line = NO_CALLS
     samples: list[EvaluatorInputs] = []
@@ -1021,6 +1019,67 @@ def _calibrate(
     )
 
 
+def _review(
+    suite: Suite,
+    mapper: Mapper,
+    case: Case,
+    answer: ReviewedAnswer,
+    judge_samples: int,
+    declared: Declared,
+) -> tuple[CaseResult, Cause, CallTotals]:
+    """A reviewed answer: an answer the application gave, graded by the one
+    check a person said yes or no about. (ADR 0059 §1)
+
+    `_calibrate`'s mechanics, beside it. **The target is not called**: the
+    answer is the recorded one the person read, and the driver builds the
+    `Response` from the declaration and hands it to the mapper, which is where
+    the context a judge reads is built. **Only the named check runs**, for the
+    reason `_calibrate` gives. Nothing is recorded into `responses`: the answer
+    is in the cases file already.
+
+    **The verdict is the judge's, as it scored**, and what the person said is
+    written beside it, `reviewed`, bound to it by identity. Whether the two
+    agree is read off the run by `contradicted`, as a lost band is read by
+    `scale_lost`, so a stored run and a re-judged one say the same thing, and
+    a contradiction is exit `1` from the run alone.
+    """
+    check = suite.reviewed(answer)
+    reviewed = Reviewed(
+        check=answer.check, assertion_id=check.identity, good=answer.good
+    )
+    response = Response(output=answer.output, input=answer.input)
+    samples: list[EvaluatorInputs] = []
+    for _ in range(suite.samples):
+        try:
+            samples.append(mapper(response, case))
+        except Exception as exc:  # noqa: BLE001 — the ordinary case's treatment
+            return (
+                CaseResult(
+                    case_id=case.id,
+                    verdicts=(
+                        _stamped(
+                            check,
+                            error_verdict(
+                                check,
+                                _clip(f"mapper raised {type(exc).__name__}: {exc}"),
+                            ),
+                        ),
+                    ),
+                    reviewed=reviewed,
+                    error_kind="raised",
+                ),
+                "mapper",
+                NO_CALLS,
+            )
+    verdict = _graded(suite, check, samples, judge_samples, declared)
+    return (
+        CaseResult(case_id=case.id, verdicts=(verdict,), reviewed=reviewed),
+        "assertion" if verdict.status == "error" else "",
+        # The judge's spend is on the judge line, as a calibration case's is.
+        NO_CALLS,
+    )
+
+
 def _asked(suite: Suite, case: Case) -> frozenset[str]:
     """The identities `_run_case` puts to `case`, read off the same conditions
     that choose its branch, in the same order.
@@ -1125,6 +1184,7 @@ def _repair(
         responses=() if result is None else result.responses,
         canary=case.canary,
         calibration=None if result is None else result.calibration,
+        reviewed=None if result is None else result.reviewed,
     )
 
 
@@ -1179,6 +1239,7 @@ def _outcomes(
             # suite beside it. (ADR 0016 §1)
             canary=result.canary,
             calibration=result.calibration is not None,
+            reviewed=result.reviewed is not None,
         )
         for result in counted
     )
@@ -1259,44 +1320,6 @@ def check_target(target: object) -> None:
         )
     price_digest_of(target)
     target_config(target)
-
-
-def refuse_reviewed_answers(suite: Suite) -> None:
-    """Refuse a suite that declares reviewed answers, while this build's run
-    document has no key for them.
-
-    **A refusal of the suite, not an error of a case.** Run as an ordinary
-    case, a reviewed answer would be written into a document that cannot say
-    what it is, and every reader would count it where ADR 0059 §1 keeps it
-    out; errored, it would stand in the run as a case that could not be
-    judged, which is not what happened. So nothing is called and nothing is
-    written: `execute` asks this before its first call, and the host before
-    it opens a journal. (ADR 0059 §1)
-
-    **Unconditional, and not read off `SCHEMA_VERSION`.** Schema 23 may open
-    for another passenger first, and a refusal that lifted itself then would
-    run a reviewed answer down the ordinary path. It goes when the reviewed
-    answer's own branch arrives, in the same change.
-    """
-    reviewed = [case.id for case in suite.cases if case.reviewed_answer is not None]
-    if not reviewed:
-        return
-    named: list[str | NameRef] = []
-    for case_id in reviewed:
-        if named:
-            named.append(", ")
-        named.append(NameRef("case_id", case_id, quoted=False))
-    raise RefusedError(
-        Written.said(
-            f"suite {suite.name!r} declares reviewed answers (",
-            *named,
-            "): reviewed answers run once the run document has a key for a "
-            f"person's yes or no (ADR 0059 §1), and this build's, at schema "
-            f"{SCHEMA_VERSION}, has none, so nothing was called and nothing was "
-            "written. To run the suite now, leave the reviewed answers out of "
-            "its cases",
-        )
-    )
 
 
 def execute(
@@ -1397,9 +1420,6 @@ def execute(
             "that cannot fire is worse than declaring none. The caller reads "
             "them with `digline.host.read_pinned` and passes `pinned=`"
         )
-    # Before anything is called, and before the checks below: a suite this
-    # build cannot run is refused whole. (ADR 0059 §1)
-    refuse_reviewed_answers(suite)
     if judge_samples:
         # Imported here: `replay` imports this module.
         from digline.run.replay import Replay

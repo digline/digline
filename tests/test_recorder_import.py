@@ -133,6 +133,8 @@ def recording(
     at: str,
     **changes: Any,
 ) -> Recording:
+    # An episode's steps are its response's (ADR 0060 §6).
+    steps = changes.pop("steps", None) or None
     fields: dict[str, Any] = {
         "source_tenant": "acme",
         "app": "support",
@@ -141,7 +143,10 @@ def recording(
         "setup": {"digest": setup},
         "setup_digest": setup,
         "response": RecordedResponse(
-            output=output or "", kind="text", input=f"Q: {json.dumps(vars)}"
+            output=output or "",
+            kind="text",
+            input=f"Q: {json.dumps(vars)}",
+            steps=steps,
         )
         if "response" not in changes
         else changes["response"],

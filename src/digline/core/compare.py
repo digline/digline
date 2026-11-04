@@ -322,6 +322,12 @@ class AssertionDelta:
     #: selection — a calibration case that moved is not a check of the system
     #: that got better or worse. (ADR 0024 §4.4, amended 2026-09-17)
     calibration: bool = False
+    #: This delta belongs to a reviewed answer, which measures the instrument
+    #: too: a person's yes or no about an answer the application gave, the
+    #: target never asked. Kept and left out of the counts for the calibration
+    #: case's reason. Its gate is the person's verdict, read off the run alone
+    #: (`contradicted`), never a movement against the reference. (ADR 0059 §1)
+    reviewed: bool = False
     #: This delta sets two run-level aggregates side by side that were computed
     #: over **different numbers of cases**, so there is no movement to measure:
     #: the thing measured is not the same thing. A fact beside the outcome for
@@ -374,6 +380,13 @@ class AssertionDelta:
     #: `denominator()`'s own docstring claims for them. (F-4, the second 0.17.0
     #: delta-pass)
     counted: Denominator | None = None
+
+    @property
+    def instrument(self) -> bool:
+        """Whether this delta belongs to a case that measures the judge rather
+        than the system: a calibration case or a reviewed answer. What every
+        count of the system leaves out. (ADR 0024 §4.4, ADR 0059 §1)"""
+        return self.calibration or self.reviewed
 
 
 @dataclass(frozen=True, slots=True)
@@ -668,7 +681,7 @@ class Comparison:
         return tuple(
             d
             for d in self.deltas
-            if d.outcome in wanted and not d.calibration and not d.denominator_moved
+            if d.outcome in wanted and not d.instrument and not d.denominator_moved
         )
 
     @property
@@ -703,7 +716,7 @@ class Comparison:
         tally: Counter[Outcome] = Counter(
             d.outcome
             for d in self.deltas
-            if not d.calibration and not d.denominator_moved
+            if not d.instrument and not d.denominator_moved
         )
         return dict(tally)
 
@@ -722,6 +735,11 @@ class Comparison:
     def calibration_deltas(self) -> Sequence[AssertionDelta]:
         """The deltas of the calibration cases, which `counts` leaves out."""
         return tuple(d for d in self.deltas if d.calibration)
+
+    @property
+    def reviewed_deltas(self) -> Sequence[AssertionDelta]:
+        """The deltas of the reviewed answers, which `counts` leaves out."""
+        return tuple(d for d in self.deltas if d.reviewed)
 
 
 def _changed(deltas: Sequence[ConfigDelta]) -> bool:
@@ -957,6 +975,7 @@ _EXCLUSIONS = (
     "unlabelled_excluded",
     "canary_excluded",
     "calibration_excluded",
+    "reviewed_excluded",
 )
 
 
@@ -1350,6 +1369,14 @@ def compare(run: Run, baseline: Run) -> Comparison:
         if case.calibration is not None
         and case.case_id not in {c.case_id for c in run.results}
     }
+    # And for a reviewed answer, for the calibration case's reason.
+    reviewed = {case.case_id for case in run.results if case.reviewed is not None}
+    reviewed |= {
+        case.case_id
+        for case in baseline.results
+        if case.reviewed is not None
+        and case.case_id not in {c.case_id for c in run.results}
+    }
     deltas: list[AssertionDelta] = []
 
     for key in sorted(current.keys() | previous.keys()):
@@ -1374,6 +1401,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     "absent from the baseline",
                     canary=case_id in canaries,
                     calibration=case_id in calibrated,
+                    reviewed=case_id in reviewed,
                 )
             )
             continue
@@ -1390,6 +1418,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     "present in the baseline but not in this run",
                     canary=case_id in canaries,
                     calibration=case_id in calibrated,
+                    reviewed=case_id in reviewed,
                 )
             )
             continue
@@ -1409,6 +1438,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     f"assertion errored {side}: {culprit.reason}",
                     canary=case_id in canaries,
                     calibration=case_id in calibrated,
+                    reviewed=case_id in reviewed,
                 )
             )
             continue
@@ -1495,6 +1525,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                     why,
                     canary=case_id in canaries,
                     calibration=case_id in calibrated,
+                    reviewed=case_id in reviewed,
                     denominator_moved=flipped_incomparably,
                 )
             )
@@ -1579,6 +1610,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
                 noise_asked=floor.asked,
                 canary=case_id in canaries,
                 calibration=case_id in calibrated,
+                reviewed=case_id in reviewed,
             )
         )
 

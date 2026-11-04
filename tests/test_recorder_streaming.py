@@ -515,10 +515,10 @@ def test_a_streamed_child_joins_its_episode_at_the_end_of_its_stream(
         for _ in ask_anthropic(client, stream=True):
             pass
     found = recordings(tmp_path)
-    [turn] = [r for r in found if "steps" in r]
-    [child] = [r for r in found if "steps" not in r]
+    [turn] = [r for r in found if "id" in r]
+    [child] = [r for r in found if "id" not in r]
     assert child["episode"] == ep.id and "orphan" not in child
-    assert [step["actor"] for step in turn["steps"]] == ["model"]
+    assert [step["actor"] for step in turn["response"]["steps"]] == ["model"]
     assert turn["response"]["output"] == "Paris"
 
 
@@ -532,9 +532,9 @@ def test_a_stream_that_ends_after_its_episode_is_an_orphan_with_its_id(
     for _ in stream:
         pass
     found = recordings(tmp_path)
-    [turn] = [r for r in found if "steps" in r]
-    [child] = [r for r in found if "steps" not in r]
-    assert turn["steps"] == []
+    [turn] = [r for r in found if "id" in r]
+    [child] = [r for r in found if "id" not in r]
+    assert "steps" not in turn["response"]
     assert turn["unrecorded_children"] == 1
     assert child["episode"] == ep.id
     assert child["orphan"] is True
