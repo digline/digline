@@ -302,12 +302,6 @@ nothing checks it. Reasoning in
 
 ### `Case.reviewed_answer`: a person's yes or no about an answer
 
-> **Declared and loaded, not run yet.** A suite that declares a reviewed
-> answer is refused by `digline run`, `rejudge` and `execute()` before
-> anything is called or written: *reviewed answers run once the run document
-> has a key for a person's yes or no (ADR 0059 §1), and this build's, at schema
-> 23, has none*. The key that says what the person said is still to come.
-
 An answer the application gave, and a person's yes or no about it. Here a
 person read two recorded answers to the same question, said yes to one and no
 to the other:
@@ -348,6 +342,27 @@ It has a calibration case's mechanics and a verdict of its own:
   for `good=False` it does not, and a judge that contradicts the person fails
   the case;
 - it is kept in the gate and out of the aggregate accuracy.
+
+**What the run holds.** The case's one verdict is the judge's, as it scored,
+and beside it `CaseResult.reviewed`, a `Reviewed` with the `check`, its
+`assertion_id` and the person's `good`, written on that case alone as
+`reviewed` in the run document (schema 23). `contradicted(run)` reads the two
+together, from the run alone, and returns each case where the verdict is not
+the person's, with its direction: `passed_no`, the judge passed an answer the
+person said no to, or `failed_yes`, it failed one the person said yes to. An
+errored verdict is unjudged, exit `2`, and never a contradiction.
+
+**What the gate does with it.** A contradiction exits `1`, in either
+direction, from `report`, `explain` and `compare`, with or without a
+reference, because the expected verdict is the person's and needs none. The
+headline counts the two directions apart, `reviewed_passed_no` and
+`reviewed_failed_yes`, and says them in its sentence; the report shows a
+section of every reviewed answer beside the calibration one, open when the
+judge contradicted a person. `digline run` exits as it does for a lost scale,
+`0`. A reviewed answer is in no aggregate, which counts it as
+`reviewed_excluded`, needs no `label`, and its delta in a comparison is kept,
+flagged `reviewed`, and counted in no outcome. A replay re-judges it from the
+declaration, as a calibration case.
 
 It is not a calibration case: a calibration band lies strictly between `0` and
 `1`, so that a judge collapsed onto an extreme is seen, and a yes or a no asks
@@ -2365,7 +2380,7 @@ it. Then the cases the document carries are what counts.
 | Code | Constant | Means |
 |---|---|---|
 | `0` | `EXIT_OK` | proceed |
-| `1` | `EXIT_WORSE` | a check got worse, or a canary moved |
+| `1` | `EXIT_WORSE` | a check got worse, a canary moved, or the judge contradicted a person about a reviewed answer (`reviewed_passed_no`, `reviewed_failed_yes`, [ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §1) |
 | `2` | `EXIT_UNJUDGED` | a case could not be judged (`unjudged`), a calibration case left its band (`scale_lost`), a pinned file drifted from the reference (`pinned_drifted`), a pin the reference held lost its path beside a pinned file with no reference (`pinned_lost`, [ADR 0051](adr/0051-a-pinned-path-the-run-no-longer-records.md)), the run judged nothing (`nothing_judged`), or a check could not be paired with its reference, a `missing` and a `new` on one case, scope and name (`unpaired`, #642). Each is named in `unjudged_causes` by that key |
 
 Two more codes are exported beside them, and `exit_code()` never returns
@@ -2401,10 +2416,11 @@ that is not a verdict on the suite.
   regression makes the code `1`
   ([ADR 0053](adr/0053-promote-refuses-a-pin-nobody-named.md)).
 - **`run_exit_code(run)` is the same rule with nothing to compare against.**
-  It never returns `1`, because *worse*, a moved canary, a drifted pin and a
-  lost pin are relations. What is left is `2` for an unjudged case or a lost scale, read
-  from the run alone, or for a run that judged nothing, read against
-  `declared`.
+  *Worse*, a moved canary, a drifted pin and a lost pin are relations, so it
+  cannot see them. What is left is `1` for a reviewed answer the judge
+  contradicted, whose expected verdict is a person's; `2` for an unjudged case
+  or a lost scale, read from the run alone; and `2` for a run that judged
+  nothing, read against `declared`.
   - **It is held to `exit_code` by a test**: for any run, given the same
     declaration, it equals `exit_code` of the run compared with itself, in
     clear, redacted and projected.

@@ -49,8 +49,8 @@ from tests.test_view_policy import WANTED, inline_in
 from digline.cli import recorder_pages
 from digline.cli.recorder_pages import SHOWN_CHARS
 from digline.cli.view import HOST, ViewHandler, self_netlocs
-from digline.core.recording import RecordedStep, Recording, setup_digest_of
-from digline.core.run import RecordedResponse
+from digline.core.recording import Recording, setup_digest_of
+from digline.core.run import RecordedResponse, RecordedStep
 from digline.host import (
     import_listing,
     imported_since,
@@ -124,6 +124,8 @@ def recording(
     minute: str,
     **changes: Any,
 ) -> Recording:
+    # An episode's steps are its response's (ADR 0060 §6).
+    steps = changes.pop("steps", None)
     fields: dict[str, Any] = {
         "source_tenant": "acme",
         "app": "support",
@@ -131,7 +133,9 @@ def recording(
         "case": vars,
         "setup": setup,
         "setup_digest": setup_digest_of(setup),
-        "response": RecordedResponse(output=output, kind="text", input="q"),
+        "response": RecordedResponse(
+            output=output, kind="text", input="q", steps=steps
+        ),
         "recorded_at": f"2026-11-03T08:{minute}:00+00:00",
     }
     fields.update(changes)

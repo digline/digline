@@ -324,6 +324,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "compared on."
         ),
         "fact.calibration.across": " across {count} samples ({values})",
+        # Beside the calibration clause, and as plain: a person said yes or no
+        # and the judge said the other. The two directions are worded apart,
+        # because a judge too lenient and one too strict are two faults.
+        # (ADR 0059 §1)
+        "fact.reviewed.one.passed_no": (
+            "The judge passed the reviewed answer {case} for {check}, which a "
+            "person said no to: it contradicts the person, and the case fails."
+        ),
+        "fact.reviewed.one.failed_yes": (
+            "The judge failed the reviewed answer {case} for {check}, which a "
+            "person said yes to: it contradicts the person, and the case fails."
+        ),
+        "fact.reviewed.many": (
+            "The judge contradicted a person on {count} reviewed answers: it "
+            "passed {passed_no} the person said no to and failed {failed_yes} "
+            "the person said yes to, and each of those cases fails."
+        ),
         # First in the sentence, before any count: a run that does not know what
         # it measured qualifies every number after it. Named, because "1 check
         # short" sends somebody hunting and the name ends the question.
@@ -652,6 +669,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "denominator.canary_excluded.many": "{count} canaries",
         "denominator.calibration_excluded.one": "1 calibration case",
         "denominator.calibration_excluded.many": "{count} calibration cases",
+        "denominator.reviewed_excluded.one": "1 reviewed answer",
+        "denominator.reviewed_excluded.many": "{count} reviewed answers",
         "column.measure": "Measure",
         "column.result": "Result",
         "scope.run": "whole run",
@@ -667,6 +686,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.improvements": "What got better",
         "section.unchanged": "What stayed the same",
         "section.calibration": "Where the judge placed the calibration answers",
+        "section.reviewed": "What the judge said of the reviewed answers",
         "section.incomparable": (
             "What was not compared: measured over a different number of cases"
         ),
@@ -679,6 +699,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "column.band": "Declared band",
         "calibration.inside": "inside",
         "calibration.outside": "outside",
+        "column.person": "The person said",
+        "reviewed.yes": "yes",
+        "reviewed.no": "no",
+        "reviewed.agrees": "agrees",
+        "reviewed.contradicts": "contradicts the person",
         "column.detail": "What happened",
         "column.reason": "Why",
         "detail.dropped": "Score fell from {before} to {now}.",
@@ -1196,6 +1221,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} calibration cases scored outside their declared bands: the "
             "judged scores in this run are not placed on the scale they are "
             "compared on. They are counted in no aggregate, and the target was "
+            "not asked for them."
+        ),
+        "explain.tally.reviewed.one": (
+            "The judge contradicted a person on 1 reviewed answer, and the case "
+            "fails. It is counted in no aggregate, and the target was not asked "
+            "for it."
+        ),
+        "explain.tally.reviewed.many": (
+            "The judge contradicted a person on {count} reviewed answers, and "
+            "each fails. They are counted in no aggregate, and the target was "
             "not asked for them."
         ),
         "explain.tally.on_the_line.one": (
@@ -1824,6 +1859,19 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "vengono confrontati."
         ),
         "fact.calibration.across": " su {count} campioni ({values})",
+        "fact.reviewed.one.passed_no": (
+            "Il giudice ha promosso la risposta rivista {case} per {check}, a cui "
+            "una persona ha detto no: contraddice la persona, e il caso fallisce."
+        ),
+        "fact.reviewed.one.failed_yes": (
+            "Il giudice ha bocciato la risposta rivista {case} per {check}, a cui "
+            "una persona ha detto sì: contraddice la persona, e il caso fallisce."
+        ),
+        "fact.reviewed.many": (
+            "Il giudice ha contraddetto una persona su {count} risposte riviste: "
+            "ne ha promosse {passed_no} a cui la persona ha detto no e bocciate "
+            "{failed_yes} a cui ha detto sì, e ciascuno di quei casi fallisce."
+        ),
         "fact.unreconciled.one": (
             "L'esecuzione non torna con ciò che la suite ha chiesto, in 1 "
             "controllo: {gaps}. Non è una regressione: non si sa che cosa "
@@ -2108,6 +2156,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "denominator.canary_excluded.many": "{count} canary",
         "denominator.calibration_excluded.one": "1 caso di calibrazione",
         "denominator.calibration_excluded.many": "{count} casi di calibrazione",
+        "denominator.reviewed_excluded.one": "1 risposta rivista",
+        "denominator.reviewed_excluded.many": "{count} risposte riviste",
         "column.measure": "Misura",
         "column.result": "Risultato",
         "scope.run": "intera esecuzione",
@@ -2122,6 +2172,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "section.calibration": (
             "Dove il giudice ha collocato le risposte di calibrazione"
         ),
+        "section.reviewed": "Che cosa ha detto il giudice delle risposte riviste",
         "section.incomparable": (
             "Che cosa non è stato confrontato: misurato su un numero di casi diverso"
         ),
@@ -2134,6 +2185,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "column.band": "Banda dichiarata",
         "calibration.inside": "dentro",
         "calibration.outside": "fuori",
+        "column.person": "La persona ha detto",
+        "reviewed.yes": "sì",
+        "reviewed.no": "no",
+        "reviewed.agrees": "d'accordo",
+        "reviewed.contradicts": "contraddice la persona",
         "column.detail": "Che cosa è successo",
         "column.reason": "Perché",
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",
@@ -2648,6 +2704,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "punteggi giudicati in questa esecuzione non stanno sulla scala su "
             "cui vengono confrontati. Non entrano in nessun aggregato, e al "
             "sistema sotto esame non è stato chiesto nulla per essi."
+        ),
+        "explain.tally.reviewed.one": (
+            "Il giudice ha contraddetto una persona su 1 risposta rivista, e il "
+            "caso fallisce. Non entra in nessun aggregato, e al sistema sotto "
+            "esame non è stato chiesto nulla per essa."
+        ),
+        "explain.tally.reviewed.many": (
+            "Il giudice ha contraddetto una persona su {count} risposte riviste, "
+            "e ciascuna fallisce. Non entrano in nessun aggregato, e al sistema "
+            "sotto esame non è stato chiesto nulla per esse."
         ),
         "explain.tally.on_the_line.one": (
             "1 controllo ha misurato una banda che copre la propria soglia: da "

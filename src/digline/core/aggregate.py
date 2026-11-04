@@ -70,6 +70,11 @@ class CaseOutcome:
     was never asked, the answer was written by the author, and the only check
     that ran on it is the one it calibrates. So its verdict for any other `over`
     is `None` without the case being suspended. (ADR 0024 §4.4)
+
+    `reviewed` is the fourth, on the calibration case's mechanics: the target
+    was never asked, the answer is one the application gave and a person said
+    yes or no about, and only the check it names ran on it. It is in the gate
+    and out of every aggregate. (ADR 0059 §1)
     """
 
     case_id: str
@@ -77,6 +82,7 @@ class CaseOutcome:
     verdict: Verdict | None
     canary: bool = False
     calibration: bool = False
+    reviewed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,6 +108,9 @@ class Matrix:
     #: Cases that calibrated the judge on a fixed answer. Counted for the
     #: canary's reason, beside it. (ADR 0024 §4.4)
     calibration_excluded: int = 0
+    #: Reviewed answers, a person's yes or no about an answer the application
+    #: gave. Counted for the canary's reason, beside it. (ADR 0059 §1)
+    reviewed_excluded: int = 0
 
     @property
     def considered(self) -> int:
@@ -135,12 +144,18 @@ class Matrix:
                 if self.calibration_excluded
                 else {}
             ),
+            # Silent at zero, for the reason one line up. (ADR 0059 §1)
+            **(
+                {"reviewed_excluded": self.reviewed_excluded}
+                if self.reviewed_excluded
+                else {}
+            ),
         }
 
 
 def build_matrix(outcomes: Sequence[CaseOutcome]) -> Matrix:
     tp = fp = tn = fn = 0
-    suspended = errored = unlabelled = canary = calibration = 0
+    suspended = errored = unlabelled = canary = calibration = reviewed = 0
     for outcome in outcomes:
         # Before every other branch, and before the label check in particular: a
         # canary carries no label and is exempt from needing one, so testing it
@@ -153,6 +168,10 @@ def build_matrix(outcomes: Sequence[CaseOutcome]) -> Matrix:
         # counting that absence as a suspension would say somebody set it aside.
         elif outcome.calibration:
             calibration += 1
+        # And a reviewed answer, before the label check for the canary's
+        # reason: it carries no label, and is refused one. (ADR 0059 §1)
+        elif outcome.reviewed:
+            reviewed += 1
         elif outcome.verdict is None:
             suspended += 1
         elif outcome.verdict.status == "error":
@@ -168,7 +187,9 @@ def build_matrix(outcomes: Sequence[CaseOutcome]) -> Matrix:
             tn += 1
         else:
             fp += 1
-    return Matrix(tp, fp, tn, fn, suspended, errored, unlabelled, canary, calibration)
+    return Matrix(
+        tp, fp, tn, fn, suspended, errored, unlabelled, canary, calibration, reviewed
+    )
 
 
 class RunAssertion(Protocol):
@@ -317,6 +338,7 @@ class RunAssertionBase:
             + matrix.errored_excluded
             + matrix.canary_excluded
             + matrix.calibration_excluded
+            + matrix.reviewed_excluded
         )
         if matrix.considered + matrix.unlabelled_excluded == 0 and excluded:
             return self._error(
@@ -356,6 +378,8 @@ class RunAssertionBase:
             text += f", {matrix.canary_excluded} canary"
         if matrix.calibration_excluded:
             text += f", {matrix.calibration_excluded} calibration"
+        if matrix.reviewed_excluded:
+            text += f", {matrix.reviewed_excluded} reviewed"
         return text
 
     def _ratio(
@@ -659,6 +683,8 @@ def per_sample_outcomes(
         # And the calibration case for the same trap: it samples the judge alone,
         # and nothing obliges its count to match. (ADR 0024 §4.4)
         and not outcome.calibration
+        # And a reviewed answer, for the calibration case's reason. (ADR 0059 §1)
+        and not outcome.reviewed
     }
     if len(counts) != 1:
         return ()
@@ -671,6 +697,7 @@ def per_sample_outcomes(
             if outcome.verdict is None
             or outcome.canary
             or outcome.calibration
+            or outcome.reviewed
             or not outcome.verdict.score.sampled
             else CaseOutcome(
                 case_id=outcome.case_id,

@@ -238,7 +238,7 @@ def _cases(
             ComparedCase(
                 id=case_id,
                 vars=first.case,
-                kind="episode" if first.steps is not None else "call",
+                kind="episode" if first.is_episode else "call",
                 setups=tuple(
                     ComparedSetup(setup=setup, answers=_runs(answers))
                     for setup, answers in by_setup.items()

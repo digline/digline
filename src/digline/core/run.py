@@ -19,6 +19,7 @@ from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.refused import NameRef, RefusedError, Said, Withheld, Written
+from digline.core.reviewed import Reviewed
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
@@ -282,16 +283,19 @@ __all__ = [
 #    digline's: every configuration key and every non-builtin metadata key is
 #    a token. (ADR 0034 §17)
 #
-# 23: three passengers on a recorded response, additive, and the step writes
-#    nothing for any of them. `finish` and `tools`, the two keys `ToolsCalled`
-#    reads live and the document did not keep, so a replay judged a reply that
-#    ended on a tool call and named none, or whose two lists disagreed, on
-#    another trajectory than the live run (ADR 0057); and `steps`, the
-#    trajectory as the checks on steps read it live (ADR 0060 §5). Written only
-#    where the target reported them, under `record_responses`, on `usage`'s
-#    model; absent is *not recorded*, and the replay then derives the names
-#    from `tool_calls` as before and has no steps to give. Outside
-#    `config_hash`: each is something a run measured (ADR 0014 §1).
+# 23: four passengers, additive, and the step writes nothing for any of them.
+#    Three on a recorded response: `finish` and `tools`, the two keys
+#    `ToolsCalled` reads live and the document did not keep, so a replay judged
+#    a reply that ended on a tool call and named none, or whose two lists
+#    disagreed, on another trajectory than the live run (ADR 0057); and
+#    `steps`, the trajectory as the checks on steps read it live (ADR 0060 §5).
+#    Written only where the target reported them, under `record_responses`, on
+#    `usage`'s model; absent is *not recorded*, and the replay then derives the
+#    names from `tool_calls` as before and has no steps to give. Outside
+#    `config_hash`: each is something a run measured (ADR 0014 §1). And one on
+#    a case: `reviewed`, the check a reviewed answer is for, by identity and
+#    by name, and the person's yes or no, written on that kind of case alone
+#    and absent on every other, which is every case before 23 (ADR 0059 §1).
 SCHEMA_VERSION = 23
 
 
@@ -1501,6 +1505,11 @@ class CaseResult:
     #: has to land inside the band. The answer itself is never here — it is
     #: payload and it is already in the committed cases file. (ADR 0024 §4)
     calibration: CalibrationBand | None = None
+    #: This case was an answer the application gave and a person's yes or no
+    #: about it: the check it names was graded on that answer, and its verdict
+    #: has to be the person's. The answer is never here, for the calibration
+    #: case's reason. Absent on every other case. (ADR 0059 §1, schema 23)
+    reviewed: Reviewed | None = None
     #: Of what kind the error was, where the target or the mapper errored this
     #: case: `raised`, or `shape` for a target that returned something that is
     #: not a `Response`. `None` on every other case, and on a document written
@@ -1520,6 +1529,15 @@ class CaseResult:
                     NameRef("case_id", self.case_id),
                     " is both a canary and a calibration case: "
                     "one asks the target and the other bypasses it",
+                )
+            )
+        if self.reviewed is not None and (self.canary or self.calibration is not None):
+            raise ValueError(
+                Written.said(
+                    "case ",
+                    NameRef("case_id", self.case_id),
+                    " is a reviewed answer and also a canary or a calibration "
+                    "case: a reviewed answer is a kind of its own (ADR 0059 §1)",
                 )
             )
         if self.suspended is None:
@@ -1948,6 +1966,7 @@ class Run:
             )
         for case in self.results:
             _check_band_binds(case)
+            _check_review_binds(case)
         for what, config in (
             ("target_config", self.target_config),
             ("judge_config", self.judge_config),
@@ -2232,6 +2251,19 @@ def _check_projected(run: Run) -> None:
                 "a digest",
                 bool(_DIGEST.fullmatch(case.calibration.assertion_id)),
             )
+        if case.reviewed is not None:
+            # A check's name, as a band's is, so the same kind. (ADR 0059 §1)
+            token(
+                "calibration_check",
+                f"the reviewed answer's check {where}",
+                case.reviewed.check,
+            )
+            formed(
+                f"the reviewed answer's identity {where}",
+                case.reviewed.assertion_id,
+                "a digest",
+                bool(_DIGEST.fullmatch(case.reviewed.assertion_id)),
+            )
     for v in run.aggregate:
         verdict(v, "in the aggregate", grouped=True)
     if run.metadata:
@@ -2327,6 +2359,29 @@ def _check_band_binds(case: CaseResult) -> None:
             ", and none of its verdicts is that check's "
             f"(assertion_id {band.assertion_id!r}). A band that binds no verdict "
             "checks nothing, and would read as a band that held",
+        )
+    )
+
+
+def _check_review_binds(case: CaseResult) -> None:
+    """Refuse a reviewed answer that no verdict of its case carries, for the
+    reason `_check_band_binds` gives: `contradicted` reads the run alone, and
+    an unbound one would read as a judge that agreed. (ADR 0059 §1)"""
+    reviewed = case.reviewed
+    if reviewed is None or case.suspended is not None:
+        return
+    if any(v.assertion_id == reviewed.assertion_id for v in case.verdicts):
+        return
+    raise ValueError(
+        Written.said(
+            "case ",
+            NameRef("case_id", case.case_id),
+            " is a reviewed answer for ",
+            NameRef("calibration_check", reviewed.check),
+            ", and none of its verdicts is that check's "
+            f"(assertion_id {reviewed.assertion_id!r}). A reviewed answer that "
+            "binds no verdict checks nothing, and would read as a judge that "
+            "agreed with the person",
         )
     )
 
@@ -2623,6 +2678,10 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
                 # document that lost them would report an exit code its own
                 # contents could not account for. (ADR 0024 §9, §4.7)
                 calibration=case.calibration,
+                # Carried for the same reason: an identity, a name and a yes or
+                # no, the person's about an answer that stays behind, and the
+                # exit code reads them. (ADR 0059 §1)
+                reviewed=case.reviewed,
                 # Carried: digline's own word for what failed, about the
                 # target's or the mapper's code and never about the data. The
                 # sentence that says it is the reason, which stays behind.
@@ -3112,6 +3171,15 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
             "assertion_id": case.calibration.assertion_id,
             "low": _num(case.calibration.low),
             "high": _num(case.calibration.high),
+        }
+    # Written only when present, for the calibration's reason. The answer and
+    # its input are not fields of this value and so cannot be written. Absent
+    # on every other case, and on every document before 23. (ADR 0059 §1)
+    if case.reviewed is not None:
+        payload["reviewed"] = {
+            "check": case.reviewed.check,
+            "assertion_id": case.reviewed.assertion_id,
+            "good": case.reviewed.good,
         }
     # Written only when present: absent is a case that did not error at the
     # target or the mapper, and a document before 21. (#425)
@@ -3686,6 +3754,7 @@ def case_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> CaseResult:
         ),
         canary=_optional_flag(raw, "canary", where),
         calibration=_calibration_from_dict(raw.get("calibration")),
+        reviewed=_reviewed_from_dict(raw, where),
         error_kind=_error_kind_from(raw, where),
     )
 
@@ -3721,6 +3790,37 @@ def _calibration_from_dict(raw: object) -> CalibrationBand | None:
         low=declared_number(fields_, "low", where),
         high=declared_number(fields_, "high", where),
     )
+
+
+def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
+    """Absent is a case of another kind; anything present has the three keys
+    a writer writes, `good` a boolean and nothing truthy, and `null` is
+    refused, because no digline writes one. (ADR 0059 §1)"""
+    if "reviewed" not in raw:
+        return None
+    found = raw["reviewed"]
+    if not isinstance(found, Mapping):
+        raise DocumentRefusedError(f"{where}: 'reviewed' is not an object")
+    fields_ = cast(Mapping[str, Any], found)
+    unknown = sorted(set(fields_) - {"check", "assertion_id", "good"})
+    if unknown:
+        raise DocumentRefusedError(
+            f"{where}: 'reviewed' carries {', '.join(unknown)}, which no digline writes"
+        )
+    check, identity, good = (
+        fields_.get("check"),
+        fields_.get("assertion_id"),
+        fields_.get("good"),
+    )
+    if not isinstance(check, str) or not isinstance(identity, str):
+        raise DocumentRefusedError(
+            f"{where}: 'reviewed' needs a 'check' and an 'assertion_id', as text"
+        )
+    if type(good) is not bool:
+        raise DocumentRefusedError(
+            f"{where}: 'reviewed' carries a 'good' that is not true or false"
+        )
+    return Reviewed(check=check, assertion_id=identity, good=good)
 
 
 def run_from_dict(raw: object) -> Run:

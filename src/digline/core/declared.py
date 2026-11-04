@@ -24,8 +24,10 @@ __all__ = ["Declared", "cases_that_count", "nothing_judged"]
 class Declared:
     """The cases a suite declares, by kind.
 
-    `subject` holds the cases that are neither a canary nor a calibration case;
-    `watching` holds the canaries and the calibration cases. Two sets of ids
+    `subject` holds the cases that are neither a canary, nor a calibration
+    case, nor a reviewed answer; `watching` holds those three kinds, which
+    watch the model or the judge rather than measure the system (ADR 0059 §1
+    adds the third). Two sets of ids
     and nothing else, because §3's definition needs nothing else, and a value
     in core must not carry the suite's payload.
     """
@@ -38,9 +40,9 @@ def nothing_judged(run: Run, declared: Declared | None) -> bool:
     """Whether none of the cases that count was judged. (ADR 0049 §3)
 
     The cases that count are, in three clauses, the first that applies: the
-    subject cases the suite declares; if it declares none, its canaries and
-    calibration cases; and with no declaration to read, the same two clauses
-    applied to the cases the document carries.
+    subject cases the suite declares; if it declares none, its canaries,
+    calibration cases and reviewed answers; and with no declaration to read,
+    the same two clauses applied to the cases the document carries.
 
     **The declaration decides, not the run.** A run that carries none of the
     declared subject cases still counts them, and judged none of them, so a
@@ -73,8 +75,9 @@ def cases_that_count(run: Run, declared: Declared | None) -> frozenset[str]:
     subject = frozenset(
         case.case_id
         for case in run.results
-        if not case.canary and case.calibration is None
+        if not case.canary and case.calibration is None and case.reviewed is None
     )
-    # With no subject case in the document, every case it carries is a canary
-    # or a calibration case: the second clause, read off the run.
+    # With no subject case in the document, every case it carries is a canary,
+    # a calibration case or a reviewed answer: the second clause, read off the
+    # run.
     return subject or frozenset(case.case_id for case in run.results)

@@ -2,9 +2,10 @@
 
 The rule was written inline twice, behind `digline report` and `digline
 explain`. Written from the mistake each test prevents: the first round
-answering `1`, which needs a relation it does not have; a cause of `2` that
-the first round misses; and the restricted rule drifting from `exit_code`,
-which is the rule it restricts.
+answering `1`, which needs a relation it does not have, but for a reviewed
+answer the judge contradicted, whose expected verdict is a person's (ADR 0059
+§1); a cause of `2` that the first round misses; and the restricted rule
+drifting from `exit_code`, which is the rule it restricts.
 """
 
 from __future__ import annotations
@@ -16,7 +17,14 @@ import pytest
 from tests.test_project_served import unpromoted
 from tests.test_projection import Table, promoted
 
-from digline.core import NOTHING_EXTRA, Run, compare, project_served, redact
+from digline.core import (
+    NOTHING_EXTRA,
+    Reviewed,
+    Run,
+    compare,
+    project_served,
+    redact,
+)
 from digline.report import headline
 from digline.wire import EXIT_OK, EXIT_UNJUDGED, EXIT_WORSE, exit_code, run_exit_code
 
@@ -44,11 +52,26 @@ def band_lost(run: Run) -> Run:
     return replace(run, results=(run.results[0], outside, *run.results[2:]))
 
 
+def contradicting(run: Run) -> Run:
+    """`run` with its first case a reviewed answer whose person said the
+    opposite of what its first verdict found."""
+    first = run.results[0]
+    verdict = first.verdicts[0]
+    assert first.calibration is None and not first.canary
+    review = Reviewed(
+        check=verdict.score.name,
+        assertion_id=verdict.assertion_id,
+        good=verdict.status != "pass",
+    )
+    return replace(run, results=(replace(first, reviewed=review), *run.results[1:]))
+
+
 RUNS = {
     "clean": clean(),
     "errored": errored(),
     "band lost": band_lost(clean()),
     "errored and band lost": band_lost(errored()),
+    "a judge contradicted a person": contradicting(clean()),
 }
 
 
@@ -65,10 +88,11 @@ def test_a_lost_scale_stops_it_on_its_own() -> None:
     assert run_exit_code(band_lost(clean()), declared=None) == EXIT_UNJUDGED
 
 
-def test_a_first_round_never_says_worse() -> None:
-    assert EXIT_WORSE not in {
-        run_exit_code(run, declared=None) for run in RUNS.values()
-    }
+def test_a_first_round_says_worse_only_where_a_judge_contradicted_a_person() -> None:
+    said = {name: run_exit_code(run, declared=None) for name, run in RUNS.items()}
+    assert [name for name, code in said.items() if code == EXIT_WORSE] == [
+        "a judge contradicted a person"
+    ]
 
 
 def as_read(run: Run) -> Run:

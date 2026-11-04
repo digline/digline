@@ -59,6 +59,8 @@ def recording(
     at: str | None,
     **changes: Any,
 ) -> Recording:
+    # An episode's steps are its response's (ADR 0060 §6).
+    steps = changes.pop("steps", None)
     fields: dict[str, Any] = {
         "source_tenant": "acme",
         "app": "support",
@@ -66,7 +68,7 @@ def recording(
         "case": vars,
         "setup": setup,
         "setup_digest": setup_digest_of(setup),
-        "response": RecordedResponse(output=output, kind="text"),
+        "response": RecordedResponse(output=output, kind="text", steps=steps),
         "recorded_at": None if at is None else f"2026-11-03T08:{at}:00+00:00",
     }
     fields.update(changes)

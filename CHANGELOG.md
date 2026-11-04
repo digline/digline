@@ -12,8 +12,9 @@ digline **1.1.0**. **A minor, because the schema moves**: the run document is at
 schema 23, and `digline migrate` takes a document from 22 by a step that writes
 nothing. No public name is removed or renamed and no exit code changes.
 
-- **Schema 23: a recorded response keeps the trajectory the checks read live**,
-  three passengers, each additive and absent where it was not recorded:
+- **Schema 23: a recorded response keeps the trajectory the checks read live,
+  and a case keeps what a person said of a reviewed answer**, four passengers,
+  each additive and absent where it was not recorded:
   - **`RecordedResponse.finish`**, why the reply ended, and
     **`RecordedResponse.tools`**, the names the target reported (ADR 0057).
     `ToolsCalled` reads both live, and the document did not keep them, so a
@@ -27,16 +28,22 @@ nothing. No public name is removed or renamed and no exit code changes.
     recorded steps, and refused by name where it did not; `Subsequence`,
     `Before` and `Never` read the steps where they were recorded, and the
     names otherwise. Steps whose calls are not the response's `tool_calls`,
-    in the same order, are refused rather than recorded.
+    in the same order, are refused rather than recorded. A recording keeps
+    them in its response too, a single call's as an episode's, and an episode
+    is told by the id of its own (ADR 0060 §6).
+  - **`CaseResult.reviewed`**, on a reviewed answer alone: the check it is
+    for, by name and identity, and the person's `good` (ADR 0059 §1). The
+    answer itself is never written.
   - **The replay's refusal narrows.** A target that reported names and no
     calls is re-judged for `ToolsCalled`, where it was refused.
     `ToolCalledWith` reads the arguments, which only `tool_calls` carries, and
     is still refused.
 
-  Each is written where the target reported it, under `record_responses`,
-  with no switch of its own. A document written before 23 records none of
-  them, and **no stored document changes its verdict**: absent is *not
-  recorded*, so it replays exactly as it did.
+  The three on a recorded response are written where the target reported
+  them, under `record_responses`, with no switch of its own. A document
+  written before 23 records none of the four, and **no stored document
+  changes its verdict**: absent is *not recorded*, so it replays exactly as
+  it did.
 
 - **`digline view` listens on 127.0.0.1 and nowhere else, and `--host` is
   gone**: a command that passes it is refused, exit `64`. A CLI option
@@ -110,12 +117,19 @@ nothing. No public name is removed or renamed and no exit code changes.
   the steps, or `tools` where there are none; `MaxSteps` reads the steps
   alone. A suite that declares two of them that cannot both pass is refused
   (ADR 0060 §4).
-- **`Case.reviewed_answer`**, declared and not run yet: a recorded answer and
-  a person's yes or no about it, `ReviewedAnswer(output, check, good, input)`,
+- **`Case.reviewed_answer`, a person's yes or no about an answer, and the
+  judge measured against it**: `ReviewedAnswer(output, check, good, input)`,
   in Python and in a cases file. The suite checks that `check` is one judged
-  assertion and that it samples at least twice. `digline run`, `rejudge` and
-  `execute()` refuse a suite that declares one before anything is called or
-  written, until schema 23 gives the run document its key (ADR 0059 §1).
+  assertion and that it samples at least twice. The target is not called for
+  it, only the check it names runs, and **a judge that contradicts the person
+  exits `1`**, from `report`, `explain` and `compare`, with or without a
+  reference, counted on the headline by direction, `reviewed_passed_no` and
+  `reviewed_failed_yes`, and named in its sentence. It is in no aggregate,
+  `reviewed_excluded`; the report shows each beside what the judge said, next
+  to the calibration section; a replay re-judges it from the declaration; and
+  `contradicted(run)` reads it from a run alone. `digline run` exits as it
+  does for a lost scale (ADR 0059 §1). On the wire, `compare --json` and the
+  run document gain the keys, and `OUTPUT_VERSION` stays 5.
 - **A suite that declares a tool argument digline cannot tell apart is
   refused, and this breaks a suite that loaded before**: a `date`, a `time`,
   a class, a function or any value that `ToolCalledWith` compared as

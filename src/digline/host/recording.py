@@ -237,7 +237,7 @@ def _tenant(
             unreadable += 1
             continue
         counts = suites.setdefault(recording.suite, [0, 0, 0, 0, 0])
-        if recording.steps is None:
+        if not recording.is_episode:
             counts[0] += 1
             counts[2] += recording.orphan
             # An orphan that carries an id ended after its episode closed: it

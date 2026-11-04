@@ -166,6 +166,7 @@ from digline.core.resolution import (
     WrongRowError,
     resolve_tokens,
 )
+from digline.core.reviewed import Contradiction, Reviewed, contradicted
 from digline.core.run import (
     DECLARED_PRICE_FIELDS,
     MAX_RECORDED_CHARS,
@@ -317,6 +318,8 @@ __all__ = [
     "CaseProgress",
     "CaseResult",
     "ScaleLost",
+    "Reviewed",
+    "Contradiction",
     "Cause",
     "CheckKind",
     "Comparison",
@@ -419,6 +422,7 @@ __all__ = [
     "judged",
     "origin",
     "scale_lost",
+    "contradicted",
     "nothing_judged",
     "CauseOfTwo",
     "causes_of_two",
