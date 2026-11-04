@@ -244,8 +244,13 @@ Every response carries one policy:
 ```text
 Content-Security-Policy: default-src 'none'; style-src 'self'; script-src 'self'; form-action 'self'; frame-ancestors 'none'
 X-Content-Type-Options: nosniff
-Referrer-Policy: no-referrer
+Referrer-Policy: same-origin
 ```
+
+`same-origin` lets a form this server served say where it came from, so the
+origin check lets it write, and sends no referrer to any other site: a run key
+in an address does not leave with a link. A request whose `Origin` is `null`,
+as a page opened from a file sends, is refused, and says so.
 
 Styles and scripts come from the server's own files, and nothing is inline: no
 `style` attribute, no `<style>`, no `<script>` with a body that runs. A data
