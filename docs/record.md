@@ -501,10 +501,11 @@ them, the answers across setups as `record compare` shows them, with a chart
 for one case, and the recorder as `record status` says it. Each page calls the
 function its command calls, and says what the command says.
 
-The page reads and writes nothing in this release. Switching the recorder and
-importing a case stay on the command line for now; on the page they will sit
-behind `digline view --allow-record`, under each button the command that does
-the same thing. See [the recorder's views](view.md#the-recorders-views).
+Without a flag the page reads and writes nothing. Started with
+`digline view --allow-record`, it switches the recorder on and off and writes
+the answers a person names as cases, through the functions these commands
+call, with the person's own name typed in the form. Under each button is the
+command that does the same thing. See [`--allow-record`](view.md#-allow-record).
 
 ## Not yet
 
