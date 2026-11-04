@@ -262,9 +262,10 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "and no write but promotion"
     ),
     "0062-the-recorder-out-of-process-and-in-other-processes": (
-        "accepted, and before any code: no `digline record proxy`, no "
-        "`digline.recording_wire` entry point and no Java file exist. The "
-        "in-process recorder's `input`, §7's first item, is #901's"
+        "accepted, and in part built: `input` (#901), the contract's costs "
+        "(#905), and `digline record proxy` with `digline.recording_wire` "
+        "for OpenAI and Anthropic. Bedrock through the proxy, the steps "
+        "rebuilt from the messages and the Java files do not exist"
     ),
 }
 

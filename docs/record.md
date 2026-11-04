@@ -9,10 +9,12 @@ back and names the ones that become cases.
 > **Arrives with digline 1.1.** On 1.0.3, `digline record` and
 > `digline.recorder` do not exist.
 
-It is four things:
+It is five things:
 
 - **`digline.recorder.wrap`**, around the provider's own client, in the
   application;
+- **`digline record proxy`**, for an application in any language, which
+  points its SDK at it;
 - **a switch**, `.digline/<tenant>/recorder.toml`, and `digline record on`,
   `off` and `status`;
 - **`digline record import`**, which lists a suite's recorded answers and
@@ -270,6 +272,83 @@ The decision is
 [ADR 0060](adr/0060-the-steps-of-a-trajectory-live-recorded-and-collected.md)
 §1–§4.
 
+## Through the proxy: `digline record proxy`
+
+An application that is not in Python, or that cannot wrap its client, points
+its SDK at a proxy on its own machine, and the proxy records each call as the
+recorder in process does: the same switch, the same files, the same digest
+and the same counts. It listens on `127.0.0.1` and nowhere else.
+
+In `/home/you/app`, with `DIGLINE_RECORD=1`:
+
+```console
+$ digline record proxy --tenant acme
+digline record proxy: listening on http://127.0.0.1:8787
+  tenant:     acme, app proxy
+  writes to:  /home/you/app/.digline/acme/recordings
+  recording:  on, from DIGLINE_RECORD=1: sample 1, ceiling 104857600 bytes, interval 5 s
+  route anthropic: https://api.anthropic.com
+  route openai: https://api.openai.com/v1
+  point the SDK here:
+    ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+    OPENAI_BASE_URL=http://127.0.0.1:8787/v1
+```
+
+In any language, three things:
+
+1. **The base URL**: the SDK's own variable, as the last two lines say, or its
+   base URL option. The key stays the application's own, and travels in its
+   own headers: the proxy never reads, logs or writes it.
+2. **The suite**: a header, `X-Digline-Suite: refunds`, or, where the SDK can
+   set a base URL and no header, a path, `http://127.0.0.1:8787/suite/refunds/v1`.
+   Neither reaches the provider. A call that names no suite is recorded under
+   `_unassigned`, with the SDK's `User-Agent` and the path as its call site.
+3. **The episode**, where a turn makes several calls: the same
+   `X-Digline-Episode` value on each, any value the application chooses. Once
+   no call has carried it for 30 seconds (`--episode-idle`), or when the proxy
+   stops, the turn is written as an episode: its answer is the last call's
+   text, and its case is what `X-Digline-Case` gave, a JSON object or a text.
+   Without it the case is the first call's, and the import says *case from
+   the first call*. An episode off the wire is never *interrupted*: an
+   exception in the application does not cross the wire.
+
+`X-Digline-App` names the app a call is filed under, `proxy` unless `--app`
+says otherwise.
+
+**Which provider.** The path says which plugin reads a call:
+`/chat/completions` is OpenAI's, `/v1/messages` Anthropic's. Where it goes is
+`--upstream ROUTE=URL` for that route, for a gateway or a compatible
+endpoint, once per route:
+
+```console
+$ digline record proxy --tenant acme --upstream openai=https://generativelanguage.googleapis.com/v1beta/openai
+```
+
+Without it, a call goes to the provider whose SDK its headers show, the
+route's own first: `anthropic-version` is Anthropic's, a bearer key without it
+OpenAI's. An endpoint that answers in OpenAI's shape, such as Gemini's
+OpenAI-compatible one, is read by OpenAI's plugin. That was measured with a
+fake endpoint at another path whose replies have fewer fields than OpenAI's;
+Gemini itself was not called, so what it sends was not read. A
+call over a path no plugin reads is forwarded and not recorded. A provider
+whose plugin is not installed is refused, and the refusal names the package.
+
+**What passes on as it came.** The reply, its body and its headers, but those
+a connection owns. A stream is passed on as it arrives and recorded at its
+end; one the application closes first is counted `stream abandoned` and not
+recorded, as in process. A reply that is not a 200 is passed on and not
+recorded. An upstream that does not answer within 600 seconds is a 504 that
+says so.
+
+**What it does not see**: a call the application does not point at it, and
+the application's own code between two calls.
+
+The proxy is a Python process like any that wraps a client: `digline record
+status` counts it, and Ctrl-C or SIGTERM stops it after writing its open
+episodes and its counts. Through it, a call adds a fraction of a millisecond:
+0.28 ms at the median of 100 single calls, measured against a fake provider
+on the same machine.
+
 ## Switching it on
 
 Off is the default, and off costs one comparison and one read of a context
@@ -516,4 +595,6 @@ command that does the same thing. See [`--allow-record`](view.md#-allow-record).
 
 ## Not yet
 
-- An application in another language than Python.
+- Bedrock through the proxy, and an agent's steps rebuilt from the
+  conversation.
+- An interceptor in the application's own language, Java first.

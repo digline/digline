@@ -166,7 +166,9 @@ class ImportAnswer:
     made under, in the order first met. `elected` is the person's yes or no the
     draft already holds for this answer, or `None`. `refusal` says why it
     cannot be elected, or is `None` where it can. `attached` is, for an
-    episode, how many calls were found carrying its id."""
+    episode, how many calls were found carrying its id. `case_from_first_call`
+    is an episode the proxy read off the wire with no case given, whose case
+    is its first call's (ADR 0062 §3)."""
 
     id: str
     case: str
@@ -180,6 +182,7 @@ class ImportAnswer:
     elected: bool | None
     refusal: str | None
     attached: int
+    case_from_first_call: bool = False
 
     @property
     def electable(self) -> bool:
@@ -462,6 +465,7 @@ def import_listing(
                 elected=elected,
                 refusal=_refusal(recordings, setup, elected, held),
                 attached=sum(split.attached.get(r.id, 0) for r in recordings if r.id),
+                case_from_first_call=first.case_from_first_call,
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -731,7 +735,8 @@ def _say_answer(answer: ImportAnswer, setup: str | None) -> list[str]:
     return [
         f"  {answer.id} · {answer.first_at or 'undated'} · setup {setups}"
         f"{times}{attached}",
-        f"    input:  {input_line(answer)}",
+        f"    input:  {input_line(answer)}"
+        + (" (case from the first call)" if answer.case_from_first_call else ""),
         f"    answer: {answer.text}",
         f"    {answer_state(answer)}",
     ]

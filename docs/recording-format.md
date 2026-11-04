@@ -106,7 +106,9 @@ fixes it.
 - **An episode**, a turn of an agent written as one recording, adds `id`,
   32 hexadecimal characters, which only an episode carries. Its `input` is
   its whole `case` as JSON text, and each call made inside it carries the
-  episode's `id` in `episode`.
+  episode's `id` in `episode`. An episode whose case nobody gave, as
+  `digline record proxy` writes one, takes its first call's and says so with
+  `case_from_first_call`, written `true` or not at all.
 - **Steps**, a trajectory, are the response's, in `response.steps`, for an
   episode and a single call alike. A step has an `index` from 0, an `actor`
   (`model` or `tool`), the `finish` of a model step where one was reported,
