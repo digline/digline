@@ -22,6 +22,11 @@ notes under them are this file, verbatim.
   the last recordings. On a CI Linux runner, writing one recording with its
   sync took 21 to 117 ms, and held the caller, an event loop among them, for
   as long (ADR 0058 §10).
+- **`digline record compare`**, new: a suite's recorded answers, case by
+  case, under each setup in the order they were recorded, with `--case`,
+  `--since`, two setups side by side with `--setup A B`, the keys they
+  differ on with `--show-setup`, and `--json`, which carries digests and
+  never the recorded text. It judges nothing and writes nothing.
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 
