@@ -559,6 +559,20 @@ decoded as JSON, so two values that differ can match:
   type it always matches, and against a value decoded from JSON it matches only
   the string `"<TypeName>"` itself.
 
+*Noted 2026-11-04, and the note above kept as written: the last item is now
+refused.* A declared argument that `canonical` would reduce to `"<TypeName>"`
+is refused when `ToolCalledWith` is built, and a TOML suite meets the same
+refusal when it loads. The refusal names where the value is and its type, and
+says to declare the value the way the model sends it: a date or a time as its
+ISO 8601 text, in quotes in a TOML suite. The check that finds such a value
+is `collapsing`, beside `canonical` in `digline/core/types.py`, and it walks
+`canonical`'s own branches, so the two cannot disagree. This was decided on
+2026-11-02, in the conversation of the session that measured it: a check that
+a value of such a type makes unsatisfiable or vacuous is refused when the
+suite is written, not met in a verdict. It breaks only suites that were
+already wrong, and it is declared in the changelog. The other items keep
+their behaviour, because each still tells two values apart.
+
 **What reaches `Score.metadata` is a measurement and never a value:**
 
     {"arguments_matched": int, "arguments_expected": int}

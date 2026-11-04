@@ -227,6 +227,14 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             '`cases = "cases.json"` — because a suite is rules and cases are '
             "data, and a diff has to say which one moved (ADR 0007 §4)"
         )
+    if not _paths(table["cases"]):
+        # Said without the value: a table or an array written here holds
+        # cases, and a case is the end company's payload. An array of paths
+        # is files, and is read in order (ADR 0059 §4).
+        raise UsageError(
+            f"{where}, [suite]: `cases` must be the path of a JSON file or an "
+            "array of paths, not a table or cases written in the suite"
+        )
 
     declared = dict(table)
     capture = (
@@ -235,7 +243,7 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
         else None
     )
     cases: list[Case] = []
-    for file in _case_files(declared.pop("cases"), where):
+    for file in _case_files(declared.pop("cases")):
         resolved = within_perimeter(path.parent / file, perimeter, "cases", where)
         # The capture file is absent until the first import writes it, and a
         # suite that names it is not broken before then: absent is no case,
@@ -333,19 +341,22 @@ def _table(
     return cast("Mapping[str, object]", found)
 
 
-def _case_files(value: object, where: str) -> list[str]:
-    """`cases`: one file, or an array of files read in order. A suite that
-    declares `[capture]` names its capture file here too, as a `suite.py`
-    loads it with `read_cases`, or it is refused when it is loaded."""
+def _paths(value: object) -> bool:
+    """Whether `cases` is a path, or a non-empty array of paths."""
     if isinstance(value, str):
-        return [value]
-    files = list(_sequence(value, "cases", where))
-    if not files or not all(isinstance(f, str) and f for f in files):
-        raise UsageError(
-            f"{where}, [suite]: `cases` is a file, or an array of files, each "
-            'a path: `cases = ["cases.json", "captured.json"]`'
-        )
-    return cast("list[str]", files)
+        return True
+    if not isinstance(value, list):
+        return False
+    files = cast("list[object]", value)
+    return bool(files) and all(isinstance(f, str) and f for f in files)
+
+
+def _case_files(value: object) -> list[str]:
+    """`cases`: one file, or an array of files read in order, as `_paths`
+    has already held it. A suite that declares `[capture]` names its capture
+    file here too, as a `suite.py` loads it with `read_cases`, or it is
+    refused when it is loaded."""
+    return [value] if isinstance(value, str) else cast("list[str]", value)
 
 
 def _capture(

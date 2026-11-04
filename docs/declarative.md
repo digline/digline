@@ -173,6 +173,12 @@ name = "starts_capitalised"
 `name` is worth setting whenever a suite has two checks of one kind: it is what
 the report prints and what a comparison pairs on.
 
+**A date or a time goes in quotes.** TOML has date and time literals, and
+`arguments = { when = 1999-09-09T09:00:00Z }` is one. A model sends JSON, which
+has none, so the value arrives as text, and a literal could never match it:
+`tool_called_with` refuses one when the suite loads. Write
+`when = "1999-09-09T09:00:00Z"`, the text the model sends.
+
 **Per case:** `equals`, `contains`, `not_contains`, `affix`, `is_json`,
 `json_schema`, `length`, `levenshtein`, `regex`, `llm_rubric`, `faithfulness`,
 `pii_absent`, `tools_called`, `tool_called_with`, `subsequence`, `before`,

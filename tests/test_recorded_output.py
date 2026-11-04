@@ -12,7 +12,6 @@ measurement wearing the declared suite's name.
 
 from __future__ import annotations
 
-import datetime
 import json
 import os
 import subprocess
@@ -780,22 +779,13 @@ _NAMES_FROM_CALLS = (
             ToolCalledWith(tool="lookup", arguments={"id": 7}),
             id="arguments-not-decodable",
         ),
-        pytest.param(
-            # `canonical` writes both sides as "<datetime>". Live and replayed
-            # agree — both pass on two different dates, which is a different
-            # defect and not this test's: here the claim is only that the
-            # replay judges what the live run judged.
-            {
-                "tools": ["book"],
-                "tool_calls": _calls(
-                    "book", arguments={"when": datetime.datetime(2026, 1, 1)}
-                ),
-            },
-            ToolCalledWith(
-                tool="book", arguments={"when": datetime.datetime(1999, 9, 9)}
-            ),
-            id="arguments-collapse-to-type-name",
-        ),
+        # A declared `datetime` stood here, `arguments-collapse-to-type-name`:
+        # `canonical` wrote both sides as "<datetime>", and live and replayed
+        # both passed on two different dates. That was a different defect from
+        # this test's, and a symmetric one, which a comparison of two runs
+        # cannot see. It cannot be declared any more: `ToolCalledWith` refuses
+        # it when it is built, held in `tests/test_collapsing_arguments.py`.
+        # (ADR 0018 §5, noted 2026-11-04)
     ],
 )
 def test_a_replay_judges_what_the_live_run_judged(
