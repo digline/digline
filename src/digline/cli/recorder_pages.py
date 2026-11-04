@@ -144,8 +144,8 @@ class Field:
 
 def command_line(base: Sequence[str], fields: Sequence[Field]) -> str:
     """The command a form runs: its base and, in the form's order, each field
-    that is set, its flag and its word. Quoted as a POSIX shell reads it, the
-    way the page's script quotes it."""
+    that is set, its flag and its word. Each word is quoted for a POSIX
+    shell, the way the page's script quotes it."""
     words = list(base)
     for field in fields:
         if not field.set:
