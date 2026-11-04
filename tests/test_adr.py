@@ -238,11 +238,11 @@ UNRELEASED_RECORDS: dict[str, str] = {
     ),
     "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
         "the narrow piece exists: the recording's document and its place in "
-        "the layout, the wrapper of a single synchronous call, the episode "
-        "with `RecordedStep`, the switch file with its refusals, interval, "
-        "sample and ceiling, `digline record` and the narrow import. "
-        "Streaming and asynchronous clients are in files since #883 and #885; "
-        "the rich import is in no file. Meant for 1.1"
+        "the layout, the wrapper of a synchronous, a streaming and an "
+        "asynchronous call (streaming since #883, asynchronous since #885), "
+        "the episode with `RecordedStep`, the switch file with its refusals, "
+        "interval, sample and ceiling, `digline record` and the narrow import. "
+        "The rich import is in no file. Meant for 1.1"
     ),
     "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
         "accepted, and before any code: no reviewed answer, no grouped listing, "
