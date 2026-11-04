@@ -31,6 +31,7 @@ from digline.core import (
     Accuracy,
     Affix,
     Assertion,
+    Before,
     CheckKind,
     ClaimReply,
     Contains,
@@ -45,6 +46,8 @@ from digline.core import (
     Length,
     Levenshtein,
     LlmRubric,
+    MaxSteps,
+    Never,
     NotContains,
     PiiAbsent,
     Precision,
@@ -52,6 +55,7 @@ from digline.core import (
     Regex,
     Repeated,
     RunAssertion,
+    Subsequence,
     ToolCalledWith,
     ToolsCalled,
     config_hash,
@@ -96,6 +100,16 @@ PER_CASE: list[Assertion] = [
     Repeated(inner=CONTAINS, samples=3, min_agreement="2/3"),
 ]
 
+#: Exported after `KIND` existed, so there is no *before* to hold them to:
+#: pinned the day they landed, and kept out of `PER_CASE`, whose hash is the
+#: one computed before `KIND`. (ADR 0060 §4, 2026-11-04)
+ADDED: list[Assertion] = [
+    Subsequence(tools=["lookup", "refund"]),
+    Before(first="lookup", then="refund"),
+    Never(tool="delete"),
+    MaxSteps(limit=6, count="model"),
+]
+
 PER_RUN: list[RunAssertion] = [
     Precision(over="contains", threshold="3/4", tolerance="1/20"),
     Recall(over="contains", threshold="3/4", tolerance="1/20"),
@@ -124,6 +138,10 @@ PINNED_IDENTITY = {
     "CostBudget": "1ce7dd96f1671c89",
     "LatencyBudget": "8615e202964028ec",
     "Repeated": "cabbf7b8bcbc2d95",
+    "Subsequence": "d480a0ad351310fd",
+    "Before": "40380c2351426e28",
+    "Never": "c997b0359134fbb1",
+    "MaxSteps": "b83ba22bd4f62ef2",
     "Precision": "eb1dc4b65364eb3d",
     "Recall": "20c8a5a64464ceec",
     "Accuracy": "ddb968366023a5a1",
@@ -161,11 +179,13 @@ def test_every_exported_check_has_a_pinned_identity() -> None:
     """A new export has no *before* to pin, but it gets one the day it lands,
     so that whatever comes after it is held to the same test."""
     assert {cls.__name__ for cls in exported()} == set(PINNED_IDENTITY)
-    assert [type(a).__name__ for a in [*PER_CASE, *PER_RUN]] == list(PINNED_IDENTITY)
+    assert [type(a).__name__ for a in [*PER_CASE, *ADDED, *PER_RUN]] == list(
+        PINNED_IDENTITY
+    )
 
 
 @pytest.mark.parametrize(
-    "check", [*PER_CASE, *PER_RUN], ids=lambda check: type(check).__name__
+    "check", [*PER_CASE, *ADDED, *PER_RUN], ids=lambda check: type(check).__name__
 )
 def test_kind_leaves_the_identity_where_it_was(check: Assertion | RunAssertion) -> None:
     assert check.identity == PINNED_IDENTITY[type(check).__name__]

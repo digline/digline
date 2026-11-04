@@ -440,6 +440,7 @@ plain function fills both keys itself:
 |---|---|---|
 | `tools` | the names of the tools called, in order: a list of strings, with `None` at the position of a call that carried no name | `ToolsCalled` |
 | `tool_calls` | the same calls with their arguments, in order: a list of `{"tool": <name>, "arguments": <mapping>}`. `arguments` may also be a JSON string, which is decoded | `ToolCalledWith` |
+| `steps` | the trajectory as steps: `{"index", "actor": "model", "finish"}` per call to a model, then `{"index", "actor": "tool", "tool", ...}` per tool call it asked for | `Subsequence`, `Before`, `Never`, `MaxSteps` |
 
 ```python
 def target(case: Case) -> Response:
@@ -458,6 +459,55 @@ every case: a target that reports nothing is not a model that called nothing.
 `[]` is the model calling nothing. `examples/langgraph/suite.py` fills both keys
 this way. A declarative HTTP target derives the names from `tool_calls_path`
 alone ([`declarative.md`](declarative.md)).
+
+### Four checks on the steps
+
+An agent that handles a refund should look the order up before it refunds it,
+should never delete the account, and should not loop. Four checks say so, each
+binary, with nothing to declare that has a default (ADR 0060 §4):
+
+```python
+from digline.core import Before, MaxSteps, Never, Subsequence
+
+assertions = [
+    # it looked the order up, then refunded it, whatever it did between
+    Subsequence(tools=["lookup_order", "issue_refund"]),
+    # it never refunded an order it had not looked up first
+    Before(first="lookup_order", then="issue_refund"),
+    # it never deleted the account
+    Never(tool="delete_account"),
+    # it answered within six turns of the model
+    MaxSteps(limit=6, count="model"),
+]
+```
+
+- **What they read.** `Subsequence`, `Before` and `Never` read the names of the
+  `tool` steps under `metadata["response"]["steps"]`, and where a response has
+  no steps, the names under `tools`, as `ToolsCalled` does. `MaxSteps` reads
+  the steps alone: counting turns from tool calls would read three calls of
+  one turn as three turns. How a response gets its steps is in
+  [`digline record`](record.md#steps-live).
+- **`Before` passes where `then` was never called**, and its metadata says
+  `then` was called zero times. *Both, and in this order* is
+  `Subsequence([first, then])`.
+- **An error, never a fail**, where the response reports neither steps nor
+  tools (for `MaxSteps`, no steps), where a model step ended on `tool_use` and
+  no tool step follows it, where the steps name other calls than `tool_calls`
+  or `tools` beside them, and where a call reported without its tool's name
+  decides the verdict.
+- **Refused when built:** `Subsequence([])`, an empty name, `Before(a, a)`, a
+  `limit` below 1, and `MaxSteps` without `count`. **Refused when the suite is
+  built**, because every case is asked every check: `Never(x)` beside a check
+  that asks for `x` or orders it, `Before(a, b)` beside `Before(b, a)`, and
+  `MaxSteps(count="tool")` with a `limit` below a `Subsequence`'s length.
+- **`Score.metadata`** holds counts, and names only where the check is about
+  names: `Subsequence` writes `matched`, `expected`, `tool_steps` and
+  `called`; `Before` `violations`, `first_calls` and `then_calls`; `Never`
+  `occurrences`; `MaxSteps` `steps` and `limit`.
+- **In a replay**, the three on order are judged from the recorded names.
+  `MaxSteps` is refused: the run document holds no steps before schema 23.
+
+In a TOML suite they are `subsequence`, `before`, `never` and `max_steps`.
 
 ### `Mapper`
 
@@ -1010,6 +1060,10 @@ something that must hold for all of them.
 | `FromAutoevals` | `scorer`, **`threshold`**, **`tolerance`** | mandatory | text |
 | `ToolsCalled` | **`expected`** (the tool names, in order) | `1.0` | all |
 | `ToolCalledWith` | **`tool`**, **`arguments`**, `match` (`exact` or `subset`) | `1.0` | all |
+| `Subsequence` | **`tools`** (these, in this order, anything between) | `1.0` | all |
+| `Before` | **`first`**, **`then`** | `1.0` | all |
+| `Never` | **`tool`** | `1.0` | all |
+| `MaxSteps` | **`limit`**, **`count`** (`model` or `tool`) | `1.0` | all |
 
 In bold what **has no default and must be declared**. `LlmRubric` because an LLM
 judge is not reproducible; the budgets because cost and latency are noisy by

@@ -18,16 +18,22 @@ from digline.core import (
     GROUP_MARKER,
     NOTHING_EXTRA,
     Assertion,
+    Before,
     CalibrationBand,
     Declared,
     Disclosure,
     Faithfulness,
     Label,
     LlmRubric,
+    MaxSteps,
     Minter,
+    Never,
     Output,
     Repeated,
     RunAssertion,
+    Subsequence,
+    ToolCalledWith,
+    ToolsCalled,
     canonical,
     config_hash,
     expand_by_group,
@@ -697,6 +703,7 @@ class Suite:
             seen.add(case.id)
 
         self._check_calibrations()
+        self._check_trajectories()
         self._check_reviewed_answers()
         # Validated on the *declared* set, so a refusal names what the author
         # wrote rather than a copy the expansion made.
@@ -741,6 +748,45 @@ class Suite:
             high=calibration.high,
             assertion_id=self.calibrated(calibration).identity,
         )
+
+    def _check_trajectories(self) -> None:
+        """Two trajectory checks that cannot both hold, refused before a call
+        is paid for: every case that is not a calibration case is asked every
+        check, so a contradiction would fail every case. (ADR 0060 §4)
+
+        The sentence names the two checks and how they collide, never the tool,
+        which is a name of the suite's that no projection mints."""
+        checks = self.assertions
+        for never in (check for check in checks if isinstance(check, Never)):
+            for other in checks:
+                why = _against_never(never.tool, other)
+                if why is not None:
+                    raise _colliding(self.name, never, other, why)
+        befores = [check for check in checks if isinstance(check, Before)]
+        for one in befores:
+            for other in befores:
+                if one.first == other.then and one.then == other.first:
+                    raise _colliding(
+                        self.name,
+                        one,
+                        other,
+                        "each asks for the other's tool first, so both hold only "
+                        "where one of the two tools is never called",
+                    )
+        for limit in (
+            check
+            for check in checks
+            if isinstance(check, MaxSteps) and check.count == "tool"
+        ):
+            for other in checks:
+                if isinstance(other, Subsequence) and limit.limit < len(other.tools):
+                    raise _colliding(
+                        self.name,
+                        limit,
+                        other,
+                        f"the first allows {limit.limit} tool step(s) and the "
+                        f"second asks for {len(other.tools)}",
+                    )
 
     def _check_calibrations(self) -> None:
         """Each calibration names one judged check of this suite, and gives it
@@ -1144,6 +1190,41 @@ def _undeclared_sentence(names: Sequence[str]) -> str:
     return (
         f"{listed} declare no KIND, so the shape reading leaves them out; declare "
         'KIND = "judged" or "deterministic" on their classes to have them read'
+    )
+
+
+def _against_never(tool: str, other: Assertion) -> str | None:
+    """How `other` collides with a check that `tool` is never called, or
+    `None` where it does not. (ADR 0060 §4)"""
+    if isinstance(other, Subsequence) and tool in other.tools:
+        return "the second asks for the tool the first forbids"
+    if isinstance(other, ToolsCalled) and tool in other.expected:
+        return "the second expects the tool the first forbids"
+    if isinstance(other, ToolCalledWith) and other.tool == tool:
+        return "the second asks for a call to the tool the first forbids"
+    if isinstance(other, Before) and other.then == tool:
+        return (
+            "the second orders a tool the first forbids, so it could only pass "
+            "because that tool is never called"
+        )
+    if isinstance(other, Before) and other.first == tool:
+        return (
+            "the second needs a tool the first forbids before its own, so it "
+            "would forbid that one too, under another name"
+        )
+    return None
+
+
+def _colliding(suite: str, one: Assertion, other: Assertion, why: str) -> RefusedError:
+    return RefusedError(
+        Written.said(
+            f"suite {suite!r} declares ",
+            NameRef("verdict_name", one.name),
+            " and ",
+            NameRef("verdict_name", other.name),
+            f", which cannot both pass: {why}. Every case is asked every check, "
+            "so the suite would fail every case. Remove one of the two",
+        )
     )
 
 

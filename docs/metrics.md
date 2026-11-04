@@ -21,7 +21,7 @@ Do the cases carry a human mark (ground truth)?
     ├── a judgement that only words can state ..................... LlmRubric   → wrap in Repeated
     ├── supported by the retrieved context ........................ Faithfulness
     ├── no personal data on the way out ........................... PiiAbsent
-    ├── which tools it called on the way there .................... ToolsCalled
+    ├── which tools it called on the way there .................... ToolsCalled · Subsequence · Before · Never · MaxSteps
     ├── and with what arguments ................................... ToolCalledWith
     └── a scorer you already own .................................. FromAutoevals
 Always, next to whichever you picked: CostBudget · LatencyBudget
@@ -479,6 +479,80 @@ this. Use `subset` when a framework adds keys of its own — under `exact` a
 `request_id` nobody declared is a failure. Arguments that do not decode are an
 **error**, not a failure, for the reason `json_schema` reports an undecodable
 output as one.
+
+### `Subsequence`
+
+**Use it when** an agent must take certain steps in a certain order, and what
+it does between them is its own business: it looked the order up, then
+refunded it, whatever else it checked on the way.
+
+```python
+Subsequence(tools=["lookup_order", "issue_refund"])
+```
+
+**Takes** **`tools`** — the names, in order; `threshold=1.0`. All output kinds.
+Binary. An empty list is refused when it is built.
+**Produces** `1.0` or `0.0`, plus `matched` and `expected` (counts),
+`tool_steps` (how many tool calls were read) and `called` (the names, which
+need `Disclosure(score_metadata={"called"})` to travel, as `ToolsCalled`'s do).
+**Watch out** it reads the tool steps under `steps`, and `tools` where a
+response has none, so it works wherever `ToolsCalled` does. Where the whole
+sequence matters, with nothing between, `ToolsCalled` is the check. A call
+whose tool nobody named errors it where that call is the one that decides.
+
+### `Before`
+
+**Use it when** one action must be prepared by another: no refund of an order
+the agent has not looked up.
+
+```python
+Before(first="lookup_order", then="issue_refund")
+```
+
+**Takes** **`first`** and **`then`**, two different names; `threshold=1.0`.
+All output kinds. Binary.
+**Produces** `1.0` or `0.0`, plus `violations`, `first_calls` and
+`then_calls`, all counts.
+**Watch out** it **passes where `then` was never called**, and says so with
+`then_calls: 0`: it fails on a `then` with no `first` before it, and has
+nothing to say about a refund that did not happen. *Both, and in this order*
+is `Subsequence([first, then])`. A suite with `Before(a, b)` and
+`Before(b, a)` is refused.
+
+### `Never`
+
+**Use it when** there is a tool the agent must not touch in this case: it
+never deletes the account.
+
+```python
+Never(tool="delete_account")
+```
+
+**Takes** **`tool`**; `threshold=1.0`. All output kinds. Binary.
+**Produces** `1.0` or `0.0`, plus `occurrences`, the count.
+**Watch out** a call whose tool nobody named errors it, since that call may be
+the one forbidden. A suite that both forbids a tool and asks for it, with
+`Subsequence`, `ToolsCalled`, `ToolCalledWith` or `Before`, is refused when it
+is built.
+
+### `MaxSteps`
+
+**Use it when** an agent can loop, and a run that takes twenty turns to answer
+is a regression even when the answer is right.
+
+```python
+MaxSteps(limit=6, count="model")
+```
+
+**Takes** **`limit`**, from 1, and **`count`**: `"model"` counts the model's
+turns, `"tool"` its tool calls. Neither has a default. `threshold=1.0`. All
+output kinds. Binary.
+**Produces** `1.0` or `0.0`, plus `steps` and `limit`.
+**Watch out** it reads `steps` and nothing else, so it **errors** on a
+response that has none: a provider target writes them, a run writes them for
+a target whose client is wrapped with `digline.recorder.wrap()`
+([`record.md`](record.md#steps-live)), and a function target writes them
+itself. A replay refuses it until the run document holds steps (schema 23).
 
 ### `Repeated`
 

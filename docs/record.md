@@ -243,9 +243,12 @@ target's calls have no cost, and the run says why.
 that calls `execute()` itself passes
 `around_target=digline.recorder.collecting` to have it.
 
+Four checks read the steps: `Subsequence`, `Before`, `Never` and `MaxSteps`
+([the API](api.md#four-checks-on-the-steps)).
+
 The decision is
 [ADR 0060](adr/0060-the-steps-of-a-trajectory-live-recorded-and-collected.md)
-§1–§3.
+§1–§4.
 
 ## Switching it on
 
