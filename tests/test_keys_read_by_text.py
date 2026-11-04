@@ -150,6 +150,21 @@ KNOWN: dict[Use, tuple[int, str]] = {
         "the actor word a model step is made with, written and never read "
         "off a document, so no token can stand where it is (ADR 0060 §1)",
     ),
+    # The same actor words, read by the checks on a trajectory out of a live
+    # response's metadata, which is never persisted and never projected.
+    ("digline.core.assertions", "<module>", "model"): (
+        1,
+        "the `StepActor` type `MaxSteps.count` is declared with (ADR 0060 §4)",
+    ),
+    ("digline.core.assertions", "MaxSteps.__post_init__", "model"): (
+        1,
+        "the actor `count` names, checked when the check is built (ADR 0060 §4)",
+    ),
+    ("digline.core.assertions", "_trajectory", "model"): (
+        2,
+        "a step's actor, read off `metadata['response']['steps']`, a live "
+        "response, which no projection reaches (ADR 0060 §4)",
+    ),
 }
 
 
