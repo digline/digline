@@ -123,12 +123,28 @@ class Declaration:
     cases_file: Path
     repository: str
     check: str | None
+    #: The directory that holds `.digline/`, which the file is said relative
+    #: to. A `suite.py` resolves the file from its own path and a `suite.toml`
+    #: from the one it was given, so one printed it whole and the other as
+    #: typed; said from the repository, both read the same.
+    root: Path | None = None
+
+    @property
+    def shown(self) -> str:
+        """The cases file as the person reads it: relative to the repository
+        where it is inside it, and whole otherwise."""
+        if self.root is None:
+            return str(self.cases_file)
+        try:
+            return str(self.cases_file.resolve().relative_to(self.root.resolve()))
+        except ValueError:
+            return str(self.cases_file)
 
     def line(self) -> str:
         check = self.check if self.check is not None else "none declared"
         return (
             f"tenant {self.tenant!r} · suite {self.suite} · writes to "
-            f"{self.cases_file} · repository {self.repository} · check {check}"
+            f"{self.shown} · repository {self.repository} · check {check}"
         )
 
 
@@ -472,6 +488,7 @@ def import_listing(
             cases_file=path,
             repository=source.repository,
             check=source.check,
+            root=root,
         ),
         setup=setup,
         deterministic_output=suite.deterministic_output,
@@ -806,7 +823,7 @@ def written_lines(found: ImportListing, written: Sequence[str]) -> list[str]:
         lines.append(found.declaration.line())
         lines.append(f"  wrote {case_id}")
     lines.append(
-        f"{_many(len(written), 'case')} written to {found.declaration.cases_file}: "
+        f"{_many(len(written), 'case')} written to {found.declaration.shown}: "
         "the diff is the review and the commit is the signature; nothing was "
         "committed, run or promoted (ADR 0023 §7)"
     )
