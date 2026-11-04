@@ -291,10 +291,10 @@ def test_calls_gathered_inside_an_async_episode_are_its_children(
 
     episode_id = asyncio.run(run())
     found = recordings(tmp_path)
-    [turn] = [r for r in found if "steps" in r]
-    children = [r for r in found if "steps" not in r]
+    [turn] = [r for r in found if "id" in r]
+    children = [r for r in found if "id" not in r]
     assert [child["episode"] for child in children] == [episode_id] * 3
-    assert [step["actor"] for step in turn["steps"]] == ["model"] * 3
+    assert [step["actor"] for step in turn["response"]["steps"]] == ["model"] * 3
 
 
 def run_in_a_task_started_before(
@@ -332,7 +332,7 @@ def test_a_call_in_a_task_started_before_the_episode_is_an_orphan(
 ) -> None:
     client = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
     _, found = run_in_a_task_started_before(client, attached=False)
-    [child] = [r for r in found if "steps" not in r]
+    [child] = [r for r in found if "id" not in r]
     assert "episode" not in child
     assert child["orphan"] is True
     assert counts(client)["orphan"] == 1
@@ -341,7 +341,7 @@ def test_a_call_in_a_task_started_before_the_episode_is_an_orphan(
 def test_attach_makes_it_a_child(tmp_path: Path) -> None:
     client = wrap(an_async_anthropic(), app="a", tenant="acme", root=tmp_path)
     episode_id, found = run_in_a_task_started_before(client, attached=True)
-    [child] = [r for r in found if "steps" not in r]
+    [child] = [r for r in found if "id" not in r]
     assert child["episode"] == episode_id
     assert "orphan" not in child
     assert counts(client)["orphan"] == 0
@@ -415,7 +415,7 @@ def test_a_call_attached_after_its_episode_closed_is_an_orphan_noted(
     episode_id = asyncio.run(run())
     child, turn, after = recordings(tmp_path)
     assert child["episode"] == episode_id and "orphan" not in child
-    assert turn["id"] == episode_id and len(turn["steps"]) == 1
+    assert turn["id"] == episode_id and len(turn["response"]["steps"]) == 1
     assert after["episode"] == episode_id and after["orphan"] is True
     assert counts(client)["noted"] == {"ended after its episode": 1}
     [triage] = [

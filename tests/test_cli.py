@@ -418,6 +418,12 @@ COMPARE_KEYS = {
     # band exits 2. Only for a suite that declares one, which none could before
     # this release.
     "scale_lost",
+    # ADR 0059 §1, the same rule again, and an addition that can change the
+    # exit code: a reviewed answer the judge contradicted exits 1, counted by
+    # direction. Only for a suite that declares one, which none could run
+    # before this release.
+    "reviewed_passed_no",
+    "reviewed_failed_yes",
     # Joined by the delta-pass over 0.15.1, the same rule an eighth time, and
     # the first addition that makes a number *already on this list* smaller: a
     # delta whose two sides counted different cases is in none of `counts` now,

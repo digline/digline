@@ -502,18 +502,20 @@ def _rolls(side: Side, seen: Sequence[tuple[Run, Sighting]]) -> list[Roll]:
 
 
 def _population(run: Run) -> tuple[frozenset[str], ...]:
-    """What the aggregate counted over, as four sets the document can verify.
+    """What the aggregate counted over, as five sets the document can verify.
 
-    The case ids, and the three kinds of case that leave a denominator without
-    being a failure. Read off the results rather than out of an aggregate's
-    metadata: a set the reader can rebuild from the document beats a count it
-    has to trust, and `Matrix`'s own numbers are derived from exactly these.
+    The case ids, and the four kinds of case that leave a denominator without
+    being a failure, the reviewed answer the fourth (ADR 0059 §1). Read off the
+    results rather than out of an aggregate's metadata: a set the reader can
+    rebuild from the document beats a count it has to trust, and `Matrix`'s own
+    numbers are derived from exactly these.
     """
     return (
         frozenset(case.case_id for case in run.results),
         frozenset(c.case_id for c in run.results if c.suspended is not None),
         frozenset(c.case_id for c in run.results if c.canary),
         frozenset(c.case_id for c in run.results if c.calibration is not None),
+        frozenset(c.case_id for c in run.results if c.reviewed is not None),
     )
 
 

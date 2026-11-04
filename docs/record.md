@@ -176,9 +176,11 @@ attached to it.
   carry a tool's result.
 - **`ep.output(...)`** is the turn's final answer. Without it, the episode's
   answer is the text of the last model call made inside it.
-- Its trajectory is a list of steps: one `model` step per call, then a `tool`
-  step per tool the model asked for. The recorder never sees what your tool
-  returned, so a tool step says its result was `not_reported`.
+- Its trajectory is a list of steps, kept in its response as a single call's
+  are: one `model` step per call, then a `tool` step per tool the model asked
+  for. The recorder never sees what your tool returned, so a tool step says
+  its result was `not_reported`. What makes the recording an episode is the
+  `id` of its own, which the calls inside it carry.
 - An exception inside the block propagates as it was raised, and the episode
   is still written with what was seen, marked `interrupted`.
 - A call made in another thread or process does not inherit the episode. Pass
@@ -446,11 +448,10 @@ does, since *not this answer* names no answer.
 The import writes the file and stops: the diff is the review, the commit is the
 signature.
 
-> **A reviewed answer does not run yet.** Until the run document has a key for
-> it, which schema 23 does not have yet, `digline run` refuses a suite whose
-> cases hold one, before
-> anything is called or written. So once you have written one, the suite
-> stops running until that release.
+A reviewed answer runs with the suite: the target is not asked for it, the
+check it names judges the answer you read, and a judge that says the other of
+what you said fails the case, so `digline report` and `digline compare` exit
+`1`, and the report names the case and which way the judge went.
 
 Recordings of another tenant than the suite's are refused before anything is
 shown: bringing one tenant's material into another's suite is the bridge,
@@ -515,6 +516,3 @@ the same thing. See [the recorder's views](view.md#the-recorders-views).
 ## Not yet
 
 - An application in another language than Python.
-- A reviewed answer is written and not run: it runs once the run document has
-  a key for it, and the run then counts, apart from accuracy, where the judge
-  disagreed with you.

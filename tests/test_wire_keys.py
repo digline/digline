@@ -45,6 +45,7 @@ from digline.core import (
     CaseResult,
     Disclosure,
     RegisterEntry,
+    Reviewed,
     Run,
     RunUsage,
     Score,
@@ -310,6 +311,13 @@ def _run(
                 ),
             ),
             CaseResult("c4", (), suspended="parked"),
+            CaseResult(
+                "c5",
+                (_verdict("llm_rubric", 1.0, threshold=threshold, judged=True),),
+                reviewed=Reviewed(
+                    check="llm_rubric", assertion_id="id-llm_rubric", good=True
+                ),
+            ),
         ),
         aggregate=(
             _verdict("pass_rate", score),

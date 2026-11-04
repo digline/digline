@@ -244,16 +244,15 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "The rich import is in no file. Meant for 1.1"
     ),
     "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
-        "a reviewed answer is declared, imported and refused at run: the run "
-        "document, at schema 23, has no key yet for what the person said, and "
-        "no run counts the judge against the person"
+        "built and not released: a reviewed answer is declared, imported and "
+        "run, `reviewed` on its case at schema 23, a judge that contradicts "
+        "the person exits 1, counted by direction. Meant for 1.1"
     ),
     "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
-        "§1 to §5 built and not released: `steps_of`, the live steps, the "
-        "collection around the target's call, the four checks on steps, and "
-        "`steps` on `RecordedResponse` at schema 23. §6 is in no file: a "
-        "recording still keeps an episode's steps as `Recording.steps`. Meant "
-        "for 1.1"
+        "built and not released: `steps_of`, the live steps, the collection "
+        "around the target's call, the four checks on steps, `steps` on "
+        "`RecordedResponse` at schema 23, and a recording's steps in its "
+        "response, with `Recording.steps` gone. Meant for 1.1"
     ),
     "0061-a-local-page-whose-views-other-packages-may-extend": (
         "the foundations exist: `digline view` binds loopback alone with no "

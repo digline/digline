@@ -19,17 +19,24 @@ recording at any other version is refused by name, saying which version was
 read and which this digline reads, and is never read as the version it is not.
 
 **An episode is a recording too** (ADR 0058 §5), with the same compartments
-and three keys a single call never carries: `steps`, its trajectory as a list
-of `RecordedStep`; `interrupted`, where the application raised inside it; and
-`unrecorded_children`, how many calls made inside it were not recorded. A
-recording carries `steps` if and only if it is an episode. They are optional
-keys added to a format that has not shipped, so `RECORDING_VERSION` stays 1.
+and three keys a single call never carries: `id`, below; `interrupted`, where
+the application raised inside it; and `unrecorded_children`, how many calls
+made inside it were not recorded. They are optional keys added to a format
+that has not shipped, so `RECORDING_VERSION` stays 1.
+
+**The steps are the response's** (ADR 0060 §6). An episode's trajectory is
+the steps of its response, in `response.steps`, and a single call has steps
+there too. Until then an episode kept them in a `steps` key of its own, and a
+recording carried that key if and only if it was an episode. Now the `id` is
+what tells an episode from a single call, and a document that still carries a
+`steps` key beside its response is refused by name: the format has not
+shipped, so nothing written by a released digline carries one.
 
 **Two keys added for the import, on the same terms** (ADR 0058 §4, §5, §10):
 `id`, an episode's own id, the one its children carry in `episode`, so that
-the files alone can join them back; and `recorded_at`, the system time the
-recording was written at, so that a case elected from it can carry the
-watermark ADR 0023 §9 reads.
+the files alone can join them back, and which only an episode carries; and
+`recorded_at`, the system time the recording was written at, so that a case
+elected from it can carry the watermark ADR 0023 §9 reads.
 
 **The response's `input` is the question, as JSON text** (`input_of`): a single
 call's is its case's `messages`, an episode's is its whole case. The import
@@ -49,7 +56,8 @@ Three things were ruled for it, with the format unreleased, so
 - the `label` compartment is gone. ADR 0059 ruled that the import no longer
   reads it, and a field no reader reads is not one a writer should be asked
   to fill. A document written with one is still read, and the key ignored, as
-  the reader ignores any key it does not know.
+  the reader ignores a key it does not know; `steps` beside the response is
+  the one it refuses by name, above.
 """
 
 from __future__ import annotations
@@ -64,14 +72,9 @@ from typing import Any, cast
 
 from digline.core.refused import RefusedError, Written
 from digline.core.run import (
-    Actor,
     RecordedResponse,
-    RecordedStep,
-    RecordedToolCall,
     recorded_response_from_dict,
     recorded_response_to_dict,
-    recorded_step_to_dict,
-    recorded_tool_call_from_dict,
 )
 
 __all__ = [
@@ -242,12 +245,13 @@ class Recording:
     outside one (§5), and for an episode the id of the episode it is nested
     in.
 
-    `steps` is `None` on a single call and a tuple on an episode, empty where
-    nothing inside it was recorded: its presence is what makes a recording an
-    episode. `interrupted` says the application raised inside the episode and
-    the recording holds what was seen until then. `unrecorded_children` counts
-    the calls made inside the episode that were not recorded, so a trajectory
-    with a hole says it has one.
+    `id` is an episode's own id, and only an episode carries one: its presence
+    is what makes a recording an episode (`is_episode`). The episode's steps
+    are its response's, `response.steps`, as a single call's are (ADR 0060
+    §6). `interrupted` says the application raised inside the episode and the
+    recording holds what was seen until then. `unrecorded_children` counts the
+    calls made inside the episode that were not recorded, so a trajectory with
+    a hole says it has one.
 
     `orphan` marks a single call recorded in no episode while an episode was
     open in the process that made it: a child whose thread was not attached,
@@ -271,12 +275,11 @@ class Recording:
     #: `module:function` of the call that named no suite, so a person can
     #: assign it (ADR 0058 §2). `None` where the call named its suite.
     call_site: str | None = None
-    steps: tuple[RecordedStep, ...] | None = None
     interrupted: bool = False
     unrecorded_children: int = 0
     orphan: bool = False
-    #: An episode's own id: what its children carry in `episode`. `None` on a
-    #: single call, and on an episode written before the key existed.
+    #: An episode's own id: what its children carry in `episode`, and what makes
+    #: the recording an episode. `None` on a single call.
     id: str | None = None
     #: When the recording was written, in UTC with its offset written
     #: `+00:00`, read from the system clock by the host. `None` where nothing
@@ -299,23 +302,6 @@ class Recording:
                 "Recording.episode must be a non-empty string, or None for a "
                 "call made outside an episode"
             )
-        if self.steps is None:
-            if self.interrupted or self.unrecorded_children:
-                raise RecordingRefusedError(
-                    "only an episode is interrupted or has unrecorded children, "
-                    "and a recording without steps is a single call"
-                )
-        else:
-            steps = tuple(self.steps)
-            if not all(isinstance(step, RecordedStep) for step in steps):  # pyright: ignore[reportUnnecessaryIsInstance]
-                raise RecordingRefusedError(
-                    "Recording.steps holds something that is not a RecordedStep"
-                )
-            if [step.index for step in steps] != list(range(len(steps))):
-                raise RecordingRefusedError(
-                    "Recording.steps must be indexed 0, 1, 2, ... in order"
-                )
-            object.__setattr__(self, "steps", steps)
         for name in ("id", "recorded_at"):
             if getattr(self, name) == "":
                 raise RecordingRefusedError(
@@ -323,14 +309,14 @@ class Recording:
                 )
         if self.recorded_at is not None:
             instant_of(self.recorded_at)
-        if self.id is not None and self.steps is None:
+        if not self.is_episode and (self.interrupted or self.unrecorded_children):
             raise RecordingRefusedError(
-                "only an episode carries an id of its own; a single call "
-                "carries the id of its episode in `episode`"
+                "only an episode is interrupted or has unrecorded children, and "
+                "a recording without an id of its own is a single call"
             )
         if type(self.orphan) is not bool:
             raise RecordingRefusedError("Recording.orphan must be a boolean")
-        if self.orphan and self.steps is not None:
+        if self.orphan and self.is_episode:
             raise RecordingRefusedError(
                 "only a single call is an orphan, never an episode"
             )
@@ -346,6 +332,12 @@ class Recording:
         # its own `__post_init__`.
         object.__setattr__(self, "case", _compartment(self.case, "case"))
         object.__setattr__(self, "setup", _compartment(self.setup, "setup"))
+
+    @property
+    def is_episode(self) -> bool:
+        """Whether this recording is an episode: it carries an id of its own,
+        which only an episode does. (ADR 0060 §6)"""
+        return self.id is not None
 
 
 def _compartment(value: object, name: str) -> Mapping[str, object]:
@@ -378,8 +370,6 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["episode"] = recording.episode
     if recording.call_site is not None:
         payload["call_site"] = recording.call_site
-    if recording.steps is not None:
-        payload["steps"] = [recorded_step_to_dict(step) for step in recording.steps]
     if recording.interrupted:
         payload["interrupted"] = True
     if recording.unrecorded_children:
@@ -391,49 +381,6 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
     if recording.recorded_at is not None:
         payload["recorded_at"] = recording.recorded_at
     return payload
-
-
-def _step_from_dict(raw: object, at: int) -> RecordedStep:
-    if not isinstance(raw, Mapping):
-        raise RecordingRefusedError(f"a recording's step {at} is not an object")
-    entry = dict(cast(Mapping[str, Any], raw))
-    index = entry.pop("index", None)
-    actor = entry.pop("actor", None)
-    finish = entry.pop("finish", None)
-    if finish is not None and not isinstance(finish, str):
-        raise RecordingRefusedError(
-            f"a recording's step {at} has a finish that is not text"
-        )
-    if actor == "tool":
-        try:
-            call = recorded_tool_call_from_dict(entry)
-        except ValueError as exc:
-            raise RecordingRefusedError(
-                Written.of(exc, f"a recording's step {at}: ", named=False)
-            ) from exc
-        return _step(at, cast(int, index), "tool", finish, call)
-    if entry:
-        raise RecordingRefusedError(
-            f"a recording's step {at} is a model step and carries a tool call's keys"
-        )
-    return _step(at, cast(int, index), cast(Actor, actor), finish, None)
-
-
-def _step(
-    at: int,
-    index: int,
-    actor: Actor,
-    finish: str | None,
-    call: RecordedToolCall | None,
-) -> RecordedStep:
-    """A step read from a recording, refused as a recording is: the step's
-    own rules are the run document's, since it moved there (ADR 0060 §5)."""
-    try:
-        return RecordedStep(index=index, actor=actor, finish=finish, call=call)
-    except RefusedError as exc:
-        raise RecordingRefusedError(
-            Written.of(exc, f"a recording's step {at}: ", named=False)
-        ) from exc
 
 
 def recording_from_dict(raw: object, *, where: str = "this recording") -> Recording:
@@ -462,6 +409,13 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             f"reads version {RECORDING_VERSION}: a recording at another version "
             "is never read as this one. Upgrade digline to read it"
         )
+    if "steps" in document:
+        raise RecordingRefusedError(
+            f"{where} carries 'steps' beside its response: an episode's steps "
+            "are its response's, in response.steps, since ADR 0060 §6, and a "
+            "recording that keeps them apart was written before the format "
+            "shipped. Record it again"
+        )
     response = document.get("response")
     if not isinstance(response, Mapping):
         raise RecordingRefusedError(f"{where} carries no response object")
@@ -476,7 +430,6 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             response=recorded_response_from_dict(cast(Mapping[str, Any], response)),
             episode=_optional_text(document, "episode"),
             call_site=_optional_text(document, "call_site"),
-            steps=_steps(document),
             interrupted=_flag(document, "interrupted"),
             unrecorded_children=_count(document, "unrecorded_children"),
             orphan=_flag(document, "orphan"),
@@ -491,17 +444,6 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
         raise RecordingRefusedError(
             Written.of(exc, f"{where}, response: ", named=False)
         ) from exc
-
-
-def _steps(document: Mapping[str, Any]) -> tuple[RecordedStep, ...] | None:
-    if "steps" not in document:
-        return None
-    raw = document["steps"]
-    if not isinstance(raw, list):
-        raise RecordingRefusedError("a recording's 'steps' is not a list")
-    return tuple(
-        _step_from_dict(entry, at) for at, entry in enumerate(cast(list[object], raw))
-    )
 
 
 def _flag(document: Mapping[str, Any], key: str) -> bool:

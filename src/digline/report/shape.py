@@ -100,7 +100,8 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
     """Every judged check of the run, its share at the extremes, and the
     reference's.
 
-    Over the cases that count: not a canary, not a calibration case, and a
+    Over the cases that count: not a canary, not a calibration case, not a
+    reviewed answer, whose yes or no asks for an extreme (ADR 0059 §1), and a
     verdict that was judged rather than errored. A suspended case has no
     verdict and so no delta. Ordered by check name, then identity, so two
     readings of one comparison are equal.
@@ -108,7 +109,7 @@ def shape(comparison: Comparison) -> tuple[Shape, ...]:
     counted = [
         delta
         for delta in comparison.deltas
-        if delta.scope == "case" and not delta.canary and not delta.calibration
+        if delta.scope == "case" and not delta.canary and not delta.instrument
     ]
     # **The pairing, by identity.** A reference migrated from schema 12 holds
     # folds nobody stamped, and the step could not derive the stamp. Where this

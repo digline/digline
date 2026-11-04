@@ -104,12 +104,15 @@ fixes it.
   `Instant.toString()` writes. Readers compare two as instants, never as
   text.
 - **An episode**, a turn of an agent written as one recording, adds `id`,
-  32 hexadecimal characters, and `steps`, its trajectory. Its `input` is its
-  whole `case` as JSON text, and each call made inside it carries the
-  episode's `id` in `episode`. A step has an `index` from 0, an `actor`
+  32 hexadecimal characters, which only an episode carries. Its `input` is
+  its whole `case` as JSON text, and each call made inside it carries the
+  episode's `id` in `episode`.
+- **Steps**, a trajectory, are the response's, in `response.steps`, for an
+  episode and a single call alike. A step has an `index` from 0, an `actor`
   (`model` or `tool`), the `finish` of a model step where one was reported,
-  and a tool step's call in the run document's keys. The recorder's steps are
-  in [`record.md`](record.md#steps-live).
+  and a tool step's call in the run document's keys. A file with `steps`
+  beside its response is refused by name. The recorder's steps are in
+  [`record.md`](record.md#steps-live).
 
 ## What is free
 

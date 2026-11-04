@@ -18,7 +18,6 @@ from digline.run.driver import (
     judge_config,
     judges,
     price_digest_of,
-    refuse_reviewed_answers,
     target_config,
 )
 from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
@@ -60,7 +59,6 @@ __all__ = [
     "judges",
     "blind_tolerances",
     "planned_calls",
-    "refuse_reviewed_answers",
     "suite_notes",
     "undeclared_kinds",
     "price_digest_of",

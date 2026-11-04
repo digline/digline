@@ -581,6 +581,18 @@ def run_document(
                             "high": case.calibration.high,
                         }
                     ),
+                    # The third: a person's yes or no about an answer the
+                    # application gave, and the check it is for. The answer
+                    # stays in the cases file; the yes or no is the suite
+                    # author's declaration, as a band is. (ADR 0059 §1)
+                    "reviewed": (
+                        None
+                        if case.reviewed is None
+                        else {
+                            "check": case.reviewed.check,
+                            "good": case.reviewed.good,
+                        }
+                    ),
                     # Of what kind the case's error was, `raised` or `shape`,
                     # or `null`: the reason that says it does not cross, and
                     # this word is digline's own. (#425)
