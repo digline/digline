@@ -1035,6 +1035,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} not judged",
         "view.chip.older_config": "older suite",
+        "view.chip.replayed": "replay",
+        "view.promote.replayed": (
+            "This run judged again the recorded answers of {run_key}, and never "
+            "asked the target, so it cannot become a baseline: its interval is "
+            "the judge's wobble alone. Promote a run that measured."
+        ),
         # The header marker, and the only line in the product that has to teach
         # `--allow-promote`. The flag itself is not localised, for the reason an
         # ISO date is not: the sentence around it is the document, the eight
@@ -2558,6 +2564,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} non giudicati",
         "view.chip.older_config": "suite precedente",
+        "view.chip.replayed": "replay",
+        "view.promote.replayed": (
+            "Questo run ha giudicato di nuovo le risposte registrate di "
+            "{run_key} e non ha interrogato il target, quindi non può diventare "
+            "un riferimento: il suo intervallo è solo l'oscillazione del "
+            "giudice. Promuovi un run che ha misurato."
+        ),
         "view.read_only": ("sola lettura — riavvia con --allow-promote per promuovere"),
         "view.read_only.why": (
             "Questo server non promuove: nessun pulsante su nessuna riga, e "

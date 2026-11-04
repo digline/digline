@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from html import unescape
 from pathlib import Path
 
@@ -1790,6 +1791,25 @@ def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> No
     assert "produced under an earlier version of the suite" in cell
     assert "/compare?run=key-b" in cell
     assert '<tr class="stale">' in html
+
+
+def test_a_replayed_run_is_comparable_but_not_promotable() -> None:
+    """`promote_baseline` refuses a run judged again from recorded answers,
+    and the page says so before the click, where the button would be."""
+    html = runs_page(
+        [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        allow_promote=True,
+    )
+    cell = act_cell(html, "key-b")
+    assert "<button" not in cell
+    assert ">replay</span>" in cell
+    assert "judged again the recorded answers of key-a" in cell
+    assert "/compare?run=key-b" in cell
+    assert 'action="/promote"' not in html
 
 
 def test_the_baseline_keeps_its_own_marker_under_a_changed_configuration() -> None:

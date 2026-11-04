@@ -716,6 +716,19 @@ def _actions_cell(
         parts.append(
             _chip("view.chip.older_config", locale, warn=True, why="view.promote.older")
         )
+    elif run.rejudged_from is not None:
+        # A replay judged the recorded answers again and never asked the
+        # target: `promote_baseline` refuses it, after the configuration and
+        # before the errors, so the page says so in that order.
+        parts.append(
+            _chip(
+                "view.chip.replayed",
+                locale,
+                warn=True,
+                why="view.promote.replayed",
+                run_key=run.rejudged_from,
+            )
+        )
     elif errored := _errored_cases(run):
         parts.append(
             _chip(
