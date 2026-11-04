@@ -8,7 +8,8 @@ What is held here:
 - `recorded_at` has one form, UTC written with `+00:00`, and any other is
   refused by name, on write and on read;
 - the import compares `recorded_at` as instants: one instant written with
-  three digits of fraction and with six is not *after* itself;
+  three digits of fraction and with six is not *after* itself, and on a tie
+  the setup in force is the later file's;
 - the `label` compartment is gone, and a document written with one is still
   read, the key ignored;
 - `digline record status` says *not counted* of a process that wrote
@@ -24,10 +25,13 @@ from pathlib import Path
 
 import pytest
 from tests.test_recorder_import import (
+    A_NEW,
     A_OLD,
     S1,
+    S2,
     A,
     argv,
+    listed,
     loaded,
     recording,
     suite_file,
@@ -157,6 +161,20 @@ def test_the_import_reads_a_watermark_as_an_instant(tmp_path: Path) -> None:
     suite, module = loaded(tmp_path)
     # Not after the watermark: the same instant. As text it would be one.
     assert imported_since(tmp_path, suite, module, "acme") == (0, 2)
+
+
+def test_the_setup_in_force_is_read_by_instant_the_later_file_on_a_tie(
+    tmp_path: Path,
+) -> None:
+    # One instant, two setups, written by two writers in two forms: the later
+    # file wins, as it does where nothing is dated. As text, the six digits
+    # would be the newer.
+    writer = RecordingWriter(FileResultStore(tmp_path))
+    at = "2026-11-03T08:00:00.100"
+    writer.write(recording(A, S2, A_NEW, "01", recorded_at=at + "000+00:00"))
+    writer.write(recording(A, S1, A_OLD, "01", recorded_at=at + "+00:00"))
+    suite_file(tmp_path)
+    assert listed(tmp_path).setup == S1
 
 
 # -- label -------------------------------------------------------------------- #

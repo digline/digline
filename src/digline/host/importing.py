@@ -486,15 +486,17 @@ def import_listing(
 
 def _setup_in_force(eligible: Sequence[Recording]) -> str | None:
     """The setup of the newest eligible recording: by `recorded_at` as an
-    instant where the recordings carry it, and otherwise the last in the
-    files' order."""
+    instant where the recordings carry it, the later in the files' order
+    among equal instants, and otherwise the last in the files' order."""
     if not eligible:
         return None
-    dated = [r for r in eligible if r.recorded_at is not None]
+    dated = [(i, r) for i, r in enumerate(eligible) if r.recorded_at is not None]
     if dated:
-        return max(
-            dated, key=lambda r: instant_of(cast(str, r.recorded_at))
-        ).setup_digest
+        _, newest = max(
+            dated,
+            key=lambda pair: (instant_of(cast(str, pair[1].recorded_at)), pair[0]),
+        )
+        return newest.setup_digest
     return eligible[-1].setup_digest
 
 
