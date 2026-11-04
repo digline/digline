@@ -24,6 +24,7 @@ target stays allowed.
 
 from digline.host.artifacts import read_artifacts, read_pinned
 from digline.host.authorship import to_withhold, written_by_digline
+from digline.host.comparing import record_compare
 from digline.host.environment import (
     DIRTY_SUFFIX,
     ProcessState,
@@ -35,6 +36,19 @@ from digline.host.environment import (
     utc_now_iso,
 )
 from digline.host.errors import UsageError
+from digline.host.importing import (
+    Declaration,
+    ImportAnswer,
+    ImportGroup,
+    ImportListing,
+    Shape,
+    answer_id,
+    import_elect,
+    import_listing,
+    imported_since,
+    listing_lines,
+    written_lines,
+)
 from digline.host.listing import (
     SuiteRuns,
     left_out,
@@ -75,6 +89,7 @@ from digline.host.reading import (
     instant,
     reported,
 )
+from digline.host.recording import recorder_status, switch_off, switch_on
 from digline.host.refusals import NOT_REFUSALS, REFUSALS
 from digline.host.register import entry_for, record
 from digline.host.resolve import (
@@ -86,7 +101,7 @@ from digline.host.resolve import (
     replacing,
     resolve_key,
 )
-from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
 
 __all__ = [
     "DIRTY_SUFFIX",
@@ -109,6 +124,18 @@ __all__ = [
     "UsageError",
     "entry_for",
     "explained",
+    "Declaration",
+    "ImportAnswer",
+    "ImportGroup",
+    "ImportListing",
+    "Shape",
+    "answer_id",
+    "import_elect",
+    "import_listing",
+    "listing_lines",
+    "written_lines",
+    "imported_since",
+    "record_compare",
     "git_commit",
     "history",
     "left_out",
@@ -131,14 +158,18 @@ __all__ = [
     "promotion_notes",
     "need_baseline",
     "read_artifacts",
+    "read_cases",
     "read_pinned",
     "read_run",
     "record",
+    "recorder_status",
     "replacing",
     "reported",
     "resolve_key",
     "seed_observed",
     "suite_runs",
+    "switch_off",
+    "switch_on",
     "utc_now_iso",
     "unignored",
     "unignored_notes",

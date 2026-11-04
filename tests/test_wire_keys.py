@@ -95,6 +95,20 @@ from digline.wire.contract import (  # pyright: ignore[reportPrivateUsage]
     _OneOf,  # pyright: ignore[reportPrivateUsage]
     _Type,  # pyright: ignore[reportPrivateUsage]
 )
+from digline.wire.record_compare import (
+    ComparedAnswer,
+    ComparedCase,
+    ComparedSetup,
+    RecordComparison,
+    SetupKey,
+    SetupValue,
+    record_compare_json,
+)
+from digline.wire.recorder import (
+    SuiteRecordings,
+    TenantRecorder,
+    recorder_status_json,
+)
 
 CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
@@ -615,6 +629,109 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         ),
     )
 
+    # `record compare`: every filter given and two setups side by side, then
+    # none, which is where `pair` and `setup_keys` are `null`.
+    answer = ComparedAnswer(
+        digest="9f8e7d6c", text="text", first_at=CREATED, last_at=LATER, times=2
+    )
+    compared = RecordComparison(
+        tenant="acme",
+        suite="qa",
+        case="cap-0123456789abcdef",
+        since=CREATED,
+        setups=("a" * 64, "b" * 64),
+        pair=("a" * 64, "b" * 64),
+        setup_keys=(
+            SetupKey("system", SetupValue("x", 1, False), SetupValue("y", 1, False)),
+        ),
+        same_keys=1,
+        cases=(
+            ComparedCase(
+                id="cap-0123456789abcdef",
+                vars={"q": "x"},
+                kind="call",
+                setups=(
+                    ComparedSetup(setup="a" * 64, answers=(answer,)),
+                    ComparedSetup(
+                        setup="b" * 64,
+                        answers=(
+                            dataclasses.replace(answer, first_at=None, last_at=None),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        recordings=3,
+        orphans=0,
+        detached=0,
+        interrupted=0,
+        oversize=0,
+        unreadable=0,
+        undated=1,
+    )
+    yield "record_compare_json", "record_compare", record_compare_json(compared)
+    yield (
+        "record_compare_json unfiltered",
+        "record_compare",
+        record_compare_json(
+            dataclasses.replace(
+                compared, case=None, since=None, pair=None, setup_keys=None
+            )
+        ),
+    )
+
+    # `record status`: a tenant whose switch is valid, with a suite asked
+    # about, and one with no switch file, where the values are `null`.
+    recording = TenantRecorder(
+        tenant="acme",
+        switch_path=".digline/acme/recorder.toml",
+        switch="valid",
+        on=True,
+        sample=0.5,
+        redact="none",
+        ceiling=1000,
+        interval=2.0,
+        declared=("sample",),
+        refusal=None,
+        production_refusal="production declares sample, redact and ceiling",
+        recordings_path=".digline/acme/recordings",
+        suites=(
+            SuiteRecordings(
+                suite="qa",
+                calls=3,
+                episodes=1,
+                orphans=0,
+                inside_episodes=1,
+                interrupted=0,
+                not_recorded={"sampled out": 2},
+                noted={"usage not reported": 1},
+                imported=True,
+                since_last_import=1,
+            ),
+        ),
+        unreadable=0,
+        size=512,
+        stopped_at_ceiling=False,
+    )
+    absent = dataclasses.replace(
+        recording,
+        tenant="globex",
+        switch="absent",
+        on=False,
+        sample=None,
+        redact=None,
+        ceiling=None,
+        interval=None,
+        declared=(),
+        production_refusal=None,
+        suites=(SuiteRecordings(suite="qa", calls=1, episodes=0, orphans=1),),
+    )
+    yield (
+        "recorder_status_json",
+        "record_status",
+        recorder_status_json([recording, absent]),
+    )
+
 
 DOCUMENTS = list(documents())
 
@@ -730,10 +847,16 @@ def _output_version_at(tag: str) -> int | None:
 
 
 def _release_tags() -> list[str]:
-    """This repository's `v0.*` tags, newest first; a skip, or a failure in
-    the `readers` job, where the checkout has none."""
+    """This repository's core release tags, `v0.*` and `v1.*`, newest first;
+    a skip, or a failure in the `readers` job, where the checkout has none.
+
+    It was `v0.*`, the pattern the `readers` job's fetch had until 1.0.1, and
+    it could not see `v1.0.0`: the newest release it read was 0.35.0, under
+    `OUTPUT_VERSION = 4`, so under 5, which 1.0.0 shipped, every key added in
+    `_ADDED` read as a bump that did not fold. A plugin's tag begins with its
+    package's name and is not matched."""
     listed = subprocess.run(  # noqa: S603
-        ["git", "-C", str(ROOT), "tag", "-l", "v0.*", "--sort=-v:refname"],  # noqa: S607
+        ["git", "-C", str(ROOT), "tag", "-l", "v[0-9]*", "--sort=-v:refname"],  # noqa: S607
         capture_output=True,
         text=True,
         check=True,
@@ -783,7 +906,7 @@ def test_a_bump_since_the_last_release_leaves_added_empty() -> None:
 
 
 def _last_release_under_an_older_version() -> str:
-    """The newest `v0.*` tag whose contract declares an `OUTPUT_VERSION` below
+    """The newest release tag whose contract declares an `OUTPUT_VERSION` below
     this tree's: the last release a key added under this version cannot be in.
     """
     for tag in _release_tags():

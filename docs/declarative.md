@@ -52,9 +52,10 @@ tolerance = 0.05
 
 A case is a JSON object whose keys are `Case`'s fields, so the file needs no
 schema of its own: `id`, `vars`, `expected`, `label`, `group`, `context`,
-`metadata`, `suspended`, `canary`, `calibration`. Name one that does not exist
-and the loader lists the ones that do. `calibration` is the one field that is an
-object, and its own keys are refused by name the same way:
+`metadata`, `suspended`, `canary`, `calibration`, `reviewed_answer`. Name one
+that does not exist and the loader lists the ones that do. `calibration` and
+`reviewed_answer` are the two fields that are objects, and their own keys are
+refused by name the same way:
 
 ```json
 {"id": "half-supported",
@@ -66,6 +67,28 @@ object, and its own keys are refused by name the same way:
 
 What it is, and what it refuses, is in the
 [API reference](api.md#casecalibration-watching-the-judges-scale).
+
+A reviewed answer is a recorded answer and a person's yes or no about it,
+`good` as JSON's `true` or `false`. Here one answer was reviewed good and
+another not:
+
+```json
+[
+  {"id": "cap-5c1e0a9d2b7f4e31-9f8e7d6c",
+   "reviewed_answer": {"output": "Fourteen days from the day the parcel is back with us.",
+                       "check": "llm_rubric", "good": true,
+                       "input": "How long does a refund take?"}},
+  {"id": "cap-5c1e0a9d2b7f4e31-4c3b2a1d",
+   "reviewed_answer": {"output": "Refunds are instant.",
+                       "check": "llm_rubric", "good": false,
+                       "input": "How long does a refund take?"}}
+]
+```
+
+It is declared and loaded, and not run yet: `digline run` refuses a suite that
+declares one, before anything is called or written, until schema 23. What it
+is, and what it refuses, is in the
+[API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer).
 
 Then the cycle you already know:
 
@@ -91,12 +114,42 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 | `tenant` | mandatory. The perimeter, and a directory: everything lands in `.digline/<tenant>/` |
 | `environment` | mandatory, no default. Where inside the perimeter this ran — `staging`, `production` |
 | `name` | mandatory. The suite's name, which is what a baseline is filed under |
-| `cases` | mandatory. The cases file, always a file |
+| `cases` | mandatory. The cases file, always a file, or an array of files read in order: `["cases.json", "captured.json"]` |
 | `samples` | how many times to ask the target per case. Default 1 |
 | `min_agreement` | mandatory as soon as `samples > 1`. Written as a count: `"2/3"` |
 | `artifacts` | files that *are* the thing under test — a prompt above all |
+| `deterministic_output` | `true` where the same input gives the same answer. Default `false`, never deduced from the checks. Read only by `digline record import`, where a yes then also writes the answer as an `expected`. Outside `config_hash` |
 
 `disclosure` is **not** settable here. See "What it cannot say".
+
+## `[capture]`
+
+Where the cases `digline record import` writes go, under which regime, and for
+which judged check:
+
+```toml
+[suite]
+cases = ["cases.json", "captured.json"]
+
+[capture]
+cases_file = "captured.json"
+repository = "private"
+check = "llm_rubric"
+```
+
+| Key | |
+|---|---|
+| `cases_file` | mandatory. Capture's own file, read from the suite file's directory |
+| `repository` | mandatory, no default: `"private"` or `"public"`. Under `"public"` the import lists and refuses to write |
+| `check` | the judged assertion the cases are reviewed for. Without it the import lists and refuses to write |
+
+The suite loads the file itself, as one of `cases`; one that declares
+`[capture]` and leaves the file out of `cases` is refused when it loads,
+naming the cases left out. Until the first import the file does not exist, and
+that is no case. A table in a reviewed file is the change ADR 0007 §7 asks for,
+so a data suite declares its source as a `suite.py` does
+([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§4). The import is in [`record.md`](record.md).
 
 A suite that samples without a floor, declares no assertions, repeats a case id
 or asks for a ratio no sample count can produce is refused when it loads — with
@@ -120,10 +173,16 @@ name = "starts_capitalised"
 `name` is worth setting whenever a suite has two checks of one kind: it is what
 the report prints and what a comparison pairs on.
 
+**A date or a time goes in quotes.** TOML has date and time literals, and
+`arguments = { when = 1999-09-09T09:00:00Z }` is one. A model sends JSON, which
+has none, so the value arrives as text, and a literal could never match it:
+`tool_called_with` refuses one when the suite loads. Write
+`when = "1999-09-09T09:00:00Z"`, the text the model sends.
+
 **Per case:** `equals`, `contains`, `not_contains`, `affix`, `is_json`,
 `json_schema`, `length`, `levenshtein`, `regex`, `llm_rubric`, `faithfulness`,
-`pii_absent`, `tools_called`, `tool_called_with`, `cost_budget`,
-`latency_budget`, `repeated`.
+`pii_absent`, `tools_called`, `tool_called_with`, `subsequence`, `before`,
+`never`, `max_steps`, `cost_budget`, `latency_budget`, `repeated`.
 
 **Per run:** `precision`, `recall`, `accuracy`, `f1`.
 
@@ -266,7 +325,9 @@ Your application, on the other end of a URL. It can be written in anything.
 
 Without one of these, `tools_called` and `tool_called_with` **load and then
 error on every case** — a check that cannot be answered rather than one that
-refuses, which is the worse of the two.
+refuses, which is the worse of the two. `subsequence`, `before` and `never`
+read the same names. `max_steps` counts an agent's steps, which an HTTP
+target does not report, so it errors on every case of this target.
 
 Declare `tool_calls_path` alone and you are done: the names come from the calls,
 so the two cannot disagree. Declaring both is allowed, and they must agree in

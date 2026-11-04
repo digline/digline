@@ -50,9 +50,10 @@ from digline.host.authorship import (
     raised_inside_digline,
 )
 from digline.host.errors import UsageError
+from digline.host.importing import unloaded_capture
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
 from digline.report.render import visible
-from digline.run import Suite, Target, check_target
+from digline.run import CaptureSource, Suite, Target, check_target
 
 if TYPE_CHECKING:
     from _typeshed import ReadableBuffer
@@ -607,6 +608,19 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
         # artifacts of every format are held to the perimeter in
         # `read_artifacts`, and refused at the exits under `.digline` or `.git`.
         suite, target = load_toml_suite(path, root=root)
+        # The refusal a `suite.py` meets below, in the form's own words: the
+        # capture file is one of `cases`, or the cases a person elected are
+        # left out. (ADR 0059, What does not change)
+        missing = unloaded_capture(suite, None, root or Path.cwd())
+        if missing:
+            source = cast("CaptureSource", suite.capture)
+            raise UsageError(
+                f"{spec!r} declares [capture] with {source.cases_file} and does "
+                f"not load {len(missing)} of its cases: {', '.join(missing)}. A "
+                "person elected them; name the file in `cases` too, "
+                'cases = ["cases.json", "captured.json"], or the suite runs '
+                "without them (ADR 0023 §7)"
+            )
         return suite, Loaded(suite=suite, target=target)
 
     module_part, attr = _split(spec)
@@ -615,6 +629,16 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
     if not isinstance(value, Suite):
         raise UsageError(f"{spec!r} gave a {type(value).__name__}, not a Suite")
     # A file spec only: a dotted one has no scope (ADR 0002 §9).
+    missing = unloaded_capture(value, module, root or Path.cwd())
+    if missing:
+        source = cast("CaptureSource", value.capture)
+        raise UsageError(
+            f"{spec!r} declares Suite.capture with {source.cases_file} and does "
+            f"not load {len(missing)} of its cases: {', '.join(missing)}. A "
+            "person elected them; load the file beside the suite's own cases, "
+            "cases=[*mine, *read_cases(...)], or the suite runs without them "
+            "(ADR 0023 §7)"
+        )
     unchecked = (
         _unchecked(os.path.dirname(module.__file__ or ""))
         if module.__name__ in _footprint.names

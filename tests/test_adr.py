@@ -200,7 +200,8 @@ def test_every_record_says_whether_it_has_shipped() -> None:
 UNRELEASED_RECORDS: dict[str, str] = {
     "0023-capture": (
         "the capture it decides, the `seen.json` a capture writes and its "
-        "`wanted`, `ignored` and `unsure`, is in no file"
+        "`wanted`, `ignored` and `unsure`, is in no file; a minimal "
+        "`CaptureSource` and §6's id exist, for ADR 0058's import"
     ),
     "0035-the-record-of-a-deletion": (
         "neither deletion ledger exists; the word `ledger` in `src/` is in "
@@ -234,6 +235,30 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "`RecordedResponse` has no `finish` and no `tools`, and `SCHEMA_VERSION` "
         "is 22; the repair is meant for 1.1 with its schema, and this record "
         "comes first"
+    ),
+    "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
+        "the narrow piece exists: the recording's document and its place in "
+        "the layout, the wrapper of a synchronous, a streaming and an "
+        "asynchronous call (streaming since #883, asynchronous since #885), "
+        "the episode with `RecordedStep`, the switch file with its refusals, "
+        "interval, sample and ceiling, `digline record` and the narrow import. "
+        "The rich import is in no file. Meant for 1.1"
+    ),
+    "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
+        "a reviewed answer is declared, imported and refused at run: the run "
+        "document has no key for what the person said until schema 23, and no "
+        "run counts the judge against the person"
+    ),
+    "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
+        "accepted, and before any code: no `steps_of`, no `steps` in a "
+        "response's metadata or on `RecordedResponse`, no collection around "
+        "the target's call, and no `Subsequence`, `Before`, `Never` or "
+        "`MaxSteps`"
+    ),
+    "0061-a-local-page-whose-views-other-packages-may-extend": (
+        "accepted, and before any code: `digline view` has no view of the "
+        "recorder, no write but promotion, no `--allow-record` and no "
+        "`digline.views` group, and it still takes `--host`"
     ),
 }
 

@@ -7,6 +7,7 @@ Immutable values, no I/O, no imports from other digline packages. See
 
 from __future__ import annotations
 
+import json
 import math
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
@@ -50,6 +51,7 @@ __all__ = [
     "Verdict",
     "at_precision",
     "canonical",
+    "collapsing",
     "meets",
     "normalize_output",
     "output_kind",
@@ -380,6 +382,54 @@ def canonical(value: object) -> object:
     if is_dataclass(value) and not isinstance(value, type):
         return canonical(asdict(value))
     return f"<{type(value).__name__}>"
+
+
+def collapsing(value: object, at: str = "") -> tuple[str, str] | None:
+    """Where `canonical` would reduce a value to `"<TypeName>"`, and the type's
+    name; `None` where nothing in it collapses.
+
+    The branches are `canonical`'s, in its order, so the two cannot come to
+    disagree on what collapses: a value this lets through is one `canonical`
+    keeps distinct from another of its type. `at` is the path to the value,
+    as `["key"]` and `[0]` steps, for a sentence that says where.
+
+    What collapses cannot be told apart: a `date` declared is the text
+    `"<date>"`, which matches that text alone among what a model sends as
+    JSON, and every other `date` among what a function sends as objects. A
+    check declared with one is unsatisfiable or vacuous, and refusing it is
+    what lets a declaration say what it checks. (ADR 0018 §5, noted
+    2026-11-04)
+    """
+    if value is None or isinstance(value, bool | int | str):
+        return None
+    if isinstance(value, float):
+        return None
+    if isinstance(value, bytes | bytearray):
+        return None
+    if isinstance(value, Mapping):
+        items = cast(Mapping[object, object], value)
+        for key in sorted(items, key=str):
+            found = collapsing(items[key], f"{at}[{json.dumps(str(key))}]")
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, AbstractSet):
+        for element in sorted(cast(AbstractSet[object], value), key=str):
+            # An element has no place to name, and its `repr` may carry an
+            # address: the set is named, and what in it collapses.
+            found = collapsing(element, f"{at}, an element of a set,")
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, Sequence):
+        for index, element in enumerate(cast(Sequence[object], value)):
+            found = collapsing(element, f"{at}[{index}]")
+            if found is not None:
+                return found
+        return None
+    if is_dataclass(value) and not isinstance(value, type):
+        return collapsing(asdict(value), at)
+    return at, type(value).__name__
 
 
 @dataclass(frozen=True, slots=True)

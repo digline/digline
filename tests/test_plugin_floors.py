@@ -750,12 +750,12 @@ OWED_HEADER = ["Package", "Owed because", "Raise to", "Then"]
 #: has no plugin `pyproject.toml` to carry a marker. A floor that a row there
 #: implies is written in the table owed at the cut, which is where the rule
 #: reads it. Its header is pinned, so a floor column added to it fails here
-#: and the scope is decided again.
-OUT_OF_SCOPE = {
-    "**And the number each package owes: read *Owed to the next version*.**": (
-        "| Package | What it carries | What the number must reflect |"
-    ),
-}
+#: and the scope is decided again. *Decided again 2026-11-03*, when it gained
+#: *Then*: who closes a row and when, which is not a floor, so the table stays
+#: out of the rule.
+NEXT_OPENS = "**And the number each package owes: read *Owed to the next version*.**"
+NEXT_HEADER = ["Package", "What it carries", "What the number must reflect", "Then"]
+OUT_OF_SCOPE = {NEXT_OPENS: "| " + " | ".join(NEXT_HEADER) + " |"}
 
 
 def test_the_owed_table_has_the_shape_the_rule_reads() -> None:
@@ -804,4 +804,50 @@ def test_the_table_out_of_scope_keeps_its_shape() -> None:
         assert header in text[start:], (
             f"the table after {opens!r} no longer has the header {header!r}: "
             "decide again whether its rows name a floor"
+        )
+
+
+#: Where the table of *Owed to the next version* ends. Required with
+#: `NEXT_OPENS`, so a reworded sentence fails here instead of leaving the test
+#: below reading no rows and passing.
+NEXT_CLOSES = "Empty is the normal state here too."
+
+#: Who may close a row of that table, as its *Then* names them.
+CLOSERS = ("a session", "Alessandro", "the release")
+
+
+def next_rows() -> list[list[str]]:
+    """The rows of *Owed to the next version*, each as its cells, split as
+    `owed_rows` splits them."""
+    text = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
+    start = text.find(NEXT_OPENS)
+    end = text.find(NEXT_CLOSES, start)
+    assert 0 <= start < end, (
+        "RELEASING.md no longer has the table owed to the next version, opening "
+        f"with {NEXT_OPENS!r} and closing with {NEXT_CLOSES!r}."
+    )
+    return [
+        [cell.strip() for cell in re.split(r"(?<!\\)\|", line.strip().strip("|"))]
+        for line in text[start:end].splitlines()
+        if line.startswith("|")
+    ]
+
+
+def test_every_debt_to_the_next_version_names_who_closes_it() -> None:
+    """The recognisable marker of a row owed to the next version, read by a
+    machine: four cells, and a *Then* that names a session, Alessandro or the
+    release. A row nobody is named to close is a debt the cut reads and nobody
+    settles. The table gained the column on 2026-11-03, with the rows of
+    digline 1.1."""
+    rows = next_rows()
+    assert rows[0] == NEXT_HEADER, rows[0]
+    assert rows[1] == ["---"] * 4, rows[1]
+    for cells in rows[2:]:
+        assert len(cells) == 4, (
+            f"a row owed to the next version is not four cells: {cells}"
+        )
+        assert any(closer in cells[3] for closer in CLOSERS), (
+            f"the row owed to the next version for {cells[0]} ({cells[1][:60]}...) "
+            f"has the Then {cells[3]!r}, which names none of {CLOSERS}. Say who "
+            "closes it and when."
         )

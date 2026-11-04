@@ -56,9 +56,9 @@ from digline.core import (
     unreconciled_verdict,
     with_noise_interval,
 )
-from digline.core.protocols import DeclaresPrice
-from digline.core.refused import RefusedError, Written
-from digline.core.run import record_finish, record_tools
+from digline.core.protocols import AroundTarget, DeclaresPrice
+from digline.core.refused import NameRef, RefusedError, Written
+from digline.core.run import SCHEMA_VERSION, record_finish, record_tools
 from digline.run.suite import Calibration, Case, Suite
 
 __all__ = [
@@ -76,6 +76,7 @@ __all__ = [
     "judge_config",
     "judge_totals",
     "judges",
+    "refuse_reviewed_answers",
     "target_config",
 ]
 
@@ -751,6 +752,21 @@ def _replaying(target: Target) -> bool:
     return isinstance(target, Replay)
 
 
+def _called(
+    target: Target, case: Case, around_target: AroundTarget[Response] | None
+) -> Response:
+    """One call of the target, inside `around_target` where there is one, and
+    settled by it. What is not a `Response` is not settled: the shape check
+    after the call says what it is."""
+    if around_target is None:
+        return target(case)
+    with around_target() as settle:
+        answered = target(case)
+        if not isinstance(answered, Response):  # pyright: ignore[reportUnnecessaryIsInstance]
+            return answered
+        return settle(answered)
+
+
 def _run_case(
     suite: Suite,
     target: Target,
@@ -759,6 +775,7 @@ def _run_case(
     judge_samples: int,
     declared: Declared,
     unpriced: dict[str, None],
+    around_target: AroundTarget[Response] | None = None,
 ) -> tuple[CaseResult, Cause, CallTotals]:
     """The case, which layer errored it, and what its calls consumed.
 
@@ -799,6 +816,11 @@ def _run_case(
         return _calibrate(
             suite, mapper, case, case.calibration, judge_samples, declared
         )
+    if case.reviewed_answer is not None:
+        # Never reached through `execute`, which refuses the suite before its
+        # first case: this is where the reviewed answer's own branch goes when
+        # the run document can say what it is (ADR 0059 §1, schema 23).
+        refuse_reviewed_answers(suite)
 
     line = NO_CALLS
     samples: list[EvaluatorInputs] = []
@@ -808,7 +830,7 @@ def _run_case(
     answers: list[RecordedResponse] = []
     for _ in range(suite.samples):
         try:
-            response = target(case)
+            response = _called(target, case, around_target)
         except Exception as exc:  # noqa: BLE001 — a target that raises errors the case
             # The failure cannot be handed to the assertions. What they may read
             # of `EvaluatorInputs.metadata` is what a *response* reported —
@@ -991,6 +1013,8 @@ def _asked(suite: Suite, case: Case) -> frozenset[str]:
         return frozenset()
     if case.calibration is not None:
         return frozenset({suite.calibrated(case.calibration).identity})
+    if case.reviewed_answer is not None:
+        return frozenset({suite.reviewed(case.reviewed_answer).identity})
     return frozenset(a.identity for a in suite.assertions)
 
 
@@ -1215,6 +1239,50 @@ def check_target(target: object) -> None:
     target_config(target)
 
 
+#: The schema whose run document can say that a case is a reviewed answer,
+#: and what the person said. Until this build writes it, a reviewed answer is
+#: declared and loaded, and not run. (ADR 0059 §1)
+REVIEWED_ANSWERS_SCHEMA = 23
+
+
+def refuse_reviewed_answers(suite: Suite) -> None:
+    """Refuse a suite that declares reviewed answers, while this build's run
+    document has no key for them.
+
+    **A refusal of the suite, not an error of a case.** Run as an ordinary
+    case, a reviewed answer would be written into a document that cannot say
+    what it is, and every reader would count it where ADR 0059 §1 keeps it
+    out; errored, it would stand in the run as a case that could not be
+    judged, which is not what happened. So nothing is called and nothing is
+    written: `execute` asks this before its first call, and the host before
+    it opens a journal. (ADR 0059 §1)
+
+    **Unconditional, and not read off `SCHEMA_VERSION`.** Schema 23 may open
+    for another passenger first, and a refusal that lifted itself then would
+    run a reviewed answer down the ordinary path. It goes when the reviewed
+    answer's own branch arrives, in the same change.
+    """
+    reviewed = [case.id for case in suite.cases if case.reviewed_answer is not None]
+    if not reviewed:
+        return
+    named: list[str | NameRef] = []
+    for case_id in reviewed:
+        if named:
+            named.append(", ")
+        named.append(NameRef("case_id", case_id, quoted=False))
+    raise RefusedError(
+        Written.said(
+            f"suite {suite.name!r} declares reviewed answers (",
+            *named,
+            f"): reviewed answers run from schema {REVIEWED_ANSWERS_SCHEMA} "
+            f"(ADR 0059 §1); this build is on schema {SCHEMA_VERSION}. Its run "
+            "document has no key for a person's yes or no, so nothing was "
+            "called and nothing was written. To run the suite now, leave the "
+            "reviewed answers out of its cases",
+        )
+    )
+
+
 def execute(
     suite: Suite,
     target: Target,
@@ -1232,6 +1300,7 @@ def execute(
     pricing: str | None = None,
     judge_samples: int = 0,
     spent: CallTotals | None = None,
+    around_target: AroundTarget[Response] | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -1286,6 +1355,14 @@ def execute(
     answers move too, and the range would be the target's and the judge's
     together under the judge's name. The run returned carries no marker of it;
     `rejudge` stamps `Run.judge_samples` beside `rejudged_from`. (ADR 0024 §5.2)
+
+    `around_target` is entered around **each call of the target**, and only
+    that call, and its `settle` is applied to what the target returned before
+    the mapper and the assertions read it. `None`, the default, is no hook: the
+    response is the target's. `digline.host` passes
+    `digline.recorder.collecting`, so a run reads the calls a target makes
+    through wrapped clients; a library caller passes it the same way, and
+    without it a target's response is what it reports. (ADR 0060 §3)
     """
     # **The invariant that catches a disconnected caller**, and it is here rather
     # than in a test because a test cannot be forgotten into existence. A suite
@@ -1304,6 +1381,9 @@ def execute(
             "that cannot fire is worse than declaring none. The caller reads "
             "them with `digline.host.read_pinned` and passes `pinned=`"
         )
+    # Before anything is called, and before the checks below: a suite this
+    # build cannot run is refused whole. (ADR 0059 §1)
+    refuse_reviewed_answers(suite)
     if judge_samples:
         # Imported here: `replay` imports this module.
         from digline.run.replay import Replay
@@ -1387,7 +1467,14 @@ def execute(
             results.append(reuse[case.id])
             continue
         result, cause, line = _run_case(
-            suite, target, mapper, case, judge_samples, declared, unpriced
+            suite,
+            target,
+            mapper,
+            case,
+            judge_samples,
+            declared,
+            unpriced,
+            around_target,
         )
         results.append(result)
         billed = billed + line

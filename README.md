@@ -216,6 +216,10 @@ you already had leaves `runs/` out.
 | `PiiAbsent` | the output reaches a person — IBAN, codice fiscale, partita IVA, email, phone, checksum-verified where one exists |
 | `ToolsCalled` | the target is an agent — a function, or an OpenAI, Anthropic or Bedrock target, whose plugins record every tool call — which tools it called, in order: an answer produced without the lookup that should have produced it |
 | `ToolCalledWith` | the other half of a trajectory: the arguments a tool was called with — the right tool asked the wrong question |
+| `Subsequence` | these tools in this order, with anything between them: the lookup came before the refund |
+| `Before` | no call to one tool without a call to another before it: no refund of an order nobody looked up |
+| `Never` | a tool that must not be called: the account is never deleted |
+| `MaxSteps` | at most so many of the model's turns, or of its tool calls: an agent that loops is caught |
 | `CostBudget`, `LatencyBudget` | always. Graded, so a cost creeping up *within* budget is still visible |
 | `Repeated` | the judge oscillates: grade the same output `n` times and fold the votes |
 
@@ -332,6 +336,7 @@ without the MCP server or the hook, taken from `main` rather than a release.
 | `digline list` | stored runs, newest first, baseline marked |
 | `digline view` | local browser UI — [`docs/view.md`](docs/view.md) |
 | `digline migrate` | bring stored runs forward across schema versions — [`docs/migrate.md`](docs/migrate.md) |
+| `digline record` | switch the recorder on or off for a tenant (`record on`, `record off`), or read what it has kept (`record status`, `--json`): whether it records, with which sample and ceiling, how many recordings each suite has, and whether it stopped at the ceiling. `record import` lists a suite's recorded answers, grouped by the shape of the output, and writes only the ones a person names, `--good ID` or `--bad ID` with `--by NAME`, as reviewed answers into the file its capture source declares; it commits nothing. `record compare` shows a suite's recorded answers by case and by setup, two setups side by side with `--setup A B`, and judges nothing and writes nothing. The switch is `.digline/<tenant>/recorder.toml`, ignored by git; the recorder itself is `digline.recorder.wrap`, around the application's own client — [`docs/record.md`](docs/record.md) |
 | `digline delete` | remove a run, its journal legs and its replays across the tenant, by a key written out (`latest` is refused). Refused for the run under the current baseline: promote another first. It removes from `.digline/<tenant>/runs/` and nowhere else — not the baseline, not the register, not git history, backups or reports — so it is not an erasure — [`docs/delete.md`](docs/delete.md) |
 
 The same comparison reaches an agent through [`digline-mcp`](docs/mcp.md) —
@@ -419,8 +424,9 @@ Python 3.12+. One runtime dependency: `jsonschema`.
 - [`docs/mcp.md`](docs/mcp.md) · [`docs/pytest.md`](docs/pytest.md) — the two front ends that are not the CLI
 - [`AGENTS.md`](AGENTS.md) — how a coding agent should operate digline in your repo
 - [`plugins/digline/`](plugins/digline/README.md) — the same rules as a Claude Code
-  plugin, with the MCP server and a hook that asks a person before `promote` or
-  `register`
+  plugin, with the MCP server and a hook that asks a person before `promote`,
+  `register`, `view --allow-promote`, an import that writes a yes or no, and
+  `record on`
 - [`docs/adr/`](docs/adr/) — the architectural decisions, numbered, with the reasoning
 
 ## License

@@ -12,22 +12,28 @@ import json
 from collections.abc import Container, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from digline.core import (
     GROUP_MARKER,
     NOTHING_EXTRA,
     Assertion,
+    Before,
     CalibrationBand,
     Declared,
     Disclosure,
     Faithfulness,
     Label,
     LlmRubric,
+    MaxSteps,
     Minter,
+    Never,
     Output,
     Repeated,
     RunAssertion,
+    Subsequence,
+    ToolCalledWith,
+    ToolsCalled,
     canonical,
     config_hash,
     expand_by_group,
@@ -45,8 +51,10 @@ from digline.core.types import floor_width_refusal
 __all__ = [
     "BlindTolerance",
     "Calibration",
+    "CaptureSource",
     "CallPlan",
     "Case",
+    "ReviewedAnswer",
     "Suite",
     "blind_tolerances",
     "planned_calls",
@@ -64,6 +72,61 @@ def _listed(kind: TokenKind, names: Iterable[str]) -> tuple[str | NameRef, ...]:
             parts.append(", ")
         parts.append(NameRef(kind, name, quoted=False))
     return tuple(parts)
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureSource:
+    """Where captured cases are written, and the regime they are written
+    under. (ADR 0023 §3, §7, §8)
+
+    The minimal declaration: the file and the regime, and none of §3's
+    `read`, `explicit` or `ambiguous`. What fills it today is `digline record
+    import`, which reads the recorder's recordings itself (ADR 0058 §4).
+
+    `cases_file` is capture's own file, never the suite's other cases: the
+    import appends to it and nothing else, and **the suite loads it**, with
+    `digline.host.read_cases`, beside its own cases. A relative path is read
+    from the suite file's directory.
+
+    `repository` has no default, because the regime is declared, never
+    looked up (§8): `"private"` means readable only inside the perimeter of
+    whoever owns the text, and the input is written whole; `"public"` means
+    the import writes no third-party text, and a recorded case is that text,
+    so under it the import lists and refuses to write.
+
+    Outside `config_hash`, like `record_responses`: declaring a source moves
+    no score; what moves a baseline is the cases it adds, and they move
+    `cases_digest`.
+
+    `check` is the judged assertion the cases written from it are reviewed
+    for: a person's yes or no at the import becomes a `ReviewedAnswer` for
+    that check, and only that check runs on it (ADR 0059 §1). A source without
+    one lists, and refuses to write, by name. The suite refuses a `check` that
+    is not one of its judged assertions when it is loaded.
+    """
+
+    cases_file: Path
+    repository: Literal["private", "public"]
+    check: str | None = None
+
+    def __post_init__(self) -> None:
+        # `str` accepted and made a `Path` here, the rule `artifacts` follows.
+        object.__setattr__(self, "cases_file", Path(self.cases_file))
+        if not str(self.cases_file).strip():
+            raise RefusedError("CaptureSource.cases_file must name a file")
+        if self.repository not in ("private", "public"):
+            raise RefusedError(
+                'CaptureSource.repository must be "private" or "public", and '
+                "has no default: whether the text may be written is declared, "
+                "never looked up (ADR 0023 §8)"
+            )
+        if self.check is not None and (
+            not isinstance(self.check, str) or not self.check  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise RefusedError(
+                "CaptureSource.check must name a judged assertion of the suite, "
+                "or be left unset: an empty name is a check nobody can run"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +195,79 @@ class Calibration:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewedAnswer:
+    """An answer the application gave, and a person's yes or no about it.
+    (ADR 0059 §1)
+
+    The mechanics are a calibration case's, and the verdict is its own. **The
+    answer is fixed**: the recorded response, which the person read, so the
+    target is never called for the case. **Only `check` runs on it**, a judged
+    assertion of the suite. **The expected verdict is the person's**: for a
+    yes, `good=True`, the check passes; for a no it does not. A judge that
+    contradicts the person fails the case, in the gate, and the case is kept out
+    of the aggregate accuracy, as a canary and a calibration case are.
+
+    It is **not a calibration case**: a calibration band lies strictly between
+    0 and 1, so that a judge collapsed onto an extreme is seen, and a yes or a
+    no asks for exactly an extreme. So it is a kind of its own, beside ADR 0024
+    §4, and never a band at its edge.
+
+    `input` is the question the answer replies to, as the recording carries
+    it: the judge reads the question beside the answer, and the target that
+    would render it is not called. Both are **payload**, in the cases file and
+    nowhere else.
+
+    `good` is a `bool` and nothing else: a person's yes or no is said, and a
+    `1`, a `"yes"` or a list that happens to be truthy says nothing a person
+    said.
+    """
+
+    output: Output
+    #: The name of the judged assertion this answer was reviewed for. Only that
+    #: check runs on the case.
+    check: str
+    good: bool
+    input: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.check, str) or not self.check:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "a reviewed answer names no check: `check` is the judged "
+                "assertion the person's yes or no is about, and only it runs"
+            )
+        if not self.output:
+            raise RefusedError(
+                Written.said(
+                    "the reviewed answer for ",
+                    NameRef("verdict_name", self.check),
+                    " declares an empty output: the answer is the one the "
+                    "person read, and an empty one is no answer to say yes or "
+                    "no about",
+                )
+            )
+        if type(self.good) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+            raise RefusedError(
+                Written.said(
+                    "the reviewed answer for ",
+                    NameRef("verdict_name", self.check),
+                    f" gives good={self.good!r}: good is true or false, the "
+                    "person's yes or no, and a value that is merely truthy is "
+                    "not one a person said",
+                )
+            )
+        if not isinstance(self.input, str) or not self.input:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                Written.said(
+                    "the reviewed answer for ",
+                    NameRef("verdict_name", self.check),
+                    " declares no input: the judge reads the question beside "
+                    "the answer, the target that would render it is not "
+                    "called, and the recording carries it",
+                )
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class Case:
     """One test case: data, never execution.
 
@@ -194,6 +330,11 @@ class Case:
     #: target. Excluded from every aggregate, like the canary, and gated by its
     #: own band rather than by a comparison. (ADR 0024 §4)
     calibration: Calibration | None = None
+    #: This case is an answer the application gave and a person's yes or no
+    #: about it: the target is not called, only the check it names runs, and a
+    #: judge that contradicts the person fails the case. Out of every
+    #: aggregate. (ADR 0059 §1)
+    reviewed_answer: ReviewedAnswer | None = None
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -276,6 +417,57 @@ class Case:
                     "group unset",
                 )
             )
+        if self.reviewed_answer is not None:
+            self._check_reviewed_answer()
+
+    def _check_reviewed_answer(self) -> None:
+        """A reviewed answer is a case of a kind of its own, and each field
+        that would make it another kind is refused, naming both. (ADR 0059 §1)
+        """
+        clashes: tuple[tuple[str, bool, str], ...] = (
+            (
+                "calibration",
+                self.calibration is not None,
+                "a calibration band lies strictly between 0 and 1 and a yes "
+                "or a no asks for an extreme, so one case cannot be both. "
+                "Declare two cases",
+            ),
+            (
+                "canary",
+                self.canary,
+                "a canary asks the target and a reviewed answer never does. "
+                "Declare two cases",
+            ),
+            (
+                "label",
+                self.label is not None,
+                "label is the class of the input, read by an aggregate that "
+                "counts a confusion matrix, and the person's yes or no is "
+                "`good`. Leave the label unset",
+            ),
+            (
+                "group",
+                self.group is not None,
+                "a reviewed answer is counted in no aggregate, so the group "
+                "would be a gate with nothing in it. Leave the group unset",
+            ),
+            (
+                "expected",
+                self.expected is not None,
+                "the target is never called for a reviewed answer, so an "
+                "expected would compare nothing. A yes that is also the "
+                "expected answer is a case of its own (ADR 0059 §2)",
+            ),
+        )
+        for name, given, why in clashes:
+            if given:
+                raise RefusedError(
+                    Written.said(
+                        "case ",
+                        NameRef("case_id", self.id),
+                        f" declares both reviewed_answer and {name}: {why}",
+                    )
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -358,6 +550,19 @@ class Suite:
     #: bar, and `disclosure` has never been in the fingerprint either.
     #: (ADR 0015 §2)
     record_responses: bool = False
+    #: Where captured cases are written, and under which regime: the one
+    #: thing `digline record import` needs from the suite. Python suites only
+    #: in this release (ADR 0023 §3). Outside `config_hash`, for the reason
+    #: `record_responses` is. (ADR 0058 §4)
+    capture: CaptureSource | None = None
+    #: Whether the target's output is deterministic: the same input gives the
+    #: same answer. Declared, **never deduced from the checks' `KIND`**: a
+    #: suite of deterministic checks over a sampled model has a deterministic
+    #: check and an output that is not. Read by `digline record import` alone:
+    #: where it is true, a yes at the import also writes the answer as a case's
+    #: `expected`, with the person's mark. Outside `config_hash`, for the reason
+    #: `capture` is. (ADR 0059 §2)
+    deterministic_output: bool = False
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -377,6 +582,11 @@ class Suite:
             raise RefusedError("Suite.environment must not be empty")
         if not self.name:
             raise RefusedError("Suite.name must not be empty")
+        if self.capture is not None and not isinstance(self.capture, CaptureSource):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "Suite.capture must be a CaptureSource(cases_file=..., "
+                'repository="private" or "public"), or None'
+            )
         if not self.assertions:
             raise RefusedError(
                 f"suite {self.name!r} declares no assertions: a run that checks "
@@ -462,6 +672,23 @@ class Suite:
                 "— on this case it costs judge calls only — or drop the "
                 "calibration case"
             )
+        if (
+            any(case.reviewed_answer is not None for case in self.cases)
+            and self.samples < 2
+        ):
+            # The calibration case's refusal, for its reason: the target is not
+            # called, so `samples` repeats the judge alone, and one judgement
+            # that disagrees with the person would fail the gate for a draw of
+            # a noisy instrument. (ADR 0059 §1, ADR 0024 §4.2)
+            raise RefusedError(
+                f"suite {self.name!r} declares a reviewed answer and samples "
+                f"{self.samples} time(s). A reviewed answer is read by whether "
+                "the judge agrees with a person, and one judgement of it is one "
+                "draw of a noisy instrument: a single disagreement would fail "
+                "the gate for noise nobody chose. Set samples to at least 2 "
+                "(with min_agreement) — on this case it costs judge calls only "
+                "— or drop the reviewed answer"
+            )
         if self.samples > 1 and self.min_agreement is None:
             raise RefusedError(
                 f"suite {self.name!r} samples {self.samples} times without "
@@ -498,6 +725,9 @@ class Suite:
             seen.add(case.id)
 
         self._check_calibrations()
+        self._check_trajectories()
+        self._check_reviewed_answers()
+        self._check_capture()
         # Validated on the *declared* set, so a refusal names what the author
         # wrote rather than a copy the expansion made.
         self._check_aggregates()
@@ -541,6 +771,45 @@ class Suite:
             high=calibration.high,
             assertion_id=self.calibrated(calibration).identity,
         )
+
+    def _check_trajectories(self) -> None:
+        """Two trajectory checks that cannot both hold, refused before a call
+        is paid for: every case that is not a calibration case is asked every
+        check, so a contradiction would fail every case. (ADR 0060 §4)
+
+        The sentence names the two checks and how they collide, never the tool,
+        which is a name of the suite's that no projection mints."""
+        checks = self.assertions
+        for never in (check for check in checks if isinstance(check, Never)):
+            for other in checks:
+                why = _against_never(never.tool, other)
+                if why is not None:
+                    raise _colliding(self.name, never, other, why)
+        befores = [check for check in checks if isinstance(check, Before)]
+        for one in befores:
+            for other in befores:
+                if one.first == other.then and one.then == other.first:
+                    raise _colliding(
+                        self.name,
+                        one,
+                        other,
+                        "each asks for the other's tool first, so both hold only "
+                        "where one of the two tools is never called",
+                    )
+        for limit in (
+            check
+            for check in checks
+            if isinstance(check, MaxSteps) and check.count == "tool"
+        ):
+            for other in checks:
+                if isinstance(other, Subsequence) and limit.limit < len(other.tools):
+                    raise _colliding(
+                        self.name,
+                        limit,
+                        other,
+                        f"the first allows {limit.limit} tool step(s) and the "
+                        f"second asks for {len(other.tools)}",
+                    )
 
     def _check_calibrations(self) -> None:
         """Each calibration names one judged check of this suite, and gives it
@@ -621,6 +890,106 @@ class Suite:
                         'answer replies to, or "" if the real cases have none',
                     )
                 )
+
+    def reviewed(self, answer: ReviewedAnswer) -> Assertion:
+        """The one declared assertion a reviewed answer names, as `calibrated`
+        is for a calibration: `_check_reviewed_answers` has refused a name that
+        is absent or shared, so this cannot miss. (ADR 0059 §1)"""
+        return next(a for a in self.assertions if a.name == answer.check)
+
+    def _check_reviewed_answers(self) -> None:
+        """Each reviewed answer names one judged check of this suite.
+
+        Absent and ambiguous are refused for `_check_calibrations`' reason. A
+        check that is not judged is refused because a person's yes or no about
+        an answer is a measure of the judge, and a deterministic check has
+        none: it is arithmetic, and agrees with nobody. `KIND` is read as there,
+        through `Repeated`, and a class that declares none is not judged as far
+        as anything here can know. (ADR 0059 §1)
+        """
+        for case in self.cases:
+            answer = case.reviewed_answer
+            if answer is None:
+                continue
+            matches = [a for a in self.assertions if a.name == answer.check]
+            if not matches:
+                available = sorted({a.name for a in self.assertions})
+                raise RefusedError(
+                    Written.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " is a reviewed answer for ",
+                        NameRef("verdict_name", answer.check),
+                        f", which no assertion in suite {self.name!r} is called. "
+                        "Declared: ",
+                        *_listed("verdict_name", available),
+                    )
+                )
+            if len(matches) > 1:
+                raise RefusedError(
+                    Written.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " is a reviewed answer for ",
+                        NameRef("verdict_name", answer.check),
+                        f", which {len(matches)} assertions in suite {self.name!r} "
+                        "share. Give the one you mean a distinct `name`: a yes or "
+                        "no read against whichever came first is one nobody gave",
+                    )
+                )
+            if not judged(_unwrapped(matches[0])):
+                raise RefusedError(
+                    Written.said(
+                        "case ",
+                        NameRef("case_id", case.id),
+                        " is a reviewed answer for ",
+                        NameRef("verdict_name", answer.check),
+                        ", which is not a judged check: a person's yes or no "
+                        "measures a judge, and a check that nothing judges has "
+                        "no judge to agree or disagree with them",
+                    )
+                )
+
+    def _check_capture(self) -> None:
+        """A capture source's `check` names one judged assertion of this suite,
+        for the reasons a reviewed answer's must: the cases written from it are
+        reviewed answers for that check. Refused when the suite is loaded, so a
+        mistyped name is met before an import writes a case the suite would
+        then refuse. (ADR 0059 §1)"""
+        if type(self.deterministic_output) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+            raise RefusedError(
+                f"suite {self.name!r} declares deterministic_output="
+                f"{self.deterministic_output!r}: it is true or false, and is "
+                "declared, never read off a value that is merely truthy"
+            )
+        check = None if self.capture is None else self.capture.check
+        if check is None:
+            return
+        matches = [a for a in self.assertions if a.name == check]
+        if len(matches) != 1:
+            available = sorted({a.name for a in self.assertions})
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} declares a capture source for ",
+                    NameRef("verdict_name", check),
+                    ", which "
+                    + (
+                        "no assertion is called. Declared: "
+                        if not matches
+                        else f"{len(matches)} assertions share. Declared: "
+                    ),
+                    *_listed("verdict_name", available),
+                )
+            )
+        if not judged(_unwrapped(matches[0])):
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} declares a capture source for ",
+                    NameRef("verdict_name", check),
+                    ", which is not a judged check: the cases it writes are a "
+                    "person's yes or no about an answer, which measures a judge",
+                )
+            )
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be
@@ -885,6 +1254,41 @@ def _undeclared_sentence(names: Sequence[str]) -> str:
     return (
         f"{listed} declare no KIND, so the shape reading leaves them out; declare "
         'KIND = "judged" or "deterministic" on their classes to have them read'
+    )
+
+
+def _against_never(tool: str, other: Assertion) -> str | None:
+    """How `other` collides with a check that `tool` is never called, or
+    `None` where it does not. (ADR 0060 §4)"""
+    if isinstance(other, Subsequence) and tool in other.tools:
+        return "the second asks for the tool the first forbids"
+    if isinstance(other, ToolsCalled) and tool in other.expected:
+        return "the second expects the tool the first forbids"
+    if isinstance(other, ToolCalledWith) and other.tool == tool:
+        return "the second asks for a call to the tool the first forbids"
+    if isinstance(other, Before) and other.then == tool:
+        return (
+            "the second orders a tool the first forbids, so it could only pass "
+            "because that tool is never called"
+        )
+    if isinstance(other, Before) and other.first == tool:
+        return (
+            "the second needs a tool the first forbids before its own, so it "
+            "would forbid that one too, under another name"
+        )
+    return None
+
+
+def _colliding(suite: str, one: Assertion, other: Assertion, why: str) -> RefusedError:
+    return RefusedError(
+        Written.said(
+            f"suite {suite!r} declares ",
+            NameRef("verdict_name", one.name),
+            " and ",
+            NameRef("verdict_name", other.name),
+            f", which cannot both pass: {why}. Every case is asked every check, "
+            "so the suite would fail every case. Remove one of the two",
+        )
     )
 
 

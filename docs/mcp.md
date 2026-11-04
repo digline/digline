@@ -146,7 +146,8 @@ port and no listening socket.
 `digline@digline` is the Claude Code plugin, installed from this repository's
 own marketplace. It ships the `operating-digline` skill beside this server,
 started on the project it is installed in, and a hook that asks a person before
-`digline promote` or `digline register`: two lines plus one dependency, and
+`digline promote`, `digline register`, `digline view --allow-promote`, an import
+that writes a yes or no, and `digline record on`: two lines plus one dependency, and
 what they install is described in
 [`plugins/digline/README.md`](https://github.com/digline/digline/blob/main/plugins/digline/README.md).
 

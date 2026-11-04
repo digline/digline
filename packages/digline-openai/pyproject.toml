@@ -50,10 +50,13 @@ dependencies = [
     # it. Every package under `packages/` holds one, and
     # `tests/test_plugin_floors.py` reads it.
     #
-    # **Owed at the cut: a release of this package, with the floor unchanged.**
-    # The cap reaches nobody until this package is released: the only reader
-    # of caps, `.github/plugins_against_core.py`, reads `requires_dist` from
-    # PyPI. RELEASING.md, *Owed at the cut*, holds the row.
+    # **Owed at the cut: the floor raised to 1.1.0, updated 2026-11-03.** At
+    # 1.1 this package imports `StreamReading` from `digline.recorder`, which
+    # no released core has, and a floor may not name a release that does not
+    # exist yet. So it is released on its own tag after digline 1.1.0's, and
+    # that release carries the cap too, which reaches nobody until then: the
+    # only reader of caps, `.github/plugins_against_core.py`, reads
+    # `requires_dist` from PyPI. RELEASING.md, *Owed at the cut*, holds the row.
     "digline>=0.35.0,<2",
     # The SDK and nothing else. No LiteLLM, no gateway, no abstraction over the
     # abstraction: `base_url` is what makes one SDK cover every compatible
@@ -76,6 +79,15 @@ Issues = "https://github.com/digline/digline/issues"
 # plugin contract — see `digline.targets.registry`.
 [project.entry-points."digline.providers"]
 openai = "digline_openai:PROVIDER"
+
+# How digline's recorder finds the map for this provider's client, without
+# importing it: the name says which client class and which of its methods is
+# the call, and the value is loaded only when a call is recorded (ADR 0058 §6).
+[project.entry-points."digline.recording_maps"]
+"openai.OpenAI:chat.completions.create" = "digline_openai.recording:MAP"
+"openai.OpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
+"openai.AsyncOpenAI:chat.completions.create" = "digline_openai.recording:MAP"
+"openai.AsyncOpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
 
 [build-system]
 requires = ["hatchling>=1.27"]

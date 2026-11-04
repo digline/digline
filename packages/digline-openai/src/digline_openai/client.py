@@ -26,6 +26,7 @@ __all__ = [
     "OpenAIChat",
     "TokenParam",
     "build_client",
+    "completion_of",
     "tool_calls_of",
     "tools_of",
     "usage_of",
@@ -328,20 +329,30 @@ class OpenAIChat:
             del request["response_format"]
             reply = self.client().chat.completions.create(**request)
 
-        choice = _first_choice(reply)
-        message: Any = getattr(choice, "message", None)
-        finish, raw = _finish_of(choice, message)
-        calls = tool_calls_of(message)
-        return Completion(
-            text=_text_of(message),
-            usage=usage_of(reply, model, pricing),
-            finish=finish,
-            finish_raw=raw,
-            tools=None if calls is None else tuple(call.tool for call in calls),
-            tool_calls=calls,
-            model=str(getattr(reply, "model", "")) or None,
-            fingerprint=str(getattr(reply, "system_fingerprint", "") or "") or None,
-        )
+        return completion_of(reply, model, pricing)
+
+
+def completion_of(reply: Any, model: str, pricing: Pricing) -> Completion:
+    """One chat completion's reply, as the `Completion` the target returns.
+
+    The one reading of a reply: `OpenAIChat.complete` returns this, and the
+    recorder reads a reply an application received with it, so the two cannot
+    read the same reply two ways. (ADR 0058 §6)
+    """
+    choice = _first_choice(reply)
+    message: Any = getattr(choice, "message", None)
+    finish, raw = _finish_of(choice, message)
+    calls = tool_calls_of(message)
+    return Completion(
+        text=_text_of(message),
+        usage=usage_of(reply, model, pricing),
+        finish=finish,
+        finish_raw=raw,
+        tools=None if calls is None else tuple(call.tool for call in calls),
+        tool_calls=calls,
+        model=str(getattr(reply, "model", "")) or None,
+        fingerprint=str(getattr(reply, "system_fingerprint", "") or "") or None,
+    )
 
 
 def _first_choice(reply: Any) -> Any:

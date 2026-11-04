@@ -1867,7 +1867,13 @@ PARSES: dict[str, tuple[str, ...]] = {
     "explain": ("--suite", "s.py", "--run", "k"),
     "log": ("--suite", "s.py"),
     "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
+    "record": ("status",),
 }
+
+#: The subcommands that take no `--suite`: `record` addresses a tenant's
+#: recorder switch, which belongs to no suite. The two tests about `--suite`
+#: itself skip them; every other test here takes them.
+NO_SUITE: frozenset[str] = frozenset({"record"})
 
 #: The subcommands that take a choice, and the option that carries it. The
 #: others have none, so a wrong choice cannot be asked of them.
@@ -1912,7 +1918,7 @@ def test_an_unknown_flag_exits_64(
     )
 
 
-@pytest.mark.parametrize("command", sorted(PARSES))
+@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE))
 def test_a_missing_value_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -1923,7 +1929,7 @@ def test_a_missing_value_exits_64(
     )
 
 
-@pytest.mark.parametrize("command", sorted(PARSES))
+@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE))
 def test_a_missing_required_flag_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2017,20 +2023,46 @@ def two_values(action: argparse.Action) -> tuple[str, str]:
         return str(first), str(second)
     if action.type is int:
         return "1", "2"
+    if action.type is float:
+        return "0.5", "0.25"
     return "first.py", "second.py"
 
 
+def arity(action: argparse.Action) -> int:
+    """How many words the option takes each time it is given: one, or the
+    count it declares, as `record compare --setup A B` declares two."""
+    return action.nargs if isinstance(action.nargs, int) else 1
+
+
+def words(action: argparse.Action, value: str) -> list[str]:
+    """`value` as it is written after the option: one word, or one per word
+    the option takes, each a different one."""
+    if arity(action) == 1:
+        return [value]
+    return [f"{value}{at}" for at in range(arity(action))]
+
+
 def stored(action: argparse.Action, value: str) -> object:
-    """The value as the namespace holds it, after `type=`."""
+    """The value as the namespace holds it, after `type=`: a list where the
+    option takes more than one word."""
+    if arity(action) > 1:
+        return [_typed(action, word) for word in words(action, value)]
+    return _typed(action, value)
+
+
+def _typed(action: argparse.Action, value: str) -> object:
+    if action.type is float:
+        return float(value)
     return int(value) if action.type is int else value
 
 
-def without(given: tuple[str, ...], option: str) -> list[str]:
-    """`given` with `option` and its value taken out, found by name."""
+def without(given: tuple[str, ...], option: str, taking: int = 1) -> list[str]:
+    """`given` with `option` and the `taking` words after it taken out, found
+    by name."""
     if option not in given:
         return list(given)
     at = given.index(option)
-    return [*given[:at], *given[at + 2 :]]
+    return [*given[:at], *given[at + 1 + taking :]]
 
 
 def parsed(
@@ -2066,7 +2098,14 @@ def test_an_option_given_two_values_is_refused_and_both_are_named(
 ) -> None:
     option = action.option_strings[-1]
     first, second = two_values(action)
-    argv = [command, *without(PARSES[command], option), option, first, option, second]
+    argv = [
+        command,
+        *without(PARSES[command], option, arity(action)),
+        option,
+        *words(action, first),
+        option,
+        *words(action, second),
+    ]
     code, err, args = parsed(argv, capsys)
     given = f"{option} {first!r} and {option} {second!r}"
     assert code == EXIT_USAGE, (
@@ -2173,7 +2212,14 @@ def test_an_option_given_the_same_value_twice_is_accepted(
     the reader as one value."""
     option = action.option_strings[-1]
     value, _ = two_values(action)
-    argv = [command, *without(PARSES[command], option), option, value, option, value]
+    argv = [
+        command,
+        *without(PARSES[command], option, arity(action)),
+        option,
+        *words(action, value),
+        option,
+        *words(action, value),
+    ]
     code, err, args = parsed(argv, capsys)
     assert args is not None, (
         f"`digline {command}` refused {option} {value!r} given twice (exit {code}): "
@@ -2208,12 +2254,12 @@ def test_no_reserved_name_reaches_the_namespace(command: str) -> None:
     options = [action for name, action in VALUE_OPTIONS if name == command]
     base: tuple[str, ...] = PARSES[command]
     for action in options:
-        base = tuple(without(base, action.option_strings[-1]))
+        base = tuple(without(base, action.option_strings[-1], arity(action)))
     argv = [command, *base]
     for action in options:
         option = action.option_strings[-1]
         value, _ = two_values(action)
-        argv += [option, value, option, value]
+        argv += [option, *words(action, value), option, *words(action, value)]
     args = build_parser().parse_args(argv)
     dests = {
         action.dest
@@ -2236,7 +2282,11 @@ def test_an_option_given_once_is_read_as_before(
     option = action.option_strings[-1]
     value, _ = two_values(action)
     args = build_parser().parse_args(
-        [command, *without(PARSES[command], option), option, value]
+        [
+            command,
+            *without(PARSES[command], option, arity(action)),
+            option,
+            *words(action, value),
+        ]
     )
-    expected: object = int(value) if action.type is int else value
-    assert getattr(args, action.dest) == expected
+    assert getattr(args, action.dest) == stored(action, value)

@@ -28,6 +28,97 @@ notes under them are this file, verbatim.
   changes its verdict**: absent is *not recorded*, so it replays exactly as it
   did. The 22 -> 23 step writes nothing. A schema that moves is a minor.
 
+- **A judge says whether `spent_usd` is the whole of its cost**:
+  `JudgeBase.every_cost_known`, new and additive. It is `False` from the
+  first call whose usage was not read or whose cost could not be computed,
+  read off `uncounted_calls` and `unpriced_calls` as a run's judge line reads
+  them, and stays `False` for the life of the judge. Such a call adds nothing
+  to `spent_usd`, so a `0.0` could be a judge that cost nothing or one none
+  of whose calls could be priced, and outside a run nothing told the two
+  apart (#569; reported by the brief project). `spent_usd` does not change.
+- **A recording is no longer `fsync`ed**: it is still written to a temporary
+  file and linked into place, so no reader sees half of one, and it is
+  durable at the operating system's pace, so a crash of the machine may lose
+  the last recordings. On a CI Linux runner, writing one recording with its
+  sync took 21 to 117 ms, and held the caller, an event loop among them, for
+  as long (ADR 0058 §10).
+- **An agent's steps, live**: `metadata["response"]["steps"]`, one `model`
+  step per call and a `tool` step per tool call, beside `tools` and
+  `tool_calls`, which do not change. A run reads every call a target makes
+  through a client `digline.recorder.wrap()` returned, recorder on or off,
+  through `execute(around_target=...)`, which `digline run` and the MCP server
+  pass; the response then sums usage and the model's time, without the tools'
+  (ADR 0060 §1–§3).
+- **`digline record compare`**, new: a suite's recorded answers, case by
+  case, under each setup in the order they were recorded, with `--case`,
+  `--since`, two setups side by side with `--setup A B`, the keys they
+  differ on with `--show-setup`, and `--json`, which carries digests and
+  never the recorded text. It judges nothing and writes nothing.
+- **Four checks on an agent's steps**: `Subsequence`, `Before`, `Never` and
+  `MaxSteps(limit, count=)`, in Python and in TOML. The three on order read
+  the steps, or `tools` where there are none; `MaxSteps` reads the steps
+  alone. A suite that declares two of them that cannot both pass is refused
+  (ADR 0060 §4).
+- **`Case.reviewed_answer`**, declared and not run yet: a recorded answer and
+  a person's yes or no about it, `ReviewedAnswer(output, check, good, input)`,
+  in Python and in a cases file. The suite checks that `check` is one judged
+  assertion and that it samples at least twice. `digline run`, `rejudge` and
+  `execute()` refuse a suite that declares one before anything is called or
+  written, until schema 23 gives the run document its key (ADR 0059 §1).
+- **A suite that declares a tool argument digline cannot tell apart is
+  refused, and this breaks a suite that loaded before**: a `date`, a `time`,
+  a class, a function or any value that `ToolCalledWith` compared as
+  `"<TypeName>"`. From TOML the right value sent as JSON text failed, and only
+  the placeholder passed; from Python any other `date` passed. The refusal
+  says where the value is and to declare it as the model sends it, a date or
+  a time as its ISO 8601 text (ADR 0018 §5).
+- **`digline record import` writes reviewed answers**, by `--good ID` and
+  `--bad ID` with a mandatory `--by NAME`, in place of `--positive` and
+  `--negative`, which never shipped. An id names an answer to an input, and
+  the listing groups the answers by the shape of their output, counts each
+  group and ranks nothing. The source declares its `check`, and a `suite.toml`
+  declares it as a `[capture]` table, with `cases` an array of files.
+  `Suite.deterministic_output` makes a yes also write an `expected`. The
+  declaration is printed at every use (ADR 0059 §2–§4).
+- **The Claude Code plugin's hook asks before an import that writes and
+  before `digline record on`**: `digline record import` with `--good` or
+  `--bad`, and `record on`, which decides what of an application's calls is
+  kept. The listing, `off`, `status` and `compare` are not asked about.
+  `digline record` now refuses an abbreviated option, so `--good` and `--bad`
+  have no other spelling for the hook to miss.
+
+## digline-anthropic 0.8.0 — 2026-11-03
+
+Published by its own tag, `digline-anthropic-v0.8.0`, after digline 1.0.3 was
+on PyPI. **A repair, and a minor because the outcome of a suite changed**: a
+suite with a `cost_budget` on a model that reports `"not_available"`, such as
+claude-haiku-4-5, errored every budget and exited `2`, and now judges it and
+exits by its verdict (*Choosing the version*: an exit code changed).
+
+- **A reply that reports `inference_geo: "not_available"` is priced at the
+  standard rate** (reported by the brief project, on digline-anthropic 0.7.0
+  with digline 1.0.3). A model that does not take the `inference_geo`
+  parameter, such as claude-haiku-4-5, reports that string, and Anthropic's
+  data-residency page says standard pricing applies to such models. 0.7.0
+  left every such call unpriced: in a suite every `cost_budget` errored, and
+  a judge's `spent_usd` stayed at 0.0 with the calls counted in
+  `unpriced_calls`. 0.6.1 refused the reply, and 0.6.0, before the
+  geography was read, priced it. `GEO_MULTIPLIERS` now has `"not_available"`
+  at 1.0, and `unpriced_of` still says why for any other geography with no
+  rate. ADR 0004 §8.9's first criterion takes a dated note: its example was
+  this string.
+- **The dependency is `digline>=0.35.0,<2`.** The floor is unchanged. The cap
+  is new since 0.7.0, which declared none, and it reaches a resolver with
+  this release: from 1.0.0 a minor of digline does not break a public Python
+  signature, so every 1.x installs under it.
+- **The package also carries its recording map for ADR 0058's recorder**
+  (`c4bef150`): `digline_anthropic.recording` and the entry point
+  `digline.recording_maps`, which names `anthropic.Anthropic:messages.create`.
+  It is inert until a digline release carries the recorder, which loads it
+  only when a call is recorded. It imports `digline.targets.Completion`,
+  public since digline 0.8.0, and the plugin's own `completion_of`, so the
+  floor is unchanged.
+
 ## 1.0.3 — 2026-10-31
 
 digline **1.0.3**. **A patch, by the enumeration in `RELEASING.md`, *Choosing

@@ -457,9 +457,9 @@ tag.
 
 | Package | Owed because | Raise to | Then |
 |---|---|---|---|
-| `digline-anthropic` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-anthropic on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
-| `digline-openai` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-openai on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
-| `digline-bedrock` | its `pyproject.toml` gained the cap `digline<2` on 2026-11-02, and a cap reaches nobody until the package is released: the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. The `Raise to` cell holds the floor unchanged, on purpose: this table is built for floor debts and this row carries a cap debt, so there is no floor to raise. The row is settled by the release named beside it, not by a number moving. | `0.35.0` | release digline-bedrock on its own tag with the cap and the floor unchanged; that release's pull request deletes this row and the marker |
+| `digline-openai` | *Updated 2026-11-03.* Its recorder map is on `main` (`digline_openai/recording.py`, under the entry point `digline.recording_maps`) and in no release. Its cap `digline<2`, added on 2026-11-02, rides the same release: a cap reaches nobody until the package is released, because the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-openai on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
+| `digline-bedrock` | *Updated 2026-11-03.* Its recorder map is on `main` (`digline_bedrock/recording.py`, under the entry point `digline.recording_maps`) and in no release. Its cap `digline<2`, added on 2026-11-02, rides the same release: a cap reaches nobody until the package is released, because the only reader of caps, `.github/plugins_against_core.py`, reads `requires_dist` from PyPI. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-bedrock on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
+| `digline-anthropic` | *Updated 2026-11-03.* Its recorder map was published with 0.8.0, uploaded to PyPI on 2026-11-03, and is inert there: no released core reads the entry point `digline.recording_maps`. Its cap `digline<2` is already in 0.8.0's `requires_dist`. At 1.1 it imports `StreamReading` from `digline.recorder`, which no released core has: on PyPI the newest is 1.0.3, and `v1.0.3` has no `src/digline/recorder.py`. A floor may not name a release that does not exist yet, so the floor is owed here. | `1.1.0` | release digline-anthropic on its own tag after digline 1.1.0's tag, with the floor raised to `1.1.0`; that release's pull request deletes this row and the marker |
 
 **An empty table is the normal state.** `test_plugin_floors.py` refuses a
 package whose `pyproject.toml` says *Owed at the cut* while this table has no
@@ -559,8 +559,22 @@ them. So the pull request writes a row here
 too, and the cut that chooses the number (*Choosing the version*, above) reads
 it and deletes it.
 
-| Package | What it carries | What the number must reflect |
-|---|---|---|
+*Added 2026-11-03:* **the *Then* column, in the shape of the table owed at the
+cut.** A row also says who closes it and when: a session, Alessandro, or the
+release. `tests/test_plugin_floors.py` refuses a row whose *Then* is empty or
+names none of the three, so a debt cannot sit here with nobody to settle it.
+The rows of digline 1.1 are the first: one release's work, spread over several
+pull requests and the site, each written here by itself. One of them is closed
+after the tag, on the site, and its *Then* says so.
+
+| Package | What it carries | What the number must reflect | Then |
+|---|---|---|---|
+| `digline` | #869, schema 23 ([ADR 0057](docs/adr/0057-the-replay-reads-the-trajectory-the-live-run-read.md)), a draft and parked. It is unparked after the trajectory assertions, before the run and the page: `main` merged into its branch, verified again, made a real pull request, and put in the queue. | the minor, 1.1.0: a run document at schema 23 | a session, after the trajectory assertions and before the run and the page; its merge deletes this row |
+| `digline` | at the unparking of #869: an episode's `response` fills `finish` and `tools` from its steps ([ADR 0058](docs/adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md) §5 and §7), with a test that reads them back. | 1.1.0 | a session, at the unparking of #869; the pull request that lands it deletes this row |
+| `digline` | at the unparking of #869: whether a case's label enters the run's results, in schema 23's step. | 1.1.0, and schema 23 if the label enters | Alessandro rules, at the unparking, and the ruling is recorded in #869; the pull request that lands it deletes this row |
+| `digline` | `docs/record.md`, under its first paragraph, says *"Arrives with digline 1.1."*, which turns false at the tag. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the line and deletes this row |
+| `digline` | on digline.dev, `product/record.md` moves from *Essentials* to *Commands*, with its group in `COMMAND_GROUPS` (`tools/hooks/home.py`), once the release has captured `home.json` again with `record` in its command list. The precedent is `digline delete`, entered by digline.dev `e96f4b9` after 0.30.0. | 1.1.0 | a session, on digline.dev after the tag of 1.1.0 and the capture of `home.json`; the pull request here that names that site commit deletes this row |
+| `pytest-digline` | passes `around_target` to `execute()`, as `digline.host.measure` does, so a suite run under pytest reads the calls its target makes through a wrapped client ([ADR 0060](docs/adr/0060-the-steps-of-a-trajectory-live-recorded-and-collected.md) §3). It needs the core's `around_target`, so its floor on `digline` becomes 1.1.0. | a minor, with the floor `digline>=1.1.0` | a session, once digline 1.1.0 is on PyPI; the pull request that lands it deletes this row |
 
 Empty is the normal state here too. A row left after its package's release is a
 row nobody finished.
@@ -575,8 +589,9 @@ on GitHub, which reads `main`, shows a line that `pip install digline` does not
 print. It stays false for whoever installed until the next release, and the
 replay is green throughout, because it reads the tree and not the index. That
 pull request writes a row: the package `digline`, what it carries (the pull
-request and the line, quoted as the page now shows it), and what the number
-must reflect (the block named by its `suite=` label, to capture again).
+request and the line, quoted as the page now shows it), what the number must
+reflect (the block named by its `suite=` label, to capture again), and *Then*
+(the release: the block captured again before the tag, and the row deleted).
 
 **Before the tag, the block is captured again from the tree being tagged, as
 a terminal shows it, and the row is deleted.** That means:
@@ -969,7 +984,7 @@ Run **exactly what CI runs**, from the repository root:
 
 ```sh
 uv sync --all-packages --locked
-uv run pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py
+uv run pytest -q -m "not live" -n 4 --dist loadgroup --ignore=tests/test_type_gate.py --durations=25
 uv run pytest -q -m "not live" tests/test_type_gate.py
 uv run ruff format --check .
 uv run ruff check .
@@ -2270,6 +2285,77 @@ This is the part that changes from release to release. Step 4 of *After the
 tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
+
+- **digline-anthropic-v0.8.0 — a named tag after the core, one package, a
+  reply that reports `"not_available"` priced at the standard rate.** It
+  shipped #877's repair as a minor, because a suite with a `cost_budget` on
+  such a model exited `2` and now exits by its verdict. `publish`
+  (`41609547902`) passed on attempt 1 and read `completed`, `success`, at
+  09:19:28Z, with `github-release`, the site jobs and the MCP registry
+  skipped, as on any plugin tag, and no `docker-publish`, which fires on `v*`
+  only. `tools/tag_names.py "digline-anthropic 0.8.0"` ran on #878's merge
+  commit, `274de208`, which was `origin/main`, immediately before the tag:
+  one package, named, exit 0. The tag object is `fe9dfbd2`.
+  - **The gate.** This session did not read the run's `approvals` record, so
+    this entry says nothing about who approved or when. The `PyPI` job was
+    created at 09:17:51Z and started at 09:18:00Z. No follow-up issue names
+    this tag: `release-followup` (`41610095155`), started by this `publish`,
+    read `success`.
+  - **Counts**: 16 `twine check` `PASSED`, 12 in the build and 2 in each
+    upload job. TestPyPI's selection, and PyPI's read before the gate, gave 2
+    `publish` and 10 `skip`, the two being digline-anthropic 0.8.0's wheel
+    and sdist. `imported 6`, and the quickstart's 3 calls, after TestPyPI and
+    after PyPI.
+  - **The index**: uploads at 09:18:21Z and 09:18:22Z. The wait on
+    `/simple/` saw digline-anthropic 0.8.0 `after 0s`, at 09:18:24Z. The
+    install of the exact pins read from `dist/` then met the race the other
+    way: at 09:18:57Z pip answered *No matching distribution found for
+    digline-anthropic==0.8.0*, and the step's retry imported all six at
+    09:19:24Z. Read from outside at 09:20:22Z:
+    `/pypi/digline-anthropic/0.8.0/json` answered 200, and its control,
+    `/pypi/digline-anthropic/9.9.9/json`, 404. The two files it serves carry
+    the SHA256 the upload step printed for the files it took from `dist/`,
+    `2be35ee2…` for the wheel and `ee014a19…` for the sdist, and
+    `requires_dist` reads `digline<2,>=0.35.0`, so the cap reached the
+    index with this release.
+  - **The check a person makes until it is built ran after the tag, not
+    before it, as *Not built* asks.** Measured at `274de208` against the tag
+    that published each version: the core's `src/` moved since `v1.0.3`,
+    which rides the next core release, and this tag did not publish the
+    core. digline-mcp 0.8.1: 0 files. digline-openai 0.6.0 (2 files) and
+    digline-bedrock 0.7.0 (1 file) moved with `c4bef150`, the recorder's
+    maps, and pytest-digline 0.5.1 (1 file) with `2fc0e9af`, `7be88b4d` and
+    `a1bff723`. In each of the three plugins that is text under a version
+    the index serves, which *Not built* names, and none of it was published
+    by this tag. digline-openai and digline-bedrock carry only their maps,
+    which stay inert until a core release carries the recorder, and ADR
+    0058 §6 says each plugin ships a minor with 1.1. Whether pytest-digline's
+    text earns a release of its own is open.
+    digline-anthropic 0.8.0 itself carries `c4bef150` beside #877: its
+    `recording.py` and its `digline.recording_maps` entry point, which import
+    nothing digline 1.0.3 lacks and stay inert until a core release carries
+    the recorder. Its changelog entry did not name them, and names them since
+    the pull request that added this entry.
+  - **Step 3, the example locks.** `langchain`, `llamaindex` and
+    `prompt-first` are every example lock that names digline-anthropic. Each
+    moved from 0.7.0 to 0.8.0 with `--upgrade-package digline-anthropic`,
+    three lines per lock, written by uv 0.13.6 so that `revision = 5` holds
+    (#880, merge commit `55e87acb`). `ci.yml` dispatched against `main`
+    (`41611929015`) read `success` at 09:39:21Z: every example leg green,
+    `prompt-first`'s installing `digline-anthropic==0.8.0`, and the image job
+    green. The image job was red on #878's head, waiting for a version the
+    index did not serve yet; the `ci` run that followed `publish`
+    (`41610095187`) read `success`, the image job green, when it was read at
+    09:25:58Z.
+  - **Step 5 had nothing to do:** no committed report names
+    digline-anthropic. `git grep -F 'digline-anthropic'` over the eleven
+    `examples/*/report.html` found nothing, and its control,
+    `anthropic`, found two lines in `prompt-first`'s, the provider and the
+    judge. A first control, `digline`, found nothing either: these reports do
+    not print the product's name, so it could not have answered.
+
+  **The next tag must show** the check a person makes before the tag, not
+  after it.
 
 - **digline-mcp-v0.8.1 — a named tag after the core, one package, `unpriced`
   on the `run` tool.** `publish` (`41217962673`) passed on attempt 1 and read

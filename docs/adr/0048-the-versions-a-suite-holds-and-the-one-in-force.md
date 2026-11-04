@@ -25,7 +25,7 @@
 - Requires, at implementation: **a new entry in the tenant's layout**, per
   suite, holding the versions and the pointer, behind the `ResultStore`
   protocol (§6). **The sentence at
-  `src/digline/store/file_store.py:134-135` extended**, or it becomes false:
+  `src/digline/store/file_store.py:145-146` extended**, or it becomes false:
   *"Nothing digline writes can land here, because every other path in the
   layout goes through `baselines/`, `runs/` or `register/`."* **A listing that
   loads no suite** (§6)
@@ -310,7 +310,7 @@ developer's repository, is the implementation's.
 - **Fixed decision 2's list gains an entry, at acceptance**, inside the
   layout, with the decision's reason kept whole (*Amends*).
 - **The layout gains an entry, and one sentence in the store must follow it.**
-  `src/digline/store/file_store.py:134-135` says every path digline writes goes
+  `src/digline/store/file_store.py:145-146` says every path digline writes goes
   through `baselines/`, `runs/` or `register/`; the implementation extends it.
   The docstring's own defect is #514's, apart from this record.
 - **Two words for two notions** (§2). Text written after this record uses

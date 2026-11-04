@@ -9,8 +9,17 @@
       <tenant>/name-table/                 ignored    <- reserved for the process
                                                          that owns the table;
                                                          digline writes nothing there
-      .gitignore                           generated, contains "*/runs/" and
-                                           "*/name-table/"
+      <tenant>/recordings/<process>/*.json ignored    <- the calls an application
+                                                         made, one subdirectory per
+                                                         process (ADR 0058)
+      <tenant>/recordings/ceiling-reached.json
+                                           ignored    <- the recorder stopped at the
+                                                         tenant's ceiling
+      <tenant>/recorder.toml               ignored    <- the recorder's switch, written
+                                                         by `digline record`
+      .gitignore                           generated, contains "*/runs/",
+                                           "*/name-table/", "*/recordings/" and
+                                           "*/recorder.toml"
       .gitattributes                       generated, the register merges by union
 
 This is the layout the code builds or reserves at this commit. ADR 0048 adds,
@@ -36,7 +45,9 @@ import glob
 import json
 import os
 import re
+import secrets
 import tempfile
+import threading
 from collections.abc import Collection, Mapping, Sequence
 from contextlib import suppress
 from dataclasses import dataclass, replace
@@ -44,6 +55,12 @@ from pathlib import Path
 from typing import cast
 
 from digline.core.declared import Declared
+from digline.core.recording import (
+    Recording,
+    RecordingRefusedError,
+    recording_from_dict,
+    recording_to_dict,
+)
 from digline.core.refused import Written
 from digline.core.register import (
     DISPOSITIONS,
@@ -120,6 +137,10 @@ _GITIGNORE = (
     "*/runs/\n"
     "# The name table is the re-identification key, and never committed.\n"
     "*/name-table/\n"
+    "# Recordings are payload, and a committed switch would turn recording on\n"
+    "# for whoever clones the repository. (ADR 0058)\n"
+    "*/recordings/\n"
+    "*/recorder.toml\n"
 )
 #: Two branches that each record a disposition meet at the end of the file,
 #: which is the one place a line-based merge always conflicts. Git's union
@@ -143,8 +164,30 @@ REGISTER_DIRNAME = "register"
 #: several files — `-journal`, `-wal` and `-shm` beside the database — and a
 #: directory covers every one of them, and any other engine's, by construction.
 #: Nothing digline writes can land here, because every other path in the layout
-#: goes through `baselines/`, `runs/` or `register/`. (ADR 0036 §2)
+#: goes through `baselines/`, `runs/`, `register/` or `recordings/`, or is
+#: `recorder.toml`, a file beside them. (ADR 0036 §2, ADR 0058 §4)
 NAME_TABLE_DIRNAME = "name-table"
+
+#: Where a tenant's recordings are filed, one subdirectory per process. Ignored
+#: by git, like `runs/`: a recording is payload. (ADR 0058 §4, §5)
+RECORDINGS_DIRNAME = "recordings"
+
+#: The file that switches the recorder on for a tenant: written by `digline
+#: record`, read by the recorder, and kept out of git by the generated
+#: `.gitignore`. (ADR 0058 §10)
+RECORDER_FILENAME = "recorder.toml"
+
+#: The marker the recorder leaves in a tenant's `recordings/` when it stops at
+#: the ceiling, for `digline record status` to read from another process. It
+#: is not a recording: it sits beside the process subdirectories, never in
+#: one. (ADR 0058 §10)
+CEILING_MARKER_FILENAME = "ceiling-reached.json"
+
+#: Each process's counts of what it recorded and, by reason, did not, kept in
+#: its own subdirectory of `recordings/` for `digline record status` to sum.
+#: JSON, named with a dot first and no `.json`, so that no reader of
+#: recordings, nor a `*.json` glob, takes it for one.
+COUNTS_FILENAME = ".counts"
 
 
 def _check_name(value: str, kind: str) -> str:
@@ -460,6 +503,57 @@ class FileResultStore:
 
     def runs_dir(self, tenant: str) -> Path:
         return self.tenant_dir(tenant) / "runs"
+
+    def recordings_dir(self, tenant: str) -> Path:
+        """`.digline/<tenant>/recordings/`: where the recordings made for this
+        tenant are filed. Not created here: a process's subdirectory is created
+        at its first write (`RecordingWriter`). (ADR 0058 §4)"""
+        return self.tenant_dir(tenant) / RECORDINGS_DIRNAME
+
+    def recorder_path(self, tenant: str) -> Path:
+        """`.digline/<tenant>/recorder.toml`, the recorder's switch. Ignored by
+        git. (ADR 0058 §10)"""
+        return self.tenant_dir(tenant) / RECORDER_FILENAME
+
+    def ceiling_marker_path(self, tenant: str) -> Path:
+        """`.digline/<tenant>/recordings/ceiling-reached.json`, where the
+        recorder says it stopped at the tenant's ceiling. (ADR 0058 §10)"""
+        return self.recordings_dir(tenant) / CEILING_MARKER_FILENAME
+
+    def read_recording(self, path: Path) -> Recording:
+        """One recording, read back from inside this store, or a refusal by
+        name.
+
+        Checked twice beyond its own reader: the file must resolve inside the
+        store, as every document digline reads must, and the recording must say
+        it was made for the tenant whose directory it sits in. A recording is
+        filed under the tenant it was made for, and one found under another is
+        a misfiling, not a recording of that tenant. (ADR 0058 §4, decision 8)
+        """
+        resolved = self._inside(path, "recording")
+        try:
+            text = resolved.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise RecordingRefusedError(f"{path} is not UTF-8 text") from None
+        except OSError as exc:
+            raise RecordingRefusedError(
+                f"{path} cannot be read (errno {exc.errno})"
+            ) from None
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise RecordingRefusedError(
+                f"{path} is not JSON (line {exc.lineno}, column {exc.colno})"
+            ) from None
+        recording = recording_from_dict(raw, where=str(path))
+        tenant = resolved.relative_to(self.root.resolve()).parts[0]
+        if recording.source_tenant != tenant:
+            raise RecordingRefusedError(
+                f"{path} is filed under tenant {tenant!r} and says it was made for "
+                f"{recording.source_tenant!r}: a recording is filed under the "
+                "tenant it was made for, so this one is misfiled"
+            )
+        return recording
 
     def ensure_layout(self, tenant: str) -> None:
         """Create the structure for one perimeter and the shared `.gitignore`
@@ -1826,3 +1920,107 @@ class FileJournal:
         # be journalling right now.
         with suppress(OSError):
             directory.rmdir()
+
+
+class RecordingWriter:
+    """Files recordings under `.digline/<tenant>/recordings/<process>/`, where
+    `<tenant>` is the recording's `source_tenant`. (ADR 0058 §4, §5)
+
+    **The process's subdirectory is chosen at the first write**, not when the
+    writer is built, and chosen again whenever the process id has changed since:
+    a process forked after the writer was built writes into a subdirectory of
+    its own, never into its parent's. It is named `p<pid>-<8 hex>`, and the
+    random half keeps apart two processes that were given the same id at
+    different times.
+
+    **The layout is made before the first recording of a tenant**, with
+    `ensure_layout`, as a run's is: the generated `.gitignore` keeps
+    `*/recordings/` out of git, and without it a repository whose `.digline/`
+    was never laid out would offer the recordings to `git add`.
+
+    **Each recording is `<n>.json`**, `n` counting from 1 inside its
+    subdirectory, six digits wide so that a listing sorts in the order written.
+    It is written to a temporary file and linked into place with `os.link`,
+    which is atomic and fails rather than replace: a reader never sees half a
+    recording, and a name already taken is refused, never overwritten. The same
+    rule as a journal leg's `O_CREAT|O_EXCL`, for a file that must be whole
+    before anybody sees it.
+
+    **A recording is never `fsync`ed.** It is durable at the operating
+    system's pace, and a crash of the machine may lose the last recordings
+    written before it. A recording is a sample, not a ledger: losing one to a
+    crash is accepted, and holding every call while the disk syncs is not.
+    Measured on a CI Linux runner on 2026-11-03, writing one recording with
+    its `fsync` took 21 to 117 ms, where the layout and the link together took
+    under 1 ms. Only the recording's own file is concerned: the
+    temporary file and `os.link` stay, so a reader still never sees half of
+    one. (ADR 0058 §10)
+
+    One writer may be shared by threads: choosing a subdirectory and a number
+    happens under a lock.
+    """
+
+    def __init__(self, store: FileResultStore) -> None:
+        self._store = store
+        self._lock = threading.Lock()
+        #: Per tenant: the process id it was chosen in, the subdirectory, and
+        #: the last number used there.
+        self._places: dict[str, tuple[int, Path, int]] = {}
+
+    def place(self, tenant: str) -> Path:
+        """This process's subdirectory for `tenant`, chosen now if it was not:
+        where its recordings and its counts go."""
+        with self._lock:
+            return self._choose(_check_name(tenant, "tenant"))[1]
+
+    def _next_path(self, tenant: str) -> Path:
+        with self._lock:
+            place = self._choose(tenant)
+            number = place[2] + 1
+            self._places[tenant] = (place[0], place[1], number)
+            return place[1] / f"{number:06d}.json"
+
+    def _choose(self, tenant: str) -> tuple[int, Path, int]:
+        """The place for `tenant` in this process; the caller holds the lock."""
+        pid = os.getpid()
+        place = self._places.get(tenant)
+        if place is None or place[0] != pid:
+            # Before the first recording lands: the generated `.gitignore` is
+            # what keeps `*/recordings/` out of git, and a recording is
+            # payload. `run` lays it out the same way.
+            self._store.ensure_layout(tenant)
+            directory = (
+                self._store.recordings_dir(tenant) / f"p{pid}-{secrets.token_hex(4)}"
+            )
+            directory.mkdir(parents=True, exist_ok=False)
+            place = (pid, directory, 0)
+            self._places[tenant] = place
+        return place
+
+    def write(self, recording: Recording) -> Path:
+        """Write one recording where it belongs, and say where."""
+        payload = (
+            json.dumps(
+                recording_to_dict(recording),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+            + "\n"
+        )
+        path = self._next_path(_check_name(recording.source_tenant, "tenant"))
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=".json")
+        try:
+            # Closed, which flushes it, and never `fsync`ed: see the class.
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(payload)
+            try:
+                os.link(tmp, path)
+            except FileExistsError:
+                raise RecordingRefusedError(
+                    f"{path} already exists: a recording is never written over another"
+                ) from None
+        finally:
+            Path(tmp).unlink(missing_ok=True)
+        return path

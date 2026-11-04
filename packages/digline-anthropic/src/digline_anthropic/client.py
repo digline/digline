@@ -72,7 +72,21 @@ FINISH: dict[str, Finish] = {
 #: on an earlier model returns a 400, so a reply that reports `"us"` came from
 #: a model it applies to. `None` is a reply that did not say, which is every
 #: reply from an SDK or a model without the field. (#392)
-GEO_MULTIPLIERS: Mapping[str | None, float] = {None: 1.0, "global": 1.0, "us": 1.1}
+#:
+#: `"not_available"` is a model that does not take the parameter. Anthropic's
+#: data-residency page, read 2026-11-03, says `inference_geo` is supported on
+#: Claude 4.6 and later, that a request with it on Claude Haiku 4.5 or an
+#: earlier model returns a 400, and of those older models: "Standard pricing
+#: applies." So it is priced at 1.0. The string is not on that page, and the
+#: SDK does not name it: anthropic 2.3.0 types `usage.inference_geo` as
+#: `Optional[str]` (`anthropic/types/usage.py:21`). It was observed by the
+#: brief project on 2026-11-03, in replies from claude-haiku-4-5-20251001.
+GEO_MULTIPLIERS: Mapping[str | None, float] = {
+    None: 1.0,
+    "global": 1.0,
+    "us": 1.1,
+    "not_available": 1.0,
+}
 
 
 def geo_multiplier(reply: Any) -> float | None:
@@ -86,8 +100,10 @@ def geo_multiplier(reply: Any) -> float | None:
     the price follows what the reply reports, not what was asked.
 
     **A geography with no rate is not priced**, the way a 1-hour cache write
-    is not (#368). Anthropic documents two, `"us"` and `"global"`, and a third
-    would have a rate nobody here has read. Until ADR 0004 §8 it was refused,
+    is not (#368). Anthropic documents two, `"us"` and `"global"`, and
+    `"not_available"` is a model without the parameter, at the standard rate
+    (`GEO_MULTIPLIERS`). Any other would have a rate nobody here has read.
+    Until ADR 0004 §8 it was refused,
     and the case errored over a reply that had answered; it is now an
     unpriced call, whose sentence `unpriced_of` writes. (#569)
     """
@@ -110,7 +126,8 @@ def unpriced_of(reply: Any) -> str | None:
         geo = getattr(getattr(reply, "usage", None), "inference_geo", None)
         return (
             f"model {model!r} ran in inference geography {geo!r}, and this "
-            'price list has a rate for "global" and for "us" only. Pin the '
+            'price list has a rate for "global" and for "us", and for '
+            '"not_available" at the standard rate, only. Pin the '
             "request or the workspace to one of the two: this geography has no "
             "rate in digline yet (#392)"
         )

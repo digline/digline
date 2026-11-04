@@ -22,13 +22,23 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 
 from digline.core import (
+    Before,
+    MaxSteps,
+    Never,
     RecordedResponse,
     Run,
+    Subsequence,
     ToolCalledWith,
     ToolsCalled,
     restore_output,
 )
-from digline.run.driver import Mapper, Response, default_mapper, execute
+from digline.run.driver import (
+    Mapper,
+    Response,
+    default_mapper,
+    execute,
+    refuse_reviewed_answers,
+)
 from digline.run.suite import Case, Suite
 
 __all__ = ["Replay", "ReplayError", "rejudge"]
@@ -157,7 +167,12 @@ def _check(suite: Suite, source: Run) -> None:
     check *is* the defect ADR 0018 was written to close, so a replay that
     produced one quietly would be the gate-that-is-not-a-gate wearing a
     different hat. (ADR 0018 §4)
+
+    Before all five, the refusal `execute` makes of a suite that declares
+    reviewed answers: met here, it would read as *no recorded answer*, which
+    is not why. (ADR 0059 §1)
     """
+    refuse_reviewed_answers(suite)
     if source.tenant != suite.tenant:
         raise ReplayError(
             f"the stored run belongs to tenant {source.tenant!r} and this "
@@ -173,8 +188,23 @@ def _check(suite: Suite, source: Run) -> None:
     trajectory_checks = [
         assertion
         for assertion in suite.assertions
-        if isinstance(assertion, ToolsCalled | ToolCalledWith)
+        if isinstance(
+            assertion, ToolsCalled | ToolCalledWith | Subsequence | Before | Never
+        )
     ]
+    # The three checks on order read the names under `tools` where a response
+    # has no steps, and a recorded response gives those back. A count of steps
+    # has no such fallback, and the run document holds no steps before schema
+    # 23: refused by name, before a judge is paid, rather than errored on every
+    # case. (ADR 0060 §4, §5)
+    for assertion in suite.assertions:
+        if isinstance(assertion, MaxSteps):
+            raise ReplayError(
+                f"this suite holds {assertion.name!r}, which counts steps, and "
+                "steps are not in the run document before schema 23: a stored "
+                "run cannot give them back, so the check cannot be judged again. "
+                "Re-judge without it, or produce a new run"
+            )
 
     recorded = {case.case_id: case for case in source.results}
     if not any(case.responses for case in source.results):

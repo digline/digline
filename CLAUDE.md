@@ -43,6 +43,12 @@ correct its structural mistakes and are not negotiable.
    version arrives is not fixed by this decision. The reason above is
    unchanged: no home directory, no global state, everything addressed by the
    tenant.
+   *Added to the list 2026-11-02 (ADR 0058 §4, §10).* The same directory also
+   holds the tenant's **recordings**, one subdirectory per process, and the
+   **file that switches the recorder on** for that tenant. Both are ignored by
+   git, as `runs/` is, and neither is versioned the way `baselines/` is. The
+   reason above is unchanged: no home directory, no global state, everything
+   addressed by the tenant.
 3. **No vacuously green assertion.** Every assertion has a mandatory threshold
    or a default that can fail. A default of 0 that always passes is a bug.
 4. **Cost and latency are budgets, not metrics.** A declared ceiling fails the

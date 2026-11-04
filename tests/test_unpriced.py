@@ -33,7 +33,11 @@ from digline.core import (
 )
 from digline.core.tokens import Minter
 from digline.run import CallPlan, Case, Response, Suite, execute
-from digline.run.driver import default_mapper, judge_totals
+from digline.run.driver import (
+    _knew_every_cost,  # pyright: ignore[reportPrivateUsage]
+    default_mapper,
+    judge_totals,
+)
 from digline.store import RunRef
 from digline.targets import Completion, ProviderTarget
 from digline.targets.judge import ScoreJudge
@@ -285,6 +289,53 @@ def test_a_judge_call_with_no_counts_is_uncounted_and_not_unpriced() -> None:
     judge("Output to judge:\nyes")
     assert (judge.calls, judge.uncounted_calls, judge.unpriced_calls) == (1, 1, 0)
     assert judge.unpriced_reasons == {}
+
+
+def test_a_judge_knows_every_cost_while_every_call_is_priced() -> None:
+    judge = ReplyingJudge(
+        Completion(text=VERDICT, usage=COUNTS), Completion(text=VERDICT, usage=COUNTS)
+    )
+    assert judge.every_cost_known is True
+    judge("Output to judge:\nyes")
+    judge("Output to judge:\nyes")
+    assert judge.spent_usd > 0
+    assert judge.every_cost_known is True
+
+
+def test_an_unpriced_judge_call_makes_the_cost_not_known_and_leaves_the_money() -> None:
+    """`spent_usd` does not move for the unpriced call, and the flag is what
+    says the figure is not the whole of it (#569)."""
+    judge = ReplyingJudge(
+        Completion(text=VERDICT, usage=COUNTS),
+        Completion(text=VERDICT, usage=COUNTS, unpriced=GEO),
+        Completion(text=VERDICT, usage=COUNTS),
+    )
+    judge("Output to judge:\nyes")
+    priced = judge.spent_usd
+    judge("Output to judge:\nyes")
+    assert judge.spent_usd == priced
+    assert judge.every_cost_known is False
+    judge("Output to judge:\nyes")
+    assert judge.every_cost_known is False, "monotone, like the counts"
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        pytest.param(Completion(text=VERDICT, usage=COUNTS), id="priced"),
+        pytest.param(Completion(text=VERDICT, usage=None), id="not recorded"),
+        pytest.param(
+            Completion(text=VERDICT, usage=COUNTS, unpriced=GEO), id="unpriced"
+        ),
+        pytest.param(Completion(text=VERDICT, usage=CACHED_READS), id="no rate"),
+    ],
+)
+def test_the_judges_reading_is_the_run_lines(reply: Completion) -> None:
+    """The same semantics as the judge line of a run: one reply of each
+    kind, read by the judge and by the driver's reading of its counts."""
+    judge = ReplyingJudge(reply)
+    judge("Output to judge:\nyes")
+    assert judge.every_cost_known is _knew_every_cost(judge)
 
 
 def test_the_judge_line_counts_an_unpriced_call_and_not_its_cost() -> None:

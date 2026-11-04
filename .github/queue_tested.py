@@ -3,20 +3,41 @@ on a merge-queue entry.
 
     python3 .github/queue_tested.py <sha>
 
-The event is read from `GITHUB_EVENT_NAME`, and each has its own question.
+The event is read from `GITHUB_EVENT_NAME`. Two answers are written:
+`gates`, which the `gates` legs read, and `tested`, which `readers`, `glyphs`
+and `image-touched` read on a push.
 
 **On a push to `main`.** The queue builds `main` plus the pull request on a
 `gh-readonly-queue/main/...` ref, runs `ci` there, and then moves `main` to
 **that same commit**. So the push carries a SHA the queue has already tested.
 It asks the API for every `ci` run with `event=merge_group` and
-`head_sha=<sha>`, reads the jobs of each one's latest attempt, and answers
-`tested=true` only when one of those runs has every job named in `REPEATED`
-concluded `success` and the image job `success` or `skipped`. A push that did
-not come through the queue has no such run and is tested in full.
+`head_sha=<sha>` and reads the jobs of each one's latest attempt.
+
+- `tested=true` only when one of those runs has every job named in `REPEATED`
+  concluded `success` and the image job `success` or `skipped`. A push that did
+  not come through the queue has no such run and is tested in full.
+- `gates=true` when one of those runs has the three `gates` legs concluded
+  `success`: the queue passed this tree, in full or by the tree condition
+  below, which is the only way its legs skip. Failing that, the tree condition
+  is asked of the pushed commit itself, the same three points as on a queue
+  entry. A tree that differs, and a commit that is not a merge of one head,
+  answer `false`.
+
+**Why the two were split, on 2026-11-03.** Until then the push had one answer,
+`tested`, and it skipped the `gates` legs only with the others. The queue
+merges as soon as the four required checks are green, and once its `gates`
+legs skip by the tree condition that takes about forty seconds, so `glyphs`
+and `image`, which are not required, are usually still running when `main`
+moves; their conclusion reads `None`, and the push ran the `gates` legs again
+in full on a tree that had passed them (`verdict` below has the run it was
+measured on, #772's). The `gates` legs read nothing outside the tree, so their
+skip no longer waits on jobs that do; `readers`, `glyphs` and `image-touched`
+still wait on `tested`, for the reason given below.
 
 **On a merge-queue entry.** `<sha>` is the commit the queue built: a merge whose
 first parent is what the entry is built on and whose second is the pull
-request's head. It answers `tested=true` only when all three hold:
+request's head. It answers `gates=true` only when all three hold (and
+`tested=false`, which nothing reads there):
 
 1. the commit's tree is the head's tree;
 2. the first parent is an ancestor of the head (`compare` reads `behind_by`
@@ -36,16 +57,17 @@ than one entry fails point 2 for every entry after the first, whose first
 parent is the entry before it, and is tested in full.
 
 **It fails towards testing.** An error reading the API prints `tested=false`
-and a warning, and exits 0: the price of a wrong `false` is one more run of
-the suite, and the price of a wrong `true` is an untested commit.
+and `gates=false` and a warning, and exits 0: the price of a wrong `false` is
+one more run of the suite, and the price of a wrong `true` is an untested
+commit.
 
-On a queue entry the answer skips only the steps of the `gates` legs, which
-are what repeats there: `readers`, `docs`, `glyphs` and the image read things
-outside the tree (the tags, the site, PyPI) that may have moved since the head
-ran, and they run. `gates` is skipped by its steps and not by its `if:`, so its
+The tree condition skips only the `gates` legs, which are what repeats:
+`readers`, `docs`, `glyphs` and the image read things outside the tree (the
+tags, the site, PyPI) that may have moved since the head ran, and they run.
+On a queue entry `gates` is skipped by its steps and not by its `if:`, so its
 three legs still report under their own names: a matrix job skipped whole
 reports one check, without the version, and the required `gates (3.12)` would
-never arrive.
+never arrive. On a push nothing is required, and the job is skipped whole.
 
 `docs` is not in `REPEATED`, and that is not an omission. On a push to `main`
 it runs the ordinary `--strict` build with the site's guard, where the queue
@@ -75,9 +97,10 @@ WORKFLOW = ".github/workflows/ci.yml"
 # equal to the matrix in ci.yml, so a version added there cannot be skipped
 # here without having been run in the queue.
 PYTHONS = ("3.12", "3.13", "3.14")
+GATES = tuple(f"gates ({python})" for python in PYTHONS)
 
 REPEATED = (
-    *(f"gates ({python})" for python in PYTHONS),
+    *GATES,
     "The old readers, built from their tags, where they may not skip",
     "The site's fonts set every character of these docs",
     "Does this change the image?",
@@ -123,6 +146,9 @@ def verdict(
     # run finished before the push, held only because the `gates` legs were
     # the slowest jobs, and the queue-side skip removed exactly that. It fails
     # towards testing, so nothing goes untested; it only cuts less.
+    # *Since 2026-11-03* this answers only for the three jobs that read outside
+    # the tree. The `gates` legs ask `gates_verdict`, which does not wait on
+    # `glyphs` or `image`: the module's docstring says why.
     reasons = []
     for run in queued:
         by_name = {
@@ -145,6 +171,41 @@ def verdict(
         False,
         "the queue's run did not run every repeated job green — " + " | ".join(reasons),
     )
+
+
+def gates_verdict(
+    sha: str, runs: list[dict[str, Any]], jobs: dict[int, list[dict[str, Any]]]
+) -> tuple[bool, str]:
+    """Pure, on the push: True when one queue run of `ci` on exactly `sha` has
+    the three `gates` legs green. A leg there is green by running in full on
+    this tree or by skipping on the tree condition, so either way the tree
+    passed them. Nothing else in the run is read."""
+    queued = [
+        run
+        for run in runs
+        if run.get("head_sha") == sha
+        and run.get("event") == "merge_group"
+        and run.get("path") == WORKFLOW
+    ]
+    reasons = []
+    for run in queued:
+        by_name = {
+            job["name"]: job.get("conclusion") for job in jobs.get(run["id"], [])
+        }
+        short = [
+            f"{name}: {by_name.get(name, 'missing')}"
+            for name in GATES
+            if by_name.get(name) != "success"
+        ]
+        if not short:
+            return (
+                True,
+                f"merge_group run {run['id']} passed the gates legs on {sha}",
+            )
+        reasons.append(f"run {run['id']}: " + "; ".join(short))
+    if not queued:
+        return False, f"no merge_group run of ci on {sha}"
+    return False, "the queue's run did not pass the gates legs — " + " | ".join(reasons)
 
 
 def tree_verdict(
@@ -204,26 +265,38 @@ def get(path: str) -> Any:
         return json.load(response)
 
 
-def read(sha: str) -> tuple[bool, str]:
+def read_tree(repo: str, sha: str) -> tuple[bool, str]:
+    """The tree condition on `sha`, read from the API."""
+    commit = get(f"repos/{repo}/git/commits/{sha}")
+    parents = [parent["sha"] for parent in commit["parents"]]
+    if len(parents) != 2:
+        return tree_verdict(sha, commit, {}, {}, [], {})
+    head = get(f"repos/{repo}/git/commits/{parents[1]}")
+    compare = get(f"repos/{repo}/compare/{parents[0]}...{parents[1]}")
+    prs = get(
+        f"repos/{repo}/actions/workflows/ci.yml/runs"
+        f"?head_sha={parents[1]}&event=pull_request&per_page=100"
+    )["workflow_runs"]
+    pr_jobs = {
+        run["id"]: get(f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")[
+            "jobs"
+        ]
+        for run in prs
+    }
+    return tree_verdict(sha, commit, head, compare, prs, pr_jobs)
+
+
+Answer = tuple[bool, str]
+
+
+def read(sha: str) -> tuple[Answer, Answer]:
+    """`(tested, gates)`."""
     repo = os.environ["GITHUB_REPOSITORY"]
     if os.environ.get("GITHUB_EVENT_NAME") == "merge_group":
-        commit = get(f"repos/{repo}/git/commits/{sha}")
-        parents = [parent["sha"] for parent in commit["parents"]]
-        if len(parents) != 2:
-            return tree_verdict(sha, commit, {}, {}, [], {})
-        head = get(f"repos/{repo}/git/commits/{parents[1]}")
-        compare = get(f"repos/{repo}/compare/{parents[0]}...{parents[1]}")
-        prs = get(
-            f"repos/{repo}/actions/workflows/ci.yml/runs"
-            f"?head_sha={parents[1]}&event=pull_request&per_page=100"
-        )["workflow_runs"]
-        pr_jobs = {
-            run["id"]: get(f"repos/{repo}/actions/runs/{run['id']}/jobs?per_page=100")[
-                "jobs"
-            ]
-            for run in prs
-        }
-        return tree_verdict(sha, commit, head, compare, prs, pr_jobs)
+        return (
+            (False, "a queue entry skips only the gates legs"),
+            read_tree(repo, sha),
+        )
     runs = get(
         f"repos/{repo}/actions/workflows/ci.yml/runs"
         f"?head_sha={sha}&event=merge_group&per_page=100"
@@ -234,7 +307,10 @@ def read(sha: str) -> tuple[bool, str]:
         ]
         for run in runs
     }
-    return verdict(sha, runs, jobs)
+    gates = gates_verdict(sha, runs, jobs)
+    if not gates[0]:
+        gates = read_tree(repo, sha)
+    return verdict(sha, runs, jobs), gates
 
 
 def main(argv: list[str]) -> int:
@@ -242,21 +318,23 @@ def main(argv: list[str]) -> int:
         print("usage: queue_tested.py <sha>", file=sys.stderr)
         return 2
     try:
-        tested, reason = read(argv[0])
+        (tested, reason), (gates, gates_reason) = read(argv[0])
     except (urllib.error.URLError, KeyError, ValueError, TimeoutError) as error:
-        tested, reason = (
-            False,
-            f"could not read what was already tested ({error}); testing in full",
-        )
+        reason = f"could not read what was already tested ({error}); testing in full"
+        tested, gates, gates_reason = False, False, reason
         print(f"::warning::{reason}")
-    print(reason)
-    line = f"tested={'true' if tested else 'false'}"
-    print(line)
+    lines = [
+        f"tested={'true' if tested else 'false'}",
+        "reason=" + " ".join(reason.split()),
+        f"gates={'true' if gates else 'false'}",
+        "gates_reason=" + " ".join(gates_reason.split()),
+    ]
+    for line in lines:
+        print(line)
     output = os.environ.get("GITHUB_OUTPUT")
     if output:
         with open(output, "a", encoding="utf-8") as handle:
-            handle.write(line + "\n")
-            handle.write("reason=" + " ".join(reason.split()) + "\n")
+            handle.write("\n".join(lines) + "\n")
     return 0
 
 

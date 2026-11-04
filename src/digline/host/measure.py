@@ -10,7 +10,8 @@ the layer both front ends already sit on (ADR 0011 §7, ADR 0017 §11).
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Generator, Mapping, Sequence
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Protocol
 
@@ -25,9 +26,11 @@ from digline.core import (
 )
 from digline.core.run import SCHEMA_VERSION
 from digline.host.environment import this_process
+from digline.recorder import collecting
 from digline.run import (
     CallPlan,
     Mapper,
+    Response,
     Suite,
     Target,
     default_mapper,
@@ -36,6 +39,7 @@ from digline.run import (
     judges,
     planned_calls,
     price_digest_of,
+    refuse_reviewed_answers,
     target_config,
 )
 from digline.store import (
@@ -49,12 +53,13 @@ from digline.store import (
     SupportsJournal,
     TenantMismatchError,
 )
-from digline.targets import HasObserved
+from digline.targets import Completion, HasObserved, ProviderTarget
 
 __all__ = [
     "JournallingStore",
     "Measured",
     "Prepared",
+    "around_target",
     "measure",
     "prepare",
     "refuse_unreadable_baseline",
@@ -140,7 +145,11 @@ def prepare(
     Every refusal here happens **before the first call of the new leg** — and
     before the journal is opened at all, which is the other half of the same
     promise: a refused resume costs no call *and* leaves no file behind.
+
+    A suite this build cannot run is the first of them: `execute` refuses it
+    too, and by then the journal would be open. (ADR 0059 §1)
     """
+    refuse_reviewed_answers(suite)
     header = JournalHeader(
         tenant=suite.tenant,
         environment=suite.environment,
@@ -356,6 +365,53 @@ def refuse_unreadable_baseline(
     ) from unreadable
 
 
+def around_target(
+    target: object,
+) -> Callable[[], AbstractContextManager[Callable[[Response], Response]]]:
+    """What a run enters around each call of its target: the collection of
+    the calls it makes through wrapped clients, priced by the target's own
+    list where it has one. (ADR 0060 §3)
+
+    A `ProviderTarget` has a list, the suite's declared prices or the
+    plugin's, and each collected call is priced at **the model the call
+    reports**, not the one the target was asked for: an agent may call two.
+    A call whose model the list does not have, or that reports none, is not
+    priced, and then the case's cost is not known. Any other target has no
+    list the run could read, and its collected calls are not priced.
+    """
+    if not isinstance(target, ProviderTarget):
+        return collecting
+    pricing = target.pricing
+
+    def price(call: Completion) -> tuple[float | None, str | None]:
+        if call.unpriced is not None:
+            return None, call.unpriced
+        usage = call.usage
+        if usage is None:
+            return None, None
+        if call.model is None:
+            return None, (
+                "a call collected from the target reported no model, so its "
+                "price list cannot price it"
+            )
+        if not pricing.knows(call.model):
+            return None, (
+                f"a call collected from the target reported the model "
+                f"{call.model!r}, which its price list does not have. Add it "
+                "with `pricing=` to price it"
+            )
+        why = pricing.why_unpriced(call.model, usage)
+        if why is not None:
+            return None, why
+        return pricing.cost(call.model, usage), None
+
+    def around() -> Generator[Callable[[Response], Response]]:
+        with collecting(price=price) as settle:
+            yield settle
+
+    return contextmanager(around)
+
+
 def measure(
     suite: Suite,
     target: Target,
@@ -400,6 +456,7 @@ def measure(
         spent=prepared.spent,
         on_case=journal.append,
         on_unpriced=unpriced.append,
+        around_target=around_target(target),
     )
     ref = store.write_run(run)
     journal.complete()

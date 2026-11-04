@@ -43,6 +43,7 @@ from digline.core.types import (
     Verdict,
     at_precision,
     canonical,
+    collapsing,
     declared_floor,
     meets,
     normalize_output,
@@ -55,6 +56,7 @@ __all__ = [
     "AssertionBase",
     "ASSERTION_MEMBERS",
     "AssertionShapeError",
+    "Before",
     "Contains",
     "CostBudget",
     "Equals",
@@ -65,9 +67,12 @@ __all__ = [
     "Length",
     "Levenshtein",
     "LlmRubric",
+    "MaxSteps",
+    "Never",
     "NotContains",
     "PiiAbsent",
     "Regex",
+    "Subsequence",
     "ToolCalledWith",
     "ToolsCalled",
     "budget_score",
@@ -1388,10 +1393,11 @@ class ToolCalledWith(AssertionBase):
     set's elements go through `str` and are sorted. Any other value — not
     `None`, `bool`, `int`, `str`, `float`, `bytes` or `bytearray`, a `Mapping`,
     an `AbstractSet`, a `Sequence`, or a dataclass instance — becomes
-    `"<TypeName>"`. So a declared argument of such a type does not
-    discriminate: against an object of the same type it always matches, and
-    against a value decoded from JSON it matches only the string
-    `"<TypeName>"`.
+    `"<TypeName>"`. Such an argument could not discriminate: against an
+    object of the same type it would always match, and against a value
+    decoded from JSON only the string `"<TypeName>"`. So it is **refused when
+    the check is built**, with the path to it and what to declare instead: a
+    date or a time as its ISO 8601 text. (ADR 0018 §5, noted 2026-11-04)
 
     Nothing the model sent reaches `Score.metadata` — only how much of what was
     declared matched. An argument is the end company's data by construction, and
@@ -1422,6 +1428,19 @@ class ToolCalledWith(AssertionBase):
         if self.match not in ("exact", "subset"):
             raise RefusedError(
                 f"ToolCalledWith.match must be 'exact' or 'subset', got {self.match!r}"
+            )
+        # A value `canonical` reduces to its type's name cannot be checked:
+        # refused when the suite is written, not met in a verdict. (ADR 0018
+        # §5, noted 2026-11-04)
+        found = collapsing(dict(self.arguments))
+        if found is not None:
+            at, name = found
+            raise RefusedError(
+                f"ToolCalledWith.arguments{at} is a {name}, which digline "
+                f"compares as the text '<{name}>': it would match only that "
+                f"text, or any other {name}. Declare the value the way the "
+                "model sends it: a date or a time as its ISO 8601 text, in "
+                "quotes in a TOML suite."
             )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
@@ -1546,6 +1565,457 @@ class ToolCalledWith(AssertionBase):
             return None
         return cast(
             "Mapping[str, object]", canonical(dict(cast("Mapping[str, object]", raw)))
+        )
+
+
+#: The two actors a step may have, as `steps_of` writes them. (ADR 0060 §1)
+type StepActor = Literal["model", "tool"]
+
+
+@dataclass(frozen=True, slots=True)
+class _Trajectory:
+    """What a trajectory check read: the names of the tool steps in order,
+    `None` where a call was not named, and how many steps of each actor.
+    `model` is `None` where the names were read from `tools`, which says
+    nothing of the model's turns."""
+
+    names: list[str | None]
+    model: int | None
+
+
+def _absent(check: str, *, steps_only: bool) -> str:
+    """Why a trajectory check has nothing to read, naming the key it reads,
+    how a function fills it, and `wrap()`. (ADR 0060 §3, §4)"""
+    read = (
+        "it counts the steps under `steps` in the response's metadata"
+        if steps_only
+        else "it reads the steps under `steps` in the response's metadata, or "
+        "else the names under `tools`"
+    )
+    return (
+        f"this target reports no {'steps' if steps_only else 'steps and no tool calls'}"
+        f", so {check} cannot be judged: {read}. A provider target fills them "
+        "where its provider reports tool calls; a run fills them from the calls "
+        "a target makes through a client wrapped with digline.recorder.wrap(); "
+        "a function target fills them itself, with "
+        'Response(metadata={"steps": [...]})'
+    )
+
+
+def _trajectory(
+    check: AssertionBase, inputs: EvaluatorInputs, *, steps_only: bool
+) -> _Trajectory | Verdict:
+    """The trajectory a check reads, or the `error` that says why it cannot
+    be read. (ADR 0060 §4)
+
+    `steps` first, and the names of its `tool` steps. Where `steps` is absent,
+    the names under `tools`, as `ToolsCalled` reads them, unless the check
+    needs the steps themselves: counting turns from tool calls would read
+    three calls of one turn as three turns.
+
+    **Absent is not empty**, and a reply that contradicts itself is not read:
+    a `model` step that ended on `tool_use` with no `tool` step after it, and
+    steps that name other calls than `tool_calls` or `tools` beside them, are
+    each an `error`, never a verdict on what the model did.
+    """
+    reported = _reported(inputs)
+    steps = reported.get("steps")
+    if steps is None:
+        if steps_only:
+            return check._error(_absent(check.name, steps_only=True))  # pyright: ignore[reportPrivateUsage]
+        tools = reported.get("tools")
+        if tools is None:
+            return check._error(_absent(check.name, steps_only=False))  # pyright: ignore[reportPrivateUsage]
+        listed = _names_of(tools)
+        if listed is None:
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                f"the target reported its tool calls as {_shape(tools)}, not a "
+                "list of names: there is no trajectory to read"
+            )
+        if reported.get("finish") == "tool_use" and not listed:
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                "the provider reported that the turn ended on a tool call and "
+                "then named no tool: the trajectory cannot be read from a reply "
+                "that disagrees with itself"
+            )
+        return _Trajectory(names=listed, model=None)
+
+    if isinstance(steps, str) or not isinstance(steps, list | tuple):
+        return check._error(  # pyright: ignore[reportPrivateUsage]
+            f"the target reported its steps as {_shape(steps)}, not a list of "
+            "steps: there is no trajectory to read"
+        )
+    names: list[str | None] = []
+    model = 0
+    entries = list(cast("Sequence[object]", steps))
+    for at, entry in enumerate(entries):
+        actor = (
+            cast("Mapping[str, object]", entry).get("actor")
+            if isinstance(entry, Mapping)
+            else None
+        )
+        if actor not in ("model", "tool"):
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                f"step {at} is not a mapping with an `actor` of 'model' or "
+                "'tool': there is no trajectory to read"
+            )
+        step = cast("Mapping[str, object]", entry)
+        if actor == "model":
+            model += 1
+            following = entries[at + 1] if at + 1 < len(entries) else None
+            if step.get("finish") == "tool_use" and not (
+                isinstance(following, Mapping)
+                and cast("Mapping[str, object]", following).get("actor") == "tool"
+            ):
+                return check._error(  # pyright: ignore[reportPrivateUsage]
+                    f"model step {at} reported that the turn ended on a tool "
+                    "call and no tool step follows it: the trajectory cannot "
+                    "be read from a reply that disagrees with itself"
+                )
+            continue
+        if "tool" not in step:
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                f"tool step {at} carries no `tool`: a call whose tool nobody "
+                'named says so with "tool": None'
+            )
+        name = step["tool"]
+        if name is not None and (not isinstance(name, str) or not name):
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                f"tool step {at} names its tool by {type(name).__name__} "
+                f"{name!r}, not by a name: there is no trajectory to read"
+            )
+        names.append(name)
+
+    # Two reports of one set of calls, read beside each other: a target whose
+    # steps and calls disagree would have two checks judge two trajectories
+    # of one reply, which `Completion` refuses at its source.
+    for key in ("tool_calls", "tools"):
+        beside = reported.get(key)
+        if beside is None:
+            continue
+        other = _names_of(beside) if key == "tools" else _call_names(beside)
+        if other != names:
+            return check._error(  # pyright: ignore[reportPrivateUsage]
+                f"the target's steps and its `{key}` name different calls: "
+                f"{_named(names)} against "
+                f"{'an unreadable list' if other is None else _named(other)}. "
+                "The trajectory cannot be read from a report that disagrees "
+                "with itself"
+            )
+    return _Trajectory(names=names, model=model)
+
+
+def _shape(value: object) -> str:
+    return f"a {type(value).__name__}"
+
+
+def _names_of(found: object) -> list[str | None] | None:
+    """The names under `tools`, or `None` where they are not a list of names
+    and declared absences of one."""
+    if isinstance(found, str) or not isinstance(found, list | tuple):
+        return None
+    names: list[str | None] = []
+    for name in cast("Sequence[object]", found):
+        if name is not None and (not isinstance(name, str) or not name):
+            return None
+        names.append(name)
+    return names
+
+
+def _call_names(found: object) -> list[str | None] | None:
+    """The tool each call under `tool_calls` names, or `None` where the list
+    cannot be read as calls."""
+    if isinstance(found, str) or not isinstance(found, list | tuple):
+        return None
+    names: list[str | None] = []
+    for entry in cast("Sequence[object]", found):
+        if not isinstance(entry, Mapping):
+            return None
+        name = cast("Mapping[str, object]", entry).get("tool")
+        if name is not None and (not isinstance(name, str) or not name):
+            return None
+        names.append(name)
+    return names
+
+
+def _a_name(check: str, field_name: str, value: object) -> None:
+    if not isinstance(value, str) or not value:
+        raise RefusedError(
+            f"{check}.{field_name} must be a tool's name, a non-empty string: a "
+            "check on a call to nothing is a check on nothing"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Subsequence(AssertionBase):
+    """These tools, in this order, with anything between them.
+
+        Subsequence(tools=["lookup_order", "issue_refund"])
+
+    Where `ToolsCalled` asks for the whole sequence, this asks for these calls
+    in this order and lets the agent do what else it needs between them: a
+    second lookup, a policy check. Read from the names of the response's `tool`
+    steps, or, where it reports no steps, from `tools`. (ADR 0060 §4)
+
+    `tools` is **mandatory and has no default**, and empty is refused: a
+    subsequence of nothing is found in every trajectory, which is fixed
+    decision 3's vacuously green assertion.
+
+    A call nobody named decides this verdict only where it turns on it: the
+    check passes where the named calls already hold the subsequence, fails
+    where no reading of the unnamed calls could, and errors in between.
+    (ADR 0018 §1, amended 2026-09-17)
+    """
+
+    tools: Sequence[str]
+    name: str = "subsequence"
+    KIND: ClassVar[CheckKind] = "deterministic"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __post_init__(self) -> None:
+        if isinstance(self.tools, str):
+            raise RefusedError(
+                "Subsequence.tools must be a list of tools' names, not one "
+                f"string: {self.tools!r} would be read letter by letter"
+            )
+        if not self.tools:
+            raise RefusedError(
+                "Subsequence.tools must not be empty: a subsequence of nothing "
+                "is found in every trajectory"
+            )
+        for tool in self.tools:
+            _a_name("Subsequence", "tools", tool)
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        read = _trajectory(self, inputs, steps_only=False)
+        if isinstance(read, Verdict):
+            return read
+        want = list(self.tools)
+        matched = _in_order(want, read.names, unnamed_match=False)
+        metadata: dict[str, object] = {
+            "matched": matched,
+            "expected": len(want),
+            "tool_steps": len(read.names),
+            "called": list(read.names),
+        }
+        if matched == len(want):
+            return self._graded(
+                1.0,
+                f"called {_named(want)} in this order, among {_named(read.names)}",
+                metadata=metadata,
+            )
+        if _in_order(want, read.names, unnamed_match=True) == len(want):
+            return self._error(
+                f"{matched} of {len(want)} expected call(s) were found in order, "
+                "and the rest could be calls reported without the name of their "
+                "tool: whether the order holds is decided by a name nobody "
+                "reported"
+            )
+        return self._graded(
+            0.0,
+            f"called {_named(read.names)}: {matched} of {len(want)} of "
+            f"{_named(want)} found in this order",
+            metadata=metadata,
+        )
+
+
+def _in_order(
+    want: Sequence[str], called: Sequence[str | None], *, unnamed_match: bool
+) -> int:
+    """How many of `want` are found in `called` in order, taking each at its
+    earliest place, which finds the most. An unnamed call matches anything
+    where `unnamed_match`, and nothing otherwise."""
+    found = 0
+    for name in called:
+        if found == len(want):
+            break
+        if name == want[found] or (name is None and unnamed_match):
+            found += 1
+    return found
+
+
+@dataclass(frozen=True, slots=True)
+class Before(AssertionBase):
+    """No call to `then` without a call to `first` before it.
+
+        Before(first="lookup_order", then="issue_refund")
+
+    The rule an agent keeps when one action must be prepared by another: it
+    looks the order up before it refunds it. **It passes where `then` was never
+    called**, and that is not vacuous: it fails on a `then` with no `first`
+    before it, and its metadata says how many times `then` was called. *Both,
+    and in this order* is `Subsequence([first, then])`. (ADR 0060 §4)
+
+    Read from the names of the response's `tool` steps, or, where it reports
+    no steps, from `tools`. A call nobody named decides the verdict only where
+    it turns on it: read as `first` and as `then`, if the two readings
+    disagree, the check errors. (ADR 0018 §1, amended 2026-09-17)
+    """
+
+    first: str
+    then: str
+    name: str = "before"
+    KIND: ClassVar[CheckKind] = "deterministic"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __post_init__(self) -> None:
+        _a_name("Before", "first", self.first)
+        _a_name("Before", "then", self.then)
+        if self.first == self.then:
+            raise RefusedError(
+                f"Before.first and Before.then are both {self.first!r}: a call "
+                "cannot come before itself"
+            )
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        read = _trajectory(self, inputs, steps_only=False)
+        if isinstance(read, Verdict):
+            return read
+        named = self._violations(read.names, unnamed=None)
+        metadata: dict[str, object] = {
+            "violations": named,
+            "first_calls": read.names.count(self.first),
+            "then_calls": read.names.count(self.then),
+        }
+        # An unnamed call read the kindest way, as `first`, and the harshest,
+        # as `then`: where the two agree, it did not decide.
+        best = self._violations(read.names, unnamed=self.first)
+        worst = self._violations(read.names, unnamed=self.then)
+        if best > 0:
+            return self._graded(
+                0.0,
+                f"{best} call(s) to {self.then!r} with no call to {self.first!r} "
+                f"before it, in {_named(read.names)}",
+                metadata=metadata,
+            )
+        if worst > 0:
+            return self._error(
+                f"a call reported without the name of its tool could be "
+                f"{self.then!r} before any {self.first!r}: whether the order "
+                "holds is decided by a name nobody reported"
+            )
+        return self._graded(
+            1.0,
+            f"every call to {self.then!r} came after a call to {self.first!r}"
+            if metadata["then_calls"]
+            else f"{self.then!r} was not called",
+            metadata=metadata,
+        )
+
+    def _violations(self, called: Sequence[str | None], *, unnamed: str | None) -> int:
+        """The calls to `then` with no `first` before them, an unnamed call
+        read as `unnamed`."""
+        seen = False
+        count = 0
+        for name in called:
+            read = unnamed if name is None else name
+            if read == self.first:
+                seen = True
+            elif read == self.then and not seen:
+                count += 1
+        return count
+
+
+@dataclass(frozen=True, slots=True)
+class Never(AssertionBase):
+    """A tool the model must never call.
+
+        Never(tool="delete_account")
+
+    Fails on the first call to `tool`, and its metadata counts them. Read from
+    the names of the response's `tool` steps, or, where it reports no steps,
+    from `tools`. A call nobody named errors the check where no named call
+    already failed it: it may be the one forbidden. (ADR 0060 §4; ADR 0018 §1,
+    amended 2026-09-17)
+    """
+
+    tool: str
+    name: str = "never"
+    KIND: ClassVar[CheckKind] = "deterministic"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __post_init__(self) -> None:
+        _a_name("Never", "tool", self.tool)
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        read = _trajectory(self, inputs, steps_only=False)
+        if isinstance(read, Verdict):
+            return read
+        occurrences = read.names.count(self.tool)
+        if occurrences:
+            return self._graded(
+                0.0,
+                f"{self.tool!r} was called {occurrences} time(s)",
+                metadata={"occurrences": occurrences},
+            )
+        if None in read.names:
+            return self._error(
+                f"{read.names.count(None)} call(s) were reported without the "
+                f"name of their tool, and any of them could be {self.tool!r}: "
+                "whether it was called is decided by a name nobody reported"
+            )
+        return self._graded(
+            1.0, f"{self.tool!r} was not called", metadata={"occurrences": 0}
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MaxSteps(AssertionBase):
+    """At most `limit` steps of one actor: the model's turns, or its tool calls.
+
+        MaxSteps(limit=6, count="model")
+
+    The bound on an agent that loops: it answered within six turns. Read from
+    the response's `steps` alone, with no fallback on `tools`: counting turns
+    from tool calls would read three calls of one turn as three turns. A
+    response with no steps errors, and the sentence says how they are filled.
+    (ADR 0060 §4)
+
+    `limit` and `count` are **mandatory and have no default**: a limit nobody
+    chose is a default that cannot fail, and *steps* without an actor is two
+    different counts under one name. A `limit` below 1 is refused.
+    """
+
+    limit: int
+    count: StepActor
+    name: str = "max_steps"
+    KIND: ClassVar[CheckKind] = "deterministic"
+    threshold: float = 1.0
+    tolerance: float = 0.0
+    floor_standard_errors: float | None = field(default=None, kw_only=True)
+    accepts: frozenset[OutputKind] = ALL_KINDS
+
+    def __post_init__(self) -> None:
+        # `bool` is an `int` in Python, and `True` is not a number of steps.
+        if type(self.limit) is not int or self.limit < 1:
+            raise RefusedError(
+                f"MaxSteps.limit must be an integer from 1, got {self.limit!r}: "
+                "an agent that may take no step cannot be asked anything"
+            )
+        if self.count not in ("model", "tool"):
+            raise RefusedError(
+                f"MaxSteps.count must be 'model' or 'tool', got {self.count!r}: "
+                "the model's turns and its tool calls are two different counts"
+            )
+
+    def __call__(self, inputs: EvaluatorInputs) -> Verdict:
+        read = _trajectory(self, inputs, steps_only=True)
+        if isinstance(read, Verdict):
+            return read
+        steps = len(read.names) if self.count == "tool" else cast(int, read.model)
+        return self._graded(
+            1.0 if steps <= self.limit else 0.0,
+            f"{steps} {self.count} step(s), at most {self.limit} allowed",
+            metadata={"steps": steps, "limit": self.limit},
         )
 
 

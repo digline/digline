@@ -406,8 +406,16 @@ def test_the_price_list_does_not_keep_the_last_calls_geography(
 
 def test_the_multiplier_is_the_published_one() -> None:
     """Read on 2026-10-03 from Anthropic's pricing page, *Data residency
-    pricing*. Here so that changing it is a change somebody reads."""
-    assert GEO_MULTIPLIERS == {None: 1.0, "global": 1.0, "us": 1.1}
+    pricing*. Here so that changing it is a change somebody reads.
+
+    `"not_available"` joined on 2026-11-03: a model without the parameter, at
+    the standard rate the data-residency page gives older models."""
+    assert GEO_MULTIPLIERS == {
+        None: 1.0,
+        "global": 1.0,
+        "us": 1.1,
+        "not_available": 1.0,
+    }
 
 
 def test_a_reply_without_the_split_is_priced_as_before() -> None:

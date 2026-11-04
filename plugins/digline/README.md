@@ -16,8 +16,10 @@ This plugin is how it reaches you. It ships:
   explains, and **cannot promote a baseline, because approval is a person's
   commit**. `promote` is not disabled there; it is absent, and there is no tool
   that could do it ([`docs/mcp.md`](../../docs/mcp.md));
-- **a hook that asks you before `digline promote` and `digline register`** —
-  see below for what it is and what it is not.
+- **a hook that asks you before `digline promote`, `digline register`,
+  `digline view --allow-promote`, `digline record import` with `--good` or
+  `--bad`, and `digline record on`** — see below for what it is and what it is
+  not.
 
 ## Install: two lines plus one dependency
 
@@ -87,8 +89,13 @@ the next, the answer holds for one execution, not for a session.
 ## The hook is a preference, not a wall
 
 When a shell command runs `digline promote` or `digline register`, the hook
-stops and asks you. It reads the command from its first word, so a `grep` or
-a commit message that mentions either one is not asked about. It only speaks
+stops and asks you. It does the same for `digline view --allow-promote`, an
+import that writes a yes or no (`digline record import` with `--good` or
+`--bad`, under your `--by`), and `digline record on`, which decides what of an
+application's calls is kept; the listing, `record off`, `record status` and
+`record compare` only read and are not asked about. It reads the command from
+its first word, so a `grep` or a commit message that mentions one is not asked
+about. It only speaks
 in a project with `.digline/` at its root and a `.venv` to run in. Both commit a person's judgement. `promote` makes a run the
 approved reference, and `register` records what somebody decided about a
 comparison, so an agent recording one is taking the same decision from you.

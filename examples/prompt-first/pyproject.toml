@@ -13,7 +13,7 @@ dependencies = [
     # that gate's specification (RELEASING.md, step 5). The cap is the next
     # major: from 1.0.0 a minor breaks no public Python signature.
     "digline>=0.35.0,<2",
-    "digline-anthropic>=0.4,<0.8",
+    "digline-anthropic>=0.4,<0.9",
 ]
 
 [dependency-groups]

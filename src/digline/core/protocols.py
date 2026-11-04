@@ -4,7 +4,8 @@ touches the outside world, it receives it injected.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager
 from typing import Protocol, runtime_checkable
 
 from digline.core.types import (
@@ -17,6 +18,7 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "AroundTarget",
     "Assertion",
     "AsyncJudge",
     "ClaimJudge",
@@ -25,6 +27,24 @@ __all__ = [
     "Judge",
     "JudgeAbstained",
 ]
+
+
+class AroundTarget[R](Protocol):
+    """What `execute()` enters around each call of the target, and only that
+    call. (ADR 0060 §3)
+
+    Called once per call, it gives a context manager; entering it gives
+    `settle`, which the driver applies to the response the target returned,
+    before the assertions read it. The manager is left before they run, so
+    nothing an assertion's judge calls is inside it.
+
+    A protocol and not a function the driver knows, because what settles a
+    response lives above the driver: `digline.host` passes
+    `digline.recorder.collecting`, which reads the calls a wrapped client made
+    with the plugins' code, and the driver imports nothing from up there.
+    """
+
+    def __call__(self) -> AbstractContextManager[Callable[[R], R]]: ...
 
 
 @runtime_checkable
