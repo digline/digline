@@ -159,7 +159,9 @@ computed for `{"max_tokens": 64, "model": "claude-haiku-4-5"}` was
   writer build the response without it, and ADR 0059's import refuses an
   answer without its question. So no answer recorded in process can be
   written as a reviewed answer today. §2 rules `input`, and the in-process
-  recorder owes it (§2, *What the contract costs*).
+  recorder owes it (§2, *What the contract costs*). *Added 2026-11-04:* #901
+  writes it, apart from this record and before its acceptance, in the form
+  §2 rules.
 
 ## Decision
 
@@ -215,8 +217,11 @@ to it.
   (`text`, `structured` or `conversation`), `input`, `latency_ms`, `usage`
   (`input_tokens`, `output_tokens`, and the cache and thinking counts where
   reported), `tool_calls`, and `withheld` or `oversize` where they apply.
-- **`input`, *decided here*: the JSON text of the call's `messages`**, as the
-  provider received them. It is the question a judge reads beside the answer,
+- **`input`, *decided here*: the JSON text of the case's `messages`**, and
+  for an episode the JSON text of its whole `case`, never the request the
+  provider received. The instructions a map moves out of the messages belong
+  to the setup, and the case is what the import groups answers by, so one
+  answer has one input. It is the question a judge reads beside the answer,
   and ADR 0059's import refuses an answer without it.
 - **A step**: `index` from 0 in order, `actor` `model` or `tool`, a model
   step's `finish` where one was reported, and a tool step's call in the run
@@ -375,7 +380,8 @@ other people write**, so a change to it is a change to a contract, and a
 field is added the way an `OUTPUT_VERSION` key is: additive, or a new version.
 
 **The in-process recorder is corrected by this record's first item**: without
-`input`, no answer it records can become a reviewed answer.
+`input`, no answer it records can become a reviewed answer. That part went
+ahead on its own, as #901.
 
 ## Not decided here
 
