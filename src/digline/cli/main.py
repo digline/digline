@@ -1190,6 +1190,7 @@ def cmd_view(args: argparse.Namespace) -> int:
         allow_record=args.allow_record,
         root=args.root,
         module=loaded.module,
+        suite_arg=args.suite,
     )
     return EXIT_OK
 
@@ -2013,8 +2014,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--allow-record",
         action="store_true",
         help=(
-            "serve the writes that arrive after the recorder's views; this "
-            "release has none yet, and accepts the flag"
+            "serve the recorder's two writes, the switch on and off and "
+            "recorded answers imported, for the browser that opens the address "
+            "it prints; without it the recorder's pages only read"
         ),
     )
     view_p.set_defaults(func=cmd_view)

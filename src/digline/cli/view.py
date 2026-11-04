@@ -87,6 +87,7 @@ from digline.core import RefusedError, key_of
 from digline.host import (
     REFUSALS,
     SuiteRuns,
+    import_elect,
     import_listing,
     imported_since,
     left_out_parts,
@@ -94,6 +95,8 @@ from digline.host import (
     record_compare,
     recorder_status,
     suite_runs,
+    switch_off,
+    switch_on,
     utc_now_iso,
 )
 from digline.report import (
@@ -395,10 +398,12 @@ class ViewHandler(BaseHTTPRequestHandler):
         pricing: str = "",
         known: AbstractSet[str] = frozenset(),
         launch: Launch | None = None,
+        promote: bool = True,
         allow_record: bool = False,
         extensions: Mapping[str, Extension] | None = None,
         root: str = "",
         module: ModuleType | None = None,
+        suite_arg: str = "",
         **kwargs: object,
     ) -> None:
         self.suite = suite
@@ -406,10 +411,15 @@ class ViewHandler(BaseHTTPRequestHandler):
         #: The module the suite was loaded from, which says where its capture
         #: file is when the suite names it relative to its own file.
         self.module = module
-        #: Whether `--allow-record` was typed. The recorder's views read with
-        #: or without it; the two writes it serves arrive after them, and until
-        #: then there is no form and no route for it (ADR 0061 §4).
-        self.allow_record = allow_record
+        #: Whether this server writes the recorder's switch and a suite's
+        #: cases: `--allow-record` was typed, and there is a key for it to
+        #: answer to. Like promotion, **one fact read twice**, by the page that
+        #: draws the forms and by `do_POST` that finds the routes (ADR 0061
+        #: §4, ADR 0032 §1-2).
+        self.allow_record = allow_record and launch is not None
+        #: `--suite` as the person gave it, which the line under a button
+        #: repeats, so the command it shows is the one they would type.
+        self.suite_arg = suite_arg
         #: The views other packages declared, by name, read when the server
         #: started and loaded only when one is asked for (ADR 0061 §5).
         self.extensions: Mapping[str, Extension] = extensions or {}
@@ -427,7 +437,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         #: separately is a page that eventually offers a button the route
         #: rejects. Empty by default is the same asymmetry as the flag's: the
         #: cheap mistake is the one a default should make. (ADR 0032 §1-2)
-        self.allow_promote = launch is not None
+        #: `promote` is false on a server started with `--allow-record` alone,
+        #: where the key serves the recorder's writes and not promotion.
+        self.allow_promote = launch is not None and promote
         #: The netlocs that name this server, from where it bound — not from
         #: anything the request says. `serve()` computes them once.
         self.known = known
@@ -523,8 +535,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         # address family, a Unix path included, and has no port to index.
         return launch_cookie(int(self.connection.getsockname()[1]))
 
-    def _without_the_session(self) -> str:
-        """Why this request may not promote, or empty when it may.
+    def _without_the_session(self, act: str = "promotes") -> str:
+        """Why this request may not write, or empty when it may. `act` says
+        what this server does for the browser that opened its address.
 
         **What the request carried, never what the browser did** (ADR 0033 §11,
         K-3). The server cannot see a browser; it sees a header. It used to say
@@ -538,8 +551,8 @@ class ViewHandler(BaseHTTPRequestHandler):
             return ""
         if not values:
             return (
-                "refused: this request carries no cookie from this server. It "
-                "promotes only for the browser that opened the address digline "
+                f"refused: this request carries no cookie from this server. It "
+                f"{act} only for the browser that opened the address digline "
                 "view printed when it started; a script or another browser has "
                 "none."
             )
@@ -849,7 +862,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not answer:
             self._page(
                 recorder_pages.recordings_page(
-                    found, locale=locale, allow_record=self.allow_record
+                    found, locale=locale, writes=self._import_flags(tenant)
                 ),
                 here="recordings",
                 locale=locale,
@@ -923,11 +936,30 @@ class ViewHandler(BaseHTTPRequestHandler):
                 status,
                 suite=self.suite.name,
                 locale=locale,
-                allow_record=self.allow_record,
+                writes=self._switch_flags(tenant),
             ),
             here="recorder",
             locale=locale,
         )
+
+    def _root_flags(self) -> list[str]:
+        """`--root` as the server was started with it, where it is not the
+        default: the command under a button names the same store."""
+        return [] if self.root in ("", ".") else ["--root", self.root]
+
+    def _switch_flags(self, tenant: str) -> list[str] | None:
+        """What every `digline record on|off` under a button carries, or `None`
+        on a server that does not write."""
+        if not self.allow_record:
+            return None
+        return ["--tenant", tenant, *self._root_flags()]
+
+    def _import_flags(self, tenant: str) -> list[str] | None:
+        """What `digline record import` under the button carries, or `None` on
+        a server that does not write."""
+        if not self.allow_record:
+            return None
+        return ["--tenant", tenant, "--suite", self.suite_arg, *self._root_flags()]
 
     def _static(self, path: str) -> None:
         """One of the server's own files: the sheet, uPlot, or digline's script.
@@ -1016,7 +1048,8 @@ class ViewHandler(BaseHTTPRequestHandler):
         if not self._addressed_to_us():
             return
         path, _query = self._query()
-        if path != "/promote" or not self.allow_promote:
+        route = self._write_route(path)
+        if route is None:
             self._error(404, f"no such action: {path}")
             return
         if not _allowed_origin(self.headers.get("Origin", ""), self.known):
@@ -1024,7 +1057,12 @@ class ViewHandler(BaseHTTPRequestHandler):
             # indistinguishable from a promotion that happened.
             self._error(403, "refused: this request came from another origin")
             return
-        refused = self._without_the_session()
+        act = (
+            "promotes"
+            if route[0] == "promote"
+            else "writes the recorder's switch and a suite's cases"
+        )
+        refused = self._without_the_session(act)
         if refused:
             # After the origin check, so a cross-origin POST is still refused
             # in the words that say so; and before the form is read, so
@@ -1037,6 +1075,12 @@ class ViewHandler(BaseHTTPRequestHandler):
             return
         form = urllib.parse.parse_qs(body.decode("utf-8"))
         locale: Locale = pages.locale_of(form)
+        if route[0] == "switch":
+            self._post_switch(locale, route[1], form)
+            return
+        if route[0] == "import":
+            self._post_import(locale, route[1], form)
+            return
         key = (form.get("run") or [""])[0]
         if not key:
             self._error(400, "promote needs a run")
@@ -1076,6 +1120,96 @@ class ViewHandler(BaseHTTPRequestHandler):
             locale, pages.phrase(locale, "view.promote.done", run_key=key)
         )
 
+    def _write_route(self, path: str) -> tuple[str, str] | None:
+        """The write `path` names on this server, and its tenant, or `None`.
+
+        `/promote` exists under `--allow-promote`; the recorder's page and the
+        recordings of this server's suite take a POST under `--allow-record`.
+        Without the flag the route is absent, and the POST gets the 404 every
+        unknown path gets (ADR 0032 §2, ADR 0061 §4).
+        """
+        if path == "/promote":
+            return ("promote", "") if self.allow_promote else None
+        if not self.allow_record:
+            return None
+        if path.startswith("/recorder/"):
+            parts = self._segments(path, "/recorder/", 1)
+            if parts is not None and not parts[1]:
+                return ("switch", parts[0])
+        if path.startswith("/recordings/"):
+            parts = self._segments(path, "/recordings/", 2)
+            if parts is not None and not parts[2] and parts[1] == self.suite.name:
+                return ("import", parts[0])
+        return None
+
+    def _post_switch(
+        self, locale: Locale, tenant: str, form: Mapping[str, Sequence[str]]
+    ) -> None:
+        """`digline record on` or `off`, with the values the form carries, through
+        `switch_on` and `switch_off`; a 303 to the recorder's page, which reads
+        the file back. An empty field is a flag not given."""
+        action = (form.get("action") or [""])[0]
+        root = Path(self.root)
+        try:
+            if action == "off":
+                switch_off(root, tenant)
+            elif action == "on":
+                switch_on(
+                    root,
+                    tenant,
+                    production=bool((form.get("production") or [""])[0]),
+                    sample=_number(form, "sample", float),
+                    redact=(form.get("redact") or [""])[0] or None,
+                    ceiling=_number(form, "ceiling", int),
+                    interval=_number(form, "interval", float),
+                )
+            else:
+                self._error(400, "refused: the form names no action, on or off")
+                return
+        except REFUSALS as exc:
+            self._refused(locale, str(exc))
+            return
+        self._see_other(pages.recorder_address(tenant), locale)
+
+    def _post_import(
+        self, locale: Locale, tenant: str, form: Mapping[str, Sequence[str]]
+    ) -> None:
+        """`digline record import --good ID --bad ID --by NAME`, through
+        `import_listing` and `import_elect` with what the form named, in the
+        form's order; a 303 to the recordings, which read the file back. The
+        mark is the one typed in the form and read from nowhere else (ADR 0061
+        §2)."""
+        good: list[str] = []
+        bad: list[str] = []
+        for name, values in form.items():
+            if not name.startswith("answer:"):
+                continue
+            for value in values:
+                {"good": good, "bad": bad}.get(value, []).append(name[len("answer:") :])
+        by = (form.get("by") or [None])[0]
+        try:
+            found = import_listing(Path(self.root), self.suite, self.module, tenant)
+            import_elect(found, good=good, bad=bad, by=by)
+        except REFUSALS as exc:
+            self._refused(locale, str(exc))
+            return
+        self._see_other(pages.recordings_address(tenant, self.suite.name), locale)
+
+    def _refused(self, locale: Locale, why: str) -> None:
+        """A write the host refused, in the sentence the command prints, and
+        nothing written: a 400, never the 303 of a write that happened."""
+        self._error(400, pages.phrase(locale, "view.write.refused", why=why))
+
+    def _see_other(self, address: str, locale: Locale) -> None:
+        """A write that happened: a 303 to the page that reads what it wrote,
+        so a reload reads and never writes again (ADR 0061 §4.2)."""
+        self.send_response(303)
+        self.send_header("Location", f"{address}?locale={locale}")
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self._policy()
+        self.end_headers()
+
     def _form_body(self) -> bytes | None:
         """The body `Content-Length` declares, or `None` once refused.
 
@@ -1096,7 +1230,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         if length > MAX_FORM_BYTES:
             self._error(
                 413,
-                f"refused: a promotion form is at most {MAX_FORM_BYTES} bytes, "
+                f"refused: a form is at most {MAX_FORM_BYTES} bytes, "
                 f"and this request declared {length}",
             )
             return None
@@ -1150,6 +1284,24 @@ class ViewHandler(BaseHTTPRequestHandler):
             )
 
 
+def _number[T: (int, float)](
+    form: Mapping[str, Sequence[str]], key: str, kind: Callable[[str], T]
+) -> T | None:
+    """A number the recorder's form carries, `None` where the field is empty,
+    as an absent flag is. One that is not a number is refused in the words
+    the command's parser uses for `--key`."""
+    value = (form.get(key) or [""])[0].strip()
+    if not value:
+        return None
+    try:
+        return kind(value)
+    except ValueError:
+        name = "int" if kind is int else "float"
+        raise RefusedError(
+            f"argument --{key}: invalid {name} value: {value!r}"
+        ) from None
+
+
 def serve(
     suite: Suite,
     store: ResultStore,
@@ -1160,6 +1312,7 @@ def serve(
     allow_record: bool = False,
     root: str = ".",
     module: ModuleType | None = None,
+    suite_arg: str = "",
 ) -> None:
     """Serve until interrupted, on loopback and nowhere else: this server has
     no authentication because it has no user, only a developer at the same
@@ -1181,7 +1334,9 @@ def serve(
     # system chooses, and the allowlist has to name the port actually taken.
     # Binding twice to learn it would race another process for the number.
     known: set[str] = set()
-    launch = Launch.minted() if allow_promote else None
+    # One key for whichever writes the flags enable: the person who started
+    # the server opens one browser, and that browser is the one that writes.
+    launch = Launch.minted() if allow_promote or allow_record else None
     # Read before the bind, so a package that declares a view digline cannot
     # serve stops the start with its name rather than a page later.
     extensions = installed_extensions()
@@ -1192,10 +1347,12 @@ def serve(
         pricing=pricing,
         known=known,
         launch=launch,
+        promote=allow_promote,
         allow_record=allow_record,
         extensions=extensions,
         root=root,
         module=module,
+        suite_arg=suite_arg,
     )
     with ThreadingHTTPServer((HOST, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         known.update(self_netlocs(HOST, int(httpd.server_address[1])))
@@ -1212,11 +1369,22 @@ def serve(
         # (0.13.0 delta-pass).
         # The URL stays the fourth word whichever server this is: a caller
         # reading the line for the bound port should not have to parse a mood.
-        mode = (
-            "promotion enabled, for the first browser that opens this address"
-            if allow_promote
-            else "read-only; --allow-promote to promote"
-        )
+        # The two lines that existed before `--allow-record` are kept word for
+        # word: the README quotes the first.
+        if allow_promote and allow_record:
+            mode = (
+                "promotion and the recorder's writes enabled, for the first "
+                "browser that opens this address"
+            )
+        elif allow_record:
+            mode = (
+                "the recorder's writes enabled, for the first browser that opens "
+                "this address; --allow-promote to promote"
+            )
+        elif allow_promote:
+            mode = "promotion enabled, for the first browser that opens this address"
+        else:
+            mode = "read-only; --allow-promote to promote"
         say(f"digline view on {shown} — {mode} — ctrl-c to stop")
         flush()
         try:

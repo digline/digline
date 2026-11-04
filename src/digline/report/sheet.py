@@ -184,6 +184,7 @@ td.act form { display: inline; margin: 0; }
 td.act .chip { margin-left: 0; }
 td.act a.action { margin-right: .6rem; }
 td.act button { font-size: .8rem; padding: .2rem .55rem; }
+td.act label.pick { display: block; white-space: nowrap; }
 a.action { color: var(--accent); text-decoration: none; }
 a.action:hover { text-decoration: underline; }
 
