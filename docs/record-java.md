@@ -193,6 +193,9 @@ package as it skips the SDKs', so a call made through it is named by the first
 frame outside both, not by LangChain4j's class. That was measured with a
 stand-in class in LangChain4j's package, not with LangChain4j itself.
 
+For new code on Bedrock, Converse is the form to prefer: one API for every
+chat model, tool use in the same shape, and streaming as events.
+
 ## With LangChain4j or Quarkus: the proxy
 
 LangChain4j calls OpenAI through its own JDK `HttpClient`, and
