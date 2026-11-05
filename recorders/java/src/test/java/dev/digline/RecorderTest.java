@@ -63,6 +63,14 @@ class RecorderTest {
         return (Map<String, Object>) DiglineRecorder.Json.parse(Files.readString(path));
     }
 
+    static Map<String, Object> documentOrThrow(Path path) {
+        try {
+            return document(path);
+        } catch (IOException unreadable) {
+            throw new java.io.UncheckedIOException(unreadable);
+        }
+    }
+
     @Test
     void withoutADigineDirectoryTheRecorderIsOff() throws IOException {
         DiglineRecorder recorder = DiglineRecorder.development(root, "acme", "support");

@@ -1,0 +1,63 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Where is A1?"
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "tool_use",
+    "input": "[{\"content\":[{\"text\":\"Where is A1?\"}],\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 250.5,
+    "output": "Looking it up.",
+    "steps": [
+      {
+        "actor": "model",
+        "finish": "tool_use",
+        "index": 0
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"order\":\"A1\"}",
+        "index": 1,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      }
+    ],
+    "tool_calls": [
+      {
+        "arguments": "{\"order\":\"A1\"}",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      }
+    ],
+    "tools": [
+      "lookup"
+    ],
+    "usage": {
+      "input_tokens": 12,
+      "output_tokens": 18
+    }
+  },
+  "setup": {
+    "inferenceConfig": {
+      "maxTokens": 256
+    },
+    "modelId": "anthropic.claude-3-5-haiku-20241022-v1:0"
+  },
+  "setup_digest": "1a06bafe3ced1ca4",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}

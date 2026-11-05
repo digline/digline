@@ -234,8 +234,7 @@ CALL: dict[str, Any] = {
 
 def _call_bytes() -> str:
     """The file digline's own writer writes for `CALL`, through the path a
-    wrapped client's call takes: a `Completion`, its metadata, `recorded()`,
-    a `Recording`, and the `RecordingWriter`."""
+    wrapped client's call takes: a `Completion`, then `_written`."""
     usage = Usage(**CALL["usage"])
     completion = Completion(
         text=CALL["output"],
@@ -252,12 +251,624 @@ def _call_bytes() -> str:
             for call in CALL["tool_calls"]
         ),
     )
+    return _written(
+        case=CALL["case"],
+        setup=CALL["setup"],
+        completion=completion,
+        latency_ms=CALL["latency_ms"],
+    )
+
+
+#: The wire's calls, one per provider and shape, as the HTTP carries them:
+#: the request's JSON body and the reply's, or the reply's events in order. A
+#: hook reads these off its client's HTTP, and the file it writes is held to
+#: the one each provider's own map writes from the same bytes: read as
+#: `digline record proxy` reads OpenAI and Anthropic (`digline.recording_wire`),
+#: and Bedrock as boto3 hands it over, `modelId` from the path beside the body
+#: and each event as `{type: payload}`. The proxy's own reading of the Bedrock
+#: calls is held to the same files in `tests/test_recorder_java.py`. No
+#: `extra_body`: an in-process map keeps it as a key of its own and the wire
+#: merges it (RELEASING.md, *Owed to the next version*).
+WIRE_CALLS: dict[str, dict[str, Any]] = {
+    "openai-single": {
+        "route": "openai",
+        "path": "/v1/chat/completions",
+        "request": {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": "Answer in one line."},
+                {"role": "user", "content": "Où est la commande A1 ?"},
+            ],
+            "temperature": 0.2,
+            "max_tokens": 64,
+            "user": "customer-42",
+            "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "lookup",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"order": {"type": "string"}},
+                        },
+                    },
+                }
+            ],
+        },
+        "reply": {
+            "id": "chatcmpl-1",
+            "object": "chat.completion",
+            "created": 1762329600,
+            "model": "gpt-4o-mini-2024-07-18",
+            "system_fingerprint": "fp_1",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "role": "assistant",
+                        "content": "Je regarde.",
+                        "tool_calls": [
+                            {
+                                "id": "call_1",
+                                "type": "function",
+                                "function": {
+                                    "name": "lookup",
+                                    "arguments": '{"order": "A1", "weight": 1.5}',
+                                },
+                            },
+                            {
+                                "id": "call_2",
+                                "type": "function",
+                                "function": {"name": "lookup", "arguments": "A2?"},
+                            },
+                        ],
+                    },
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 40,
+                "completion_tokens": 12,
+                "total_tokens": 52,
+                "prompt_tokens_details": {"cached_tokens": 8},
+                "completion_tokens_details": {"reasoning_tokens": 0},
+            },
+        },
+    },
+    "openai-stream": {
+        "route": "openai",
+        "path": "/v1/chat/completions",
+        "request": {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Where is A1?"}],
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        },
+        "events": [
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"role": "assistant", "content": ""},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": "It left "},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {"content": "on Monday."},
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [],
+                "usage": {
+                    "prompt_tokens": 9,
+                    "completion_tokens": 5,
+                    "total_tokens": 14,
+                },
+            },
+        ],
+    },
+    "openai-stream-tool": {
+        "route": "openai",
+        "path": "/v1/chat/completions",
+        "request": {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Where is A1?"}],
+            "stream": True,
+        },
+        "events": [
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {"name": "lookup", "arguments": ""},
+                                }
+                            ],
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {"index": 0, "function": {"arguments": '{"order":'}}
+                            ]
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {
+                            "tool_calls": [
+                                {"index": 0, "function": {"arguments": ' "A1"}'}}
+                            ]
+                        },
+                        "finish_reason": None,
+                    }
+                ],
+            },
+            {
+                "id": "c",
+                "object": "chat.completion.chunk",
+                "created": 1762329600,
+                "model": "gpt-4o-mini",
+                "choices": [{"index": 0, "delta": {}, "finish_reason": "tool_calls"}],
+            },
+        ],
+    },
+    "anthropic-single": {
+        "route": "anthropic",
+        "path": "/v1/messages",
+        "request": {
+            "model": "claude-haiku-4-5",
+            "max_tokens": 256,
+            "system": "Answer in one line.",
+            "metadata": {"user_id": "customer-42"},
+            "temperature": 0.5,
+            "messages": [{"role": "user", "content": "Où est la commande A1 ?"}],
+        },
+        "reply": {
+            "id": "msg_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-4-5-20251001",
+            "content": [
+                {"type": "text", "text": "Je regarde. "},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "lookup",
+                    "input": {"order": "A1", "weight": 0.1234567},
+                },
+                {"type": "text", "text": "Un instant."},
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": 30,
+                "output_tokens": 20,
+                "cache_read_input_tokens": 100,
+                "cache_creation_input_tokens": 0,
+            },
+        },
+    },
+    "anthropic-stream": {
+        "route": "anthropic",
+        "path": "/v1/messages",
+        "request": {
+            "model": "claude-haiku-4-5",
+            "max_tokens": 256,
+            "stream": True,
+            "messages": [{"role": "user", "content": "Where is A1?"}],
+        },
+        "events": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_1",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": "claude-haiku-4-5-20251001",
+                    "content": [],
+                    "stop_reason": None,
+                    "stop_sequence": None,
+                    "usage": {"input_tokens": 12, "output_tokens": 1},
+                },
+            },
+            {
+                "type": "content_block_start",
+                "index": 0,
+                "content_block": {"type": "text", "text": ""},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "text_delta", "text": "Looking "},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {"type": "text_delta", "text": "it up."},
+            },
+            {"type": "content_block_stop", "index": 0},
+            {
+                "type": "content_block_start",
+                "index": 1,
+                "content_block": {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "lookup",
+                    "input": {},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 1,
+                "delta": {"type": "input_json_delta", "partial_json": '{"order": '},
+            },
+            {
+                "type": "content_block_delta",
+                "index": 1,
+                "delta": {"type": "input_json_delta", "partial_json": '"A1"}'},
+            },
+            {"type": "content_block_stop", "index": 1},
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                "usage": {"output_tokens": 18},
+            },
+            {"type": "message_stop"},
+        ],
+    },
+    "bedrock-single": {
+        "route": "bedrock",
+        "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/converse",
+        "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "request": {
+            "messages": [
+                {"role": "user", "content": [{"text": "Où est la commande A1 ?"}]}
+            ],
+            "system": [{"text": "Answer in one line."}],
+            "inferenceConfig": {"maxTokens": 256, "temperature": 0.2},
+            "requestMetadata": {"customer": "42"},
+        },
+        "reply": {
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"text": "Je regarde."},
+                        {
+                            "toolUse": {
+                                "toolUseId": "t1",
+                                "name": "lookup",
+                                "input": {"order": "A1"},
+                            }
+                        },
+                    ],
+                }
+            },
+            "stopReason": "tool_use",
+            "usage": {
+                "inputTokens": 30,
+                "outputTokens": 12,
+                "totalTokens": 142,
+                "cacheReadInputTokens": 100,
+            },
+            "metrics": {"latencyMs": 300},
+        },
+    },
+    "bedrock-stream": {
+        "route": "bedrock",
+        "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/converse-stream",
+        "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "request": {
+            "messages": [{"role": "user", "content": [{"text": "Where is A1?"}]}],
+            "inferenceConfig": {"maxTokens": 256},
+        },
+        "events": [
+            {"messageStart": {"role": "assistant"}},
+            {
+                "contentBlockDelta": {
+                    "contentBlockIndex": 0,
+                    "delta": {"text": "Looking "},
+                }
+            },
+            {
+                "contentBlockDelta": {
+                    "contentBlockIndex": 0,
+                    "delta": {"text": "it up."},
+                }
+            },
+            {"contentBlockStop": {"contentBlockIndex": 0}},
+            {
+                "contentBlockStart": {
+                    "contentBlockIndex": 1,
+                    "start": {"toolUse": {"toolUseId": "t1", "name": "lookup"}},
+                }
+            },
+            {
+                "contentBlockDelta": {
+                    "contentBlockIndex": 1,
+                    "delta": {"toolUse": {"input": '{"order": '}},
+                }
+            },
+            {
+                "contentBlockDelta": {
+                    "contentBlockIndex": 1,
+                    "delta": {"toolUse": {"input": '"A1"}'}},
+                }
+            },
+            {"contentBlockStop": {"contentBlockIndex": 1}},
+            {"messageStop": {"stopReason": "tool_use"}},
+            {
+                "metadata": {
+                    "usage": {"inputTokens": 12, "outputTokens": 18, "totalTokens": 30},
+                    "metrics": {"latencyMs": 400},
+                }
+            },
+        ],
+    },
+    "openai-refusal": {
+        "route": "openai",
+        "path": "/v1/chat/completions",
+        "request": {
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "Tell me a secret."}],
+        },
+        "reply": {
+            "id": "chatcmpl-2",
+            "object": "chat.completion",
+            "created": 1762329600,
+            "model": "gpt-4o-mini",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "refusal": "I can't help with that.",
+                    },
+                }
+            ],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 6, "total_tokens": 15},
+        },
+    },
+    "anthropic-server-tool": {
+        "route": "anthropic",
+        "path": "/v1/messages",
+        "request": {
+            "model": "claude-haiku-4-5",
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": "Search twice."}],
+        },
+        "reply": {
+            "id": "msg_2",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-4-5-20251001",
+            "content": [
+                {
+                    "type": "server_tool_use",
+                    "id": "srv_1",
+                    "name": "web_search",
+                    "input": {"query": "A1"},
+                },
+                {
+                    "type": "web_search_tool_result",
+                    "tool_use_id": "srv_1",
+                    "content": {
+                        "type": "web_search_tool_result_error",
+                        "error_code": "max_uses_exceeded",
+                    },
+                },
+                {
+                    "type": "server_tool_use",
+                    "id": "srv_2",
+                    "name": "web_search",
+                    "input": {"query": "A2"},
+                },
+                {
+                    "type": "web_search_tool_result",
+                    "tool_use_id": "srv_2",
+                    "content": [
+                        {
+                            "type": "web_search_result",
+                            "url": "https://example.com",
+                            "title": "A2",
+                            "encrypted_content": "x",
+                        }
+                    ],
+                },
+                {"type": "tool_use", "id": "toolu_1", "input": {"order": "A1"}},
+                {"type": "text", "text": "Done."},
+            ],
+            "stop_reason": "end_turn",
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": 30,
+                "output_tokens": 20,
+                "output_tokens_details": {"thinking_tokens": 4},
+            },
+        },
+    },
+    "bedrock-server-tool": {
+        "route": "bedrock",
+        "path": "/model/amazon.nova-pro-v1%3A0/converse",
+        "model_id": "amazon.nova-pro-v1:0",
+        "request": {
+            "messages": [{"role": "user", "content": [{"text": "Search twice."}]}],
+        },
+        "reply": {
+            "output": {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "toolUse": {
+                                "toolUseId": "s1",
+                                "name": "search",
+                                "type": "server_tool_use",
+                                "input": {"q": "A1"},
+                            }
+                        },
+                        {
+                            "toolResult": {
+                                "toolUseId": "s1",
+                                "status": "error",
+                                "content": [
+                                    {"text": "quota"},
+                                    {"json": {"code": 429, "ratio": 0.33333333}},
+                                ],
+                            }
+                        },
+                        {
+                            "toolUse": {
+                                "toolUseId": "s2",
+                                "name": "search",
+                                "type": "server_tool_use",
+                                "input": ["A2"],
+                            }
+                        },
+                        {"toolResult": {"toolUseId": "s2", "content": [{"text": "x"}]}},
+                        {"toolUse": {"toolUseId": "t3", "input": {"order": "A1"}}},
+                        {"text": "Done."},
+                    ],
+                }
+            },
+            "stopReason": "end_turn",
+            "usage": {"inputTokens": 30, "outputTokens": 12, "totalTokens": 42},
+        },
+    },
+}
+
+#: What every wire call's recording carries beside what the call decides.
+WIRE_LATENCY_MS = 250.5
+
+
+def _wire_completion(call: dict[str, Any]) -> tuple[dict[str, Any], Any, Any]:
+    """The request as the provider's map reads it, the map, and the
+    completion it reads from the reply or the events."""
+    route = call["route"]
+    if route == "bedrock":
+        from digline_bedrock.recording import MAP as BEDROCK
+        from digline_bedrock.recording import STREAM_MAP as BEDROCK_STREAM
+
+        request = {"modelId": call["model_id"], **call["request"]}
+        if "events" in call:
+            reading = BEDROCK_STREAM.reading(request)
+            for event in call["events"]:
+                reading.add(event)
+            return request, BEDROCK_STREAM, reading.completion(None)
+        return request, BEDROCK, BEDROCK.completion(call["reply"], request)
+    if route == "openai":
+        from digline_openai.recording import WIRE
+    else:
+        from digline_anthropic.recording import WIRE
+    request = dict(call["request"])
+    mapped: Any = WIRE.map
+    if "events" in call:
+        reading = mapped.reading(request)
+        for event in call["events"]:
+            reading.add(WIRE.event(event))
+        return request, mapped, reading.completion(None)
+    return request, mapped, mapped.completion(WIRE.reply(call["reply"]), request)
+
+
+def _wire_bytes(call: dict[str, Any]) -> str:
+    """The file digline's recorder writes for one wire call: the map's split
+    and completion, then `_record`'s path to the writer."""
+    request, mapped, completion = _wire_completion(call)
+    case, setup = mapped.split(request)
+    return _written(
+        case=case,
+        setup=setup,
+        completion=completion,
+        latency_ms=WIRE_LATENCY_MS,
+    )
+
+
+def _written(
+    *,
+    case: dict[str, Any],
+    setup: dict[str, Any],
+    completion: Completion,
+    latency_ms: float,
+) -> str:
+    """One call's file, through the path `_record` takes: the metadata of its
+    completion, `recorded()`, a `Recording`, and the `RecordingWriter`."""
+    messages = case.get("messages")
     response = recorded(
         Response(
-            output=CALL["output"],
-            input=input_of(CALL["case"]["messages"]),
-            latency_ms=CALL["latency_ms"],
-            usage=usage,
+            output=completion.text,
+            input=None if messages is None else input_of(messages),
+            latency_ms=latency_ms,
+            usage=completion.usage,
             metadata=completion.as_metadata(),
         )
     )
@@ -265,9 +876,9 @@ def _call_bytes() -> str:
         source_tenant=CALL["tenant"],
         app=CALL["app"],
         suite=CALL["suite"],
-        case=CALL["case"],
-        setup=CALL["setup"],
-        setup_digest=setup_digest_of(CALL["setup"]),
+        case=case,
+        setup=setup,
+        setup_digest=setup_digest_of(setup),
         response=response,
         recorded_at=CALL["recorded_at"],
     )
@@ -294,6 +905,11 @@ def expected() -> dict[str, str]:
         "call.expected.json": _call_bytes(),
         "layout/gitignore": _GITIGNORE,
         "layout/gitattributes": _GITATTRIBUTES,
+        **{f"wire/{name}.json": _json(call) for name, call in WIRE_CALLS.items()},
+        **{
+            f"wire/{name}.expected.json": _wire_bytes(call)
+            for name, call in WIRE_CALLS.items()
+        },
     }
 
 
