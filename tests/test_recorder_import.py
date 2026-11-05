@@ -53,6 +53,7 @@ from digline.host import (
     load_suite,
     read_cases,
 )
+from digline.recorder import UNASSIGNED
 from digline.run import CaptureSource
 from digline.store.file_store import FileResultStore, RecordingWriter
 from digline.wire import EXIT_USAGE
@@ -492,8 +493,9 @@ def test_an_absent_or_empty_capture_file_is_no_refusal(
 
 def test_the_listing_groups_by_shape_in_the_files_order(root: Path) -> None:
     found = listed(root)
-    assert found.setup == S2
+    assert found.setups == {True: S2, False: S2}
     calls, episodes = found.groups
+    assert calls.setup == episodes.setup == S2
     assert (calls.shape.episode, calls.shape.kind) == (False, "text")
     assert [a.id for a in calls.answers] == [ID_A_OLD, ID_B, ID_A_NEW, ID_C]
     assert (episodes.shape.actors, episodes.shape.finish) == (
@@ -533,7 +535,9 @@ def test_the_listing_writes_nothing_and_says_the_declaration_first(
         "repository private · check llm_rubric"
     )
     text = "\n".join(lines)
-    assert f"setup in force: {S2[:8]} · deterministic_output false" in text
+    assert "  deterministic_output false" in text
+    assert f"  setup in force for single calls: {S2[:8]}" in text
+    assert f"  setup in force for episodes: {S2[:8]}" in text
     assert "group 1 · a single call, text · 4 answers from 4 recordings" in text
     assert (
         "group 2 · an episode, text, steps model → tool → model, finish end_turn "
@@ -926,3 +930,76 @@ def test_the_command_reads_from_unassigned(
     # The function each call was made from, where the person would name the
     # suite instead.
     assert "    made at: app.support:answer" in out.splitlines()
+
+
+# -- the setup in force, per form (ADR 0059 §3) ------------------------------ #
+
+#: The case of P-1518: one question asked through two SDKs, whose default
+#: fields differ, so two setups; then a turn recorded as an episode, later and
+#: under a third.
+CV = case("CV: 5 years Python, Django, PostgreSQL. Job: backend developer.")
+OPENAI_JS, ANTHROPIC_JS, TURN = (
+    setup_digest_of({"model": name}) for name in ("gpt", "claude", "turn")
+)
+
+
+def two_sdks_then_an_episode(root: Path, suite: str) -> None:
+    writer = RecordingWriter(FileResultStore(root))
+    site = (
+        {"call_site": "OpenAI/JS 7.50.0 /v1/chat/completions"}
+        if suite == UNASSIGNED
+        else {}
+    )
+    for setup, at in (
+        (OPENAI_JS, "01"),
+        (ANTHROPIC_JS, "02"),
+        (OPENAI_JS, "03"),
+        (ANTHROPIC_JS, "04"),
+    ):
+        writer.write(recording(CV, setup, "Paris", at, suite=suite, **site))
+    writer.write(
+        recording(
+            {"cv": "CV: 5 years Python"},
+            TURN,
+            "Paris",
+            "05",
+            steps=(RecordedStep(index=0, actor="model", finish="stop"),),
+            id="9" * 32,
+        )
+    )
+
+
+def test_an_episode_recorded_last_does_not_put_the_single_calls_under_earlier_setups(
+    tmp_path: Path,
+) -> None:
+    two_sdks_then_an_episode(tmp_path, "triage")
+    suite_file(tmp_path)
+    found = listed(tmp_path)
+    calls, episodes = found.groups
+    assert (calls.setup, episodes.setup) == (ANTHROPIC_JS, TURN)
+    [answer] = calls.answers
+    assert answer.electable, answer.refusal
+    assert answer.in_force == ANTHROPIC_JS
+
+
+def test_one_answer_is_electable_alike_in_the_suite_and_from_unassigned(
+    tmp_path: Path,
+) -> None:
+    """The same calls read in two places give one verdict: they were not
+    electable among the suite's, under an episode's setup, and written from
+    `--from _unassigned`, where no episode was."""
+    own, unassigned = tmp_path / "own", tmp_path / "unassigned"
+    for root, suite in ((own, "triage"), (unassigned, UNASSIGNED)):
+        root.mkdir()
+        two_sdks_then_an_episode(root, suite)
+        suite_file(root)
+    [mine] = listed(own).groups[0].answers
+    suite, module = loaded(unassigned)
+    [theirs] = (
+        import_listing(unassigned, suite, module, "acme", taken_from=UNASSIGNED)
+        .groups[0]
+        .answers
+    )
+    assert mine.id == theirs.id
+    assert (mine.electable, mine.in_force) == (theirs.electable, theirs.in_force)
+    assert mine.electable

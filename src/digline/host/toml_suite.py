@@ -30,7 +30,7 @@ import inspect
 import json
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import MISSING, Field, fields
+from dataclasses import MISSING, Field, dataclass, fields
 from pathlib import Path
 from typing import Any, cast
 
@@ -91,9 +91,11 @@ from digline.targets import (
     ModelPrice,
     Pricing,
     ProviderNotFound,
+    UnknownModelError,
     resolve,
     split_coordinate,
 )
+from digline.targets.pricing import Usage
 
 #: The rates a `[target.pricing]` table may declare: `ModelPrice`'s own fields,
 #: in its own unit. Input and output are required; an absent cache rate means
@@ -447,11 +449,24 @@ def _one(entry: Mapping[str, object], where: str) -> tuple[Any, bool]:
         raise unknown_type(token, where=where, per_case=ASSERTIONS, per_run=AGGREGATES)
 
     arguments = {key: value for key, value in entry.items() if key != "type"}
-    return _construct(cls, arguments, where, token), aggregate
+    # The price of the judge the check names, beside its coordinate: rates,
+    # not settings, so the coordinate stays the judge's identity alone
+    # (ADR 0007 §3, dated note of 2026-11-05).
+    judge_pricing = arguments.pop("judge_pricing", None)
+    if judge_pricing is not None and "judge" not in arguments:
+        raise UsageError(
+            f"{where}: `judge_pricing` prices the judge `judge` names, and this "
+            "check names none"
+        )
+    return _construct(cls, arguments, where, token, judge_pricing), aggregate
 
 
 def _construct(
-    cls: type, arguments: Mapping[str, object], where: str, token: str
+    cls: type,
+    arguments: Mapping[str, object],
+    where: str,
+    token: str,
+    judge_pricing: object = None,
 ) -> Any:
     """Build one object: coerce what the field's type asks for, refuse what it
     cannot be given, and let the class do the rest."""
@@ -460,7 +475,7 @@ def _construct(
 
     prepared: dict[str, object] = {}
     for key, value in arguments.items():
-        prepared[key] = _value(declared[key], value, where, key, token)
+        prepared[key] = _value(declared[key], value, where, key, token, judge_pricing)
 
     missing = [
         name
@@ -478,7 +493,12 @@ def _construct(
 
 
 def _value(
-    field: Field[Any], value: object, where: str, key: str, token: str
+    field: Field[Any],
+    value: object,
+    where: str,
+    key: str,
+    token: str,
+    judge_pricing: object = None,
 ) -> object:
     """One argument, converted to what the field declares — and nothing more."""
     annotation = _annotation(field)
@@ -517,12 +537,14 @@ def _value(
         return inner
 
     if (factory := INSTRUMENTS.get(annotation)) is not None:
-        return _instrument(value, factory, where, key)
+        return _instrument(value, factory, where, key, judge_pricing)
 
     return value
 
 
-def _instrument(value: object, factory: str, where: str, key: str) -> object:
+def _instrument(
+    value: object, factory: str, where: str, key: str, judge_pricing: object = None
+) -> object:
     """A judge, from its coordinates (ADR 0007 §3)."""
     if isinstance(value, Mapping):
         # A table is how somebody asks for a judge with settings — a
@@ -555,11 +577,21 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
     except ProviderNotFound as exc:
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
     build = getattr(provider, factory)
+    priced: dict[str, object] = {}
+    if judge_pricing is not None:
+        if "pricing" not in _accepted(build):
+            raise UsageError(
+                f"{where}: {provider_name}'s judge takes no price, so "
+                "`judge_pricing` has nothing to set"
+            )
+        priced["pricing"] = _declared_pricing(
+            judge_pricing, build, model, where, table_name="judge_pricing"
+        )
     try:
         # By keyword, always: a plugin's factory is a class whose positional
         # order is its own business — every published target takes
         # `prompt_file` first — and `model` is the one name the contract fixes.
-        return build(model=model)
+        judge = build(model=model, **priced)
     except (TypeError, ValueError) as exc:
         raise UsageError(
             Written.of(
@@ -569,6 +601,41 @@ def _instrument(value: object, factory: str, where: str, key: str) -> object:
                 named=False,
             )
         ) from exc
+    pricing = getattr(judge, "pricing", None)
+    if isinstance(pricing, Pricing):
+        # The same list, saying the suite's own key where a model has no
+        # price: the sentence a suite.py gets, `pricing=`, has no meaning in a
+        # suite.toml. Not refused at load: a plugin whose list depends on
+        # where it runs, Bedrock's by region, builds a judge it may price
+        # there and not here.
+        judge.pricing = _TomlPricing(
+            per_model=pricing.per_model, declared=pricing.declared
+        )
+    return judge
+
+
+@dataclass(frozen=True, slots=True)
+class _TomlPricing(Pricing):
+    """A judge's price list, as a `suite.toml` gave it: a model it has no
+    price for is refused naming `judge_pricing`, the key that declares one."""
+
+    def cost(self, model: str, usage: Usage) -> float:
+        if not self.knows(model):
+            known = ", ".join(sorted(self.per_model)) or "none"
+            raise UnknownModelError(
+                f"no price for model {model!r}: a run cannot report what it "
+                f"cost, and a cost of zero passes every budget. Known: {known}. "
+                "In a suite.toml, declare its rates beside `judge`: "
+                "judge_pricing = { input_per_mtok = …, output_per_mtok = … }"
+            )
+        return Pricing.cost(self, model, usage)
+
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        """The base's answer, stated here because `cost` is overridden: a
+        model this list does not know is `None` here as there, and `cost`
+        refuses it, now naming the TOML key (`Pricing.why_unpriced`'s rule
+        on a subclass that overrides `cost`)."""
+        return Pricing.why_unpriced(self, model, usage)
 
 
 # --------------------------------------------------------------------------- #
@@ -820,7 +887,7 @@ def _provider(
 
 
 def _declared_pricing(
-    table: object, factory: object, model: str, where: str
+    table: object, factory: object, model: str, where: str, *, table_name: str = ""
 ) -> Pricing:
     """`[target.pricing]`, as the `Pricing` a suite.py would pass.
 
@@ -829,11 +896,13 @@ def _declared_pricing(
     and hash equal (ADR 0007 §9, ADR 0022 §2). Numbers only, and each one is
     checked here rather than left to a dataclass that would accept a string.
     """
-    where = f"{where}.pricing"
+    name = table_name or "pricing"
+    shown = f"`{table_name}`" if table_name else "[target.pricing]"
+    where = f"{where}.{name}"
     if not isinstance(table, Mapping):
         raise UsageError(
-            f"{where}: `pricing` is a table of per-million rates — "
-            "[target.pricing] with `input_per_mtok` and `output_per_mtok` — "
+            f"{where}: `{name}` is a table of per-million rates — "
+            f"{shown} with `input_per_mtok` and `output_per_mtok` — "
             f"and {table!r} is not one. A Python `Pricing` object belongs in a "
             "suite.py."
         )

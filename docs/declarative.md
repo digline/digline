@@ -301,6 +301,25 @@ the plugin's own defaults. A judge that needs a different `max_tokens`, a
 different temperature, or rules of its own is an object, and objects live in a
 `suite.py`.
 
+**Its price is not a setting.** A model the plugin's price list does not have
+cannot be priced, so every check its judge judges errors with its cost not
+known, and the sentence names the key to write. `judge_pricing`, beside
+`judge`, declares the rates in USD per million tokens,
+in the shape [`[target.pricing]`](#what-the-endpoint-charges-targetpricing)
+has:
+
+```toml
+[[assertions]]
+type = "llm_rubric"
+rubric = "Does the answer name the refund window?"
+judge = "anthropic/claude-newest"
+judge_pricing = { input_per_mtok = 1.0, output_per_mtok = 5.0 }
+```
+
+`input_per_mtok` and `output_per_mtok` are mandatory, `cache_read_per_mtok` and
+`cache_write_per_mtok` optional, as the provider lists them. A model the
+plugin lists needs none.
+
 ## `[target]`
 
 Two forms, and there is no third. And none, where the suite calls none: a
@@ -313,6 +332,10 @@ case ([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.m
 ### `type = "http"`
 
 Your application, on the other end of a URL. It can be written in anything.
+Its prompt and its model are inside it, so a run's `config_hash` does not see
+them: compare setups through the recordings, with
+[`digline record compare`](record.md#comparing-setups-digline-record-compare);
+the run's identity is the suite's, not the app's.
 
 | Key | |
 |---|---|

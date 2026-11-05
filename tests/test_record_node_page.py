@@ -80,3 +80,17 @@ def test_every_header_on_the_page_is_one_the_proxy_reads() -> None:
     assert headers >= {"Suite", "App", "Episode"}
     for name in headers:
         assert f'_OURS + "{name.lower()}"' in PROXY, f"X-Digline-{name}"
+
+
+def test_the_versions_the_page_says_are_the_ones_the_job_installs() -> None:
+    """ "Measured with" names the versions `recorders/node/package.json` pins:
+    a Dependabot bump that moves them makes this red until the page says the
+    new ones."""
+    import json
+
+    pinned = json.loads(
+        (ROOT / "recorders" / "node" / "package.json").read_text(encoding="utf-8")
+    )["dependencies"]
+    said = " ".join(PAGE.split())
+    for package in ("openai", "@anthropic-ai/sdk"):
+        assert f"{package} {pinned[package]}" in said, package
