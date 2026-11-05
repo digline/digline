@@ -146,10 +146,10 @@ client can be pointed at the proxy, and how, is not known here.
   Completions and nothing else, so OpenAI's Responses API goes through
   unrecorded. `DiglineAnthropic` reads Messages, and `DiglineAws` reads
   Converse and ConverseStream.
-- **`extra_body`.** On the wire its keys are merged into the request, so the
-  setup's digest differs from the one digline's Python recorder computes for
-  the same call, until the Python maps merge it the same way. That change is
-  owed to the next release of the OpenAI and Anthropic plugins.
+- **`extra_body`.** On the wire its keys are merged into the request. The
+  OpenAI and Anthropic plugins' recorder maps merge it the same way from their
+  next release (#919), and until then a call that sends `extra_body` has
+  another setup digest in Python than here.
 - **A stream not read to its end.** A stream is recorded when the application
   has read it to its end. One closed before is counted *stream abandoned*.
   OpenAI's SDK stops reading at `[DONE]`, and Anthropic's at `message_stop`:
