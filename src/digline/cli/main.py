@@ -149,6 +149,7 @@ from digline.wire import (
     log_json,
     record_compare_json,
     recorder_status_json,
+    run_exit_code,
     run_json,
     usage_lines,
 )
@@ -452,9 +453,18 @@ def cmd_run(args: argparse.Namespace) -> int:
         promotable = not refusals_for(
             measured.run, measured.run.config_hash, declared=suite.declared()
         )
+        # And never a run whose own exit is not 0: `report` and `explain`
+        # would say 1 or 2 of the run `promote` keeps. A contradiction is the
+        # 1 a lone run can say, and it is read with `explain`. (P-1530)
+        exit_of_run = run_exit_code(measured.run, declared=suite.declared())
         say(
-            f"digline: next: "
-            f"{_next_command(args, measured.baseline_found, promotable=promotable)}",
+            "digline: next: "
+            + _next_command(
+                args,
+                measured.baseline_found,
+                promotable=promotable and exit_of_run == EXIT_OK,
+                contradicted=exit_of_run == EXIT_WORSE,
+            ),
             err=True,
         )
     # `0` asserts that a measurement was made, and a run that judged none of
@@ -483,7 +493,11 @@ def _as_typed(path: Path, root: str) -> Path:
 
 
 def _next_command(
-    args: argparse.Namespace, baseline_found: bool, *, promotable: bool
+    args: argparse.Namespace,
+    baseline_found: bool,
+    *,
+    promotable: bool,
+    contradicted: bool = False,
 ) -> str:
     """The command after this run, with a shell comment saying what it does.
 
@@ -504,6 +518,10 @@ def _next_command(
     refusal the document carries, is followed by `explain`, which reads the
     run back and says which checks could not be judged. `run` printed a
     `promote` that `promote` refused with exit 64 until #844.
+
+    **Nor where the run's own exit is not 0** (`run_exit_code`): the caller
+    passes `promotable` false then, and `contradicted` where that exit is a
+    judge that contradicted a person, which `explain` names.
     """
     if baseline_found and args.accepting_baseline_schema is not None:
         words = ["digline", "migrate", "--suite", args.suite]
@@ -517,7 +535,11 @@ def _next_command(
         does = "keeps this run as the reference"
     else:
         words = ["digline", "explain", "--suite", args.suite, "--run", "latest"]
-        does = "reads this run back; promote would refuse it"
+        does = (
+            "reads this run back; the judge contradicted a person"
+            if contradicted
+            else "reads this run back; promote would refuse it"
+        )
     words += _where(args, target=not baseline_found and promotable)
     return f"{shlex.join(words)}  # {does}"
 
