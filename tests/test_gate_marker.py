@@ -41,7 +41,7 @@ from digline.host.gate import GATE_DIRECTORY, gate_markers, marking
 from digline.host.importing import read_recordings
 from digline.host.measure import measure, prepare
 from digline.run import Case, Response, Suite
-from digline.store.file_store import FileResultStore
+from digline.store.file_store import FileResultStore, PathRefusedError
 
 #: The SDKs this module loads leave with it, as in `tests/test_record_proxy.py`.
 SDKS = ("anthropic", "openai", "httpx2")
@@ -177,6 +177,31 @@ def test_a_name_no_reader_reads_is_no_marker(tmp_path: Path) -> None:
     plant(tmp_path, f"1-{KEY}.txt", marker())
     assert gate_markers(tmp_path, "acme").live == ()
     assert recorder._gate(tmp_path, "acme") == (None, None)  # pyright: ignore[reportPrivateUsage]
+
+
+def test_a_gate_directory_that_links_out_of_the_store_is_not_read_or_written(
+    tmp_path: Path,
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / f"1-{KEY}.json").write_text(json.dumps(marker()), encoding="utf-8")
+    place(tmp_path).parent.mkdir(parents=True)
+    place(tmp_path).symlink_to(outside, target_is_directory=True)
+    assert gate_markers(tmp_path, "acme").live == ()
+    with (
+        pytest.raises(PathRefusedError, match="outside"),
+        marking(tmp_path, "acme", run_id=KEY, started_at="x", suite="triage"),
+    ):
+        pass
+    assert [path.name for path in outside.iterdir()] == [f"1-{KEY}.json"]
+
+
+def test_a_marker_that_links_out_of_its_directory_is_not_read(tmp_path: Path) -> None:
+    outside = tmp_path / "elsewhere.json"
+    outside.write_text(json.dumps(marker()), encoding="utf-8")
+    place(tmp_path).mkdir(parents=True)
+    (place(tmp_path) / f"1-{KEY}.json").symlink_to(outside)
+    assert gate_markers(tmp_path, "acme").live == ()
 
 
 # -- the document --------------------------------------------------------------- #

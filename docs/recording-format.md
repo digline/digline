@@ -138,7 +138,9 @@ records itself, is the gate's and not the application's traffic. So a writer,
 before it writes a file:
 
 - **lists that directory**, skipping a name that starts with a dot or does
-  not end in `.json`. No directory is no run;
+  not end in `.json`. No directory is no run, and neither is a directory, or
+  a marker, that resolves outside `.digline/`, or outside the directory: a
+  link out of the store is not read;
 - **takes a marker as live** when its modification time is at most 120
   seconds old. The run touches it every 30 seconds and removes it when it
   ends. An older one was left by a run that was killed: it is ignored, and

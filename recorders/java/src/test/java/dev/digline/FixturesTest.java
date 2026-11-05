@@ -174,6 +174,27 @@ class FixturesTest {
     }
 
     @Test
+    void aGateOrAMarkerThatLinksOutOfTheStoreIsNotRead(@TempDir Path scratch) throws IOException {
+        // As digline.host.gate holds it: resolved, and inside the store.
+        String marker = "{\"run_id\": \"k\", \"pid\": 1, \"started_at\": \"x\", \"suite\": \"s\"}";
+        Path outside = Files.createDirectory(scratch.resolve("outside"));
+        Files.writeString(outside.resolve("1-k.json"), marker, StandardCharsets.UTF_8);
+        Path linked = scratch.resolve("linked");
+        Path runs = Files.createDirectories(linked.resolve(".digline").resolve("acme").resolve("runs"));
+        Files.createSymbolicLink(runs.resolve(".gate"), outside);
+        assertEquals(null, DiglineRecorder.gate(linked, "acme", System.currentTimeMillis()));
+
+        Path inside = scratch.resolve("inside");
+        Path place = Files.createDirectories(
+                inside.resolve(".digline").resolve("acme").resolve("runs").resolve(".gate"));
+        Files.createSymbolicLink(place.resolve("1-k.json"), outside.resolve("1-k.json"));
+        assertEquals(null, DiglineRecorder.gate(inside, "acme", System.currentTimeMillis()));
+        Files.writeString(place.resolve("2-k.json"), marker, StandardCharsets.UTF_8);
+        assertEquals(List.of("gate", "k"),
+                List.of(DiglineRecorder.gate(inside, "acme", System.currentTimeMillis())));
+    }
+
+    @Test
     void theLayoutIsDiglines() throws IOException {
         assertEquals(read("layout/gitignore"), DiglineRecorder.GITIGNORE);
         assertEquals(read("layout/gitattributes"), DiglineRecorder.GITATTRIBUTES);

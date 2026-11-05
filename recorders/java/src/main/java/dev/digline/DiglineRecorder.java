@@ -707,10 +707,29 @@ public final class DiglineRecorder {
             place = place.resolve(part);
         }
         List<String> live = new ArrayList<>();
+        try {
+            // Held inside the store, as digline holds it: a .gate that is a
+            // link out of .digline/, or a marker that links out of .gate, is
+            // not read.
+            Path real = place.toRealPath();
+            if (!real.startsWith(root.resolve(STORE).toRealPath())) {
+                return null;
+            }
+            place = real;
+        } catch (IOException | RuntimeException none) {
+            return null;
+        }
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(place)) {
             for (Path entry : entries) {
                 String name = entry.getFileName().toString();
                 if (name.startsWith(".") || !name.endsWith(".json")) {
+                    continue;
+                }
+                try {
+                    if (!entry.toRealPath().startsWith(place)) {
+                        continue;
+                    }
+                } catch (IOException gone) {
                     continue;
                 }
                 double age;

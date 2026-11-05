@@ -43,7 +43,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from digline.host.environment import seconds_now
-from digline.store.file_store import FileResultStore
+from digline.store.file_store import FileResultStore, PathRefusedError
 
 __all__ = [
     "GATE_DIRECTORY",
@@ -92,8 +92,17 @@ class GateMarkers:
 
 def directory_of(root: Path, tenant: str) -> Path:
     """`.digline/<tenant>/runs/.gate/`, the tenant checked as the store checks
-    every name it is given."""
-    return FileResultStore(root).tenant_dir(tenant).joinpath(*GATE_DIRECTORY)
+    every name it is given, and the directory resolved and held inside the
+    store, as the store holds every file it reads (`FileResultStore._inside`):
+    a `.gate` that is a link out of `.digline/` is refused."""
+    store = FileResultStore(root)
+    place = store.tenant_dir(tenant).joinpath(*GATE_DIRECTORY).resolve()
+    if not place.is_relative_to(store.root.resolve()):
+        raise PathRefusedError(
+            f"the gate's markers at {place} are outside {store.root}: a link "
+            "out of the store is not read or written"
+        )
+    return place
 
 
 def gate_markers(root: Path, tenant: str) -> GateMarkers:
@@ -101,10 +110,10 @@ def gate_markers(root: Path, tenant: str) -> GateMarkers:
     or no directory, is none of either. A listing the filesystem refuses is
     none too: the reader is a writer of recordings, which never fails the
     application's call."""
-    place = directory_of(root, tenant)
     try:
+        place = directory_of(root, tenant)
         entries = list(os.scandir(place))
-    except OSError:
+    except (OSError, PathRefusedError):
         return GateMarkers((), ())
     now = seconds_now()
     live: list[GateMarker] = []
@@ -112,11 +121,15 @@ def gate_markers(root: Path, tenant: str) -> GateMarkers:
     for entry in sorted(entries, key=lambda entry: entry.name):
         if entry.name.startswith(".") or not entry.name.endswith(".json"):
             continue
+        path = Path(entry.path).resolve()
+        if not path.is_relative_to(place):
+            # A marker that is a link out of the directory is not read.
+            continue
         try:
             age = now - entry.stat().st_mtime
         except OSError:
             continue
-        marker = _read(Path(entry.path), age)
+        marker = _read(path, age)
         (live if age <= STALE_SECONDS else stale).append(marker)
     return GateMarkers(tuple(live), tuple(stale))
 
