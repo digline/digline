@@ -276,8 +276,10 @@ generates today is not known to be partial. So:
 - if the check's score lands **outside `[low, high]`** — at storage precision,
   both ends inclusive — the headline leads with *the calibration case … scored
   1.000000 across 3 samples (1.000000, 1.000000, 1.000000), outside its declared
-  band 0.300000–0.700000*, and the run exits **`2`**, on `Headline.scale_lost`.
-  The numbers exist and are not measurements. A regression beside it still
+  band 0.300000–0.700000*, and `report`, `explain` and `compare` exit **`2`**,
+  on `Headline.scale_lost`. `digline run` exits `0`, as it does for every run
+  that judged something. The numbers exist and are not measurements. A
+  regression beside it, or a reviewed answer the judge contradicted, still
   exits `1`, and the calibration clause still comes first. It needs no
   baseline, so a first run can be stopped by it;
 - a run whose scale was lost **cannot be promoted** (`UncalibratedRunError`);
@@ -365,7 +367,12 @@ headline counts the two directions apart, `reviewed_passed_no` and
 `reviewed_failed_yes`, and says them in its sentence; the report shows a
 section of every reviewed answer beside the calibration one, open when the
 judge contradicted a person. `digline run` exits as it does for a lost scale,
-`0`. A reviewed answer is in no aggregate, which counts it as
+`0`, says the contradiction on stderr beside the bill, and names `explain` as
+the next step. **A run with a contradiction cannot be promoted**
+(`ContradictedRunError`, promotion's condition 12 in
+[ADR 0002](adr/0002-three-worlds-and-where-the-data-lives.md) §8): a baseline
+where the judge contradicts the person is not a baseline, and the refusal names
+each case and which way the judge went. A reviewed answer is in no aggregate, which counts it as
 `reviewed_excluded`, needs no `label`, and its delta in a comparison is kept,
 flagged `reviewed`, and counted in no outcome. A replay re-judges it from the
 declaration, as a calibration case.

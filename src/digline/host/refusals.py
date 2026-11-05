@@ -49,6 +49,7 @@ from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
+    ContradictedRunError,
     DirectoryUnreadableError,
     ErroredRunError,
     JournalBusyError,
@@ -101,6 +102,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     ErroredRunError,
     ReplayedRunError,
     UncalibratedRunError,
+    ContradictedRunError,
     NothingJudgedError,
     TenantMismatchError,
     SuiteMismatchError,

@@ -42,6 +42,7 @@ __all__ = [
     "RemovedRun",
     "ReplayedRunError",
     "UncalibratedRunError",
+    "ContradictedRunError",
     "ResultStore",
     "RunRef",
     "SupportsJournal",
@@ -132,6 +133,19 @@ class UncalibratedRunError(Exception):
     would become the reference a later run's shape is read against — and a
     baseline scored by a judge that has gone binary makes a collapse invisible
     for as long as it stands. (ADR 0024 §4.5)
+    """
+
+
+class ContradictedRunError(Exception):
+    """Raised when promoting a run in which the judge contradicted a person
+    about a reviewed answer.
+
+    The person's yes or no is the expected verdict, and the judge gave the
+    other. Promoted, the run would become the reference later runs are held
+    against, scored by a judge known to disagree with a person on a known
+    answer: a baseline where the judge contradicts the person is not a
+    baseline. The lost scale's refusal, for the judge's other fault.
+    (ADR 0059 §1, as noted 2026-11-04)
     """
 
 
@@ -738,13 +752,18 @@ class ResultStore(Protocol):
             implicates; or if `accepting_pins` names a path where nothing is
             implicated. A movement made the reference must have been named by
             whoever promoted it (ADR 0053).
+        12. `ContradictedRunError`, after 5, if the judge contradicted a person
+            about a reviewed answer — passed one the person said no to, or
+            failed one the person said yes to. The person's verdict is the
+            expected one, and a reference scored by a judge that disagrees with
+            it is not one (ADR 0059 §1, as noted 2026-11-04).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.
-        - **2 to 6, 9 and 10 answer from the document**, and 10 from the
+        - **2 to 6, 9, 10 and 12 answer from the document**, and 10 from the
           declaration beside it. They are
           `digline.store.refusals_for(run, expected_config_hash, declared=...)`,
           which returns them in the order they are owed. **Call it rather than restating

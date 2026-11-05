@@ -115,6 +115,17 @@ written as one. This kind is set **beside** §4, and §4's note says so.
 apart from `Accuracy`: the judge passed an answer the person said no to, and
 the judge failed an answer the person said yes to.
 
+*Noted 2026-11-04, by the maintainer's ruling; the section above is kept as
+written.* **A run with a contradiction is not promoted.** `promote` refuses it
+as it refuses a lost scale, naming each case and which way the judge went:
+*a baseline where the judge contradicts the person is not a baseline*. The
+person's yes or no is the expected verdict, and a reference scored by a judge
+that gave the other would be held against every later run for as long as it
+stands. It is promotion's condition 12 in [ADR 0002](0002-three-worlds-and-where-the-data-lives.md)
+§8, after 5, the lost scale, which is the judge's other fault. This record
+said nothing of promotion, and the implementation of 2026-11-04 (#903) left
+it unchanged; the ruling closes that.
+
 **`Case.label` is the class of the input, and the import no longer writes
 it.** The suite's author writes a label where the suite has ground truth.
 ADR 0023 §5's rule stands as it is: a capture writes one only from a total

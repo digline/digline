@@ -151,8 +151,12 @@ nothing. No public name is removed or renamed and no exit code changes.
   `reviewed_excluded`; the report shows each beside what the judge said, next
   to the calibration section; a replay re-judges it from the declaration; and
   `contradicted(run)` reads it from a run alone. `digline run` exits as it
-  does for a lost scale (ADR 0059 §1). On the wire, `compare --json` and the
-  run document gain the keys, and `OUTPUT_VERSION` stays 5.
+  does for a lost scale, says the contradiction on stderr and names
+  `explain` next. **`promote` refuses a run with a contradiction**,
+  `ContradictedRunError`, promotion's condition 12, naming each case and
+  which way the judge went (ADR 0059 §1, noted 2026-11-04). On the wire,
+  `compare --json` and the run document gain the keys, and `OUTPUT_VERSION`
+  stays 5.
 - **`explain` names each calibration case outside its band, and each
   reviewed answer the judge contradicted**, where it said a count: the case,
   the check, the score, the band and the side it landed on, `above` or
@@ -162,6 +166,29 @@ nothing. No public name is removed or renamed and no exit code changes.
   count and only where there is one, added keys under `OUTPUT_VERSION` 5. The
   report's sections said this already. The run document does not change
   (ADR 0024 §4.5, ADR 0059 §1).
+- **`explain` says a contradicted reviewed answer among what the run found**,
+  where it said *Nothing in this group*: a check of the kind `contradicted`,
+  first, with what the person said, `good` on the `--json` fact.
+- **Nothing a run does is recorded.** With the recorder on, a run's target
+  and judges called a wrapped client and their calls were filed as the
+  application's, under the suite the call site named. Inside a run the
+  wrapper now collects and writes nothing, no count moves, and an
+  `episode()` is an empty context: `digline.recorder.running()`, which
+  `digline run` and the MCP server enter around `execute()`, and
+  `collecting()` for the target's calls on their own.
+- **`digline record import --from _unassigned`** lists the calls that named
+  no suite as the named suite's, under its capture declaration, and writes
+  the answers named into its cases file; the recordings stay where they are.
+  Each answer shows the function its calls were made from, `made at:`.
+- **An episode's recorded response carries `finish` and `tools`**, read off
+  its steps as a run reads them live. `RECORDING_VERSION` stays 1.
+- **`record_responses` is listed among `[suite]`'s keys**, which already read
+  it, and **a value that is not `true` or `false` is refused**, in TOML and in
+  Python: `"no"` is a truthy string, and a data suite that said it recorded
+  every answer. This breaks a suite that loaded with such a value.
+- **The declarative page says an agent lives in a `suite.py`**, as a target
+  that is a function, and links where its target and its steps are
+  documented.
 - **A page, *Calibrating a judge*** (`docs/calibration.md`): reviewed
   answers, calibration cases, the labelled aggregates and `Repeated`, in one
   suite, with what to read and where. It writes down the convention the
@@ -197,6 +224,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   written with one is still read. `digline record status` says *not counted*
   of a process that keeps no counts file, and `--json` carries it as
   `recordings.uncounted`. `RECORDING_VERSION` stays 1 (ADR 0062 §2).
+- **`digline record proxy --tenant T`** records the calls of an application
+  in any language, which points its SDK's base URL at it: OpenAI's and
+  Anthropic's, whole and streamed, under the same switch, into the same
+  files, with the same digest and counts as `digline.recorder.wrap`. It
+  listens on `127.0.0.1` alone, and passes each reply on as it came. The
+  suite comes from `X-Digline-Suite` or a `/suite/<name>/` path,
+  `X-Digline-Episode` makes an episode of the calls that carry it, and
+  `--upstream ROUTE=URL` sends a route to a gateway or a compatible endpoint.
+  Each plugin reads its route through a new entry point,
+  `digline.recording_wire`. An episode whose case nobody gave says
+  `case_from_first_call`, and the import shows it (ADR 0062 §3).
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

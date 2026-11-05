@@ -550,3 +550,114 @@ def test_execute_without_the_hook_reads_what_the_target_reports(
         suite, agent(client), created_at="2026-11-04T00:00:00.000000Z", mapper=mapper
     )
     assert seen == [{}]
+
+
+# -- a run's calls are the gate's, not the application's traffic --------------- #
+
+
+def recordings(root: Path) -> list[Path]:
+    return sorted((root / ".digline").rglob("recordings/*/*.json"))
+
+
+def counts_files(root: Path) -> dict[Path, str]:
+    """Each process's `.counts`, as written: what `record status` sums."""
+    return {
+        path: path.read_text(encoding="utf-8")
+        for path in sorted((root / ".digline").rglob("recordings/*/.counts"))
+    }
+
+
+def judged_through(client: Any) -> Any:
+    """A judge that asks the same wrapped client, as a function judge may."""
+    from digline.core import JudgeReply, LlmRubric
+
+    def judge(prompt: str) -> JudgeReply:
+        ask(client)
+        return JudgeReply(score=1.0, reason="asked the client")
+
+    return LlmRubric(rubric="ok?", judge=judge, threshold=0.5, tolerance=0.05)
+
+
+def test_a_run_with_the_recorder_on_writes_no_recording(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Inside `running()`, the target's calls, an episode it opens and a
+    judge's calls are collected or made and never written, and the counts do
+    not move. The control first: the same client, outside a run, records."""
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    client = wrap(anthropic(AGENT), app="support", tenant="acme", root=tmp_path)
+    ask(client, suite="support-step")
+    written = recordings(tmp_path)
+    assert len(written) == 1
+    before = dict(client.digline_counts)
+    on_disk = counts_files(tmp_path)
+    assert on_disk  # the control's call left its counts on disk
+
+    def target(case: Case) -> Response:
+        with episode(client, suite="support-agent", case={"q": "refund"}) as ep:
+            assert ep.id is None
+            for _ in range(3):
+                ask(client, suite="support-step")
+        return Response(output="refunded")
+
+    suite = Suite(
+        tenant="acme",
+        environment="test",
+        name="agent",
+        assertions=[judged_through(client)],
+        cases=[Case(id="c")],
+    )
+    with recorder.running():
+        run = execute(
+            suite, target, created_at="2026-11-04T00:00:00Z", around_target=collecting
+        )
+    assert run.results[0].verdicts[0].status == "pass"
+    assert recordings(tmp_path) == written
+    assert dict(client.digline_counts) == before
+    assert counts_files(tmp_path) == on_disk
+
+
+def test_collecting_alone_writes_none_of_the_targets_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A library caller that passes `collecting` and opens no `running()`:
+    the target's calls are still the run's, and are not written."""
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    client = wrap(anthropic(AGENT), app="support", tenant="acme", root=tmp_path)
+    response = settled(agent(client))
+    assert tools_of(response.metadata) == AGENT_TOOLS
+    assert recordings(tmp_path) == []
+    assert client.digline_counts["recorded"] == 0
+
+
+def test_a_measured_run_records_none_of_its_judges_calls(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What `digline run` and the MCP server call: `measure` enters
+    `running()` itself, so a judge's calls through a wrapped client, which
+    no collection reads, are not written either."""
+    from digline.host.measure import measure, prepare
+    from digline.store import FileResultStore
+
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    client = wrap(anthropic(AGENT), app="support", tenant="acme", root=tmp_path)
+    suite = Suite(
+        tenant="acme",
+        environment="test",
+        name="agent",
+        assertions=[judged_through(client)],
+        cases=[Case(id="c")],
+    )
+
+    def target(case: Case) -> Response:
+        return Response(output="refunded")
+
+    prepared = prepare(
+        suite, target, now="2026-11-04T00:00:00Z", git_commit=None, artifacts={}
+    )
+    measured = measure(
+        suite, target, store=FileResultStore(tmp_path), prepared=prepared
+    )
+    assert measured.run.results[0].verdicts[0].status == "pass"
+    assert recordings(tmp_path) == []
+    assert client.digline_counts["recorded"] == 0

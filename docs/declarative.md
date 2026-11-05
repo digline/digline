@@ -119,6 +119,7 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 | `samples` | how many times to ask the target per case. Default 1 |
 | `min_agreement` | mandatory as soon as `samples > 1`. Written as a count: `"2/3"` |
 | `artifacts` | files that *are* the thing under test — a prompt above all |
+| `record_responses` | `true` to keep what the target answered in the run, one entry per sample, so `digline rejudge` can judge it again. Default `false`. It is written inside the perimeter and never crosses it. Outside `config_hash` |
 | `deterministic_output` | `true` where the same input gives the same answer. Default `false`, never deduced from the checks. Read only by `digline record import`, where a yes then also writes the answer as an `expected`. Outside `config_hash` |
 
 `disclosure` is **not** settable here. See "What it cannot say".
@@ -506,13 +507,21 @@ able to smuggle past a review.
 |---|---|
 | A judge with rules of its own | it has no coordinates |
 | A judge set up differently from the plugin's defaults | the coordinate carries the instrument, not its settings |
-| A target that is a function | including an HTTP body that must be computed |
+| A target that is a function | an agent, or anything that is your own code, and an HTTP body that must be computed |
 | A custom assertion, and `from_autoevals` | a scorer is a Python object |
 | Custom `pii_absent` patterns | they carry a checksum function |
 | `disclosure` | see below |
 
 Each of these fails when the suite loads, with a sentence that names the wall
 and where to go — never "invalid value".
+
+**An agent is a target that is a function**, so it lives in a `suite.py`:
+`def target(case: Case) -> Response`, beside a `Suite(...)` written in Python,
+calling your agent and returning what it answered. What it may report, the
+calls it made and their steps, is [the API reference's *The
+target*](api.md#the-target); an agent whose client goes through
+`digline.recorder.wrap()` has its calls read by the run, as
+[`digline record`](record.md#steps-live) says.
 
 **`disclosure` deserves its own line.** It is not settable from a data file at
 all, and that is a security property rather than a limitation: what a

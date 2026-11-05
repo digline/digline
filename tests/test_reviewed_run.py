@@ -64,9 +64,11 @@ from digline.report.shape import shape
 from digline.run import Case, Response, ReviewedAnswer, Suite, execute
 from digline.run.replay import Replay
 from digline.run.suite import planned_calls
+from digline.store import ContradictedRunError, refusals_for
 from digline.wire import (
     EXIT_OK,
     EXIT_UNJUDGED,
+    EXIT_USAGE,
     EXIT_WORSE,
     exit_code,
     explain_json,
@@ -537,6 +539,48 @@ def test_explain_names_each_contradiction_and_its_direction() -> None:
     assert "no-good per llm_rubric, promossa dove la persona ha detto no" in said
 
 
+@pytest.mark.parametrize(
+    ("case", "said"),
+    [
+        (
+            reviewed("no-good", GOOD, good=False),
+            "no-good · llm_rubric passed at 1.000000, and a person said no to the "
+            "answer: the judge contradicts the person, and the case fails.",
+        ),
+        (
+            reviewed("yes-bad", BAD, good=True),
+            "yes-bad · llm_rubric failed at 0.000000, and a person said yes to the "
+            "answer: the judge contradicts the person, and the case fails.",
+        ),
+    ],
+    ids=["passed-a-no", "failed-a-yes"],
+)
+def test_a_contradiction_is_what_the_run_found(case: Case, said: str) -> None:
+    """When it is the only finding, `What it found` says it, and never
+    *Nothing in this group*; alone and against a reference alike."""
+    found = run(case)
+    for reading, heading in (
+        (facts(found), "What it found"),
+        (facts(found, compare(found, found)), "What moved"),
+    ):
+        lines = explain_text(reading, locale="en")
+        # The last group is the checks: its heading, then the contradiction,
+        # where *Nothing in this group.* used to stand.
+        assert lines[-2:] == (heading, said)
+
+
+def test_explain_json_says_what_the_person_said_on_a_contradiction() -> None:
+    found = run(reviewed("no-good", GOOD, good=False), *AGREES)
+    document = json.loads(
+        json.dumps(explain_json(facts(found), reading="run", exit_code=1, run=found))
+    )
+    [check] = [f for f in document["facts"] if f.get("kind") == "contradicted"]
+    assert (check["case_id"], check["good"], check["after"]) == ("no-good", False, 1.0)
+    assert all(
+        "good" not in f for f in document["facts"] if f.get("kind") != "contradicted"
+    )
+
+
 def test_shape_leaves_it_out() -> None:
     """A yes or a no asks for an extreme, so counted it would inflate the
     share at 0 or 1 of the check it names. Only `by-hand`'s two samples are
@@ -636,3 +680,48 @@ def test_digline_run_judges_it_and_report_exits_by_it(
     document = json.loads(written.read_text(encoding="utf-8"))
     by_id = {case["case_id"]: case for case in document["results"]}
     assert by_id["cap-1"]["reviewed"]["good"] is good
+    # What the person who ran it reads, beside the bill: the contradiction,
+    # and a next step that is never promote, which refuses it. (ADR 0059 §1)
+    said = "the judge contradicted a person on 1 reviewed answer."
+    [following] = [line for line in done.stderr.splitlines() if "next:" in line]
+    if good:
+        assert said not in done.stderr
+        assert "digline promote" in following
+    else:
+        assert f"digline: {said}" in done.stderr.splitlines()
+        assert "digline explain" in following
+        assert "digline promote" not in following
+        refused = cli(
+            tmp_path,
+            "promote",
+            "--suite",
+            "suite.py",
+            "--run",
+            "latest",
+            "--replacing",
+            "none",
+        )
+        assert refused.returncode == EXIT_USAGE, refused.stderr
+        assert "cap-1 (failed a yes)" not in refused.stderr
+        assert "contradicted a person about (cap-1 (passed a no))" in refused.stderr
+        assert not list((tmp_path / ".digline" / "acme").rglob("baselines/*.json"))
+
+
+def test_promotion_refuses_a_run_the_judge_contradicted_a_person_in() -> None:
+    """Condition 12, after the lost scale: named by case and direction, and a
+    run whose judge agreed with every person is not refused for it."""
+    against = run(
+        reviewed("no-good", GOOD, good=False), reviewed("yes-bad", BAD, good=True)
+    )
+    refusals = refusals_for(against, against.config_hash, declared=None)
+    [refusal] = [r for r in refusals if isinstance(r, ContradictedRunError)]
+    assert "no-good (passed a no), yes-bad (failed a yes)" in str(refusal)
+    assert "a baseline where the judge contradicts the person is not a baseline" in (
+        str(refusal)
+    )
+    agreeing = run(*AGREES)
+    assert not [
+        r
+        for r in refusals_for(agreeing, agreeing.config_hash, declared=None)
+        if isinstance(r, ContradictedRunError)
+    ]

@@ -116,6 +116,9 @@ jobs:
       ${{ !cancelled() && !(github.event_name == 'push' &&
       needs.queue-tested.outputs.gates == 'true') }}
     runs-on: ubuntu-latest
+    # A test that hangs is a red in 40 minutes, twice the slowest leg
+    # measured, and never a job held for the runner's own six hours.
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:

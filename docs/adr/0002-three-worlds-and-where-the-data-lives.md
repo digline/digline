@@ -521,6 +521,14 @@ list. What the test cannot see is stated in its own docstring.*
    alone.
    *Added by [ADR 0053](0053-promote-refuses-a-pin-nobody-named.md), and brought here
    by the change that implements it.*
+12. **`ContradictedRunError`** — the judge contradicted a person about a reviewed answer:
+   it passed one the person said no to, or failed one the person said yes to. The
+   person's yes or no is the expected verdict, and a reference scored by a judge that
+   gave the other is not one. Answered by `refusals_for`, after 5, from the run alone,
+   and the refusal names each case and which way the judge went.
+   *Added 2026-11-04 by the maintainer's ruling, recorded in a dated note to
+   [ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §1, and
+   brought here by the change that implements it.*
 
 *Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run that judged
 nothing as ADR 0049 §3 defines it, whether or not the suite declares an

@@ -131,11 +131,15 @@ __all__ = [
     "RecorderStartError",
     "Episode",
     "RecordingMap",
+    "RecordingWire",
     "StreamReading",
+    "WIRE_GROUP",
+    "WireRecorder",
     "attach",
     "collecting",
     "episode",
     "parse_switch",
+    "running",
     "wrap",
 ]
 
@@ -207,6 +211,14 @@ _CURRENT: ContextVar[str | None] = ContextVar("digline_episode", default=None)
 _COLLECTING: ContextVar[_Collected | None] = ContextVar(
     "digline_collecting", default=None
 )
+
+#: Whether the current context is inside a run, its target's calls and its
+#: judges' alike: what `running()` opens around `execute()`. A run's calls are
+#: the gate's, not the application's traffic, so nothing inside one is written
+#: as a recording, and the counts do not move. `collecting()` says the same of
+#: the target's calls on its own, for a library caller that passes it to
+#: `execute()` without `running()`.
+_RUNNING: ContextVar[bool] = ContextVar("digline_running", default=False)
 
 #: The episodes open in this process, by id. A call made inside one, through any
 #: wrapped client, adds its step to it.
@@ -382,6 +394,47 @@ class RecordingMap(Protocol):
     ) -> tuple[dict[str, object], dict[str, object]]: ...
 
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion: ...
+
+
+class RecordingWire(Protocol):
+    """What a plugin provides for a call read off the wire, by `digline record
+    proxy`: one route, its map, and the SDK's own types for its JSON.
+    (ADR 0062 §3)
+
+    Declared under `digline.recording_wire`, one entry per route, the entry's
+    name being the route's (`openai`, `anthropic`), which `--upstream
+    ROUTE=URL` names. Every entry is loaded when the proxy starts.
+
+    - `matches(path)` says whether a request's path is this route's;
+    - `base` is the part of the path the SDK's base URL ends in (`/v1` for
+      OpenAI, nothing for Anthropic), taken off before the upstream's own;
+    - `upstream` is where the route forwards when nothing else is said;
+    - `claims(headers)` says whether the request's key is this provider's,
+      which picks the upstream for a route `--upstream` does not name;
+    - `reply` and `event` turn a reply's JSON, and one streamed event's, into
+      the SDK's types, which `map` then reads as it reads an SDK's reply;
+    - `load()` imports the SDK, at the start: two threads importing one SDK
+      for the first time at once were measured to fail half-way.
+    """
+
+    @property
+    def map(self) -> RecordingMap: ...
+
+    @property
+    def base(self) -> str: ...
+
+    @property
+    def upstream(self) -> str: ...
+
+    def matches(self, path: str) -> bool: ...
+
+    def claims(self, headers: Mapping[str, str]) -> bool: ...
+
+    def reply(self, raw: object) -> Any: ...
+
+    def event(self, raw: object) -> Any: ...
+
+    def load(self) -> None: ...
 
 
 class _Shared:
@@ -710,9 +763,12 @@ def _intercepted(
         # Read before the one test an off client makes: a run's collection is
         # open whether or not the recorder is on (ADR 0060 §3).
         collected = _COLLECTING.get()
-        if collected is None and not state.any_on:
+        # Inside a run the wrapper collects and never writes: the target's
+        # and the judges' calls are the gate's, not the application's traffic,
+        # and a recording of them would be filed as the application's suite.
+        records = state.any_on and collected is None and not _RUNNING.get()
+        if collected is None and not records:
             return method(*args, **kwargs)
-        records = state.any_on
         inside = _CURRENT.get() if records else None
         known = None if state.production else cast(str, state.tenant)
         if args:
@@ -1475,7 +1531,7 @@ def _call_site() -> str | None:
 
 def _record(
     state: _State,
-    slot: _Slot,
+    slot: _Slot | _Loaded,
     request: Mapping[str, Any],
     reply: Any,
     elapsed_ms: float,
@@ -1974,6 +2030,26 @@ def collecting(
         collected.close()
 
 
+@contextlib.contextmanager
+def running() -> Generator[None]:
+    """Mark the context as a run's: what `digline.host` enters around
+    `execute()`, so that no call made inside it, by the target or by a judge,
+    through a client `wrap()` returned, is written as a recording or moves a
+    client's counts. A run's calls are the gate's, and recorded they were
+    filed under whatever suite the call site named, as if the application had
+    made them. `collecting()` still reads the target's calls inside it.
+
+        with digline.recorder.running():
+            run = execute(suite, target, ..., around_target=collecting)
+    """
+    token = _RUNNING.set(True)
+    try:
+        yield
+    finally:
+        with contextlib.suppress(ValueError):
+            _RUNNING.reset(token)
+
+
 def _settled(
     collected: _Collected,
     response: Response,
@@ -2103,7 +2179,9 @@ class Episode:
       a tool step's result is absent and says `not_reported`, never filled
       in. A nested episode's steps are spliced in where it closed. Where
       nothing inside it was recorded, the response carries no steps: absent
-      is *not recorded*, never an empty list.
+      is *not recorded*, never an empty list. Its `finish` is the last model
+      step's, and its `tools` the tool steps' names in order, as a run reads
+      them live;
 
     Over `MAX_RECORDED_CHARS`, whole or nothing as a run's recorded response
     is: the response says `oversize` and carries no steps, which carry the
@@ -2121,6 +2199,7 @@ class Episode:
     __slots__ = (
         "_case",
         "_collector",
+        "_from_first_call",
         "_output",
         "_parent",
         "_setup",
@@ -2153,6 +2232,8 @@ class Episode:
         self._collector: _Collector | None = None
         self._token: Token[str | None] | None = None
         self._started = 0.0
+        #: Read off the wire with no case given: the case is the first call's.
+        self._from_first_call = False
 
     def output(self, result: object) -> None:
         """The turn's final output, as the application gives it. The last one
@@ -2161,7 +2242,9 @@ class Episode:
             self._output = (result,)
 
     def __enter__(self) -> Episode:
-        if not self._state.any_on:
+        # Inside a run it is the empty context it is when the recorder is off:
+        # a run's calls are not the application's traffic. (`running()`)
+        if not self._state.any_on or _COLLECTING.get() is not None or _RUNNING.get():
             return self
         self.id = os.urandom(16).hex()
         self._parent = _CURRENT.get()
@@ -2375,6 +2458,19 @@ def _record_episode(
                 # the ceiling there are none: the steps carry the calls'
                 # arguments, so they go with the text (ADR 0015 §3).
                 steps=tuple(steps) or None,
+                # Read off the steps, as a run's collection reads them live
+                # (`_settled`): why the turn ended is its last model step's
+                # finish, and the names are its tool steps', one per call in
+                # order, where every call said what it called. (ADR 0057; ADR
+                # 0058 §5, §7)
+                finish=_last_finish(steps),
+                tools=None
+                if trajectory is None
+                else tuple(
+                    step.call.tool
+                    for step in steps
+                    if step.actor == "tool" and step.call is not None
+                ),
             )
         )
 
@@ -2405,6 +2501,7 @@ def _record_episode(
             unrecorded_children=collector.children_unrecorded(),
             id=ep.id,
             recorded_at=_now(),
+            case_from_first_call=ep._from_first_call,  # pyright: ignore[reportPrivateUsage]
         )
 
         stage = "writer"
@@ -2412,6 +2509,13 @@ def _record_episode(
     except Exception:  # noqa: BLE001 — the rule of this module
         return stage
     return None
+
+
+def _last_finish(steps: Any) -> str | None:
+    """The finish of the last model step: why the turn ended. `None` where it
+    reported none, and never an earlier step's, which ended another reply."""
+    models = [step for step in steps if step.actor == "model"]
+    return models[-1].finish if models else None
 
 
 def _switched_on() -> bool:
@@ -2555,3 +2659,326 @@ def _ready(tree: Mapping[str, Any]) -> None:
                 maps(cast(Mapping[str, Any], value))
 
     maps(tree)
+
+
+#: The entry-point group of the plugins' readers of a call off the wire, one
+#: entry per route (ADR 0062 §3).
+WIRE_GROUP = "digline.recording_wire"
+
+
+class _Loaded:
+    """A map already loaded, where `_record` takes a `_Slot`: the proxy loads
+    every reader when it starts, never at a call."""
+
+    __slots__ = ("map",)
+
+    def __init__(self, mapped: Any) -> None:
+        self.map = mapped
+
+    def mapped(self) -> Any:
+        return self.map
+
+
+class _WireEpisode:
+    """An episode the proxy is gathering: the calls that carried one
+    `X-Digline-Episode`, until none came for the idle interval."""
+
+    __slots__ = (
+        "case",
+        "collector",
+        "first",
+        "from_first_call",
+        "id",
+        "last",
+        "last_end",
+        "site",
+        "state",
+        "suite",
+    )
+
+    def __init__(
+        self,
+        *,
+        id: str,  # noqa: A002 — the episode's id
+        state: _State,
+        suite: str | None,
+        case: Mapping[str, object],
+        from_first_call: bool,
+        site: str | None,
+        drawn: bool,
+        started: float,
+    ) -> None:
+        self.id = id
+        self.state = state
+        self.suite = suite
+        self.case = case
+        self.from_first_call = from_first_call
+        self.site = site
+        self.collector = _Collector(sampled_out=not drawn)
+        self.first = started
+        self.last = _clock()
+        self.last_end = started
+
+
+class WireRecorder:
+    """The recorder `digline record proxy` records with: what `wrap` builds
+    for a client, built for none, for one tenant named, which is development
+    (ADR 0058 §4). The same switch file read the same way, at the same
+    interval, the same writer, the same digest and the same counts file: the
+    proxy is a Python process like any that wraps a client, and `digline
+    record status` reads it as one. (ADR 0062 §3)
+
+    **One state per app** the calls name, `X-Digline-App` or `app`, all under
+    one root, so they share the writer and the process's directory, as two
+    clients wrapped in one process do.
+
+    **An episode off the wire** is the calls that carried one
+    `X-Digline-Episode`, closed once none came for `episode_idle` seconds,
+    or when the proxy stops, and then written as an episode is. Its id is the
+    first 32 hexadecimal characters of the SHA-256 of the header's value, so
+    one value gives one id in every process; a value used again after its
+    episode closed opens another, whose id is taken from the value and how
+    many came before it. Its case is the one `X-Digline-Case` gave, or the
+    first call's, and then the recording says `case_from_first_call`. Its
+    answer is the last call's text. It is never `interrupted`: an exception
+    in the application does not cross the wire.
+
+    Nothing here raises at a call, by this module's rule: what goes wrong is
+    counted, by reason.
+    """
+
+    def __init__(
+        self, *, tenant: str, app: str, root: Path, episode_idle: float
+    ) -> None:
+        if not isinstance(tenant, str) or not tenant:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RecorderStartError("the proxy needs --tenant, a non-empty name")
+        if not isinstance(app, str) or not app:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RecorderStartError("the proxy needs an app name, a non-empty one")
+        self.tenant = tenant
+        self.app = app
+        self.root = root
+        self.episode_idle = episode_idle
+        self._lock = threading.Lock()
+        self._states: dict[str, _State] = {}
+        self._episodes: dict[str, _WireEpisode] = {}
+        self._opened: dict[str, int] = {}
+        self._inflight: dict[str, int] = {}
+        # Read before the files, as `wrap` does: a value that is neither on
+        # nor off is refused.
+        _switched_on()
+        self._state(app)
+
+    def _state(self, app: str | None) -> _State:
+        name = app or self.app
+        with self._lock:
+            state = self._states.get(name)
+            if state is None:
+                state = _State(app=name, tenant=self.tenant, root=self.root)
+                _read_switches(state, starting=True)
+                _measure(state)
+                state.next_look = _clock() + state.interval
+                self._states[name] = state
+        if _clock() >= state.next_look:
+            _look(state)
+        return state
+
+    @property
+    def switch(self) -> Switch | None:
+        """The tenant's switch as the proxy read it, `None` where no file and
+        no `DIGLINE_RECORD=1` switched it."""
+        return self._state(None).switches.get(self.tenant)
+
+    def on(self, app: str | None = None) -> bool:
+        """Whether this tenant records now: read at each call, after the look
+        the interval asks for."""
+        return self._state(app).any_on
+
+    def begin(self, episode: str | None) -> None:
+        """A call that carries `episode` has begun: its episode is not idle
+        while it lasts."""
+        if episode is None:
+            return
+        with self._lock:
+            self._inflight[episode] = self._inflight.get(episode, 0) + 1
+
+    def end(self, episode: str | None) -> None:
+        """A call that carried `episode` has ended, recorded or not."""
+        if episode is None:
+            return
+        with self._lock:
+            left = self._inflight.get(episode, 1) - 1
+            if left > 0:
+                self._inflight[episode] = left
+            else:
+                self._inflight.pop(episode, None)
+            found = self._episodes.get(episode)
+            if found is not None:
+                found.last = _clock()
+
+    def record(
+        self,
+        mapped: RecordingMap,
+        request: Mapping[str, Any],
+        *,
+        reply: Any = None,
+        completion: Completion | None = None,
+        elapsed_ms: float,
+        suite: str | None,
+        app: str | None,
+        site: str | None,
+        episode: str | None,
+        case: Mapping[str, object] | None,
+    ) -> None:
+        """One call that ended with a reply: recorded, or said why not, and
+        counted. A streamed one arrives with its `completion` already read."""
+        try:
+            state = self._state(app)
+            if not state.any_on:
+                return
+            _LAST.tenant = self.tenant
+            _LAST.notes = []
+            slot = _Loaded(mapped)
+            if episode is None:
+                reason, _ = _record(
+                    state,
+                    slot,
+                    request,
+                    reply,
+                    elapsed_ms,
+                    suite,
+                    None,
+                    site,
+                    None,
+                    completion=completion,
+                )
+            else:
+                found = self._episode(
+                    state, episode, suite, site, case, mapped, request, elapsed_ms
+                )
+                reason, seen = _record(
+                    state,
+                    slot,
+                    request,
+                    reply,
+                    elapsed_ms,
+                    suite,
+                    None,
+                    site,
+                    found.id,
+                    completion=completion,
+                    drawn=not found.collector.sampled_out,
+                )
+                found.collector.add(seen)
+                found.last_end = perf_counter()
+            state.count(reason)
+            _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
+        except Exception:  # noqa: BLE001 — the rule of this module
+            return
+        finally:
+            self.end(episode)
+
+    def missed(
+        self, reason: str, *, suite: str | None, app: str | None, episode: str | None
+    ) -> None:
+        """A call that was not recorded, said by its reason: a stream the
+        application closed before its end is `stream abandoned`, as in
+        process. In its episode it is a child that was not recorded."""
+        try:
+            state = self._state(app)
+            if not state.any_on:
+                return
+            if episode is not None:
+                with self._lock:
+                    found = self._episodes.get(episode)
+                if found is not None:
+                    found.collector.add(None)
+            state.count(reason)
+            _tally(state, self.tenant, suite, reason)
+        except Exception:  # noqa: BLE001 — the rule of this module
+            return
+        finally:
+            self.end(episode)
+
+    def _episode(
+        self,
+        state: _State,
+        key: str,
+        suite: str | None,
+        site: str | None,
+        case: Mapping[str, object] | None,
+        mapped: RecordingMap,
+        request: Mapping[str, Any],
+        elapsed_ms: float,
+    ) -> _WireEpisode:
+        import hashlib
+
+        with self._lock:
+            found = self._episodes.get(key)
+            if found is not None:
+                return found
+            opened = self._opened.get(key, 0)
+            self._opened[key] = opened + 1
+        seed = key if opened == 0 else f"{key}\n{opened}"
+        given = case
+        if given is None:
+            given = mapped.split(request)[0]
+        found = _WireEpisode(
+            id=hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32],
+            state=state,
+            suite=suite,
+            case=given,
+            from_first_call=case is None,
+            site=site if suite is None else None,
+            drawn=_episode_sampled_in(state),
+            started=perf_counter() - elapsed_ms / 1000.0,
+        )
+        with self._lock:
+            # Two first calls at once: the first to arrive is the episode.
+            return self._episodes.setdefault(key, found)
+
+    def close_idle(self) -> None:
+        """Write every episode that has had no call for the idle interval."""
+        now = _clock()
+        with self._lock:
+            idle = [
+                key
+                for key, found in self._episodes.items()
+                if key not in self._inflight and now - found.last >= self.episode_idle
+            ]
+            closing = [self._episodes.pop(key) for key in idle]
+        for found in closing:
+            self._close(found)
+
+    def close(self) -> None:
+        """The proxy stops: every open episode is written, and the counts."""
+        with self._lock:
+            closing = list(self._episodes.values())
+            self._episodes.clear()
+            states = list(self._states.values())
+        for found in closing:
+            self._close(found)
+        for state in states:
+            _flush(state)
+
+    def _close(self, found: _WireEpisode) -> None:
+        state = found.state
+        try:
+            if found.collector.sampled_out:
+                state.count("sampled out")
+                _tally(state, self.tenant, found.suite, "sampled out")
+                return
+            written = Episode(state, found.suite, found.case, None, found.site)
+            written.id = found.id
+            written._collector = found.collector  # pyright: ignore[reportPrivateUsage]
+            written._from_first_call = found.from_first_call  # pyright: ignore[reportPrivateUsage]
+            _LAST.tenant = self.tenant
+            reason = _record_episode(
+                written,
+                found.collector,
+                (found.last_end - found.first) * 1000.0,
+                interrupted=False,
+            )
+            state.count(reason)
+            _tally(state, _LAST.tenant, found.suite, reason)
+        except Exception:  # noqa: BLE001 — the rule of this module
+            return

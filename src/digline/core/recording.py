@@ -285,6 +285,10 @@ class Recording:
     #: `+00:00`, read from the system clock by the host. `None` where nothing
     #: recorded it. Any other form is refused (ADR 0062 §2).
     recorded_at: str | None = None
+    #: An episode whose case nobody gave, read off the wire by the proxy: its
+    #: case is its first call's, and the import says so (ADR 0062 §3). Only
+    #: an episode carries it.
+    case_from_first_call: bool = False
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -316,6 +320,15 @@ class Recording:
             )
         if type(self.orphan) is not bool:
             raise RecordingRefusedError("Recording.orphan must be a boolean")
+        if type(self.case_from_first_call) is not bool:
+            raise RecordingRefusedError(
+                "Recording.case_from_first_call must be a boolean"
+            )
+        if self.case_from_first_call and not self.is_episode:
+            raise RecordingRefusedError(
+                "only an episode takes its case from its first call; a single "
+                "call's case is its own"
+            )
         if self.orphan and self.is_episode:
             raise RecordingRefusedError(
                 "only a single call is an orphan, never an episode"
@@ -376,6 +389,8 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["unrecorded_children"] = recording.unrecorded_children
     if recording.orphan:
         payload["orphan"] = True
+    if recording.case_from_first_call:
+        payload["case_from_first_call"] = True
     if recording.id is not None:
         payload["id"] = recording.id
     if recording.recorded_at is not None:
@@ -433,6 +448,7 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             interrupted=_flag(document, "interrupted"),
             unrecorded_children=_count(document, "unrecorded_children"),
             orphan=_flag(document, "orphan"),
+            case_from_first_call=_flag(document, "case_from_first_call"),
             id=_optional_text(document, "id"),
             recorded_at=_optional_text(document, "recorded_at"),
         )
