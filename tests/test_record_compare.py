@@ -451,7 +451,7 @@ def test_a_system_of_messages_is_shown_by_its_first_text_never_as_json(
     assert '\\"' not in line and "[{" not in line
     found = compared(tmp_path, setups=(a, b), show_setup=True)
     [system] = [k for k in found.setup_keys if k.key == "system"]
-    assert (system.b.messages, system.b.chars, system.b.clipped) == (
+    assert (system.b.message_count, system.b.chars, system.b.clipped) == (
         2,
         len(first),
         True,

@@ -86,13 +86,13 @@ class SetupValue:
     many characters the whole value has. Payload, and never on the wire.
 
     Where the value is a list of messages, a `system` the way Chat Completions
-    carries it, `messages` is how many there are and the preview is the first
+    carries it, `message_count` is how many there are and the preview is the first
     one's text, never the list as JSON."""
 
     preview: str
     chars: int
     clipped: bool
-    messages: int | None = None
+    message_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

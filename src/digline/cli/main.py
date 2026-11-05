@@ -1635,9 +1635,9 @@ def _setup_value(value: SetupValue) -> str:
     first message's text and how many there are, never JSON with its quotes
     escaped."""
     shown = f'"{value.preview}"' + ("…" if value.clipped else "")
-    if value.messages is not None:
-        many = "message" if value.messages == 1 else "messages"
-        return f"{shown} ({value.messages} {many})"
+    if value.message_count is not None:
+        many = "message" if value.message_count == 1 else "messages"
+        return f"{shown} ({value.message_count} {many})"
     return f"{shown} ({value.chars} characters)" if value.clipped else shown
 
 

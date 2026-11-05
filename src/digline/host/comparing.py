@@ -299,7 +299,7 @@ def _value(value: object) -> SetupValue:
             preview=preview,
             chars=len(whole),
             clipped=preview != whole,
-            messages=len(messages),
+            message_count=len(messages),
         )
     whole = (
         value

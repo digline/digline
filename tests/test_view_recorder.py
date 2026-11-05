@@ -434,9 +434,9 @@ def test_a_list_of_messages_is_its_first_text_and_a_count_never_json(
     keys = (
         SetupKey(
             key="system",
-            a=SetupValue(preview="Be brief.", chars=9, clipped=False, messages=1),
+            a=SetupValue(preview="Be brief.", chars=9, clipped=False, message_count=1),
             b=SetupValue(
-                preview='Say "no" kindly.', chars=80, clipped=True, messages=2
+                preview='Say "no" kindly.', chars=80, clipped=True, message_count=2
             ),
         ),
     )

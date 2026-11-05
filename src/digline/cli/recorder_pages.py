@@ -508,17 +508,17 @@ def _keys(found: RecordComparison, locale: Locale) -> str:
                     f"{escape(phrase(locale, 'view.setups.absent', side=side))}</td>"
                 )
                 continue
-            # Quoted, never through JSON: a prompt shown with its quotes
+            # In quotes, never through JSON: a prompt shown with its quotes
             # escaped reads as code. A list of messages is its first one's
             # text, and how many there are.
             shown = f'"{value.preview}"' + ("…" if value.clipped else "")
-            if value.messages is not None:
+            if value.message_count is not None:
                 key_of_count = (
                     "view.setups.messages.one"
-                    if value.messages == 1
+                    if value.message_count == 1
                     else "view.setups.messages.many"
                 )
-                said = phrase(locale, key_of_count, count=value.messages)
+                said = phrase(locale, key_of_count, count=value.message_count)
             elif value.clipped:
                 said = phrase(locale, "view.setups.chars", chars=value.chars)
             else:
