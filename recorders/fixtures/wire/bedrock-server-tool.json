@@ -1,0 +1,90 @@
+{
+  "route": "bedrock",
+  "path": "/model/amazon.nova-pro-v1%3A0/converse",
+  "model_id": "amazon.nova-pro-v1:0",
+  "request": {
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "Search twice."
+          }
+        ]
+      }
+    ]
+  },
+  "reply": {
+    "output": {
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "toolUse": {
+              "toolUseId": "s1",
+              "name": "search",
+              "type": "server_tool_use",
+              "input": {
+                "q": "A1"
+              }
+            }
+          },
+          {
+            "toolResult": {
+              "toolUseId": "s1",
+              "status": "error",
+              "content": [
+                {
+                  "text": "quota"
+                },
+                {
+                  "json": {
+                    "code": 429,
+                    "ratio": 0.33333333
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "toolUse": {
+              "toolUseId": "s2",
+              "name": "search",
+              "type": "server_tool_use",
+              "input": [
+                "A2"
+              ]
+            }
+          },
+          {
+            "toolResult": {
+              "toolUseId": "s2",
+              "content": [
+                {
+                  "text": "x"
+                }
+              ]
+            }
+          },
+          {
+            "toolUse": {
+              "toolUseId": "t3",
+              "input": {
+                "order": "A1"
+              }
+            }
+          },
+          {
+            "text": "Done."
+          }
+        ]
+      }
+    },
+    "stopReason": "end_turn",
+    "usage": {
+      "inputTokens": 30,
+      "outputTokens": 12,
+      "totalTokens": 42
+    }
+  }
+}

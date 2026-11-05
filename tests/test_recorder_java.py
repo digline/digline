@@ -3,9 +3,11 @@
 `recorders/java/DiglineRecorder.java` is held to files that digline's own
 code writes, in `recorders/fixtures/`: the Java tests read them, and these
 hold each one equal to what `recorders/fixtures/make.py` makes of digline
-now. A change here that moves a digest, a float's text, a switch's sentence
-or a recorded call's bytes turns this red until the fixtures are made again,
-and then the Java side is held to the new answer.
+now. A change here that moves a digest, a float's text, a switch's sentence,
+a recorded call's bytes or a provider map's reading of a call off the wire
+turns this red until the fixtures are made again, and then the Java side is
+held to the new answer. The wire's are made with the plugins, which the gates
+install.
 
 The last test reads what the Java recorder wrote in the CI job
 `recorder-java` and imports it with digline alone, no plugin installed.
@@ -15,6 +17,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import runpy
 from collections.abc import Callable
 from pathlib import Path
@@ -65,6 +68,27 @@ def test_the_digest_measured_across_the_two_languages_is_fixed() -> None:
         setup_digest_of({"max_tokens": 64, "model": "claude-haiku-4-5"})
         == "81869b20f0d8875a"
     )
+
+
+PAGE = REPO / "docs" / "record-java.md"
+PAGE_TEST = REPO / "recorders/java/src/test/java/dev/digline/PageTest.java"
+
+
+def _lines(block: str) -> list[str]:
+    return [line.strip() for line in block.strip("\n").splitlines()]
+
+
+def test_every_java_block_on_the_page_is_one_the_java_tests_run() -> None:
+    """A line goes on `docs/record-java.md` only once it was run (ADR 0062
+    §5): each of its Java blocks, in order, is one of `PageTest`'s, between a
+    `// page:` line and an `// end` line, which the Java tests run against
+    fake providers. Compared line by line, indentation aside."""
+    page = re.findall(r"```java\n(.*?)```", PAGE.read_text(encoding="utf-8"), re.S)
+    run = re.findall(
+        r"// page:\n(.*?)\n[ ]*// end", PAGE_TEST.read_text(encoding="utf-8"), re.S
+    )
+    assert page, "the page has no Java block"
+    assert [_lines(block) for block in page] == [_lines(block) for block in run]
 
 
 SUITE = """\

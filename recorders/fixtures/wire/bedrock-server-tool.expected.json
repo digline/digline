@@ -1,0 +1,90 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": [
+          {
+            "text": "Search twice."
+          }
+        ],
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "stop",
+    "input": "[{\"content\":[{\"text\":\"Search twice.\"}],\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 250.5,
+    "output": "Done.",
+    "steps": [
+      {
+        "actor": "model",
+        "finish": "stop",
+        "index": 0
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"q\":\"A1\"}",
+        "index": 1,
+        "result": "quota\n{\"code\":429,\"ratio\":0.333333}",
+        "status": "error",
+        "tool": "search"
+      },
+      {
+        "actor": "tool",
+        "arguments": "[\"A2\"]",
+        "index": 2,
+        "result_absence": "not_recorded",
+        "status": "not_reported",
+        "tool": "search"
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"order\":\"A1\"}",
+        "index": 3,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tool_calls": [
+      {
+        "arguments": "{\"q\":\"A1\"}",
+        "result": "quota\n{\"code\":429,\"ratio\":0.333333}",
+        "status": "error",
+        "tool": "search"
+      },
+      {
+        "arguments": "[\"A2\"]",
+        "result_absence": "not_recorded",
+        "status": "not_reported",
+        "tool": "search"
+      },
+      {
+        "arguments": "{\"order\":\"A1\"}",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tools": [
+      "search",
+      "search",
+      null
+    ],
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 12
+    }
+  },
+  "setup": {
+    "modelId": "amazon.nova-pro-v1:0"
+  },
+  "setup_digest": "feac632ac3089ed3",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}
