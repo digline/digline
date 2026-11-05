@@ -1,5 +1,5 @@
 """A name from outside the perimeter is a path segment only once
-`checked_name` has taken it. (P-1515; CodeQL #111-#130, GHSA-j878-2v6m-m4vx)
+`checked_name` has taken it. (P-1515; CodeQL alerts 111-130, GHSA-j878-2v6m-m4vx)
 
 CodeQL's high alerts on `py/path-injection` are one class: a tenant, a suite,
 a run key or a cases file reaching a path. In 1.1 they arrive from further
