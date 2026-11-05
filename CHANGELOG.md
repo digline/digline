@@ -364,8 +364,8 @@ nothing. No public name is removed or renamed and no exit code changes.
   measured with.
 - **A `suite.toml` prices its judge beside the coordinate**, with
   `judge_pricing`, the rates of `[target.pricing]`; a judge whose model has no
-  price is refused when the suite loads, naming that key, where every check it
-  judged used to error with *Pass `pricing=` to the target* (ADR 0007 §3).
+  price says that key where its cost is asked, where it said *Pass
+  `pricing=` to the target*, which a TOML file cannot write (ADR 0007 §3).
 
 ## pytest-digline — unreleased
 

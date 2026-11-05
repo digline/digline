@@ -30,7 +30,7 @@ import inspect
 import json
 import tomllib
 from collections.abc import Mapping, Sequence
-from dataclasses import MISSING, Field, fields
+from dataclasses import MISSING, Field, dataclass, fields
 from pathlib import Path
 from typing import Any, cast
 
@@ -91,9 +91,11 @@ from digline.targets import (
     ModelPrice,
     Pricing,
     ProviderNotFound,
+    UnknownModelError,
     resolve,
     split_coordinate,
 )
+from digline.targets.pricing import Usage
 
 #: The rates a `[target.pricing]` table may declare: `ModelPrice`'s own fields,
 #: in its own unit. Input and output are required; an absent cache rate means
@@ -600,19 +602,33 @@ def _instrument(
             )
         ) from exc
     pricing = getattr(judge, "pricing", None)
-    if isinstance(pricing, Pricing) and not pricing.knows(model):
-        # Before anything is spent, and in the suite's own words: a judge
-        # whose model has no price errors every check it judges, and the
-        # sentence a suite.py gets, `pricing=`, has no meaning here.
-        raise UsageError(
-            f"{where}: `{key}` names {model!r}, which {provider_name}'s price "
-            "list does not have, so every check it judges would error with its "
-            "cost not known. Declare its rates beside it, in USD per million "
-            "tokens as the "
-            "provider lists them: judge_pricing = { input_per_mtok = …, "
-            "output_per_mtok = … }"
+    if isinstance(pricing, Pricing):
+        # The same list, saying the suite's own key where a model has no
+        # price: the sentence a suite.py gets, `pricing=`, has no meaning in a
+        # suite.toml. Not refused at load: a plugin whose list depends on
+        # where it runs, Bedrock's by region, builds a judge it may price
+        # there and not here.
+        judge.pricing = _TomlPricing(
+            per_model=pricing.per_model, declared=pricing.declared
         )
     return judge
+
+
+@dataclass(frozen=True, slots=True)
+class _TomlPricing(Pricing):
+    """A judge's price list, as a `suite.toml` gave it: a model it has no
+    price for is refused naming `judge_pricing`, the key that declares one."""
+
+    def cost(self, model: str, usage: Usage) -> float:
+        if not self.knows(model):
+            known = ", ".join(sorted(self.per_model)) or "none"
+            raise UnknownModelError(
+                f"no price for model {model!r}: a run cannot report what it "
+                f"cost, and a cost of zero passes every budget. Known: {known}. "
+                "In a suite.toml, declare its rates beside `judge`: "
+                "judge_pricing = { input_per_mtok = …, output_per_mtok = … }"
+            )
+        return Pricing.cost(self, model, usage)
 
 
 # --------------------------------------------------------------------------- #

@@ -254,8 +254,9 @@ plugin does not price errored every check its judge judged, and the sentence
 said `pricing=`, which a TOML file cannot write: measured on a Node
 application's suite (P-1518). `judge_pricing`, a table of per-million rates in
 `[target.pricing]`'s shape, sits beside `judge` in the same `[[assertions]]`
-entry; and a judge whose model has no price is refused when the suite loads,
-naming the key. The coordinate stays the instrument's identity: a rate is what
+entry; and a judge whose model has no price says that key where its cost is
+asked. It is not refused at load: Bedrock's list depends on the region the
+run is in, and `digline list` builds a judge with no key and no region. The coordinate stays the instrument's identity: a rate is what
 a call costs, not how the judge grades, and a table *as* the coordinate is
 still refused as settings.
 

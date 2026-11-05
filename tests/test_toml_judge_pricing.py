@@ -5,8 +5,9 @@ A suite.py passes `pricing=` to the judge; a `suite.toml` had no way to, so
 every check that judge judged errored with its cost not known, and the
 sentence said `pricing=`, which a TOML file cannot write. Now:
 
-- the suite is refused when it loads, before anything is spent, and the
-  sentence names the TOML key;
+- the judge's price list says the TOML key where its model has no price. Not
+  refused at load: Bedrock's list depends on the region the run is in, and
+  `digline list` builds a judge with no key and no region;
 - `judge_pricing`, beside `judge`, declares the rates in the shape
   `[target.pricing]` has, and the judge prices with them;
 - a model the plugin lists needs nothing.
@@ -24,7 +25,8 @@ import pytest
 from digline.core import LlmRubric
 from digline.host.errors import UsageError
 from digline.host.toml_suite import load_toml_suite
-from digline.targets import Pricing
+from digline.targets import Pricing, UnknownModelError
+from digline.targets.pricing import Usage
 
 SUITE = """
 [suite]
@@ -61,15 +63,18 @@ def load(tmp_path: Path, judge: str) -> LlmRubric:
     return rubric
 
 
-def test_an_unpriced_judge_is_refused_at_load_naming_the_toml_key(
+def test_an_unpriced_judge_says_the_toml_key_where_its_cost_is_asked(
     tmp_path: Path,
 ) -> None:
-    with pytest.raises(UsageError) as refused:
-        load(tmp_path, 'judge = "anthropic/claude-not-listed"')
+    rubric = load(tmp_path, 'judge = "anthropic/claude-not-listed"')
+    pricing = getattr(rubric.judge, "pricing")  # noqa: B009 — the judge is a protocol
+    assert isinstance(pricing, Pricing)
+    with pytest.raises(UnknownModelError) as refused:
+        pricing.cost("claude-not-listed", Usage(input_tokens=10, output_tokens=2))
     said = str(refused.value)
-    assert "'claude-not-listed', which anthropic's price list does not have" in said
-    assert "judge_pricing = { input_per_mtok" in said
-    assert "pricing=" not in said.replace("judge_pricing =", "")
+    assert "no price for model 'claude-not-listed'" in said
+    assert "In a suite.toml, declare its rates beside `judge`: judge_pricing" in said
+    assert "Pass `pricing=`" not in said
 
 
 def test_judge_pricing_prices_the_judge_with_the_rates_it_declares(

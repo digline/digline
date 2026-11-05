@@ -302,9 +302,9 @@ different temperature, or rules of its own is an object, and objects live in a
 `suite.py`.
 
 **Its price is not a setting.** A model the plugin's price list does not have
-cannot be priced, so every check its judge judges would error with its cost
-not known; the suite is refused when it loads, naming the key to write.
-`judge_pricing`, beside `judge`, declares the rates in USD per million tokens,
+cannot be priced, so every check its judge judges errors with its cost not
+known, and the sentence names the key to write. `judge_pricing`, beside
+`judge`, declares the rates in USD per million tokens,
 in the shape [`[target.pricing]`](#what-the-endpoint-charges-targetpricing)
 has:
 
