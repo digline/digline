@@ -79,6 +79,7 @@ from digline.report.pages import (
     recorder_address,
     recordings_address,
     setups_address,
+    where_address,
 )
 from digline.run import Suite
 from digline.store.file_store import FileResultStore, RecordingWriter
@@ -584,6 +585,8 @@ def views(served: Served) -> list[str]:
         setups_address("acme", "triage") + f"?setup={S1[:8]}&setup={S2[:8]}",
         recorder_address("acme"),
         recorder_address("acme") + "?locale=it",
+        where_address("acme", "triage"),
+        where_address("acme", "triage") + "?locale=it",
     ]
 
 
@@ -633,6 +636,7 @@ def test_every_screen_links_the_three_views(served: Served) -> None:
     for target in ("/", "/suspend/x?reason=r", *views(served)):
         page = served.ask("GET", target).body
         for href in (
+            where_address("acme", "triage"),
             recordings_address("acme", "triage"),
             setups_address("acme", "triage"),
             recorder_address("acme"),

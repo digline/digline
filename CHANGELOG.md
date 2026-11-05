@@ -78,6 +78,14 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **`digline view` opens its menu with *Where you are***, which reads
+  `.digline/` and says the next step: one state of eleven, the first that
+  holds, from *Nothing recorded yet* to *Nothing to do*, each with two
+  sentences, the command, and the page that says more. It is
+  `digline.host.where`, which writes nothing and renders nothing, so a
+  command can print the same value. A command it names is shown and never
+  run; the recorder's switch is a button only under `--allow-record`
+  ([`docs/view.md`](docs/view.md#where-you-are)).
 - **A second skill in the Claude Code plugin, `proposing-a-suite`**, copied
   byte for byte to `.claude/skills/`, where skills.sh reads it, and the
   same procedure in `AGENTS.md` for any other agent: how an agent proposes a
