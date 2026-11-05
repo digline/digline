@@ -172,7 +172,10 @@ in the order they were recorded, each with its digest. `?case=ID` keeps one
 case, and two `setup` values put those two setups side by side with the keys
 they differ on, as `--setup A B --show-setup` does: each value by its first
 line, up to 60 characters, never a prompt whole, and a list of messages by its
-first message's text and how many there are. For one case a chart draws
+first message's text and how many there are, and an episode's
+`child_setups` one per line with the model each names. Beside an episode's
+setup come how many model calls its episodes made and the models it touched,
+in a list that ranks nothing. For one case a chart draws
 each answer's length over time, one colour per setup: the same answer recorded
 again is a point at the same height. It shows, and judges nothing.
 

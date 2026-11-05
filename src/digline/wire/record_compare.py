@@ -27,12 +27,14 @@ from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
 __all__ = [
+    "ChildSetup",
     "ComparedAnswer",
     "ComparedCase",
     "ComparedSetup",
     "RecordComparison",
     "SetupKey",
     "SetupValue",
+    "episode_shape",
     "record_compare_json",
 ]
 
@@ -61,10 +63,28 @@ class ComparedAnswer:
 @dataclass(frozen=True, slots=True)
 class ComparedSetup:
     """A case's answers under one setup, in the order they were recorded.
-    `setup` is the setup's digest, as the recordings carry it."""
+    `setup` is the setup's digest, as the recordings carry it.
+
+    For an episode, the shape of its steps beside the setup's name: `calls`,
+    the numbers of model calls its episodes made, each once, in the order
+    first met, and `models`, the models its children's setups name, in the
+    order of the setup's own list. Empty for a single call. Payload, and
+    never on the wire."""
 
     setup: str
     answers: tuple[ComparedAnswer, ...]
+    calls: tuple[int, ...] = ()
+    models: tuple[str, ...] = ()
+
+
+def episode_shape(setup: ComparedSetup) -> str:
+    """An episode's setup in words, beside its name: how many model calls its
+    episodes made, and the models those calls were made with. A list, never a
+    ranking. English, as every line of `record compare` is; the page says the
+    same through `view.setups.episode`."""
+    calls = " / ".join(str(n) for n in setup.calls) or "not recorded"
+    models = ", ".join(setup.models) or "not recorded"
+    return f"model calls per episode: {calls} · models: {models}"
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +101,16 @@ class ComparedCase:
 
 
 @dataclass(frozen=True, slots=True)
+class ChildSetup:
+    """One setup an episode's calls were made under: its digest's first eight
+    characters, and the model it names, or `None` where no recording of the
+    tenant has it or it names none."""
+
+    digest: str
+    model: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class SetupValue:
     """A setup's value, as far as it is shown: its first line, clipped, and how
     many characters the whole value has. Payload, and never on the wire.
@@ -93,6 +123,10 @@ class SetupValue:
     chars: int
     clipped: bool
     message_count: int | None = None
+    #: Where the value is an episode's `child_setups`: each child setup, its
+    #: digest's first eight characters and the model it names, one per line
+    #: when shown. Empty otherwise.
+    children: tuple[ChildSetup, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

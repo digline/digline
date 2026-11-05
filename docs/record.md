@@ -653,7 +653,11 @@ its digest. An answer recorded several times in a row under the same setup is
 one line with how many times, and the date it ran to. Nothing is hidden: the
 same answer recorded again after a different one is a line of its own.
 Orphans, interrupted episodes and recordings over the ceiling are counted, as
-the import counts them.
+the import counts them. An episode's setup is the set of its calls' setups and
+the commit, so its digest alone says nothing of its shape: beside it come how
+many model calls its episodes made and the models its calls named, as in
+`setup 5e6f7a8b · model calls per episode: 2 · models: claude-haiku,
+claude-sonnet`. A list, never a ranking.
 
 It shows, and judges nothing. No answer is ranked, and no word calls one better
 or worse: whether a setup answered as it should is for the person reading. It
@@ -669,7 +673,9 @@ writes nothing, and does not move the import's `examined_through`.
   on. Each value is shown by its first line, up to 60 characters, and its
   length, so a prompt is never printed whole. A list of messages, a `system`
   the way Chat Completions carries it, is shown by its first message's text
-  and how many messages there are, never as JSON.
+  and how many messages there are, never as JSON. An episode's
+  `child_setups` are shown one per line, each child setup by its eight
+  characters and the model it names.
 - `--json` is the same structure for a program. It carries digests, never the
   recorded text (fixed decision 9): the cases by their ids, the setups and
   the answers by their digests, the dates, the counts, and for `--show-setup`

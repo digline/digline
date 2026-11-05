@@ -11,6 +11,9 @@ What is held here:
 - two levels of nesting, each recording carrying its parent's id;
 - the setup by hand against the derived one, and the derived digest moving
   with `git_commit` and with nothing that is the same;
+- the derived setup a set: a turn over two models is under a setup unlike
+  either call's, the same turn with its calls in another order under the same
+  one, and a declared setup wins whole;
 - the id reaches a call through `attach`, in a pool thread, a plain thread and
   a spawned process; without it a call in a pool thread is an orphan, counted
   and attached to nothing; `asyncio.to_thread` inherits it;
@@ -40,7 +43,7 @@ from typing import Any
 import pytest
 
 from digline import recorder
-from digline.core.recording import setup_digest_of
+from digline.core.recording import episode_setup, setup_digest_of
 from digline.core.run import MAX_RECORDED_CHARS
 from digline.recorder import (
     UNASSIGNED,
@@ -382,6 +385,75 @@ def test_a_setup_given_by_hand_is_the_one_digested(tmp_path: Path) -> None:
     }
     assert derived["setup_digest"] == setup_digest_of(derived["setup"])
     assert derived["setup_digest"] != by_suite["by-hand"]["setup_digest"]
+
+
+def ask_with(client: RecordedClient, model: str) -> Any:
+    return client.messages.create(
+        model=model, max_tokens=50, messages=QUESTION, suite="triage"
+    )
+
+
+@pytest.mark.usefixtures("on", "commit")
+def test_an_episode_over_two_models_has_a_setup_unlike_either_call(
+    tmp_path: Path,
+) -> None:
+    """An episode's setup is the set of its children's setups and the commit:
+    a turn that asks two models is its own setup, and never the setup of one
+    of the calls it made. (ADR 0058 §8, note of 2026-11-05)"""
+    client = wrapped(tmp_path, LOOKUP, ANSWER)
+    with episode(client, suite="support-agent", case=CASE):
+        ask_with(client, "claude-haiku")
+        ask_with(client, "claude-sonnet")
+    [turn] = episodes(tmp_path)
+    children = {found["setup_digest"] for found in calls(tmp_path)}
+    assert len(children) == 2
+    assert turn["setup_digest"] not in children
+    assert turn["setup"] == {"child_setups": sorted(children), "git_commit": "a" * 40}
+
+
+@pytest.mark.usefixtures("on", "commit")
+def test_the_same_episode_with_its_calls_in_another_order_has_the_same_setup(
+    tmp_path: Path,
+) -> None:
+    """Order does not count, and a setup met twice is one: the same turn,
+    recorded with its two models asked in the other order and one of them
+    twice, is under the same setup."""
+    client = wrapped(tmp_path, LOOKUP, ANSWER, LOOKUP, REFUND, ANSWER)
+    with episode(client, suite="first", case=CASE):
+        ask_with(client, "claude-haiku")
+        ask_with(client, "claude-sonnet")
+    with episode(client, suite="second", case=CASE):
+        ask_with(client, "claude-sonnet")
+        ask_with(client, "claude-haiku")
+        ask_with(client, "claude-sonnet")
+    by_suite = {found["suite"]: found for found in episodes(tmp_path)}
+    assert by_suite["first"]["setup"] == by_suite["second"]["setup"]
+    assert by_suite["first"]["setup_digest"] == by_suite["second"]["setup_digest"]
+    assert len(by_suite["second"]["setup"]["child_setups"]) == 2
+
+
+@pytest.mark.usefixtures("on", "commit")
+def test_a_declared_setup_wins_over_the_set_of_two_models(tmp_path: Path) -> None:
+    """`setup=` is the setup whole: no child setup and no commit is added to
+    it, whichever models the turn asked."""
+    client = wrapped(tmp_path, LOOKUP, ANSWER)
+    declared = {"graph": "support-v3"}
+    with episode(client, suite="support-agent", case=CASE, setup=declared):
+        ask_with(client, "claude-haiku")
+        ask_with(client, "claude-sonnet")
+    [turn] = episodes(tmp_path)
+    assert turn["setup"] == declared
+    assert turn["setup_digest"] == setup_digest_of(declared)
+
+
+def test_episode_setup_is_a_set_and_a_declared_setup_is_returned_whole() -> None:
+    """The function the recorder writes with, callable on its own."""
+    assert episode_setup(["b", "a", "b"], "c" * 40) == {
+        "child_setups": ["a", "b"],
+        "git_commit": "c" * 40,
+    }
+    assert episode_setup(["a"]) == {"child_setups": ["a"]}
+    assert episode_setup(["a"], "c" * 40, declared={"graph": "v3"}) == {"graph": "v3"}
 
 
 @pytest.mark.usefixtures("on")
