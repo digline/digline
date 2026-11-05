@@ -1578,6 +1578,7 @@ def _record(
     completion: Completion | None = None,
     late: bool = False,
     drawn: bool | None = None,
+    gate: tuple[str | None, str | None] | None = None,
 ) -> tuple[str | None, _Seen | None]:
     """Record one call, or say why not. `None` is *recorded*.
 
@@ -1595,6 +1596,11 @@ def _record(
     A streamed call arrives here at its end with its `completion` already
     read from the events, `drawn` as its episode drew when the stream began,
     and `late` where that episode has closed since.
+
+    `gate` is whether a run was in progress, read where the call began: the
+    proxy writes after it has answered, by which time the run that made the
+    call may have ended and removed its marker. `None` reads it now, which is
+    right where the call is still waiting on this write.
 
     The response's `input` is the case's `messages` as JSON text
     (`input_of`), the same for a call made, streamed or awaited: the question
@@ -1664,7 +1670,8 @@ def _record(
 
     try:
         stage = "not JSON"
-        gate = _gate(state.root, tenant)
+        if gate is None:
+            gate = _gate(state.root, tenant)
         recording = Recording(
             source_tenant=tenant,
             app=state.app,
@@ -2433,7 +2440,12 @@ def _commit(state: _State) -> str | None:
 
 
 def _record_episode(
-    ep: Episode, collector: _Collector, elapsed_ms: float, *, interrupted: bool
+    ep: Episode,
+    collector: _Collector,
+    elapsed_ms: float,
+    *,
+    interrupted: bool,
+    gate: tuple[str | None, str | None] | None = None,
 ) -> str | None:
     """Write an episode's recording, or say why not. `_record`'s rule: nothing
     here raises, and each stage is its reason.
@@ -2540,7 +2552,8 @@ def _record_episode(
             return "ceiling"
 
         stage = "not JSON"
-        gate = _gate(state.root, tenant)
+        if gate is None:
+            gate = _gate(state.root, tenant)
         suite = ep._suite  # pyright: ignore[reportPrivateUsage]
         recording = Recording(
             source_tenant=tenant,
@@ -2753,6 +2766,7 @@ class _WireEpisode:
         "collector",
         "first",
         "from_first_call",
+        "gate",
         "id",
         "last",
         "last_end",
@@ -2787,6 +2801,10 @@ class _WireEpisode:
         self.first = started
         self.last = _clock()
         self.last_end = started
+        #: Whether a run was in progress when any of its calls began, as
+        #: `_record`'s `gate`: an episode is written once it is idle, long
+        #: after the run that made it may have ended.
+        self.gate: tuple[str | None, str | None] = (None, None)
 
 
 class WireRecorder:
@@ -2862,6 +2880,15 @@ class WireRecorder:
         the interval asks for."""
         return self._state(app).any_on
 
+    def gate_now(self) -> tuple[str | None, str | None]:
+        """Whether a `digline run` is in progress in this proxy's tenant, read
+        as a call begins and handed to `record` with it. Never raises: the
+        application's call never fails because of the recorder."""
+        try:
+            return _gate(self.root, self.tenant)
+        except Exception:  # noqa: BLE001 — the rule of this module
+            return None, None
+
     def begin(self, episode: str | None) -> None:
         """A call that carries `episode` has begun: its episode is not idle
         while it lasts."""
@@ -2898,11 +2925,13 @@ class WireRecorder:
         episode: str | None,
         case: Mapping[str, object] | None,
         results: Sequence[ToolCall] | None = None,
+        gate: tuple[str | None, str | None] = (None, None),
     ) -> None:
         """One call that ended with a reply: recorded, or said why not, and
         counted. A streamed one arrives with its `completion` already read.
         `results` are the tool results its request carried for the call
-        before it, which close that call's tool steps in its episode."""
+        before it, which close that call's tool steps in its episode. `gate`
+        is `gate_now()` as the call began."""
         try:
             state = self._state(app)
             if not state.any_on:
@@ -2922,6 +2951,7 @@ class WireRecorder:
                     site,
                     None,
                     completion=completion,
+                    gate=gate,
                 )
             else:
                 found = self._episode(
@@ -2939,7 +2969,10 @@ class WireRecorder:
                     found.id,
                     completion=completion,
                     drawn=not found.collector.sampled_out,
+                    gate=gate,
                 )
+                with self._lock:
+                    found.gate = _either_gate(found.gate, gate)
                 found.collector.add(seen)
                 with self._lock:
                     found.carried.append((seen, results))
@@ -3054,11 +3087,25 @@ class WireRecorder:
                 found.collector,
                 (found.last_end - found.first) * 1000.0,
                 interrupted=False,
+                gate=found.gate,
             )
             state.count(reason)
             _tally(state, _LAST.tenant, found.suite, reason)
         except Exception:  # noqa: BLE001 — the rule of this module
             return
+
+
+def _either_gate(
+    held: tuple[str | None, str | None], call: tuple[str | None, str | None]
+) -> tuple[str | None, str | None]:
+    """An episode's gate with one more call's: the gate's where any call was
+    made during a run, with the run's key where every such call named the
+    same one, and without it where two named different runs."""
+    if call[0] is None:
+        return held
+    if held[0] is None:
+        return call
+    return held if held[1] == call[1] else (held[0], None)
 
 
 def _close_tool_steps(

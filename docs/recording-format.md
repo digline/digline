@@ -135,7 +135,9 @@ no `.digline/` has no switch: the writer is off, as digline's own is, unless
 
 A call made then, with a `[target] http` pointed at an application that
 records itself, is the gate's and not the application's traffic. So a writer,
-before it writes a file:
+for each call, and **while the call still waits on it** — when the call
+begins, or at the latest before its reply reaches the application, never
+after:
 
 - **lists that directory**, skipping a name that starts with a dot or does
   not end in `.json`. No directory is no run, and neither is a directory, or
@@ -149,6 +151,11 @@ before it writes a file:
   written `"gate"`, and `run_id`, the marker's `run_id`. Where more than one
   marker is live, or the one live marker cannot be read as JSON with a
   non-empty string `run_id`, it writes `origin` alone.
+
+A writer that answers the application first and writes the file after, as
+`digline record proxy` does, reads the marker as the call begins: by the time
+it writes, the run that made the call may have ended and removed its marker.
+An episode is the gate's where any of its calls was.
 
 Absent, `origin` means the application. A file with `run_id` and no `origin`
 is refused, and so is any other `origin`. Two optional keys, so

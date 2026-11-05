@@ -360,6 +360,11 @@ class _Handler(BaseHTTPRequestHandler):
         app = ours.get(_OURS + "app") or None
         episode = ours.get(_OURS + "episode") or None
         records = route is not None and self.command == "POST"
+        # Read as the call begins, not as it is written: the reply reaches
+        # the application first, and a run that made the call may end and
+        # remove its marker before the recording is written. (ADR 0058 §4,
+        # as amended 2026-11-05)
+        gate = self.recorder.gate_now() if records else (None, None)
         if records:
             self.recorder.begin(episode)
         connection = (
@@ -419,6 +424,7 @@ class _Handler(BaseHTTPRequestHandler):
             ours.get(_OURS + "case"),
             headers.get("user-agent"),
             path,
+            gate=gate,
         )
 
     def _missed(
@@ -540,6 +546,8 @@ class _Handler(BaseHTTPRequestHandler):
         case: str | None,
         agent: str | None,
         path: str,
+        *,
+        gate: tuple[str | None, str | None],
     ) -> None:
         wire = self.wires[route]
         try:
@@ -595,6 +603,7 @@ class _Handler(BaseHTTPRequestHandler):
             episode=episode,
             case=_case(case),
             results=results,
+            gate=gate,
         )
 
 

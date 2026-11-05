@@ -24,6 +24,7 @@ from typing import Any
 
 import pytest
 from tests.test_record_proxy import Upstream, proxying
+from tests.test_recorder_streaming import OPENAI_WHOLE
 from tests.test_recorder_switch import an_anthropic, ask
 
 from digline import recorder
@@ -394,6 +395,75 @@ def test_the_status_counts_the_gate_apart_and_names_a_marker_left_behind(
         "  gate markers: 2 left by a run that did not remove it, older than 2 "
         f"minutes and ignored: {KEY}, unreadable"
     ) in out
+
+
+class Ending:
+    """A provider that, while it answers, sees the run that made the call
+    end: the marker is removed before the reply reaches the proxy, so the
+    proxy writes after the run is over, as it does when its reply reaches
+    the application first."""
+
+    def __init__(self, root: Path) -> None:
+        owner = self
+        self.root = root
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+                pass
+
+            def do_POST(self) -> None:  # noqa: N802
+                self.rfile.read(int(self.headers["Content-Length"]))
+                for path in place(owner.root).glob("*.json"):
+                    path.unlink()
+                data = json.dumps(OPENAI_WHOLE).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server.daemon_threads = True
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.address = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+
+@pytest.mark.parametrize("episode", [None, "turn-1"], ids=["a call", "an episode"])
+def test_the_proxy_reads_the_gate_as_the_call_begins_not_as_it_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, episode: str | None
+) -> None:
+    """Measured on CI before this: the proxy answers the application and then
+    writes, and one of a run's two calls was written after the run had
+    removed its marker, as the application's."""
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    ending = Ending(tmp_path)
+    proxy = proxying(tmp_path, ending, routes=[f"openai={ending.address}/v1"])  # pyright: ignore[reportArgumentType]
+    plant(tmp_path, f"1-{KEY}.json", marker())
+    try:
+        connection = http.client.HTTPConnection("127.0.0.1", proxy.port, timeout=10)
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer sk-test",
+            "X-Digline-Suite": "triage",
+        }
+        if episode is not None:
+            headers["X-Digline-Episode"] = episode
+        connection.request(
+            "POST",
+            "/v1/chat/completions",
+            body=json.dumps(
+                {"model": "gpt-test", "messages": [{"role": "user", "content": "q"}]}
+            ),
+            headers=headers,
+        )
+        assert connection.getresponse().status == 200
+        connection.close()
+        assert list(place(tmp_path).glob("*.json")) == []
+    finally:
+        proxy.stop()
+        ending.server.shutdown()
+    marks = [(d.get("origin"), d.get("run_id")) for d in written(tmp_path)]
+    assert marks == [("gate", KEY)] * (1 if episode is None else 2)
 
 
 # -- end to end ----------------------------------------------------------------- #
