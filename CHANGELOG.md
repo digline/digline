@@ -417,6 +417,13 @@ nothing. No public name is removed or renamed and no exit code changes.
   and the models its calls named; `--show-setup` shows `child_setups` one per
   line, each with its model. `--json` is unchanged.
 
+### Security
+
+- **A name becomes a path in one place**, `joined_inside`, which normalises
+  the path and holds it under its root wherever the store joins a tenant, a
+  suite or a run key; and the view's bar finds the runs' link in linear time,
+  where a page of many lookalike links took quadratic time.
+
 ## pytest-digline — unreleased
 
 - **`--digline-run` measures as `digline run` does.** Inside

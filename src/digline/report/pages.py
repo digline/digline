@@ -160,7 +160,10 @@ def with_tenant_screens(
     is its `/`, and the recorder, the two pages a tenant has without a suite.
     The runs' entry is replaced, since there are no runs to list without a
     suite to read them for."""
-    runs = re.search(r'<a href="/\?locale=[a-z]+"[^>]*>[^<]*</a>', document)
+    # `[^<>]*`, not `[^>]*`: an attribute never holds a `<`, and a class that
+    # may cross one runs from each `<a href="/?locale=…"` to the end of the
+    # document, which is quadratic in the number of them.
+    runs = re.search(r'<a href="/\?locale=[a-z]+"[^<>]*>[^<]*</a>', document)
     if runs is None or document.count('<nav class="bar">') != 1:
         raise ValueError("this document has no navigation bar to add a view to")
     links: list[str] = []
