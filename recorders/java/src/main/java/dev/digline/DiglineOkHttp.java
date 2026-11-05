@@ -86,7 +86,7 @@ public final class DiglineOkHttp implements Interceptor {
         try {
             Buffer body = new Buffer();
             request.body().writeTo(body);
-            sent = asMap(DiglineRecorder.Json.parse(body.readString(StandardCharsets.UTF_8)));
+            sent = DiglineRecorder.asMap(DiglineRecorder.Json.parse(body.readString(StandardCharsets.UTF_8)));
         } catch (IOException | RuntimeException notJson) {
             recorder.miss("not JSON", at);
         }
@@ -141,7 +141,7 @@ public final class DiglineOkHttp implements Interceptor {
         try {
             String text = response.peekBody(Long.MAX_VALUE).string();
             double elapsed = (System.nanoTime() - started) / 1_000_000.0;
-            recorder.record(call(asked, asMap(DiglineRecorder.Json.parse(text)), elapsed), at);
+            recorder.record(call(asked, DiglineRecorder.asMap(DiglineRecorder.Json.parse(text)), elapsed), at);
         } catch (IOException | RuntimeException unread) {
             recorder.miss("map", at);
         }
@@ -177,14 +177,14 @@ public final class DiglineOkHttp implements Interceptor {
         if (choices.isEmpty()) {
             throw new IllegalArgumentException("the provider returned no choices");
         }
-        Map<String, Object> choice = asMap(choices.get(0));
-        Map<String, Object> message = choice.get("message") instanceof Map<?, ?> ? asMap(choice.get("message"))
+        Map<String, Object> choice = DiglineRecorder.asMap(choices.get(0));
+        Map<String, Object> message = choice.get("message") instanceof Map<?, ?> ? DiglineRecorder.asMap(choice.get("message"))
                 : Map.of();
-        String finish = truthy(message.get("refusal")) ? "filtered"
+        String finish = DiglineRecorder.truthy(message.get("refusal")) ? "filtered"
                 : DiglineRecorder.finishOf(choice.get("finish_reason"), FINISH);
         Object content = message.get("content");
         return new DiglineRecorder.Call(caseCompartment, setup,
-                truthy(content) ? String.valueOf(content) : "", latencyMs, usage(reply.get("usage")),
+                DiglineRecorder.truthy(content) ? String.valueOf(content) : "", latencyMs, usage(reply.get("usage")),
                 finish, toolCalls(message));
     }
 
@@ -193,13 +193,13 @@ public final class DiglineOkHttp implements Interceptor {
             double latencyMs) {
         Map<String, Object> snapshot = null;
         for (Object raw : chunks) {
-            Map<String, Object> chunk = asMap(raw);
+            Map<String, Object> chunk = DiglineRecorder.asMap(raw);
             List<?> deltas = chunk.get("choices") instanceof List<?> found ? found : List.of();
             if (snapshot == null) {
                 snapshot = new LinkedHashMap<>(chunk);
                 List<Object> choices = new ArrayList<>(deltas);
                 for (Object each : deltas) {
-                    Map<String, Object> choice = asMap(each);
+                    Map<String, Object> choice = DiglineRecorder.asMap(each);
                     choices.set(index(choice), firstChoice(choice));
                 }
                 snapshot.put("choices", choices);
@@ -208,17 +208,17 @@ public final class DiglineOkHttp implements Interceptor {
             @SuppressWarnings("unchecked")
             List<Object> choices = (List<Object>) snapshot.get("choices");
             for (Object each : deltas) {
-                Map<String, Object> choice = asMap(each);
+                Map<String, Object> choice = DiglineRecorder.asMap(each);
                 int at = index(choice);
                 Map<String, Object> held;
                 if (at < choices.size()) {
-                    held = asMap(choices.get(at));
-                    held.put("message", accumulate(asMap(held.get("message")), deltaOf(choice)));
+                    held = DiglineRecorder.asMap(choices.get(at));
+                    held.put("message", accumulate(DiglineRecorder.asMap(held.get("message")), deltaOf(choice)));
                 } else {
                     held = firstChoice(choice);
                     choices.add(held);
                 }
-                if (truthy(choice.get("finish_reason"))) {
+                if (DiglineRecorder.truthy(choice.get("finish_reason"))) {
                     held.put("finish_reason", choice.get("finish_reason"));
                 }
                 // `asMap` copies: the choice held is put back where it was.
@@ -240,7 +240,7 @@ public final class DiglineOkHttp implements Interceptor {
     }
 
     private static Map<String, Object> deltaOf(Map<String, Object> choice) {
-        return choice.get("delta") instanceof Map<?, ?> ? asMap(choice.get("delta")) : Map.of();
+        return choice.get("delta") instanceof Map<?, ?> ? DiglineRecorder.asMap(choice.get("delta")) : Map.of();
     }
 
     private static int index(Map<String, Object> entry) {
@@ -278,7 +278,7 @@ public final class DiglineOkHttp implements Interceptor {
                         ? (Object) (number.longValue() + more.longValue())
                         : (Object) (number.doubleValue() + more.doubleValue()));
             } else if (current instanceof Map<?, ?> && value instanceof Map<?, ?>) {
-                acc.put(key, accumulate(asMap(current), asMap(value)));
+                acc.put(key, accumulate(DiglineRecorder.asMap(current), DiglineRecorder.asMap(value)));
             } else if (current instanceof List<?> list && value instanceof List<?> more) {
                 List<Object> merged = new ArrayList<>((List<Object>) list);
                 boolean scalars = merged.stream().allMatch(item -> item instanceof String
@@ -287,12 +287,12 @@ public final class DiglineOkHttp implements Interceptor {
                     merged.addAll(more);
                 } else {
                     for (Object item : more) {
-                        Map<String, Object> part = asMap(item);
+                        Map<String, Object> part = DiglineRecorder.asMap(item);
                         int at = index(part);
                         if (at >= merged.size()) {
                             merged.add(Math.min(at, merged.size()), part);
                         } else {
-                            merged.set(at, accumulate(asMap(merged.get(at)), part));
+                            merged.set(at, accumulate(DiglineRecorder.asMap(merged.get(at)), part));
                         }
                     }
                 }
@@ -347,19 +347,19 @@ public final class DiglineOkHttp implements Interceptor {
         if (!(raw instanceof Map<?, ?>)) {
             return null;
         }
-        Map<String, Object> usage = asMap(raw);
-        Long prompt = count(usage.get("prompt_tokens"));
-        Long completion = count(usage.get("completion_tokens"));
+        Map<String, Object> usage = DiglineRecorder.asMap(raw);
+        Long prompt = DiglineRecorder.count(usage.get("prompt_tokens"));
+        Long completion = DiglineRecorder.count(usage.get("completion_tokens"));
         if (prompt == null || completion == null) {
             return null;
         }
         Long reasoning = null;
         if (usage.get("completion_tokens_details") instanceof Map<?, ?> details) {
-            reasoning = count(details.get("reasoning_tokens"));
+            reasoning = DiglineRecorder.count(details.get("reasoning_tokens"));
         }
         long cached = 0;
         if (usage.get("prompt_tokens_details") instanceof Map<?, ?> details) {
-            Long found = count(details.get("cached_tokens"));
+            Long found = DiglineRecorder.count(details.get("cached_tokens"));
             cached = found == null ? 0 : found;
         }
         return new DiglineRecorder.Usage(Math.max(prompt - cached, 0), completion, cached, 0,
@@ -371,24 +371,24 @@ public final class DiglineOkHttp implements Interceptor {
         if (message.get("tool_calls") instanceof List<?> calls && !calls.isEmpty()) {
             List<DiglineRecorder.ToolCall> found = new ArrayList<>();
             for (Object each : calls) {
-                Map<String, Object> call = asMap(each);
+                Map<String, Object> call = DiglineRecorder.asMap(each);
                 if ("custom".equals(call.get("type"))) {
-                    Map<String, Object> custom = call.get("custom") instanceof Map<?, ?> ? asMap(call.get("custom"))
+                    Map<String, Object> custom = call.get("custom") instanceof Map<?, ?> ? DiglineRecorder.asMap(call.get("custom"))
                             : Map.of();
                     Object input = custom.get("input");
-                    found.add(DiglineRecorder.ToolCall.asked(name(custom.get("name")),
+                    found.add(DiglineRecorder.ToolCall.asked(DiglineRecorder.name(custom.get("name")),
                             input instanceof String ? input : null));
                 } else {
                     Map<String, Object> function = call.get("function") instanceof Map<?, ?>
-                            ? asMap(call.get("function")) : Map.of();
-                    found.add(DiglineRecorder.ToolCall.asked(name(function.get("name")),
+                            ? DiglineRecorder.asMap(call.get("function")) : Map.of();
+                    found.add(DiglineRecorder.ToolCall.asked(DiglineRecorder.name(function.get("name")),
                             decoded(function.get("arguments"))));
                 }
             }
             return found;
         }
         if (message.get("function_call") instanceof Map<?, ?> single) {
-            return List.of(DiglineRecorder.ToolCall.asked(name(single.get("name")),
+            return List.of(DiglineRecorder.ToolCall.asked(DiglineRecorder.name(single.get("name")),
                     decoded(single.get("arguments"))));
         }
         return null;
@@ -404,47 +404,5 @@ public final class DiglineOkHttp implements Interceptor {
         } catch (IllegalArgumentException notJson) {
             return written;
         }
-    }
-
-    static String name(Object value) {
-        return value instanceof String text && !text.isEmpty() ? text : null;
-    }
-
-    static Long count(Object value) {
-        if (value instanceof Long whole) {
-            return whole;
-        }
-        if (value instanceof Number number && !(value instanceof Boolean)) {
-            return number.longValue();
-        }
-        return null;
-    }
-
-    /** Python's truth of a JSON value: null, false, 0, "" and empty containers are false. */
-    static boolean truthy(Object value) {
-        if (value == null || Boolean.FALSE.equals(value)) {
-            return false;
-        }
-        if (value instanceof String text) {
-            return !text.isEmpty();
-        }
-        if (value instanceof Number number) {
-            return number.doubleValue() != 0;
-        }
-        if (value instanceof Map<?, ?> map) {
-            return !map.isEmpty();
-        }
-        if (value instanceof List<?> list) {
-            return !list.isEmpty();
-        }
-        return true;
-    }
-
-    @SuppressWarnings("unchecked")
-    static Map<String, Object> asMap(Object value) {
-        if (!(value instanceof Map<?, ?>)) {
-            throw new IllegalArgumentException("not a JSON object");
-        }
-        return new LinkedHashMap<>((Map<String, Object>) value);
     }
 }

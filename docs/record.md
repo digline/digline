@@ -92,7 +92,19 @@ The clients recorded are the ones a plugin maps, one method at a time:
 |---|---|---|
 | `digline-anthropic` | `anthropic.Anthropic`, `anthropic.AsyncAnthropic` | `messages.create`, `messages.stream` |
 | `digline-openai` | `openai.OpenAI`, `openai.AsyncOpenAI` | `chat.completions.create`, `chat.completions.stream` |
-| `digline-bedrock` | a `bedrock-runtime` client | `converse`, `converse_stream` |
+| `digline-bedrock` | a `bedrock-runtime` client | `converse`, `converse_stream`, `invoke_model`, `invoke_model_with_response_stream` |
+
+**Bedrock's `invoke_model` is recorded for an Anthropic model**, whose body is
+Anthropic's Messages, read with the map `digline-anthropic` reads a direct call
+with: `digline-bedrock` depends on it. Another family, Titan, Llama or Mistral,
+is not recorded, nor is an embedding model: the call is counted with its
+reason, *model family not recorded* or *embeddings not recorded*, which `digline
+record status` shows, and standard error says it once a family, as `digline
+recorder: invoke_model on amazon.titan-text-express-v1: this model family is
+not recorded`. The family is read from the model id, a cross-region prefix
+(`us.`, `eu.`, `apac.`, `global.`) taken off first. The proxy reads the same
+calls, `/model/<id>/invoke` and `/model/<id>/invoke-with-response-stream`, by
+the same rule.
 
 Any other client is refused when it is wrapped, by name. Bedrock has no
 asynchronous client in botocore; aiobotocore's is a package of its own that no
@@ -343,7 +355,8 @@ says otherwise.
 
 **Which provider.** The path says which plugin reads a call:
 `/chat/completions` is OpenAI's, `/v1/messages` Anthropic's,
-`/model/<id>/converse` and `/model/<id>/converse-stream` Bedrock's. Such a
+`/model/<id>/converse`, `/model/<id>/converse-stream`, `/model/<id>/invoke`
+and `/model/<id>/invoke-with-response-stream` Bedrock's. Such a
 call goes to that provider, whatever its headers say, or to
 `--upstream ROUTE=URL` for that route, for a gateway or a compatible
 endpoint, once per route:

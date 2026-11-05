@@ -32,12 +32,16 @@ import software.amazon.awssdk.http.nio.netty.NettyNioAsyncHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
 import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseResponse;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseStreamRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseStreamResponseHandler;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelWithResponseStreamRequest;
+import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelWithResponseStreamResponseHandler;
 
 /**
  * Each hook, installed the way its page says, on the SDK's real client, which
@@ -185,6 +189,97 @@ class HooksTest {
         assertEquals(11, events[0]);
     }
 
+    /** The request body of a wire fixture, as InvokeModel sends it. */
+    static SdkBytes bodyOf(Map<String, Object> wire) {
+        return SdkBytes.fromUtf8String(DiglineRecorder.Json.compact(wire.get("request")));
+    }
+
+    @Test
+    void bedrockInvokeModel() throws IOException {
+        Map<String, Object> wire = wire("bedrock-invoke");
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(wire);
+                var suite = DiglineRecorder.suite("refunds");
+                BedrockRuntimeClient client = bedrock(provider, recorder)) {
+            String reply = client.invokeModel(InvokeModelRequest.builder()
+                    .modelId((String) wire.get("model_id")).body(bodyOf(wire)).build())
+                    .body().asUtf8String();
+            // The application reads the reply the server sent, whole.
+            assertTrue(reply.contains("\"stop_reason\":\"tool_use\""), reply);
+            heldToItsReading(wire, provider);
+        }
+    }
+
+    @Test
+    void bedrockInvokeModelWithResponseStream() throws Exception {
+        Map<String, Object> wire = wire("bedrock-invoke-stream");
+        DiglineRecorder recorder = recorder();
+        int[] events = {0};
+        try (FakeProvider provider = new FakeProvider(wire);
+                var suite = DiglineRecorder.suite("refunds");
+                BedrockRuntimeAsyncClient client = BedrockRuntimeAsyncClient.builder()
+                        .endpointOverride(URI.create(provider.url())).region(Region.US_EAST_1)
+                        .credentialsProvider(StaticCredentialsProvider.create(
+                                AwsBasicCredentials.create("a", "b")))
+                        .overrideConfiguration(c -> c.addExecutionInterceptor(new DiglineAws(recorder)))
+                        .httpClientBuilder(NettyNioAsyncHttpClient.builder().protocol(Protocol.HTTP1_1))
+                        .build()) {
+            client.invokeModelWithResponseStream(InvokeModelWithResponseStreamRequest.builder()
+                    .modelId((String) wire.get("model_id")).body(bodyOf(wire)).build(),
+                    InvokeModelWithResponseStreamResponseHandler.builder()
+                            .subscriber(event -> events[0]++).build())
+                    .get();
+            heldToItsReading(wire, provider);
+        }
+        assertEquals(9, events[0]);
+    }
+
+    @Test
+    void anotherFamilyIsCountedAndSaidOnceNotRecorded() throws IOException {
+        Map<String, Object> wire = wire("bedrock-invoke");
+        DiglineRecorder recorder = recorder();
+        java.io.PrintStream err = System.err;
+        java.io.ByteArrayOutputStream said = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(said, true, StandardCharsets.UTF_8));
+        try (FakeProvider provider = new FakeProvider(wire);
+                var suite = DiglineRecorder.suite("refunds");
+                BedrockRuntimeClient client = bedrock(provider, recorder)) {
+            for (String model : List.of("amazon.titan-text-express-v1", "amazon.titan-text-lite-v1",
+                    "cohere.embed-english-v3", "us.meta.llama3-1-8b-instruct-v1:0")) {
+                client.invokeModel(InvokeModelRequest.builder().modelId(model)
+                        .body(bodyOf(wire)).build()).body().asUtf8String();
+            }
+        } finally {
+            System.setErr(err);
+        }
+        assertEquals(List.of(), recordings());
+        assertEquals(Map.of("model family not recorded", 3L, "embeddings not recorded", 1L),
+                recorder.counts().get("not_recorded"));
+        String text = said.toString(StandardCharsets.UTF_8);
+        // Once a family: Titan's second model says nothing more.
+        assertTrue(text.contains("digline recorder: invoke_model on amazon.titan-text-express-v1: "
+                + "this model family is not recorded"), text);
+        assertFalse(text.contains("amazon.titan-text-lite-v1"), text);
+        assertTrue(text.contains("invoke_model on cohere.embed-english-v3: embeddings are not recorded"),
+                text);
+        assertTrue(text.contains("invoke_model on us.meta.llama3-1-8b-instruct-v1:0: "
+                + "this model family is not recorded"), text);
+    }
+
+    @Test
+    void theRegionPrefixIsTakenOffBeforeTheVendorIsRead() {
+        for (String prefix : List.of("", "us.", "eu.", "apac.", "global.")) {
+            assertEquals(List.of("anthropic", "messages"),
+                    List.of(DiglineAws.familyOf(prefix + "anthropic.claude-3-5-haiku-20241022-v1:0")));
+            assertEquals(List.of("amazon", "other"),
+                    List.of(DiglineAws.familyOf(prefix + "amazon.titan-text-express-v1")));
+        }
+        assertEquals(List.of("anthropic", "messages"), List.of(DiglineAws.familyOf(
+                "arn:aws:bedrock:us-east-1:123:inference-profile/us.anthropic.claude-3-haiku")));
+        assertEquals(List.of("amazon", "embeddings"),
+                List.of(DiglineAws.familyOf("amazon.titan-embed-text-v2:0")));
+    }
+
     BedrockRuntimeClient bedrock(FakeProvider provider, DiglineRecorder recorder) {
         return BedrockRuntimeClient.builder().endpointOverride(URI.create(provider.url()))
                 .region(Region.US_EAST_1)
@@ -321,7 +416,7 @@ class HooksTest {
     @Test
     void aReplyTheHookCannotReadReachesTheApplicationAndIsCounted() throws IOException {
         Map<String, Object> wire = new LinkedHashMap<>(wire("openai-single"));
-        Map<String, Object> reply = new LinkedHashMap<>(DiglineOkHttp.asMap(wire.get("reply")));
+        Map<String, Object> reply = new LinkedHashMap<>(DiglineRecorder.asMap(wire.get("reply")));
         reply.put("choices", List.of());
         wire.put("reply", reply);
         DiglineRecorder recorder = recorder();

@@ -31,12 +31,18 @@ class WireFixturesTest {
         return switch ((String) wire.get("route")) {
             case "openai" -> streamed ? DiglineOkHttp.streamed(request, events, latencyMs)
                     : DiglineOkHttp.call(request, reply, latencyMs);
-            case "anthropic" -> streamed ? DiglineAnthropic.streamed(request, events, latencyMs)
-                    : DiglineAnthropic.call(request, reply, latencyMs);
+            case "anthropic" -> streamed ? DiglineMessages.streamed(request, events, latencyMs)
+                    : DiglineMessages.call(request, reply, latencyMs);
             case "bedrock" -> {
                 Map<String, Object> asked = new LinkedHashMap<>();
                 asked.put("modelId", wire.get("model_id"));
                 asked.putAll(request);
+                if (((String) wire.get("path")).contains("/invoke")) {
+                    // InvokeModel with an Anthropic model: Messages, read as a
+                    // direct call is, its stream's chunks decoded first.
+                    yield streamed ? DiglineMessages.streamed(asked, DiglineAws.chunks(events), latencyMs)
+                            : DiglineMessages.call(asked, reply, latencyMs);
+                }
                 yield streamed ? DiglineAws.streamed(asked, events, latencyMs)
                         : DiglineAws.call(asked, reply, latencyMs);
             }
@@ -52,7 +58,7 @@ class WireFixturesTest {
             calls = found.filter(path -> !path.getFileName().toString().endsWith(".expected.json"))
                     .sorted().toList();
         }
-        assertEquals(10, calls.size(), calls.toString());
+        assertEquals(12, calls.size(), calls.toString());
         Map<String, Object> call = FixturesTest.parsed("call.json");
         for (Path path : calls) {
             String name = path.getFileName().toString();

@@ -272,6 +272,27 @@ Java writer reads it before its interceptor returns, and is held to
 [`recording-format.md`](../recording-format.md) says it for whoever writes
 the next one.
 
+*Noted 2026-11-05, by Alessandro Prandini's ruling (P-1543), the section
+above kept as written.* **Bedrock's InvokeModel is recorded where its body is
+Anthropic's Messages.** Measured before (P-1541): `invoke_model` and
+`invoke_model_with_response_stream` passed through the recorder in process and
+the Java hook with nothing recorded and nothing counted, and through the
+proxy counted *route not read*. Now the three writers read them, an Anthropic
+model's body with the map `digline-anthropic` reads a direct Messages call
+with: the case is the body's `messages`, the setup `modelId` and the body's
+other keys but those that map leaves out, and the reply, or each stream
+`chunk`'s `bytes`, a Messages reply or event. `digline-bedrock` **depends on
+`digline-anthropic`**, with no extra: a second reading of Messages would
+drift from the first, and an extra would add a state to explain, a call
+counted for want of a package. The Java hook reads Messages with
+`DiglineMessages.java`, the JDK alone, which `DiglineAnthropic.java` reads it
+with too. Another family, read from the model id once a cross-region prefix
+(`us.`, `eu.`, `apac.`, `global.`) is taken off, is not recorded, nor an
+embedding model: each call is counted with its reason, *model family not
+recorded* or *embeddings not recorded*, and standard error says it once a
+family. `recorders/fixtures/wire/bedrock-invoke*.json` hold the same file
+from the three.
+
 ### 3. The proxy — *decided here*
 
 **The command**: `digline record proxy --tenant T [--port N]`, listening on

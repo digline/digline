@@ -35,18 +35,33 @@ into a Python project instead, with `uv add digline` or `pip install digline`,
 and says which Python it needs. The line above was run with digline 1.1.0
 built from this repository; `pipx` was not tried.
 
-## With an official SDK: two files
+## With an official SDK: the files to copy
 
-Copy `DiglineRecorder.java`, and the hook for your client, from
+Copy the files your client's row names from
 `recorders/java/src/main/java/dev/digline/` in digline's repository into your
-project, in the package `dev.digline`. They need Java 21. The writer needs the
-JDK alone, and each hook needs only the SDK it hooks:
+project, in the package `dev.digline`. They need Java 21. The writer,
+`DiglineRecorder.java`, and `DiglineMessages.java`, which reads Anthropic's
+Messages for the two hooks that meet it, need the JDK alone, and each hook
+needs only the SDK it hooks:
 
-| Your client | The hook | How it is installed |
+| Your client | The files to copy | How the hook is installed |
 |---|---|---|
-| `com.openai:openai-java`, or any OkHttp client calling Chat Completions | `DiglineOkHttp.java` | `addInterceptor` on the client's builder |
-| `com.anthropic:anthropic-java` | `DiglineAnthropic.java` | `addInterceptor` on the client's builder, with the SDK's own interface, not OkHttp's |
-| `software.amazon.awssdk:bedrockruntime`, `converse` and `converseStream` | `DiglineAws.java` | an execution interceptor on the client's configuration |
+| `com.openai:openai-java`, or any OkHttp client calling Chat Completions | `DiglineRecorder.java`, `DiglineOkHttp.java` | `addInterceptor` on the client's builder |
+| `com.anthropic:anthropic-java` | `DiglineRecorder.java`, `DiglineAnthropic.java`, `DiglineMessages.java` | `addInterceptor` on the client's builder, with the SDK's own interface, not OkHttp's |
+| `software.amazon.awssdk:bedrockruntime` | `DiglineRecorder.java`, `DiglineAws.java`, `DiglineMessages.java` | an execution interceptor on the client's configuration |
+
+**Which of Bedrock's calls are recorded.** `converse` and `converseStream`,
+and `invokeModel` and `invokeModelWithResponseStream` with an Anthropic model,
+whose body is Anthropic's Messages, read as a direct call to Anthropic is.
+`invokeModel` with another family, Titan, Llama or Mistral, is not recorded,
+and neither is an embedding model: each call is counted in
+`recorder.counts()` with its reason, *model family not recorded* or
+*embeddings not recorded*, and standard error says it once a family, as
+`digline recorder: invoke_model on amazon.titan-text-express-v1: this model
+family is not recorded`. The family is read from the model id, a cross-region
+prefix (`us.`, `eu.`, `apac.`, `global.`) taken off first. This writer keeps
+no counts file, so `digline record status` does not see those calls: standard
+error and `recorder.counts()` are where they show.
 
 The recorder is made once, for the application, with the directory that holds
 `.digline/`, the tenant and the application's name, and each client takes the
