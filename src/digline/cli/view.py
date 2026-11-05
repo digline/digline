@@ -113,7 +113,7 @@ from digline.report import (
 )
 from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
-from digline.store import ResultStore, RunRef
+from digline.store import PathRefusedError, ResultStore, RunRef, checked_name
 
 __all__ = [
     "Extension",
@@ -389,6 +389,10 @@ def _allowed_origin(origin: str, known: AbstractSet[str]) -> bool:
     if not origin:
         return True
     return _is_self(urllib.parse.urlparse(origin).netloc, known)
+
+
+#: Each locale as a 303's `Location` writes it, from the closed list.
+_LOCALE_PARAMETER: dict[str, str] = {"en": "en", "it": "it"}
 
 
 class ViewHandler(BaseHTTPRequestHandler):
@@ -908,6 +912,20 @@ class ViewHandler(BaseHTTPRequestHandler):
             return None
         return [urllib.parse.unquote(part) for part in parts[: count + 1]]
 
+    def _tenant(self, locale: Locale, name: str, *, write: bool = False) -> str | None:
+        """The tenant an address names, where it is a name, or `None` once
+        refused with a 400 that says the field and the value: checked where
+        it arrives, before any page or write reads the store with it
+        (`checked_name`, GHSA-j878-2v6m-m4vx)."""
+        try:
+            return checked_name(name, "tenant")
+        except PathRefusedError as exc:
+            if write:
+                self._refused(locale, str(exc))
+            else:
+                self._error(400, str(exc))
+            return None
+
     def _this_suite(self, suite: str) -> bool:
         """Whether the address names the suite this server was started for. A
         server reads one suite: another's file is not one it loaded."""
@@ -928,8 +946,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         if parts is None:
             self._error(404, f"no such page: {path}")
             return
-        tenant, suite, answer = parts
-        if not self._this_suite(suite):
+        named, suite, answer = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None or not self._this_suite(suite):
             return
         found = import_listing(Path(self.root), self.suite, self.module, tenant)
         if not answer:
@@ -967,8 +986,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         if parts is None or parts[2]:
             self._error(404, f"no such page: {path}")
             return
-        tenant, suite, _ = parts
-        if not self._this_suite(suite):
+        named, suite, _ = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None or not self._this_suite(suite):
             return
         case = (query.get("case") or [""])[0] or None
         setups = [value for value in query.get("setup", []) if value]
@@ -996,7 +1016,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         if parts is None or parts[1]:
             self._error(404, f"no such page: {path}")
             return
-        tenant = parts[0]
+        tenant = self._tenant(locale, parts[0])
+        if tenant is None:
+            return
         root = Path(self.root)
         imports: dict[str, tuple[int | None, int]] = {}
         if tenant == self.suite.tenant and self.suite.capture is not None:
@@ -1024,8 +1046,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         if parts is None or parts[2]:
             self._error(404, f"no such page: {path}")
             return
-        tenant, suite, _ = parts
-        if not self._this_suite(suite):
+        named, suite, _ = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None or not self._this_suite(suite):
             return
         if tenant != self.suite.tenant:
             # Another tenant's store is another perimeter: this page reads
@@ -1196,11 +1219,14 @@ class ViewHandler(BaseHTTPRequestHandler):
             return
         form = urllib.parse.parse_qs(body.decode("utf-8"))
         locale: Locale = pages.locale_of(form)
-        if route[0] == "switch":
-            self._post_switch(locale, route[1], form)
-            return
-        if route[0] == "import":
-            self._post_import(locale, route[1], form)
+        if route[0] in ("switch", "import"):
+            tenant = self._tenant(locale, route[1], write=True)
+            if tenant is None:
+                return
+            if route[0] == "switch":
+                self._post_switch(locale, tenant, form)
+            else:
+                self._post_import(locale, tenant, form)
             return
         key = (form.get("run") or [""])[0]
         if not key:
@@ -1323,7 +1349,11 @@ class ViewHandler(BaseHTTPRequestHandler):
         """A write that happened: a 303 to the page that reads what it wrote,
         so a reload reads and never writes again (ADR 0061 §4.2)."""
         self.send_response(303)
-        self.send_header("Location", f"{address}?locale={locale}")
+        # The locale written here is one of ours, looked up, never the value
+        # the request carried: `locale_of` already held it to the closed list,
+        # and the header is built from nothing a request wrote. The address
+        # is built from names `checked_name` let through, each quoted.
+        self.send_header("Location", f"{address}?locale={_LOCALE_PARAMETER[locale]}")
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
         self._policy()
