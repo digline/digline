@@ -267,7 +267,8 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "recording to (#905). §3 is built: `digline record proxy` and "
         "`digline.recording_wire` read OpenAI, Anthropic and Bedrock, signed "
         "again, and an episode's tool steps are closed by the next call's "
-        "results (#909 and this). Bedrock was measured against a fake only. "
+        "results: OpenAI and Anthropic in #909, Bedrock and the steps after "
+        "it. Bedrock was measured against a fake only. "
         "§4's Java files do not exist"
     ),
 }
