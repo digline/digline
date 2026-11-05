@@ -6,7 +6,7 @@ cases. Which door it goes through depends on what makes the call:
 
 | What makes the call | The door | How it was read |
 |---|---|---|
-| The official OpenAI Java SDK, the official Anthropic Java SDK, the AWS SDK v2 for Bedrock | **Two files copied into the project**, a writer and a hook for the client | run by `recorders/java`'s tests, on each SDK's real client against a fake provider on `127.0.0.1` |
+| The official OpenAI Java SDK, the official Anthropic Java SDK, the AWS SDK v2 for Bedrock | **Two files copied into the project**, a writer and a hook for the client | run by `recorders/java`'s tests, on each SDK's real client against a fake provider on `127.0.0.1`: measured at the versions [ADR 0062](adr/0062-the-recorder-out-of-process-and-in-other-processes.md) read, and run by CI at those `recorders/java/pom.xml` names |
 | LangChain4j, Quarkus-LangChain4j | **[`digline record proxy`](record.md#through-the-proxy-digline-record-proxy)**, with the base URL from configuration and the suite in a header or the path | LangChain4j with a header, single and streamed, run through the proxy by the CI job `through-the-proxy` on every pull request; Quarkus-LangChain4j by the path alone, run through the proxy for [ADR 0062](adr/0062-the-recorder-out-of-process-and-in-other-processes.md) on 2026-11-04 |
 | Spring AI | not measured | no version of it was read |
 
@@ -16,6 +16,24 @@ Either way the files are the same, and so is everything downstream:
 
 No call to a provider was made for this page: the SDKs were run against fake
 providers that answer in each provider's shape.
+
+## Install the digline CLI
+
+The commands on this page, `digline record on`, `status`, `import`, `proxy`,
+`view` and `run`, are digline's command line, which is Python. In a project
+that is not Python, install it as a tool of its own, apart from the project:
+
+```console
+$ uv tool install digline --with digline-openai
+```
+
+`--with` adds the plugin of the provider that the proxy routes to and that the
+suite's judge calls: `digline-anthropic` and `digline-bedrock` are added the
+same way. `digline record` is in digline 1.1 and later. The
+[Quickstart](https://github.com/digline/digline#quickstart) installs digline
+into a Python project instead, with `uv add digline` or `pip install digline`,
+and says which Python it needs. The line above was run with digline 1.1.0
+built from this repository; `pipx` was not tried.
 
 ## With an official SDK: two files
 
@@ -76,8 +94,14 @@ its steps. It is written when the scope closes. Java's try-with-resources does
 not tell the scope why it closed, so **a turn that ended by an exception says
 so in its `catch`**, and the recording then says *interrupted*:
 
+The episode names its own suite, and not its calls': each call names one, or
+is recorded under `_unassigned`. So a scope inside the episode names the suite
+of the calls the turn makes:
+
 ```java
-try (var episode = recorder.episode("order-agent", Map.of("ticket", ticket))) {
+try (var episode = recorder.episode("order-agent", Map.of("ticket", ticket));
+        // The turn's calls name their suite here, or they are _unassigned.
+        var calls = DiglineRecorder.suite("order-agent")) {
     try {
         String answer = agent.answer(ticket);
         episode.output(answer);
@@ -112,6 +136,32 @@ writes them. It also refuses where `DIGLINE_RECORD=1` is set:
 DiglineRecorder recorder = DiglineRecorder.production(root, () -> tenantOf(request), "support");
 ```
 
+`digline record on` speaks of *an application that names its tenant with a
+function*, which is Python's way of saying production. In Java it is
+`DiglineRecorder.production`.
+
+### An asynchronous call
+
+Neither SDK's asynchronous client calls the hook on the thread that made the
+call: it calls it on a thread of its own, where no suite is named and no
+episode attached. Such a call is recorded under `_unassigned`, outside the
+episode the calling thread had open, as an orphan of it, and with no call
+site. An `attach(id)` in the future's callback comes too late: the call has
+been made, and recorded, before any callback runs.
+
+A call that belongs to a suite or an episode is made with the synchronous
+client, on a thread of your own that names them:
+
+```java
+String id = episode.id();
+CompletableFuture<ChatCompletion> later = CompletableFuture.supplyAsync(() -> {
+    try (var attached = DiglineRecorder.attach(id);
+            var suite = DiglineRecorder.suite("refunds")) {
+        return openai.chat().completions().create(params);
+    }
+}, pool);
+```
+
 ## With LangChain4j or Quarkus: the proxy
 
 LangChain4j calls OpenAI through its own JDK `HttpClient`, and
@@ -130,6 +180,71 @@ and what changes is configuration:
 The proxy does what the files do, and its page says how: the same switch,
 episodes by a header, a stream recorded at its end.
 
+## Running the gate from a Java app
+
+The gate is a suite, and digline calls a Java app the way it calls any app it
+did not write: over HTTP, at an endpoint the app serves, with an
+[`http` target](declarative.md#type-http). A `suite.toml` beside the app:
+
+```toml
+[suite]
+tenant = "acme"
+environment = "dev"
+name = "refunds"
+cases = ["cases.json", "captured.json"]
+samples = 2
+min_agreement = "2/2"
+
+[capture]
+cases_file = "captured.json"
+repository = "private"
+check = "llm_rubric"
+
+[target]
+type = "http"
+url = "http://127.0.0.1:8080/answer"
+output_path = "answer"
+config_path = "config"
+tool_calls_path = "trajectory.calls"
+usage_path = "usage"
+
+  [target.body]
+  messages = "case.vars.messages"
+
+[[assertions]]
+type = "llm_rubric"
+rubric = "Does the reply answer what the customer asked?"
+judge = "openai/gpt-4o-mini"
+threshold = 0.7
+tolerance = 0.05
+```
+
+- **The body** sends the case's `messages`, which is what an imported case
+  holds: the conversation the call was given, less the instructions. The
+  endpoint answers with the reply under `answer`; under `config` what model
+  answered and how; under `trajectory.calls` the tools it called; under
+  `usage` the token counts. Each of the last three is optional, and
+  [the `http` target](declarative.md#type-http) says what leaving one out
+  costs.
+- **The judge** is a provider's model, by `provider/model`, through the
+  plugin installed with the CLI. Its key is the application's, read from the
+  environment where the run happens, `OPENAI_API_KEY` here: no key is ever
+  written in a suite.
+- **`[capture]`** names the file the import writes, the one `cases` loads
+  beside `cases.json`, and the judged check the reviewed answers are for.
+- **`cases.json` holds at least one case of your own.** A suite with no case
+  is refused when it is loaded, the import included.
+
+A suite of reviewed answers alone never calls the target: each reviewed answer
+is judged on the answer the application gave, and the run says so, *with no
+call to the target*. The `[target]` is still declared, because every suite
+needs one today.
+
+```console
+$ digline record import --tenant acme --suite suite.toml
+$ digline run --suite suite.toml
+```
+
 ## Spring AI
 
 Not measured: no version of Spring AI was read for this page. Whether its
@@ -137,11 +252,9 @@ client can be pointed at the proxy, and how, is not known here.
 
 ## What stays out
 
-- **A call made through an asynchronous client.** A suite, an episode and
-  an attached id are the calling thread's, and neither SDK's asynchronous
-  client calls the hook on that thread. Measured on both: such a call is
-  recorded under `_unassigned` and outside the episode the calling thread
-  had open, as an orphan of it, whatever that thread named.
+- **A call made through an asynchronous client** is recorded under
+  `_unassigned`, as an orphan of the episode open on the calling thread: see
+  [An asynchronous call](#an-asynchronous-call).
 - **Another endpoint of the same SDK.** `DiglineOkHttp` reads Chat
   Completions and nothing else, so OpenAI's Responses API goes through
   unrecorded. `DiglineAnthropic` reads Messages, and `DiglineAws` reads

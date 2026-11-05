@@ -683,4 +683,6 @@ command that does the same thing. See [`--allow-record`](view.md#-allow-record).
 
 - A call to Bedrock itself recorded through the proxy: the one made was
   refused for its key.
-- An interceptor in the application's own language, Java first.
+- An interceptor in the application's own language for .NET, Node and Go,
+  which go through the proxy until then. Java has one: [digline for
+  Java](record-java.md).
