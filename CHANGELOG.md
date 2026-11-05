@@ -303,6 +303,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   and Quarkus, and what stays out: Spring AI, not measured, and a call made
   through an asynchronous client, which reaches the hook on another thread
   and is recorded under `_unassigned`.
+- **`docs/record-java.md` says what a Java team does around the files**, from a
+  user's pass over it: how to install the `digline` command as a tool of its
+  own, `uv tool install digline --with digline-openai`; how the gate runs a
+  Java app, a `suite.toml` with an `http` target at the app's endpoint and a
+  judge by coordinates, and that a suite of reviewed answers alone never calls
+  the target; a `suite()` inside an episode, without which the turn's calls are
+  `_unassigned`; and an asynchronous call, which the SDKs make on their own
+  thread and an `attach` in its callback reaches too late, made instead with
+  the synchronous client on a thread that names its suite and episode. Every
+  Java line on the page is run by the Java tests, and its `suite.toml` is
+  loaded by digline's. `docs/record.md` no longer lists Java among the
+  interceptors not yet written.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
