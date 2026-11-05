@@ -148,7 +148,8 @@ check = "llm_rubric"
 The suite loads the file itself, as one of `cases`; one that declares
 `[capture]` and leaves the file out of `cases` is refused when it loads,
 naming the cases left out. Until the first import the file does not exist, and
-that is no case. A table in a reviewed file is the change ADR 0007 §7 asks for,
+that is no case: a suite that declares `[capture]` may hold none, and its run
+judges nothing and exits 2. A table in a reviewed file is the change ADR 0007 §7 asks for,
 so a data suite declares its source as a `suite.py` does
 ([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
 §4). The import is in [`record.md`](record.md).
@@ -302,7 +303,12 @@ different temperature, or rules of its own is an object, and objects live in a
 
 ## `[target]`
 
-Two forms, and there is no third.
+Two forms, and there is no third. And none, where the suite calls none: a
+suite whose cases are all reviewed answers or calibration cases, which the run
+never calls the target for, may leave `[target]` out. One case the target
+answers needs it, and loading the suite without one is refused, naming that
+case ([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§1).
 
 ### `type = "http"`
 
