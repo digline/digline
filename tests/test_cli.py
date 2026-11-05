@@ -1917,6 +1917,11 @@ PARSES: dict[str, tuple[str, ...]] = {
 #: itself skip them; every other test here takes them.
 NO_SUITE: frozenset[str] = frozenset({"record"})
 
+#: The subcommands where `--suite` is optional: `view` without it serves a
+#: tenant's pages, *Where you are* first (`tests/test_view_tenant.py`). It is
+#: no missing flag there, so the test of one leaves it out.
+SUITE_OPTIONAL: frozenset[str] = frozenset({"view"})
+
 #: The subcommands that take a choice, and the option that carries it. The
 #: others have none, so a wrong choice cannot be asked of them.
 CHOICE: dict[str, str] = {
@@ -1971,7 +1976,7 @@ def test_a_missing_value_exits_64(
     )
 
 
-@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE))
+@pytest.mark.parametrize("command", sorted(set(PARSES) - NO_SUITE - SUITE_OPTIONAL))
 def test_a_missing_required_flag_exits_64(
     command: str, capsys: pytest.CaptureFixture[str]
 ) -> None:

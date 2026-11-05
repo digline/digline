@@ -45,6 +45,7 @@ which state holds is the whole of the reading.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -70,7 +71,17 @@ from digline.run.suite import Suite
 from digline.store.file_store import FileResultStore
 from digline.wire.contract import run_exit_code
 
-__all__ = ["RECORD_LINES", "STATES", "State", "Where", "where"]
+__all__ = [
+    "RECORD_LINES",
+    "STATES",
+    "State",
+    "SuiteFound",
+    "Where",
+    "record_lines",
+    "suites_of",
+    "tenants_under",
+    "where",
+]
 
 #: Where a person starts recording, by the language of the application: the
 #: page that says it, and three lines quoted from it as they stand there,
@@ -169,6 +180,9 @@ class Where:
     run_key: str | None = None
     exit_code: int | None = None
     last_import: str | None = None
+    #: Whether the suite declares a capture source: `--from _unassigned` is
+    #: refused without one. `None` where no suite was given.
+    capture: bool | None = None
 
 
 def where(
@@ -200,7 +214,12 @@ def where(
         return Where("recording_off", tenant, count=len(everything), suite=_name(suite))
 
     if everything and not named:
-        return Where("unassigned", tenant, count=len(everything))
+        return Where(
+            "unassigned",
+            tenant,
+            count=len(everything),
+            capture=None if suite is None else suite.capture is not None,
+        )
 
     if suite is None:
         return Where(
@@ -333,3 +352,80 @@ def _last_import(suite: Suite) -> str | None:
         if "examined_through" in case.metadata
     ]
     return max(marks, key=instant_of) if marks else None
+
+
+@dataclass(frozen=True, slots=True)
+class SuiteFound:
+    """A suite name the tenant's store holds, with what it holds under it."""
+
+    name: str
+    recordings: int
+    runs: int
+
+
+def suites_of(root: Path, tenant: str) -> tuple[SuiteFound, ...]:
+    """Every suite name `.digline/<tenant>/` holds, by its recordings and its
+    runs, in name order: what a server started without `--suite` can offer to
+    start one for. A name is what the store files a suite under; the file that
+    declares it is the person's, and the store does not know where it is.
+    `_unassigned` is not a suite."""
+    store = FileResultStore(root)
+    everything, _unreadable = read_recordings(store, tenant)
+    recorded: dict[str, int] = {}
+    for recording in everything:
+        if recording.suite != UNASSIGNED:
+            recorded[recording.suite] = recorded.get(recording.suite, 0) + 1
+    runs_dir = store.tenant_dir(tenant) / "runs"
+    ran = {
+        entry.name: sum(1 for _ in entry.glob("*.json"))
+        for entry in (runs_dir.iterdir() if runs_dir.is_dir() else ())
+        if entry.is_dir()
+    }
+    return tuple(
+        SuiteFound(name, recorded.get(name, 0), ran.get(name, 0))
+        for name in sorted({*recorded, *ran})
+    )
+
+
+#: The words each language's lines take from the documentation's example,
+#: and are shown with the page's own: the tenant, and the suite.
+_EXAMPLE_TENANT = "acme"
+_EXAMPLE_SUITES = ("category", "triage", "refunds")
+
+
+def record_lines(
+    tenant: str, suite: str | None
+) -> tuple[tuple[str, str, tuple[str, ...]], ...]:
+    """`RECORD_LINES` with the documentation's example tenant and suite
+    replaced by the ones the page is about, so a line copied from the page
+    records where the page reads. Only those words move: each line is
+    otherwise the documentation's, held to it by `RECORD_LINES`'s test. With
+    no suite, the documentation's example suite stays."""
+    shown: list[tuple[str, str, tuple[str, ...]]] = []
+    for language, page, lines in RECORD_LINES:
+        moved: list[str] = []
+        for line in lines:
+            line = re.sub(rf"\b{_EXAMPLE_TENANT}\b", tenant, line)
+            if suite is not None:
+                for example in _EXAMPLE_SUITES:
+                    line = re.sub(rf"\b{example}\b", suite, line)
+            moved.append(line)
+        shown.append((language, page, tuple(moved)))
+    return tuple(shown)
+
+
+def tenants_under(root: Path) -> tuple[str, ...]:
+    """The tenants `root/.digline/` holds, by name: a directory with a switch,
+    recordings, runs or baselines. A server started without `--suite` serves
+    one of them, and names them when it cannot tell which."""
+    base = root / ".digline"
+    if not base.is_dir():
+        return ()
+    marks = ("recorder.toml", "recordings", "runs", "baselines")
+    return tuple(
+        sorted(
+            entry.name
+            for entry in base.iterdir()
+            if entry.is_dir() and any((entry / mark).exists() for mark in marks)
+        )
+    )
