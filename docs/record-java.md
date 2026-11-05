@@ -177,6 +177,40 @@ CompletableFuture<ChatCompletion> later = CompletableFuture.supplyAsync(() -> {
 }, pool);
 ```
 
+### When a framework builds the client
+
+In a Quarkus application that builds its Bedrock client with the SDK v2
+builder, in a CDI bean or not, the hook goes on that builder, and a suite is
+named around the call. A call that names no suite carries the class and method
+it was made from; where every call goes through one method of the
+application's, that is the same method for every call, so the suite is what
+names it.
+
+```java
+BedrockRuntimeClient client = BedrockRuntimeClient.builder()
+        .overrideConfiguration(c -> c.addExecutionInterceptor(new DiglineAws(recorder)))
+        .build();
+```
+
+And the one method every call goes through names the suite:
+
+```java
+<T> T ask(String feature, Supplier<T> call) {
+    try (var suite = DiglineRecorder.suite(feature)) {
+        return call.get();
+    }
+}
+```
+
+LangChain4j's Bedrock chat model takes such a client,
+`BedrockChatModel.builder().client(client)`. The call site skips LangChain4j's
+package as it skips the SDKs', so a call made through it is named by the first
+frame outside both, not by LangChain4j's class. That was measured with a
+stand-in class in LangChain4j's package, not with LangChain4j itself.
+
+For new code on Bedrock, Converse is the form to prefer: one API for every
+chat model, tool use in the same shape, and streaming as events.
+
 ## With LangChain4j or Quarkus: the proxy
 
 LangChain4j calls OpenAI through its own JDK `HttpClient`, and

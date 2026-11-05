@@ -490,6 +490,19 @@ class HooksTest {
     }
 
     @Test
+    void aCallMadeThroughLangChain4jNamesTheApplicationsFrameNotTheLibrarys() throws IOException {
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(wire("anthropic-single"))) {
+            new dev.langchain4j.fake.ChatModel(anthropic(provider, recorder)).chat(ANTHROPIC_ASKED);
+        }
+        // The frame that called the SDK is in dev.langchain4j: skipped, as
+        // the SDKs' own are, so the call site is the code that asked.
+        assertEquals(getClass().getName()
+                + ":aCallMadeThroughLangChain4jNamesTheApplicationsFrameNotTheLibrarys",
+                recordings().get(0).get("call_site"));
+    }
+
+    @Test
     void aCallInAnEpisodeCarriesItsId() throws IOException {
         DiglineRecorder recorder = recorder();
         String id;
