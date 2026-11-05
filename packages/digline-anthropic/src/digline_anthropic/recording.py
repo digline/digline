@@ -36,10 +36,10 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 
-from digline.targets import Completion
+from digline.targets import Completion, ToolCall
 from digline_anthropic.client import completion_of
 
 __all__ = [
@@ -169,6 +169,77 @@ class AnthropicWire:
         # time at once were measured to fail on a circular import.
         for name in ("anthropic.lib.streaming._messages", "anthropic._models"):
             importlib.import_module(name)
+
+    def results(self, request: Mapping[str, Any]) -> Sequence[ToolCall] | None:
+        """The `tool_result` blocks after the last assistant message that
+        asked for tools, in the order it asked. `is_error` is the status where
+        the application set it, `not_reported` where it did not."""
+        messages = _mappings(request.get("messages"))
+        asked: list[Mapping[str, Any]] = []
+        at = -1
+        for index, message in enumerate(messages):
+            if message.get("role") == "assistant":
+                uses = [
+                    block
+                    for block in _mappings(message.get("content"))
+                    if block.get("type") == "tool_use"
+                ]
+                if uses:
+                    asked, at = uses, index
+        if at < 0:
+            return None
+        given: dict[str, Mapping[str, Any]] = {
+            str(block.get("tool_use_id")): block
+            for message in messages[at + 1 :]
+            for block in _mappings(message.get("content"))
+            if block.get("type") == "tool_result"
+        }
+        if not given:
+            return None
+        return tuple(_result(use, given.get(str(use.get("id")))) for use in asked)
+
+
+def _mappings(value: object) -> list[Mapping[str, Any]]:
+    """The objects in a JSON list, in order; nothing where it is not one."""
+    if not isinstance(value, list):
+        return []
+    items = cast(list[object], value)
+    return [
+        cast(Mapping[str, Any], item) for item in items if isinstance(item, Mapping)
+    ]
+
+
+def _result(use: Mapping[str, Any], result: Mapping[str, Any] | None) -> ToolCall:
+    name = use.get("name") or None
+    arguments = cast(Mapping[str, object] | None, use.get("input"))
+    if result is None:
+        return ToolCall(
+            tool=name,
+            arguments=arguments,
+            status="not_reported",
+            result_absence="not_reported",
+        )
+    said = result.get("is_error")
+    status = "error" if said is True else "success" if said is False else "not_reported"
+    content = result.get("content")
+    if content is None or isinstance(content, str):
+        return ToolCall(
+            tool=name, arguments=arguments, status=status, result=content or ""
+        )
+    parts: list[str] = []
+    for block in _mappings(content):
+        if block.get("type") != "text" or not isinstance(block.get("text"), str):
+            # An image or a document: bulk, never copied into a step.
+            return ToolCall(
+                tool=name,
+                arguments=arguments,
+                status=status,
+                result_absence="not_recorded",
+            )
+        parts.append(block["text"])
+    return ToolCall(
+        tool=name, arguments=arguments, status=status, result="".join(parts)
+    )
 
 
 WIRE = AnthropicWire()
