@@ -1,0 +1,52 @@
+[
+  {
+    "setup": {
+      "max_tokens": 64,
+      "model": "claude-haiku-4-5"
+    },
+    "digest": "81869b20f0d8875a"
+  },
+  {
+    "setup": {
+      "model": "gpt-4o-mini",
+      "temperature": 0.2
+    },
+    "digest": "fce37866a724540f"
+  },
+  {
+    "setup": {
+      "model": "gpt-4o-mini",
+      "temperature": 0.7,
+      "top_p": 1.0,
+      "frequency_penalty": 1e-05,
+      "presence_penalty": -0.0,
+      "logit_scale": 1e+16,
+      "seed": 12345678901234567890,
+      "stop": [
+        "\n\n",
+        "Fin."
+      ],
+      "system": [
+        {
+          "role": "system",
+          "content": "Réponds en français, brièvement. 😀"
+        }
+      ],
+      "tools": [
+        {
+          "type": "function",
+          "function": {
+            "name": "lookup",
+            "parameters": {}
+          }
+        }
+      ],
+      "response_format": null,
+      "logprobs": false,
+      "Zeta": 1,
+      "ä": 2,
+      "delete": ""
+    },
+    "digest": "f044f48f9cb3e3c5"
+  }
+]

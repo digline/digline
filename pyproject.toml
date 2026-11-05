@@ -153,7 +153,7 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 # its own pyproject, its own venv and its own strict pyright run. Checking
 # them from here would collide four modules called `app` and resolve none
 # of them. The quickstart is not standalone and stays.
-include = ["src", "tests", "tools", "examples/quickstart", "packages"]
+include = ["src", "tests", "tools", "examples/quickstart", "packages", "recorders"]
 extraPaths = [
     # `src` itself, and it was missing until 0.15.1 — every plugin's `src` was
     # listed and the core's own was not. An editable install leaves nothing in

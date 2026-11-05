@@ -1,0 +1,131 @@
+package dev.digline;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+import org.junit.jupiter.api.Test;
+
+/**
+ * The writer held to what digline's Python answers, on the files
+ * {@code recorders/fixtures/make.py} writes from digline's own code and
+ * {@code tests/test_recorder_fixtures.py} holds equal to it.
+ */
+class FixturesTest {
+
+    static Path fixtures() {
+        String where = System.getProperty("digline.fixtures");
+        assertTrue(where != null, "run through Maven, which says where the fixtures are");
+        return Path.of(where);
+    }
+
+    static String read(String name) throws IOException {
+        return Files.readString(fixtures().resolve(name), StandardCharsets.UTF_8);
+    }
+
+    @SuppressWarnings("unchecked")
+    static <T> T parsed(String name) throws IOException {
+        return (T) DiglineRecorder.Json.parse(read(name));
+    }
+
+    @Test
+    void everySetupDigestIsPythons() throws IOException {
+        List<Map<String, Object>> setups = parsed("setups.json");
+        assertEquals(3, setups.size());
+        for (Map<String, Object> each : setups) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> setup = (Map<String, Object>) each.get("setup");
+            assertEquals(each.get("digest"), DiglineRecorder.setupDigest(setup), setup.toString());
+        }
+        // The one measured across the two languages on 2026-11-04 (ADR 0062).
+        assertEquals("81869b20f0d8875a", DiglineRecorder.setupDigest(
+                Map.of("max_tokens", 64L, "model", "claude-haiku-4-5")));
+    }
+
+    @Test
+    void everyFloatIsWrittenAsPythonWritesIt() throws IOException {
+        // Each row: the double's bits, its repr, its float_text, the repr of it rounded.
+        List<List<String>> floats = parsed("floats.json");
+        assertTrue(floats.size() > 1000, "the edges, the powers of two, the random draws");
+        List<String> wrong = new ArrayList<>();
+        for (List<String> row : floats) {
+            double value = Double.longBitsToDouble(Long.parseUnsignedLong(row.get(0), 16));
+            check(wrong, row, 1, "repr", DiglineRecorder.pythonRepr(value));
+            check(wrong, row, 2, "text", DiglineRecorder.floatText(value));
+            check(wrong, row, 3, "rounded", DiglineRecorder.pythonRepr(DiglineRecorder.round(value)));
+        }
+        assertEquals(List.of(), wrong);
+    }
+
+    private static void check(List<String> wrong, List<String> row, int at, String what, String java) {
+        if (!row.get(at).equals(java)) {
+            wrong.add(row.get(0) + " " + what + ": Python " + row.get(at) + ", Java " + java);
+        }
+    }
+
+    @Test
+    void everySwitchIsReadAsPythonReadsIt() throws IOException {
+        List<Map<String, Object>> switches = parsed("switches.json");
+        for (Map<String, Object> each : switches) {
+            String text = (String) each.get("text");
+            boolean production = (Boolean) each.get("production");
+            if (each.containsKey("refusal")) {
+                DiglineRecorder.StartError refused = assertThrows(DiglineRecorder.StartError.class,
+                        () -> DiglineRecorder.parseSwitch(text, "recorder.toml", production), text);
+                assertEquals(each.get("refusal"), refused.getMessage(), text);
+                continue;
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> expected = (Map<String, Object>) each.get("switch");
+            DiglineRecorder.Switch read = DiglineRecorder.parseSwitch(text, "recorder.toml", production);
+            assertEquals(expected.get("on"), read.on, text);
+            assertEquals(expected.get("sample"), read.sample, text);
+            assertEquals(expected.get("ceiling"), read.ceiling, text);
+            assertEquals(expected.get("interval"), read.interval, text);
+            assertEquals(expected.get("production"), read.production, text);
+            assertEquals(expected.get("declared"), new ArrayList<>(new TreeSet<>(read.declared)), text);
+        }
+    }
+
+    @Test
+    void oneCallIsTheFileDiglinesWriterWrites() throws IOException {
+        Map<String, Object> call = parsed("call.json");
+        Map<String, Object> written = DiglineRecorder.singleDocument((String) call.get("tenant"),
+                (String) call.get("app"), (String) call.get("suite"), callOf(call),
+                (String) call.get("recorded_at"));
+        assertEquals(read("call.expected.json"), DiglineRecorder.Json.file(written) + "\n");
+    }
+
+    @SuppressWarnings("unchecked")
+    static DiglineRecorder.Call callOf(Map<String, Object> call) {
+        Map<String, Object> usage = (Map<String, Object>) call.get("usage");
+        List<DiglineRecorder.ToolCall> tools = new ArrayList<>();
+        for (Map<String, Object> each : (List<Map<String, Object>>) call.get("tool_calls")) {
+            tools.add(DiglineRecorder.ToolCall.asked((String) each.get("tool"), each.get("arguments")));
+        }
+        return new DiglineRecorder.Call(
+                (Map<String, Object>) call.get("case"),
+                (Map<String, Object>) call.get("setup"),
+                (String) call.get("output"),
+                (Double) call.get("latency_ms"),
+                new DiglineRecorder.Usage((Long) usage.get("input_tokens"),
+                        (Long) usage.get("output_tokens"), (Long) usage.get("cache_read_tokens"),
+                        (Long) usage.get("cache_write_tokens"), (Long) usage.get("thinking_tokens")),
+                (String) call.get("finish"),
+                tools);
+    }
+
+    @Test
+    void theLayoutIsDiglines() throws IOException {
+        assertEquals(read("layout/gitignore"), DiglineRecorder.GITIGNORE);
+        assertEquals(read("layout/gitattributes"), DiglineRecorder.GITATTRIBUTES);
+    }
+}
