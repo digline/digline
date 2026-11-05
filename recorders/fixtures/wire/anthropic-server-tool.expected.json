@@ -1,0 +1,86 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": "Search twice.",
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "stop",
+    "input": "[{\"content\":\"Search twice.\",\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 250.5,
+    "output": "Done.",
+    "steps": [
+      {
+        "actor": "model",
+        "finish": "stop",
+        "index": 0
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"query\":\"A1\"}",
+        "index": 1,
+        "result": "max_uses_exceeded",
+        "status": "error",
+        "tool": "web_search"
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"query\":\"A2\"}",
+        "index": 2,
+        "result_absence": "not_recorded",
+        "tool": "web_search"
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"order\":\"A1\"}",
+        "index": 3,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tool_calls": [
+      {
+        "arguments": "{\"query\":\"A1\"}",
+        "result": "max_uses_exceeded",
+        "status": "error",
+        "tool": "web_search"
+      },
+      {
+        "arguments": "{\"query\":\"A2\"}",
+        "result_absence": "not_recorded",
+        "tool": "web_search"
+      },
+      {
+        "arguments": "{\"order\":\"A1\"}",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tools": [
+      "web_search",
+      "web_search",
+      null
+    ],
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 20,
+      "thinking_tokens": 4
+    }
+  },
+  "setup": {
+    "max_tokens": 256,
+    "model": "claude-haiku-4-5"
+  },
+  "setup_digest": "9a850370a1e40c3d",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}

@@ -1,0 +1,101 @@
+{
+  "route": "bedrock",
+  "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/converse-stream",
+  "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "request": {
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "Where is A1?"
+          }
+        ]
+      }
+    ],
+    "inferenceConfig": {
+      "maxTokens": 256
+    }
+  },
+  "events": [
+    {
+      "messageStart": {
+        "role": "assistant"
+      }
+    },
+    {
+      "contentBlockDelta": {
+        "contentBlockIndex": 0,
+        "delta": {
+          "text": "Looking "
+        }
+      }
+    },
+    {
+      "contentBlockDelta": {
+        "contentBlockIndex": 0,
+        "delta": {
+          "text": "it up."
+        }
+      }
+    },
+    {
+      "contentBlockStop": {
+        "contentBlockIndex": 0
+      }
+    },
+    {
+      "contentBlockStart": {
+        "contentBlockIndex": 1,
+        "start": {
+          "toolUse": {
+            "toolUseId": "t1",
+            "name": "lookup"
+          }
+        }
+      }
+    },
+    {
+      "contentBlockDelta": {
+        "contentBlockIndex": 1,
+        "delta": {
+          "toolUse": {
+            "input": "{\"order\": "
+          }
+        }
+      }
+    },
+    {
+      "contentBlockDelta": {
+        "contentBlockIndex": 1,
+        "delta": {
+          "toolUse": {
+            "input": "\"A1\"}"
+          }
+        }
+      }
+    },
+    {
+      "contentBlockStop": {
+        "contentBlockIndex": 1
+      }
+    },
+    {
+      "messageStop": {
+        "stopReason": "tool_use"
+      }
+    },
+    {
+      "metadata": {
+        "usage": {
+          "inputTokens": 12,
+          "outputTokens": 18,
+          "totalTokens": 30
+        },
+        "metrics": {
+          "latencyMs": 400
+        }
+      }
+    }
+  ]
+}

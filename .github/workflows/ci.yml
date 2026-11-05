@@ -590,7 +590,9 @@ jobs:
     #
     # - the Java tests hold `DiglineRecorder.java` to the fixtures digline's
     #   own Python makes, in `recorders/fixtures/` (a setup's digest, a
-    #   float's text, a switch's sentences, one recorded call byte for byte),
+    #   float's text, a switch's sentences, one recorded call byte for byte,
+    #   and each hook's reading of a call off the wire against its provider's
+    #   map); run each hook on its SDK's real client against a fake provider;
     #   and write a tenant's recordings into a directory of the runner's;
     # - `tests/test_recorder_java.py` then imports those files with digline
     #   alone, no plugin installed, and reads `record status` say *not
@@ -634,7 +636,12 @@ jobs:
         # plugin's `src` on the path, which would make digline alone a claim
         # this run does not hold. Measured both ways in a digline-alone
         # environment: without it the test finds digline_openai and fails.
-        run: uv run --no-sync pytest tests/test_recorder_java.py -o pythonpath=. -v
+        #
+        # The import alone: the fixtures' own test reads the plugins' maps, which
+        # this environment does not have by design, and the gates run it.
+        run: >-
+          uv run --no-sync pytest -o pythonpath=. -v
+          tests/test_recorder_java.py::test_what_the_java_recorder_wrote_is_imported_by_digline_alone
 
   through-the-proxy:
     name: Other languages' SDKs are recorded through the proxy

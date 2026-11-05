@@ -365,16 +365,42 @@ public final class DiglineRecorder {
 
     /** Records one call, or counts why not. Never throws. */
     public void record(Call call) {
+        record(call, capture());
+    }
+
+    /**
+     * What a hook reads off the calling thread when a call starts: its suite,
+     * its episode and, where it names no suite, where it was made. A stream
+     * may end on another thread, and the call is the thread's that made it.
+     */
+    static final class Captured {
+        final String suite;
+        final String inside;
+        final String site;
+
+        Captured(String suite, String inside, String site) {
+            this.suite = suite;
+            this.inside = inside;
+            this.site = site;
+        }
+    }
+
+    /** The calling thread's suite, episode and call site, read now. */
+    Captured capture() {
+        String suite = SUITE.get();
+        return new Captured(suite, CURRENT.get(), suite == null ? callSite() : null);
+    }
+
+    /** Records one call made where {@code at} was captured. Never throws. */
+    void record(Call call, Captured at) {
         try {
             lookIfDue();
             if (!anyOn) {
                 return;
             }
-            String suite = SUITE.get();
-            String inside = CURRENT.get();
-            String site = suite == null ? callSite() : null;
+            String inside = at.inside;
             boolean late = inside != null && !OPEN.containsKey(inside) && CLOSED.containsKey(inside);
-            String[] outcome = recordCall(call, suite, inside, site, late);
+            String[] outcome = recordCall(call, at.suite, inside, at.site, late);
             String reason = outcome[0];
             if (reason == null && late) {
                 note("ended after its episode");
@@ -388,19 +414,63 @@ public final class DiglineRecorder {
 
     /**
      * Counts a call a hook could not read, by the stage that failed: what
-     * digline's recorder counts as {@code map}, or {@code streaming}.
+     * digline's recorder counts as {@code map}, or {@code not JSON}.
      */
     void miss(String reason) {
+        miss(reason, capture());
+    }
+
+    /** {@link #miss(String)}, for a call made where {@code at} was captured. */
+    void miss(String reason, Captured at) {
         try {
             lookIfDue();
             if (anyOn) {
-                String inside = CURRENT.get();
+                String inside = at.inside;
                 boolean late = inside != null && !OPEN.containsKey(inside) && CLOSED.containsKey(inside);
                 joined(late ? null : inside, reason, null);
             }
         } catch (RuntimeException unexpected) {
             count("unexpected: " + unexpected.getClass().getSimpleName());
         }
+    }
+
+    /**
+     * A provider's word for how a reply ended, in digline's vocabulary: the
+     * table's word, {@code other} for a word the table does not know, and
+     * {@code null} for none. digline's {@code finish_of}.
+     */
+    static String finishOf(Object word, Map<String, String> table) {
+        if (!(word instanceof String said) || said.isEmpty()) {
+            return null;
+        }
+        return table.getOrDefault(said, "other");
+    }
+
+    /**
+     * The JSON of each server-sent event in {@code text}, in order: its
+     * {@code data:} lines joined. OpenAI's closing {@code [DONE]} is not an
+     * event. As {@code digline record proxy} reads a stream.
+     */
+    static List<Object> events(String text) {
+        List<Object> found = new ArrayList<>();
+        for (String block : text.replace("\r\n", "\n").split("\n\n", -1)) {
+            StringBuilder data = new StringBuilder();
+            boolean any = false;
+            for (String line : block.split("\n", -1)) {
+                if (line.startsWith("data:")) {
+                    if (any) {
+                        data.append('\n');
+                    }
+                    data.append(line.substring("data:".length()).replaceFirst("^ +", ""));
+                    any = true;
+                }
+            }
+            String joined = data.toString();
+            if (!joined.isEmpty() && !joined.equals("[DONE]")) {
+                found.add(Json.parse(joined));
+            }
+        }
+        return found;
     }
 
     /**
@@ -655,8 +725,13 @@ public final class DiglineRecorder {
     }
 
     private static boolean foreign(String name) {
-        for (String prefix : List.of("dev.digline.", "java.", "javax.", "jdk.", "sun.", "kotlin.",
-                "okhttp3.", "okio.", "com.openai.", "com.anthropic.", "software.amazon.")) {
+        // The recorder's own classes and its hooks', not the package: an
+        // application's code may sit beside them in dev.digline.
+        for (String prefix : List.of("dev.digline.DiglineRecorder", "dev.digline.DiglineOkHttp",
+                "dev.digline.DiglineAnthropic", "dev.digline.DiglineAws", "java.", "javax.", "jdk.",
+                "sun.", "kotlin.",
+                "okhttp3.", "okio.", "com.openai.", "com.anthropic.", "software.amazon.", "io.netty.",
+                "org.reactivestreams.", "org.apache.http.")) {
             if (name.startsWith(prefix)) {
                 return true;
             }

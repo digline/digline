@@ -287,11 +287,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   development and in production, names a suite, an episode and an attached
   thread per thread, and never fails the application's call. It keeps no
   counts file, so `digline record status` says *not counted* of its process.
-  The hooks that hand it a client's calls, for OkHttp, the Anthropic SDK and
-  the AWS SDK, come next, with `docs/record-java.md`. The CI job
-  `recorder-java` holds it to fixtures digline's Python writes, a recorded
-  call byte for byte among them, and imports what it writes with digline
-  alone.
+  The CI job `recorder-java` holds it to fixtures digline's Python writes, a
+  recorded call byte for byte among them, and imports what it writes with
+  digline alone.
+- **Three hooks hand it a Java client's calls**, each a file to copy beside
+  it: `DiglineOkHttp.java` for the official OpenAI Java SDK and any OkHttp
+  client calling Chat Completions, `DiglineAnthropic.java` for the official
+  Anthropic Java SDK's own interceptor, and `DiglineAws.java` for Bedrock's
+  `converse` and `converseStream` in the AWS SDK v2, the model's id read off
+  the path. Whole and streamed, each divides a request and reads a reply as
+  its provider's map does, held byte for byte to the file the plugin writes
+  from the same bytes, and run on each SDK's real client against a fake
+  provider. [`docs/record-java.md`](docs/record-java.md), *digline for
+  Java*, says which door a Java application takes, the proxy for LangChain4j
+  and Quarkus, and what stays out: Spring AI, not measured, and a call made
+  through an asynchronous client, which reaches the hook on another thread
+  and is recorded under `_unassigned`.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
