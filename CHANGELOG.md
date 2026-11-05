@@ -335,6 +335,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   `digline record` now refuses an abbreviated option, so `--good` and `--bad`
   have no other spelling for the hook to miss.
 
+## pytest-digline — unreleased
+
+- **`--digline-run` measures as `digline run` does.** Inside
+  `digline.recorder.running()`, so with the recorder on none of the target's
+  or the judges' calls is written as the application's traffic; and with
+  `around_target`, so the calls a target makes through a wrapped client are
+  read into its response, and a check on steps reads them (ADR 0060 §3).
+- **A reviewed answer's row fails where the judge contradicted the person,
+  and only there.** It used to read the delta's movement like any other row:
+  a no the judge failed harder than in the reference failed its row, and a no
+  the judge now passes, which the comparison calls improved, passed it. The
+  row now reads the run's contradictions, as the suite's exit code already did
+  (ADR 0059 §1).
+- Its floor on `digline` becomes `1.1.0` in its own release, after the core's:
+  RELEASING.md, *Owed at the cut*.
+
 ## digline-openai — unreleased
 
 - **A call recorded with `extra_body` has the setup it has off the wire.** The
