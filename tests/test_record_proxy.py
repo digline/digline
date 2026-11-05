@@ -806,3 +806,19 @@ def test_the_command_refuses_what_it_cannot_do(
     action = "status" if extra[:1] == ("--app",) else "proxy"
     assert main(["record", action, "--root", str(tmp_path), *extra]) == 64
     assert said in capsys.readouterr().err
+
+
+def test_upstream_for_a_route_whose_plugin_is_missing_names_the_package() -> None:
+    """A new installation with no plugin, and `--upstream openai=…`: the
+    refusal names the package, as the start does where no route is read."""
+    from digline.host.errors import UsageError
+    from digline.host.proxy import upstreams_of
+
+    with pytest.raises(UsageError) as refused:
+        upstreams_of(["openai=http://127.0.0.1:9/v1"], {})
+    said = str(refused.value)
+    assert "install digline-openai, which reads it, on the proxy's machine" in said
+    assert "the routes read here are none" in said
+    with pytest.raises(UsageError) as unknown:
+        upstreams_of(["nowhere=http://127.0.0.1:9"], {})
+    assert "install" not in str(unknown.value)

@@ -145,9 +145,17 @@ def upstreams_of(
             raise UsageError(f"--upstream {item}: write it as ROUTE=URL")
         if route not in wires:
             known = ", ".join(sorted(wires)) or "none"
+            # A route digline knows and this machine has no plugin for: the
+            # package that reads it, as the start says where no route is.
+            install = (
+                f": install {PACKAGES[route]}, which reads it, on the proxy's "
+                "machine"
+                if route in PACKAGES
+                else ""
+            )
             raise UsageError(
-                f"--upstream {item}: no plugin reads the route {route!r}; the "
-                f"routes read here are {known}"
+                f"--upstream {item}: no plugin reads the route {route!r}{install}; "
+                f"the routes read here are {known}"
             )
         if urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).hostname:
             raise UsageError(f"--upstream {item}: the address is not http or https")

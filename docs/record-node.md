@@ -22,12 +22,18 @@ $ digline record proxy --tenant acme
 What it prints, the routes and the addresses, and what it does and does not
 do, are in [*Through the proxy*](record.md#through-the-proxy-digline-record-proxy).
 
+**The proxy's machine needs digline and its plugins; the application needs
+neither.** The proxy reads each provider's calls with that provider's plugin,
+`pip install digline digline-openai digline-anthropic`, and a route whose
+plugin is not installed is refused, naming the package. Nothing is installed in
+the Node application: it keeps its own SDKs and points them at the proxy.
+
 ## Three lines
 
 Each line below is a line of `recorders/node/through-the-proxy.mjs`, which
-the CI job `through-the-proxy` runs on every pull request: `openai` and
-`@anthropic-ai/sdk` at the versions `recorders/node/package.json` pins, a
-single call and a stream from each, through the proxy to a fake provider. A test holds every line quoted here to that
+the CI job `through-the-proxy` runs on every pull request, measured with
+openai 7.50.0 and @anthropic-ai/sdk 1.4.0: a single call and a stream from
+each, through the proxy to a fake provider. A test holds every line quoted here to that
 file. What the job measures is that the proxy records Node's calls with the
 same case and the same setup digest as the same request sent from Python,
 and, for OpenAI's, from LangChain4j in Java.
