@@ -330,3 +330,18 @@ def test_the_store_builds_its_paths_where_they_are_held(tmp_path: Path) -> None:
     assert store.journal_dir("acme", "triage") == (
         store.root / "acme" / "runs" / "triage" / ".pending"
     )
+
+
+@pytest.mark.parametrize("parts", LEAVES)
+def test_the_recorders_copy_refuses_what_the_store_refuses(
+    tmp_path: Path, parts: tuple[str, ...]
+) -> None:
+    """The recorder does not import the store while it is off, so it restates
+    `joined_inside` in the same form. A name that leaves the root is refused
+    by the copy too, and a tenant that does not is the same path in both."""
+    root = tmp_path / "store"
+    with pytest.raises(ValueError, match="is not inside"):
+        recorder._joined_inside(root, *parts)  # pyright: ignore[reportPrivateUsage]
+    assert recorder._joined_inside(root, "acme", "recordings") == joined_inside(  # pyright: ignore[reportPrivateUsage]
+        root, "acme", "recordings"
+    )
