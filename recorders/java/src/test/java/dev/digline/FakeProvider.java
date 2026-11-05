@@ -30,7 +30,11 @@ final class FakeProvider implements AutoCloseable {
         this(wire, 0);
     }
 
-    /** One that pauses after a stream's first event, so a client can leave before its end. */
+    /**
+     * One that pauses after a stream's first event, so a client can leave
+     * before its end; or, with a negative pause, after its last event and
+     * before the connection closes.
+     */
     FakeProvider(Map<String, Object> wire, long pauseMs) throws IOException {
         this(wire, pauseMs, 0);
     }
@@ -95,6 +99,10 @@ final class FakeProvider implements AutoCloseable {
                     if (pauseMs > 0 && at < first && at + 37 >= first) {
                         Thread.sleep(pauseMs);
                     }
+                }
+                if (pauseMs < 0) {
+                    // Every event sent, and the connection held open a while.
+                    Thread.sleep(-pauseMs);
                 }
             }
         } catch (IOException | InterruptedException left) {

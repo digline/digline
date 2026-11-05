@@ -309,6 +309,50 @@ class HooksTest {
     }
 
     @Test
+    void aStreamClosedAfterItsLastEventIsWhole() throws IOException {
+        Map<String, Object> wire = wire("anthropic-stream");
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(wire, -2000);
+                var suite = DiglineRecorder.suite("refunds")) {
+            try (StreamResponse<RawMessageStreamEvent> stream = anthropic(provider, recorder).messages()
+                    .createStreaming(ANTHROPIC_ASKED)) {
+                // The application stops at message_stop and closes, before the
+                // server has closed the connection.
+                assertTrue(stream.stream().anyMatch(event -> event.isMessageStop()));
+            }
+            heldToItsReading(wire, provider);
+        }
+    }
+
+    @Test
+    void offTheOkHttpHookDoesNotReadTheRequest() throws IOException {
+        DiglineRecorder recorder = DiglineRecorder.development(root, "acme", "support");
+        int[] written = {0};
+        okhttp3.RequestBody body = new okhttp3.RequestBody() {
+            @Override
+            public okhttp3.MediaType contentType() {
+                return okhttp3.MediaType.get("application/json");
+            }
+
+            @Override
+            public void writeTo(okio.BufferedSink sink) throws IOException {
+                written[0]++;
+                sink.writeUtf8("{\"model\":\"gpt-4o-mini\",\"messages\":[]}");
+            }
+        };
+        try (FakeProvider provider = new FakeProvider(wire("openai-single"))) {
+            okhttp3.OkHttpClient client = new okhttp3.OkHttpClient.Builder()
+                    .addInterceptor(new DiglineOkHttp(recorder)).build();
+            try (okhttp3.Response response = client.newCall(new okhttp3.Request.Builder()
+                    .url(provider.url() + "/v1/chat/completions").post(body).build()).execute()) {
+                assertEquals(200, response.code());
+            }
+        }
+        // Once, by OkHttp sending it: off, the hook costs one test and reads nothing.
+        assertEquals(1, written[0]);
+    }
+
+    @Test
     void aCallInAnEpisodeCarriesItsId() throws IOException {
         DiglineRecorder recorder = recorder();
         String id;
