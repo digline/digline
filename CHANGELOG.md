@@ -328,6 +328,13 @@ nothing. No public name is removed or renamed and no exit code changes.
   Java line on the page is run by the Java tests, and its `suite.toml` is
   loaded by digline's. `docs/record.md` no longer lists Java among the
   interceptors not yet written.
+- **A tenant is a name, whole: `acme\n` is no longer one.** The store's
+  check matched against `^…$`, where `$` also matches before a final newline,
+  so `digline view --allow-record` made a tenant directory named `acme\n` from
+  `POST /recorder/acme%0A/`. It is `checked_name` now, the one function a name
+  passes before it is a path under the store, called where a tenant arrives:
+  the view's addresses, `wrap()`, which read a switch file outside `.digline/`
+  for `tenant="../outside"`, and the Java writer, held to the same names.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

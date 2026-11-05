@@ -1,0 +1,74 @@
+[
+  {
+    "name": "acme",
+    "refusal": null
+  },
+  {
+    "name": "acme-2",
+    "refusal": null
+  },
+  {
+    "name": "a.b_c",
+    "refusal": null
+  },
+  {
+    "name": "9lives",
+    "refusal": null
+  },
+  {
+    "name": "",
+    "refusal": "invalid tenant name: '' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": ".",
+    "refusal": "invalid tenant name: '.' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "..",
+    "refusal": "invalid tenant name: '..' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "../x",
+    "refusal": "invalid tenant name: '../x' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "a/b",
+    "refusal": "invalid tenant name: 'a/b' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "a\\b",
+    "refusal": "invalid tenant name: 'a\\\\b' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "acme\n",
+    "refusal": "invalid tenant name: 'acme\\n' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "acme\r",
+    "refusal": "invalid tenant name: 'acme\\r' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "\nacme",
+    "refusal": "invalid tenant name: '\\nacme' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "_unassigned",
+    "refusal": "invalid tenant name: '_unassigned' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "-x",
+    "refusal": "invalid tenant name: '-x' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "a b",
+    "refusal": "invalid tenant name: 'a b' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "é",
+    "refusal": "invalid tenant name: 'é' (letters, digits, dot, dash and underscore are allowed)"
+  },
+  {
+    "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "refusal": null
+  }
+]

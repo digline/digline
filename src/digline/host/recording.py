@@ -28,7 +28,9 @@ from digline.store.file_store import (
     RECORDINGS_DIRNAME,
     STORE_DIRNAME,
     FileResultStore,
+    checked_name,
 )
+from digline.store.protocol import PathRefusedError
 from digline.wire.recorder import SuiteRecordings, TenantRecorder
 
 __all__ = ["recorder_status", "switch_off", "switch_on"]
@@ -143,16 +145,27 @@ def recorder_status(
         names = [tenant]
     else:
         base = root / STORE_DIRNAME
+        # A directory whose name is not one is no tenant: digline never makes
+        # one, and reading it would refuse every tenant's status beside it.
         names = sorted(
             entry.name
             for entry in (base.iterdir() if base.is_dir() else ())
-            if entry.is_dir()
+            if _a_tenant(entry.name)
+            and entry.is_dir()
             and (
                 (entry / RECORDER_FILENAME).is_file()
                 or (entry / RECORDINGS_DIRNAME).is_dir()
             )
         )
     return tuple(_tenant(store, name, imports or {}) for name in names)
+
+
+def _a_tenant(name: str) -> bool:
+    try:
+        checked_name(name, "tenant")
+    except PathRefusedError:
+        return False
+    return True
 
 
 def _not_recorded(
