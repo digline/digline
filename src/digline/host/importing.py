@@ -81,7 +81,12 @@ from typing import cast
 from digline.core.capture import capture_id
 from digline.core.recording import Recording, RecordingRefusedError, instant_of
 from digline.core.refused import RefusedError
-from digline.core.run import RecordedResponse, restore_output
+from digline.core.run import (
+    RecordedResponse,
+    RecordedStep,
+    recorded_step_to_dict,
+    restore_output,
+)
 from digline.core.types import OutputKind
 from digline.host.toml_suite import read_cases, within_perimeter
 from digline.recorder import UNASSIGNED
@@ -217,6 +222,11 @@ class ImportAnswer:
     #: The setup in force for this answer's form, an episode's or a single
     #: call's, or `None` where no recording of it is eligible.
     in_force: str | None = None
+    #: An episode's steps, which a yes or a no writes beside the answer so the
+    #: suite's trajectory checks run on it (ADR 0059 §1, amended 2026-11-05):
+    #: the newest recording's under the setup in force, or the first's where
+    #: none is under it. `None` for a single call.
+    steps: tuple[RecordedStep, ...] | None = None
 
     @property
     def electable(self) -> bool:
@@ -562,6 +572,7 @@ def import_listing(
                 ),
                 case_from_first_call=first.case_from_first_call,
                 in_force=setup,
+                steps=_steps_of(recordings, setup),
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -733,17 +744,32 @@ def _output(answer: ImportAnswer) -> object:
     return answer.text
 
 
+def _steps_of(
+    recordings: Sequence[Recording], setup: str | None
+) -> tuple[RecordedStep, ...] | None:
+    """An episode's steps, as `ImportAnswer.steps` says which recording's."""
+    if recordings[0].id is None:
+        return None
+    under = [r for r in recordings if r.setup_digest == setup]
+    chosen = under[-1] if under else recordings[0]
+    steps = chosen.response.steps
+    return None if steps is None else tuple(steps)
+
+
 def _reviewed(
     answer: ImportAnswer, good: bool, found: ImportListing, by: str
 ) -> dict[str, object]:
+    reviewed: dict[str, object] = {
+        "output": _output(answer),
+        "check": found.declaration.check,
+        "good": good,
+        "input": answer.input,
+    }
+    if answer.steps is not None:
+        reviewed["steps"] = [recorded_step_to_dict(step) for step in answer.steps]
     return {
         "id": answer.id,
-        "reviewed_answer": {
-            "output": _output(answer),
-            "check": found.declaration.check,
-            "good": good,
-            "input": answer.input,
-        },
+        "reviewed_answer": reviewed,
         "metadata": _metadata(found, answer, by),
     }
 

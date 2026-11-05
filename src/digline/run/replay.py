@@ -29,17 +29,16 @@ from digline.core import (
     Run,
     Subsequence,
     ToolCalledWith,
-    ToolsCalled,
     restore_output,
 )
-from digline.core.run import RecordedStep
 from digline.run.driver import (
     Mapper,
     Response,
     default_mapper,
     execute,
+    live_step,
 )
-from digline.run.suite import Case, Suite
+from digline.run.suite import TRAJECTORY_CHECKS, Case, Suite
 
 __all__ = ["Replay", "ReplayError", "rejudge"]
 
@@ -157,25 +156,8 @@ def _reported_trajectory(answer: RecordedResponse) -> Mapping[str, object]:
     # read both find the same calls. Absent where not recorded, which is every
     # document before schema 23. (ADR 0060 §5)
     if answer.steps is not None:
-        found["steps"] = [_live_step(step) for step in answer.steps]
+        found["steps"] = [live_step(step) for step in answer.steps]
     return found
-
-
-def _live_step(step: RecordedStep) -> dict[str, object]:
-    entry: dict[str, object] = {"index": step.index, "actor": step.actor}
-    if step.finish is not None:
-        entry["finish"] = step.finish
-    if step.call is not None:
-        entry.update(
-            {
-                "tool": step.call.tool,
-                "arguments": step.call.arguments,
-                "result": step.call.result,
-                "status": step.call.status,
-                "result_absence": step.call.result_absence,
-            }
-        )
-    return entry
 
 
 def _serves(check: object, answer: RecordedResponse) -> bool:
@@ -221,10 +203,7 @@ def _check(suite: Suite, source: Run) -> None:
     trajectory_checks = [
         assertion
         for assertion in suite.assertions
-        if isinstance(
-            assertion,
-            ToolsCalled | ToolCalledWith | Subsequence | Before | Never | MaxSteps,
-        )
+        if isinstance(assertion, TRAJECTORY_CHECKS)
     ]
 
     recorded = {case.case_id: case for case in source.results}

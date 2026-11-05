@@ -82,6 +82,7 @@ __all__ = [
     "record_tools",
     "record_trajectory",
     "recorded_step_to_dict",
+    "recorded_steps_from_list",
     "step_calls",
     "steps_as_reported",
     "steps_of",
@@ -3605,6 +3606,15 @@ def _recorded_tools(raw: Mapping[str, Any]) -> tuple[str | None, ...] | None:
             "recorded response: 'tools' holds an entry that is neither a name nor null"
         )
     return tuple(cast("Sequence[str | None]", entries))
+
+
+def recorded_steps_from_list(found: object) -> tuple[RecordedStep, ...]:
+    """Steps as `recorded_step_to_dict` writes them, read back with the run
+    document's own reader, so a reviewed answer's steps in a cases file have
+    the one written form a step has everywhere. (ADR 0059 §1, amended
+    2026-11-05)"""
+    read = _recorded_steps({"steps": found})
+    return () if read is None else read
 
 
 def _recorded_steps(raw: Mapping[str, Any]) -> tuple[RecordedStep, ...] | None:

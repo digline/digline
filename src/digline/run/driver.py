@@ -60,6 +60,7 @@ from digline.core.protocols import AroundTarget, DeclaresPrice
 from digline.core.refused import RefusedError, Written
 from digline.core.reviewed import Reviewed
 from digline.core.run import (
+    RecordedStep,
     record_finish,
     record_steps,
     record_tools,
@@ -584,6 +585,27 @@ class Mapper(Protocol):
     def __call__(self, response: Response, case: Case) -> EvaluatorInputs: ...
 
 
+def live_step(step: RecordedStep) -> dict[str, object]:
+    """A recorded step in the live form `steps_as_reported` writes, which is
+    what a trajectory check reads under `metadata["response"]["steps"]`: a
+    replay hands recorded steps back in it, and a reviewed answer its own.
+    (ADR 0060 §5)"""
+    entry: dict[str, object] = {"index": step.index, "actor": step.actor}
+    if step.finish is not None:
+        entry["finish"] = step.finish
+    if step.call is not None:
+        entry.update(
+            {
+                "tool": step.call.tool,
+                "arguments": step.call.arguments,
+                "result": step.call.result,
+                "status": step.call.status,
+                "result_absence": step.call.result_absence,
+            }
+        )
+    return entry
+
+
 def default_mapper(response: Response, case: Case) -> EvaluatorInputs:
     """The obvious mapping, for a target that returns what it was asked.
 
@@ -752,7 +774,16 @@ def _graded(
         raw = [_judge(assertion, inputs) for inputs in samples]
         if wrong := misnamings(name, raw):
             return _stamped(assertion, misnamed_verdict(assertion, name, wrong))
-        return _stamped(assertion, combine_samples(raw, min_agreement=floor))
+        return _stamped(
+            assertion,
+            combine_samples(
+                raw,
+                min_agreement=floor,
+                # A check of the user's own declares nothing, and keeps the
+                # mean alone, as before. (ADR 0018 §1)
+                each=getattr(assertion, "SAYS_EACH_SAMPLE", False) is True,
+            ),
+        )
     rows = [
         [_judge(assertion, inputs) for _ in range(judge_samples)] for inputs in samples
     ]
@@ -1042,12 +1073,36 @@ def _review(
     agree is read off the run by `contradicted`, as a lost band is read by
     `scale_lost`, so a stored run and a re-judged one say the same thing, and
     a contradiction is exit `1` from the run alone.
+
+    **An episode's answer brings its steps** (ADR 0059 §1, amended
+    2026-11-05): they reach the checks as a target's would, under
+    `metadata["response"]`, with the calls and the names read off them, and
+    the suite's trajectory checks run beside `check`. On a yes, a red one is
+    a contradiction too.
     """
     check = suite.reviewed(answer)
+    checks = (check, *suite.on_the_steps(answer))
     reviewed = Reviewed(
         check=answer.check, assertion_id=check.identity, good=answer.good
     )
-    response = Response(output=answer.output, input=answer.input)
+    reported: dict[str, object] = {}
+    if answer.steps is not None:
+        calls = step_calls(answer.steps)
+        reported = {
+            "steps": [live_step(step) for step in answer.steps],
+            "tool_calls": [
+                {
+                    "tool": call.tool,
+                    "arguments": call.arguments,
+                    "result": call.result,
+                    "status": call.status,
+                    "result_absence": call.result_absence,
+                }
+                for call in calls
+            ],
+            "tools": [call.tool for call in calls],
+        }
+    response = Response(output=answer.output, input=answer.input, metadata=reported)
     samples: list[EvaluatorInputs] = []
     for _ in range(suite.samples):
         try:
@@ -1056,14 +1111,15 @@ def _review(
             return (
                 CaseResult(
                     case_id=case.id,
-                    verdicts=(
+                    verdicts=tuple(
                         _stamped(
-                            check,
+                            asked,
                             error_verdict(
-                                check,
+                                asked,
                                 _clip(f"mapper raised {type(exc).__name__}: {exc}"),
                             ),
-                        ),
+                        )
+                        for asked in checks
                     ),
                     reviewed=reviewed,
                     error_kind="raised",
@@ -1071,10 +1127,12 @@ def _review(
                 "mapper",
                 NO_CALLS,
             )
-    verdict = _graded(suite, check, samples, judge_samples, declared)
+    verdicts = tuple(
+        _graded(suite, asked, samples, judge_samples, declared) for asked in checks
+    )
     return (
-        CaseResult(case_id=case.id, verdicts=(verdict,), reviewed=reviewed),
-        "assertion" if verdict.status == "error" else "",
+        CaseResult(case_id=case.id, verdicts=verdicts, reviewed=reviewed),
+        "assertion" if any(v.status == "error" for v in verdicts) else "",
         # The judge's spend is on the judge line, as a calibration case's is.
         NO_CALLS,
     )
@@ -1095,7 +1153,10 @@ def _asked(suite: Suite, case: Case) -> frozenset[str]:
     if case.calibration is not None:
         return frozenset({suite.calibrated(case.calibration).identity})
     if case.reviewed_answer is not None:
-        return frozenset({suite.reviewed(case.reviewed_answer).identity})
+        answer = case.reviewed_answer
+        return frozenset(
+            a.identity for a in (suite.reviewed(answer), *suite.on_the_steps(answer))
+        )
     return frozenset(a.identity for a in suite.assertions)
 
 

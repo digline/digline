@@ -45,6 +45,7 @@ from digline.core.aggregate import RUN_ASSERTION_MEMBERS
 from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.refused import NameRef, RefusedError, Written
+from digline.core.run import RecordedStep
 from digline.core.tokens import TokenKind
 from digline.core.types import floor_width_refusal
 
@@ -55,6 +56,7 @@ __all__ = [
     "CallPlan",
     "Case",
     "ReviewedAnswer",
+    "TRAJECTORY_CHECKS",
     "Suite",
     "blind_tolerances",
     "planned_calls",
@@ -204,6 +206,14 @@ class Calibration:
         _ = CalibrationBand.bounds(self.check, self.low, self.high)
 
 
+#: The checks that read a trajectory, the core's six: what a reviewed answer
+#: with steps is asked beside its check, and what a replay refuses where the
+#: steps were not recorded. Named types, because a check of the user's own
+#: that reads `metadata["response"]["steps"]` cannot be told from here.
+#: (ADR 0060 §4; ADR 0059 §1, amended 2026-11-05)
+TRAJECTORY_CHECKS = (ToolsCalled, ToolCalledWith, Subsequence, Before, Never, MaxSteps)
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewedAnswer:
     """An answer the application gave, and a person's yes or no about it.
@@ -230,14 +240,22 @@ class ReviewedAnswer:
     `good` is a `bool` and nothing else: a person's yes or no is said, and a
     `1`, a `"yes"` or a list that happens to be truthy says nothing a person
     said.
+
+    **An episode's answer carries its steps** (ADR 0059 §1, amended
+    2026-11-05): the trajectory the person read beside the answer, in the run
+    document's form. Then the suite's checks on a trajectory run on it too,
+    and on a yes each of them must pass, as `check` must: a red one is a
+    contradiction. `None`, the default, is an answer whose steps were not
+    kept, which only `check` is asked about.
     """
 
     output: Output
-    #: The name of the judged assertion this answer was reviewed for. Only that
-    #: check runs on the case.
+    #: The name of the judged assertion this answer was reviewed for. It runs
+    #: on the case, with the suite's trajectory checks where `steps` is given.
     check: str
     good: bool
     input: str
+    steps: Sequence[RecordedStep] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.check, str) or not self.check:  # pyright: ignore[reportUnnecessaryIsInstance]
@@ -275,6 +293,24 @@ class ReviewedAnswer:
                     "called, and the recording carries it",
                 )
             )
+        if self.steps is not None:
+            steps = tuple(self.steps) if not isinstance(self.steps, str) else ()
+            if (
+                isinstance(self.steps, str)
+                or not all(isinstance(step, RecordedStep) for step in steps)  # pyright: ignore[reportUnnecessaryIsInstance]
+                or [step.index for step in steps] != list(range(len(steps)))
+            ):
+                raise RefusedError(
+                    Written.said(
+                        "the reviewed answer for ",
+                        NameRef("verdict_name", self.check),
+                        " declares steps that are not the steps of one "
+                        "trajectory, in order from 0",
+                    )
+                )
+            # A tuple, so the answer stays a value: a list given here and
+            # changed later changes nothing the run reads.
+            object.__setattr__(self, "steps", steps)
 
 
 @dataclass(frozen=True, slots=True)
@@ -905,6 +941,14 @@ class Suite:
                         'answer replies to, or "" if the real cases have none',
                     )
                 )
+
+    def on_the_steps(self, answer: ReviewedAnswer) -> tuple[Assertion, ...]:
+        """The suite's trajectory checks a reviewed answer is asked beside its
+        check: all of them where it carries steps, none where it does not.
+        (ADR 0059 §1, amended 2026-11-05)"""
+        if answer.steps is None:
+            return ()
+        return tuple(a for a in self.assertions if isinstance(a, TRAJECTORY_CHECKS))
 
     def reviewed(self, answer: ReviewedAnswer) -> Assertion:
         """The one declared assertion a reviewed answer names, as `calibrated`

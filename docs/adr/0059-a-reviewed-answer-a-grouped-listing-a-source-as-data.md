@@ -139,6 +139,23 @@ import is what writes them; its run judges nothing and exits 2. Measured on
 the driver: a calibration case is not called for either, so the rule names
 both kinds where the ruling named reviewed answers.
 
+*Amended 2026-11-05, by Alessandro Prandini's ruling (P-1530), the section
+above kept as written.* **An episode's reviewed answer carries its steps, and
+the suite's trajectory checks run on it.** *Only the judged check it names
+runs on it* is narrowed for an answer the import took from an episode: the
+person read a turn, and a turn is its answer and the steps it took to it. So
+`ReviewedAnswer.steps` holds that episode's trajectory, in the run document's
+form, and the suite's checks on a trajectory (`ToolsCalled`, `ToolCalledWith`,
+`Subsequence`, `Before`, `Never`, `MaxSteps`) run on the case beside the
+named check. **On a yes, a red one is a contradiction**, counted and refused
+by `promote` as the named check's is: a person who said yes to the turn said
+yes to its steps. On a no they decide nothing, because a no does not say
+which part of the turn was wrong. An answer without steps, a single call's or
+one written before this amendment, is asked its check alone, as before. The
+import writes the steps of the newest recording of the answer under the setup
+in force, the setup ADR 0058 §8's `episode_setup` gives an episode, or of its
+first recording where none is under it.
+
 **`Case.label` is the class of the input, and the import no longer writes
 it.** The suite's author writes a label where the suite has ground truth.
 ADR 0023 §5's rule stands as it is: a capture writes one only from a total
