@@ -13,6 +13,7 @@ returned, with the recorder switched on. Under pytest:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -121,7 +122,9 @@ def test_the_control_without_running_the_wrapped_client_records(
     monkeypatch.setenv("DIGLINE_RECORD", "1")
     path = pytester.path / "suite.py"
     path.write_text(SUITE + "\nask()\n", encoding="utf-8")
-    pytester.run("python", str(path))
+    # The interpreter running this test, never the first `python` on PATH,
+    # which may be another checkout's without the plugins.
+    pytester.run(sys.executable, str(path))
     recordings = [
         p
         for p in (pytester.path / ".digline").rglob("recordings/*/*.json")
