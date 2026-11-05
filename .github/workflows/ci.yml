@@ -630,7 +630,11 @@ jobs:
           # Set beside the directory, so that this run fails where the test
           # would otherwise skip.
           DIGLINE_JAVA_REQUIRED: "1"
-        run: uv run --no-sync pytest tests/test_recorder_java.py -v
+        # `-o pythonpath=.`: the project's own pytest configuration puts every
+        # plugin's `src` on the path, which would make digline alone a claim
+        # this run does not hold. Measured both ways in a digline-alone
+        # environment: without it the test finds digline_openai and fails.
+        run: uv run --no-sync pytest tests/test_recorder_java.py -o pythonpath=. -v
 
   image-touched:
     name: Does this change the image?
