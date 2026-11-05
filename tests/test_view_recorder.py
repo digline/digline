@@ -601,6 +601,49 @@ def test_to_import_says_not_read_where_no_draft_was_read(root: Path) -> None:
     assert "0" not in figures(page)[3]
 
 
+def with_gate_calls(root: Path, count: int) -> Any:
+    """The status with `count` recordings of the gate's own calls in suite
+    triage, where the host counts them: in `from_gate` and in nothing else."""
+    status = status_of(root, read=True)
+    suites = tuple(
+        replace(s, from_gate=count) if s.suite == "triage" else s for s in status.suites
+    )
+    return replace(status, suites=suites)
+
+
+# The English is `digline record status`'s sentence, which
+# `tests/test_gate_marker.py` reads from the command, with the suite it is
+# printed under.
+@pytest.mark.parametrize(
+    ("locale", "said", "apart"),
+    [
+        (
+            "en",
+            "suite triage: 2 from gate runs, kept apart: not listed, imported "
+            "or compared",
+            "kept apart",
+        ),
+        (
+            "it",
+            "suite triage: 2 da esecuzioni del gate, tenute a parte: non "
+            "elencate, importate né confrontate",
+            "tenute a parte",
+        ),
+    ],
+)
+def test_the_recorder_says_its_calls_from_gate_runs_as_status_does(
+    root: Path, locale: Locale, said: str, apart: str
+) -> None:
+    page = recorder_pages.recorder_page(
+        with_gate_calls(root, 2), suite="triage", locale=locale, writes=None
+    )
+    assert unescape(page).count(said) == 1
+    none = recorder_pages.recorder_page(
+        with_gate_calls(root, 0), suite="triage", locale=locale, writes=None
+    )
+    assert apart not in unescape(none)
+
+
 # -- served -------------------------------------------------------------------- #
 
 

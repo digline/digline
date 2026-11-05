@@ -278,7 +278,9 @@ that calls `execute()` itself passes
 `around_target=digline.recorder.collecting` to have it.
 
 Four checks read the steps: `Subsequence`, `Before`, `Never` and `MaxSteps`
-([the API](api.md#four-checks-on-the-steps)).
+([the API](api.md#four-checks-on-the-steps)). They go in the suite's
+assertions beside the checks on the output, and every case of the suite is
+asked them: no form narrows one to some cases or to a group.
 
 **And in the run document.** A suite that records its responses keeps the steps
 on each recorded response, from schema 23, so a replay judges them again as the
@@ -502,7 +504,10 @@ and `client gone` for a client that left before it had sent its whole request
 (both through the proxy), `config invalid` and the rest, and what was **recorded with
 something noted**: `usage not reported`, `ended after its episode`. A suite
 says only what it holds: a suite of episodes whose calls name another suite
-shows no calls.
+shows no calls. Apart from those, **from gate runs**: the calls a `digline
+run` made, while it was in progress, to an application that records itself,
+which no list, import or compare reads
+([the recording's format](recording-format.md#a-run-in-progress-the-gates-calls)).
 
 **Each process writes one subdirectory per tenant**,
 `recordings/p<pid>-<8 hex>/`, however many clients it wraps, and keeps its
@@ -620,7 +625,10 @@ signature.
 A reviewed answer runs with the suite: the target is not asked for it, the
 check it names judges the answer you read, and a judge that says the other of
 what you said fails the case, so `digline report` and `digline compare` exit
-`1`, and the report names the case and which way the judge went. How it sits
+`1`, and the report names the case and which way the judge went. An answer
+the import took from an episode carries the episode's steps, and the suite's
+checks on the steps run on it too: on a yes a red one is a contradiction, on
+a no they decide nothing. How it sits
 beside the other ways of reading a judge, calibration cases, the labelled
 aggregates and `Repeated`, is [Calibrating a judge](calibration.md).
 

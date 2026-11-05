@@ -163,7 +163,9 @@ the `2` that a lost band and an unjudged case would give on their own.
 
 A reviewed answer is an answer the application gave and a person's yes or no
 about it, written by `digline record import` with `--good` or `--bad`, or by
-hand. The target is not asked for it, and only the check it names runs on it
+hand. The target is not asked for it, and only the check it names runs on it,
+except on an episode's answer, which carries its steps: the suite's checks on
+the steps run beside it, and on a yes a red one is a contradiction
 ([API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer)).
 
 The judge passed `said-no`, an answer the person said no to. That is a

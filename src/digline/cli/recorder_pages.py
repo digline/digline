@@ -803,6 +803,21 @@ def recorder_page(
     if status.stopped_at_ceiling:
         body.append(_p(phrase(locale, "view.recorder.stopped"), "empty"))
     body.append(_suites(status, locale))
+    for entry in status.suites:
+        if entry.from_gate:
+            # A run's own calls, recorded while it was in progress and counted
+            # in no column of the table, as `digline record status` says it.
+            body.append(
+                _p(
+                    phrase(
+                        locale,
+                        "view.recorder.from_gate",
+                        suite=entry.suite,
+                        count=entry.from_gate,
+                    ),
+                    "note",
+                )
+            )
     if status.uncounted:
         # What a process that keeps no counts did not record is not known,
         # which is not the same as nothing (ADR 0062 §2).
