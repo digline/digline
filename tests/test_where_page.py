@@ -11,6 +11,7 @@ a GET that writes nothing, and a POST answered as an unknown path.
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,13 @@ import pytest
 from digline.cli.recorder_pages import WHERE_DOCS, where_page
 from digline.host.importing import Shape
 from digline.host.where import RECORD_LINES, STATES, State, Where, record_lines
-from digline.report.pages import nav, recorder_address, where_address, with_screens
+from digline.report.pages import (
+    nav,
+    recorder_address,
+    where_address,
+    with_screens,
+    with_tenant_screens,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -293,3 +300,20 @@ def test_where_you_are_opens_the_bar() -> None:
         locale="it",
     )
     assert ">Dove sei</a>" in italian
+
+
+def test_the_runs_link_is_found_in_linear_time_before_many_lookalikes() -> None:
+    """The bar of a server started without a suite finds the runs' link with
+    a pattern that cannot cross a `<`. The one before it could, so from each
+    `<a href="/?locale=a"` its `[^>]*` ran on to the next `>`: on 20,000 of
+    them, 400,000 characters, it took 2.1 seconds on the machine this was
+    measured on, and four times as long for twice the input. The new one took
+    half a millisecond, so half a second is a ceiling, not a race."""
+    lookalikes = '<a href="/?locale=a"' * 20_000
+    document = lookalikes + nav("en", here="runs", suite="triage")
+    start = time.perf_counter()
+    bar = with_tenant_screens(document, tenant="acme", locale="en")
+    took = time.perf_counter() - start
+    assert took < 0.5, f"{took:.2f}s"
+    assert bar.startswith(lookalikes)
+    assert ">Where you are</a>" in bar

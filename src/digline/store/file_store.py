@@ -220,6 +220,32 @@ def checked_name(value: str, kind: str) -> str:
     return value
 
 
+def joined_inside(root: Path, *parts: str) -> Path:
+    """`root` joined with `parts`, normalised, and held strictly under `root`,
+    or a refusal.
+
+    **The one place a name `checked_name` let through becomes a path.** Every
+    segment of the layout that is a name (a tenant, a suite, a run key) is
+    joined here and nowhere else, so the check that the path stays under its
+    root is made once, in one form. The form is the one CodeQL's path check
+    reads as a guard: the joined path normalised with `os.path.normpath`, then
+    `startswith` the normalised root and a separator.
+
+    **Behind `checked_name`, the refusal here cannot be reached**: a name it
+    lets through is one segment with no separator, and neither `.` nor `..`,
+    so joined to a root it stays under that root. What this adds is that the
+    containment is checked where the path is built, not inferred from a
+    pattern three calls up. A part that is not a name, a literal of the layout
+    or a file's suffix, passes here too. It does not resolve links: a link
+    out of the store is `FileResultStore._inside`'s refusal, at the read.
+    """
+    base = os.path.normpath(root)
+    candidate = os.path.normpath(os.path.join(base, *parts))
+    if not candidate.startswith(base + os.sep):
+        raise PathRefusedError(f"{candidate} is not inside {base}")
+    return Path(candidate)
+
+
 def _declared_key(document: Mapping[str, object]) -> str | None:
     """`key_of` of the document's own two fields, or `None` when either is
     missing, not a string, or empty. Read from the parsed object: nothing is
@@ -395,7 +421,9 @@ def _suite_dirs(runs: Path) -> list[Path]:
             f"cannot list {runs}: {exc.strerror or f'errno {exc.errno}'}. "
             "Nothing in it was read, so this is not a tenant with no runs"
         ) from exc
-    return sorted(runs / name for name in names if _NAME_RE.fullmatch(name))
+    return sorted(
+        joined_inside(runs, name) for name in names if _NAME_RE.fullmatch(name)
+    )
 
 
 def _keyless(document: Mapping[str, object]) -> str:
@@ -499,7 +527,7 @@ class FileResultStore:
         return resolved
 
     def tenant_dir(self, tenant: str) -> Path:
-        return self.root / checked_name(tenant, "tenant")
+        return joined_inside(self.root, checked_name(tenant, "tenant"))
 
     def name_table_dir(self, tenant: str) -> Path:
         """The directory the process that owns this tenant's name table keeps
@@ -584,7 +612,9 @@ class FileResultStore:
             gitattributes.write_text(_GITATTRIBUTES, encoding="utf-8")
 
     def baseline_path(self, tenant: str, suite: str) -> Path:
-        return self.baselines_dir(tenant) / f"{checked_name(suite, 'suite')}.json"
+        return joined_inside(
+            self.baselines_dir(tenant), f"{checked_name(suite, 'suite')}.json"
+        )
 
     def run_path(self, ref: RunRef) -> Path:
         # The key is checked like the other two segments, and for a sharper
@@ -593,10 +623,10 @@ class FileResultStore:
         # command line, `?run=` in the view's query string. It was once the only
         # part of this path taken verbatim, and `?run=../../../elsewhere` then
         # read a file outside `.digline/` and the view rendered it.
-        return (
-            self.runs_dir(ref.tenant)
-            / checked_name(ref.suite, "suite")
-            / f"{checked_name(ref.key, 'run')}.json"
+        return joined_inside(
+            self.runs_dir(ref.tenant),
+            checked_name(ref.suite, "suite"),
+            f"{checked_name(ref.key, 'run')}.json",
         )
 
     def write_run(self, run: Run) -> RunRef:
@@ -616,7 +646,7 @@ class FileResultStore:
         order — but a caller that wants to *show* a date should read the run and
         use its `created_at`, which is the recorded fact rather than a filename.
         """
-        directory = self.runs_dir(tenant) / checked_name(suite, "suite")
+        directory = joined_inside(self.runs_dir(tenant), checked_name(suite, "suite"))
         return tuple(
             RunRef(tenant=tenant, suite=suite, key=path.stem)
             for path in _listed(directory, "*.json")
@@ -642,7 +672,7 @@ class FileResultStore:
         goes on as it did before, to be refused by the read. (ADR 0040 §4,
         §5; the last case is open there, and left as it was by ruling.)
         """
-        directory = self.runs_dir(tenant) / checked_name(suite, "suite")
+        directory = joined_inside(self.runs_dir(tenant), checked_name(suite, "suite"))
         keep: list[RunRef] = []
         skipped: dict[int, int] = {}
         unreadable: list[str] = []
@@ -706,7 +736,7 @@ class FileResultStore:
         hundred to skip, it is somebody's planted path. (Security pass of
         2026-09-23, finding 3.)
         """
-        directory = self.runs_dir(tenant) / checked_name(suite, "suite")
+        directory = joined_inside(self.runs_dir(tenant), checked_name(suite, "suite"))
         paths = tuple(_listed(directory, "*.json"))
         for path in paths:
             self._inside(path, "run")
@@ -1067,7 +1097,7 @@ class FileResultStore:
         taken: set[Path] = set()
         for path, removed in (pair for level in reversed(levels) for pair in level):
             directory = path.parent
-            owner = directory / f"{removed.ref.key}.json"
+            owner = joined_inside(directory, f"{removed.ref.key}.json")
             legs: tuple[Path, ...] = ()
             if owner in on_plan or not _exists(owner):
                 legs = tuple(
@@ -1123,10 +1153,10 @@ class FileResultStore:
     # -- the register --------------------------------------------------------- #
 
     def register_path(self, tenant: str, suite: str) -> Path:
-        return (
-            self.tenant_dir(tenant)
-            / REGISTER_DIRNAME
-            / f"{checked_name(suite, 'suite')}.jsonl"
+        return joined_inside(
+            self.tenant_dir(tenant),
+            REGISTER_DIRNAME,
+            f"{checked_name(suite, 'suite')}.jsonl",
         )
 
     def read_register(self, tenant: str, suite: str) -> Register:
@@ -1280,7 +1310,9 @@ class FileResultStore:
     # -- the journal ---------------------------------------------------------- #
 
     def journal_dir(self, tenant: str, suite: str) -> Path:
-        return self.runs_dir(tenant) / checked_name(suite, "suite") / PENDING_DIRNAME
+        return joined_inside(
+            self.runs_dir(tenant), checked_name(suite, "suite"), PENDING_DIRNAME
+        )
 
     def open_journal(self, header: JournalHeader) -> FileJournal:
         """Begin a leg of this run, and refuse if another process holds it.
@@ -1296,7 +1328,9 @@ class FileResultStore:
         key = checked_name(journal_key(header), "run")
         legs = [leg for leg, _ in self._legs(directory, key)]
         stamped = replace(header, leg=max(legs, default=0) + 1)
-        return FileJournal(directory / f"{key}.{stamped.leg}.jsonl", stamped)
+        return FileJournal(
+            joined_inside(directory, f"{key}.{stamped.leg}.jsonl"), stamped
+        )
 
     def pending(self, tenant: str, suite: str) -> tuple[Pending, ...]:
         """Every run of this suite that was started and never written.

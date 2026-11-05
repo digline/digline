@@ -9,6 +9,11 @@ one function at the store's edge, `digline.store.checked_name`, or shown to
 be a value that never becomes a path. The view's addresses and the proxy's
 headers are in `tests/test_view_recorder.py` and `tests/test_record_proxy.py`,
 beside the servers they need.
+
+Past the name, the path: `digline.store.file_store.joined_inside` is where a
+name becomes a segment of a path, normalised and held under its root, the
+form CodeQL reads as a guard. Behind `checked_name` its refusal cannot be
+reached, so it is held here on its own, with what `checked_name` would refuse.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from digline.cli import EXIT_USAGE
 from digline.cli.main import main
 from digline.host.recording import recorder_status
 from digline.store import PathRefusedError, checked_name
+from digline.store.file_store import FileResultStore, joined_inside
 
 #: The SDK `wrap()` is given here, taken back out of `sys.modules` when this
 #: module ends, as `tests/test_record_proxy.py` does: a plugin's own tests
@@ -258,3 +264,84 @@ output_path = "answer"
     assert code == EXIT_USAGE
     assert "capture" in err
     assert secret.read_text(encoding="utf-8") == "[]"
+
+
+# -- the path ----------------------------------------------------------------- #
+
+
+#: Parts `checked_name` refuses, each of which, joined to the root, would leave
+#: it or be the root itself: `..` and a climb, an absolute part, which
+#: `os.path.join` takes over the root, a sibling whose name begins with the
+#: root's, and the root itself, by `.` and by nothing.
+LEAVES = (
+    ("..",),
+    ("../outside",),
+    ("acme", "..", "..", "outside"),
+    ("/etc",),
+    ("../store-elsewhere",),
+    (".",),
+    ("",),
+)
+
+
+@pytest.mark.parametrize("parts", LEAVES)
+def test_joined_inside_refuses_a_path_that_leaves_its_root_on_its_own(
+    tmp_path: Path, parts: tuple[str, ...]
+) -> None:
+    """The refusal is unreachable behind `checked_name`, which refuses a part
+    of each of these first, so it is reached here by calling the function
+    alone."""
+    root = tmp_path / "store"
+    with pytest.raises(PathRefusedError, match="is not inside"):
+        joined_inside(root, *parts)
+    # Some part of each is one `checked_name` refuses, so none of these
+    # reaches the function from the store.
+    assert any(_refused_as_a_name(part) for part in parts)
+
+
+def _refused_as_a_name(part: str) -> bool:
+    try:
+        checked_name(part, "tenant")
+    except PathRefusedError:
+        return True
+    return False
+
+
+def test_joined_inside_joins_names_and_literals_under_its_root(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "store"
+    assert joined_inside(root, "acme", "runs", "triage.json") == (
+        root / "acme" / "runs" / "triage.json"
+    )
+
+
+def test_the_store_builds_its_paths_where_they_are_held(tmp_path: Path) -> None:
+    """Every path the store builds from a name comes out of `joined_inside`:
+    the same path the layout always had, under the store's root."""
+    store = FileResultStore(tmp_path)
+    assert store.tenant_dir("acme") == store.root / "acme"
+    assert store.baseline_path("acme", "triage") == (
+        store.root / "acme" / "baselines" / "triage.json"
+    )
+    assert store.register_path("acme", "triage") == (
+        store.root / "acme" / "register" / "triage.jsonl"
+    )
+    assert store.journal_dir("acme", "triage") == (
+        store.root / "acme" / "runs" / "triage" / ".pending"
+    )
+
+
+@pytest.mark.parametrize("parts", LEAVES)
+def test_the_recorders_copy_refuses_what_the_store_refuses(
+    tmp_path: Path, parts: tuple[str, ...]
+) -> None:
+    """The recorder does not import the store while it is off, so it restates
+    `joined_inside` in the same form. A name that leaves the root is refused
+    by the copy too, and a tenant that does not is the same path in both."""
+    root = tmp_path / "store"
+    with pytest.raises(ValueError, match="is not inside"):
+        recorder._joined_inside(root, *parts)  # pyright: ignore[reportPrivateUsage]
+    assert recorder._joined_inside(root, "acme", "recordings") == joined_inside(  # pyright: ignore[reportPrivateUsage]
+        root, "acme", "recordings"
+    )
