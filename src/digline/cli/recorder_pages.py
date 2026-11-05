@@ -48,6 +48,7 @@ from digline.host.importing import (
     input_line,
     setup_line,
 )
+from digline.host.where import RECORD_LINES, State, Where
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
     answer_address,
@@ -69,6 +70,9 @@ __all__ = [
     "recorder_page",
     "recordings_page",
     "setups_page",
+    "WHERE_DOCS",
+    "where_command",
+    "where_page",
 ]
 
 #: How much of an answer the listing shows before `show all`. The whole answer
@@ -890,3 +894,141 @@ def _suites(status: TenantRecorder, locale: Locale) -> str:
     return (
         f"<table><thead><tr>{head}</tr></thead><tbody>{''.join(rows)}</tbody></table>\n"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Where the project is
+# --------------------------------------------------------------------------- #
+
+#: Where the documentation is read, on the site that publishes `docs/`.
+DOCS_SITE = "https://digline.dev/product/"
+
+#: The pages that say more about each state, by their path under `docs/`
+#: and the anchor on the page; `tests/test_where_page.py` holds each to a
+#: page that exists and an anchor it has.
+WHERE_DOCS: dict[State, tuple[tuple[str, str], ...]] = {
+    "nothing_recorded": (("record.md", ""),),
+    "recording_off": (("record.md", "switching-it-on"),),
+    "unassigned": (("record.md", "from-recordings-to-cases-digline-record-import"),),
+    "no_suite_yet": (("proposing-a-suite.md", ""), ("declarative.md", "capture")),
+    "to_import": (("record.md", "from-recordings-to-cases-digline-record-import"),),
+    "never_run": (("guide.md", ""),),
+    "judge_disagrees": (("calibration.md", ""), ("explain.md", "")),
+    "green_without_red": (("proposing-a-suite.md", ""),),
+    "new_setup": (("record.md", "comparing-setups-digline-record-compare"),),
+    "nothing_to_do": (("view.md", ""),),
+    "last_run_red": (("explain.md", ""),),
+}
+
+
+def where_command(found: Where, suite_arg: str, root: Sequence[str]) -> list[str]:
+    """The command for the state's next step, as a person types it, or none
+    where the step is an edit: a suite written, a counterexample added. It is
+    shown and never run: no button on this page launches a run or a gate."""
+    tenant = ["--tenant", found.tenant]
+    suite = ["--suite", suite_arg]
+    words: dict[State, list[str]] = {
+        "nothing_recorded": ["record", "on", *tenant],
+        "recording_off": ["record", "on", *tenant],
+        "unassigned": ["record", "import", *tenant, *suite, "--from", "_unassigned"],
+        "to_import": ["record", "import", *tenant, *suite],
+        "never_run": ["run", *suite],
+        "judge_disagrees": ["explain", *suite, "--run", "latest"],
+        "new_setup": ["record", "compare", *tenant, *suite],
+        "last_run_red": ["explain", *suite, "--run", "latest"],
+    }
+    if found.state not in words:
+        return []
+    return ["digline", *words[found.state], *root]
+
+
+def _docs_link(page: str, anchor: str) -> str:
+    slug = page.removesuffix(".md")
+    href = f"{DOCS_SITE}{slug}/" + (f"#{anchor}" if anchor else "")
+    return f'<a href="{escape(href)}">{escape(page)}</a>'
+
+
+def _languages(locale: Locale) -> str:
+    """Where recording starts, by language: one block per language, open on
+    a click with no script, each with three lines from its page."""
+    blocks = [f"<h2>{escape(phrase(locale, 'view.where.language'))}</h2>\n"]
+    for language, page, lines in RECORD_LINES:
+        blocks.append(
+            f"<details><summary>{escape(language)}</summary>\n"
+            f'<pre class="snippet">{escape(chr(10).join(lines))}</pre>\n'
+            + _p(phrase(locale, "view.where.lines", page=page), "note")
+            + "</details>\n"
+        )
+    return "".join(blocks)
+
+
+def _shapes(found: Where, locale: Locale) -> str:
+    rows = "".join(
+        f"<li>{escape(shape.says())} · ×{count}</li>" for shape, count in found.shapes
+    )
+    return f"<h2>{escape(phrase(locale, 'view.where.shapes'))}</h2>\n<ul>{rows}</ul>\n"
+
+
+def where_page(
+    found: Where,
+    *,
+    suite: str,
+    suite_arg: str,
+    root: Sequence[str],
+    locale: Locale,
+    writes: Sequence[str] | None,
+) -> str:
+    """Where the project is: the state's sentence as the heading, two
+    sentences under it, the command for the next step, and the page that
+    says more. `writes` is the recorder page's: the flags `digline record on`
+    carries on a server that writes, where the switch is offered as a button
+    with its command under it, and `None` on one that does not."""
+    values = {
+        "count": found.count,
+        "suite": found.suite or suite,
+        "tenant": found.tenant,
+        "exit_code": found.exit_code,
+        "last_import": found.last_import or phrase(locale, "view.where.never"),
+    }
+    heading = phrase(locale, f"view.where.{found.state}.title", **values)
+    body = [
+        f"<h1>{escape(heading)}</h1>\n",
+        _p(phrase(locale, f"view.where.{found.state}.say", **values)),
+    ]
+    if found.state == "nothing_recorded":
+        body.append(_languages(locale))
+    if found.state == "no_suite_yet" and found.shapes:
+        body.append(_shapes(found, locale))
+    here = {
+        "to_import": recordings_address(found.tenant, suite),
+        "new_setup": setups_address(found.tenant, suite),
+    }.get(found.state)
+    if here is not None:
+        body.append(
+            f'<p><a href="{escape(here)}?locale={locale}">'
+            f"{escape(phrase(locale, 'view.where.open'))}</a></p>\n"
+        )
+    command = where_command(found, suite_arg, root)
+    if found.state == "recording_off" and writes is not None:
+        body.append(
+            f"<h2>{escape(phrase(locale, 'view.where.command'))}</h2>\n"
+            f'<form method="post" action="{escape(recorder_address(found.tenant))}"'
+            ' class="writes">\n'
+            f'<input type="hidden" name="locale" value="{locale}">\n'
+            '<input type="hidden" name="action" value="on">\n'
+            f'<div class="picker"><button type="submit">'
+            f"{escape(phrase(locale, 'view.switch.on'))}</button></div>\n"
+            + _command(["digline", "record", "on", *writes], [], locale)
+            + "</form>\n"
+        )
+    elif command:
+        body.append(
+            f"<h2>{escape(phrase(locale, 'view.where.command'))}</h2>\n"
+            f'<pre class="snippet">{escape(shlex.join(command))}</pre>\n'
+        )
+    links = " · ".join(
+        _docs_link(page, anchor) for page, anchor in WHERE_DOCS[found.state]
+    )
+    body.append(f"<p>{escape(phrase(locale, 'view.where.docs'))}: {links}</p>\n")
+    title = phrase(locale, "view.title.where", suite=suite)
+    return screen(title, "".join(body), locale=locale, suite=suite, here="where")

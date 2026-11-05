@@ -93,6 +93,33 @@ that used to be built by hand with a script.
 writes nothing. A suspension lives in the code, so the reason travels with the
 case in the same review as everything else.
 
+## Where you are
+
+The first entry of the menu, `/where/<tenant>/<suite>/`, says where the
+project is and what comes next, read from `.digline/`: one state, the first
+of these that holds, with two sentences, the command for the next step, and
+the page that says more. The runs stay at `/`.
+
+| State | When it holds | The next step |
+|---|---|---|
+| *Nothing recorded yet* | no recording, and the suite has never run | the three lines that start recording, for Python, Java, Node or any other language, quoted from [`record.md`](record.md), [digline for Java](record-java.md) and [digline for Node](record-node.md) |
+| *Recording is off* | the switch says off, every recording has been imported, and the suite has never run | `digline record on`; a button only with `--allow-record` |
+| *N calls named no suite* | every recording named no suite | the suite at the call site, or `--from _unassigned` |
+| *N recordings in S, no suite yet* | the suite has recordings and no capture declaration | the recordings counted by the shape of their output, and [an agent's proposal](proposing-a-suite.md) or [the capture declaration](declarative.md#capture) |
+| *N since the last import* | recordings after the last import, or never imported | the Recordings view |
+| *The suite has never run* | no run | `digline run`, shown and never run |
+| *The judge disagrees with a person on N* | the newest run has a contradicted reviewed answer or a calibration case outside its band | [Calibrating a judge](calibration.md), `digline explain` |
+| *Green without a red* | the newest run exits 0 and no run ever failed a check | a counterexample, as [an agent's proposal](proposing-a-suite.md) adds one |
+| *N answers from a new setup* | the setup in force first answered after the newest run, on cases an earlier setup answered too | the Across setups view |
+| *Nothing to do* | the newest run exits 0 | none: the counts, and the last import |
+| *The newest run exits N* | the newest run exits 1 or 2 for a reason none of the above names | `digline explain` |
+
+It is `digline.host.where`, which reads the store, writes nothing and renders
+nothing: the page lays out what it returns, and a command can print the same
+value. A command it names is shown, never run, and the page has no button that
+starts a run or a gate. The switch is a button only where the recorder's are,
+under [`--allow-record`](#-allow-record), with the command under it.
+
 ## The recorder's views
 
 Three more views sit beside the screens, in the menu of every page, for the
