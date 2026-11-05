@@ -16,7 +16,8 @@ Under `runs/`, which is ignored by git like everything a run leaves, and in a
 directory whose name starts with a dot, which no listing of suites reads.
 
 **Live is a recent modification time, not the content.** The run touches its
-marker every `HEARTBEAT_SECONDS` and removes it when it ends, in error too. A
+marker every `HEARTBEAT_SECONDS` and removes it when it ends, in error too,
+with the directory where no other run's marker is left in it. A
 marker not touched for `STALE_SECONDS` is a run that was killed before it
 could remove it: ignored by every writer, and said by `digline record status`.
 The pid is written for a person to read and is never checked, because a proxy
@@ -152,15 +153,23 @@ def marking(
     place = directory_of(root, tenant)
     pid = os.getpid()
     path = place / f"{pid}-{run_id}.json"
-    place.mkdir(parents=True, exist_ok=True)
     partial = place / f".{path.name}.partial"
-    partial.write_text(
+    text = (
         json.dumps(
             {"run_id": run_id, "pid": pid, "started_at": started_at, "suite": suite}
         )
-        + "\n",
-        encoding="utf-8",
+        + "\n"
     )
+    # Twice at most: another run ending may remove the directory, empty,
+    # between this one making it and writing into it.
+    for attempt in (1, 2):
+        place.mkdir(parents=True, exist_ok=True)
+        try:
+            partial.write_text(text, encoding="utf-8")
+            break
+        except FileNotFoundError:
+            if attempt == 2:
+                raise
     os.replace(partial, path)
     stop = threading.Event()
 
@@ -180,3 +189,7 @@ def marking(
         heart.join()
         with suppress(FileNotFoundError):
             path.unlink()
+        # Left empty, the directory goes too, so a run leaves nothing behind;
+        # another run's marker in it keeps it, which is the refusal here.
+        with suppress(OSError):
+            place.rmdir()

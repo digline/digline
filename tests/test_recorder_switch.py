@@ -614,6 +614,7 @@ def test_record_status_counts_by_suite_and_orphans(
             "noted": {},
             "imported": None,
             "since_last_import": None,
+            "from_gate": 0,
         },
         {
             "suite": "triage",
@@ -626,6 +627,7 @@ def test_record_status_counts_by_suite_and_orphans(
             "noted": {},
             "imported": None,
             "since_last_import": None,
+            "from_gate": 0,
         },
     ]
     assert tenant["recordings"]["stopped_at_ceiling"] is False

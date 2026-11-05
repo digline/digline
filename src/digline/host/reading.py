@@ -56,7 +56,7 @@ from digline.wire import exit_code, run_exit_code
 
 __all__ = ["Explained", "Reported", "explained", "history", "instant", "reported"]
 
-_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE = re.compile(r"\A\d{4}-\d{2}-\d{2}\Z")
 
 
 @dataclass(frozen=True, slots=True)
@@ -294,7 +294,7 @@ def instant(value: str | None, *, name: str) -> str:
     """
     if not value:
         return ""
-    if _DATE.match(value):
+    if _DATE.fullmatch(value):
         try:
             datetime.strptime(value, "%Y-%m-%d")
         except ValueError as exc:

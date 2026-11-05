@@ -329,7 +329,7 @@ class Recording:
                 "Recording.episode must be a non-empty string, or None for a "
                 "call made outside an episode"
             )
-        for name in ("id", "recorded_at"):
+        for name in ("id", "recorded_at", "run_id"):
             if getattr(self, name) == "":
                 raise RecordingRefusedError(
                     f"Recording.{name} must be a non-empty string, or None"
@@ -351,12 +351,6 @@ class Recording:
             raise RecordingRefusedError(
                 f"Recording.origin is {GATE_ORIGIN!r} or absent, never "
                 f"{str(self.origin)[:40]!r}"
-            )
-        if self.run_id is not None and (
-            not isinstance(self.run_id, str) or not self.run_id
-        ):
-            raise RecordingRefusedError(
-                "Recording.run_id must be a non-empty string, or None"
             )
         if self.run_id is not None and self.origin is None:
             raise RecordingRefusedError(

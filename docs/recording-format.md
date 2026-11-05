@@ -123,6 +123,40 @@ the rules of [`record.md`](record.md#switching-it-on), and a root that holds
 no `.digline/` has no switch: the writer is off, as digline's own is, unless
 `DIGLINE_RECORD=1` switches it on in development.
 
+## A run in progress: the gate's calls
+
+*Added 2026-11-05 (ADR 0058, ADR 0062, as amended that day).* While
+`digline run` is in progress it leaves a marker in its tenant's directory:
+
+```text
+.digline/<tenant>/runs/.gate/<pid>-<run_id>.json
+{"run_id": "<the run's key>", "pid": 4242, "started_at": "...", "suite": "refunds"}
+```
+
+A call made then, with a `[target] http` pointed at an application that
+records itself, is the gate's and not the application's traffic. So a writer,
+before it writes a file:
+
+- **lists that directory**, skipping a name that starts with a dot or does
+  not end in `.json`. No directory is no run;
+- **takes a marker as live** when its modification time is at most 120
+  seconds old. The run touches it every 30 seconds and removes it when it
+  ends. An older one was left by a run that was killed: it is ignored, and
+  `digline record status` names it;
+- **still writes the file** where a marker is live, and adds `origin`,
+  written `"gate"`, and `run_id`, the marker's `run_id`. Where more than one
+  marker is live, or the one live marker cannot be read as JSON with a
+  non-empty string `run_id`, it writes `origin` alone.
+
+Absent, `origin` means the application. A file with `run_id` and no `origin`
+is refused, and so is any other `origin`. Two optional keys, so
+`recording_version` stays 1. The readers keep such a file apart: no list,
+import, compare or *since the last import* reads it, and `digline record
+status` counts it as *from gate runs*. Nothing deletes it.
+
+`recorders/fixtures/gates.json` holds what digline answers for a set of
+markers, and the Java writer is tested against it.
+
 ## What is free
 
 What a writer puts inside `setup`, beyond its being JSON; the `app` name; the

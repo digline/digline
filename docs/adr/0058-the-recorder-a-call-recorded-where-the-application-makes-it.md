@@ -209,6 +209,37 @@ writes one (`withheld`), and §10 refuses to start without a declared redaction.
 **So in 1.1, in production, the recorder starts only where `redact = "none"` is
 written**: no other declaration has an implementation behind it to honour.
 
+*Amended 2026-11-05, by Alessandro Prandini's ruling (P-1520, its parameters
+confirmed in P-1523): **the gate is not traffic.*** A `digline run` against an
+application that records itself in another process — behind `digline record
+proxy`, or through `recorders/java` — would file the run's own calls as the
+application's, and the import would then offer the gate's questions as cases.
+In one process `running()` already keeps the recorder from writing them
+(#910); out of it, nothing could tell. So:
+
+- while it runs, `digline run` (`host.measure`) keeps a **marker** at
+  `.digline/<tenant>/runs/.gate/<pid>-<run_id>.json`, holding the run's key as
+  `run_id`, its pid, `started_at` and the suite. Touched every 30 seconds,
+  removed when the run ends, in error too; one untouched for 120 seconds is
+  ignored and `digline record status` names it. Under `runs/`, ignored by git
+  as everything a run leaves is, and in a dot-directory no listing of suites
+  reads, as `.pending/` is (ADR 0017 §2). `measure` takes the root it writes
+  under as a required argument, `None` only where the caller says no
+  application can be recording;
+- every writer that finds a live marker **still records**, and writes
+  `origin: "gate"` and the marker's `run_id`: `origin` alone where more than
+  one run is live or the marker cannot be read. The rule errs towards the
+  gate: a call of the application's made during a run is kept apart, and
+  never deleted;
+- every reader **keeps those recordings apart**: no list, import, `where` or
+  compare reads them, *since the last import* does not count them, and the
+  import cannot elect them (ADR 0023: the gate does not elect). `digline
+  record status` counts them as *from gate runs*.
+
+`RECORDING_VERSION` stays 1: two optional keys, absent meaning the
+application. The marker is a new entry in the tenant's directory, and fixed
+decision 2 records it.
+
 ### 5. The episode, and nesting
 
 **`digline.episode` is in 1.1, with nesting.** It is a context around one turn

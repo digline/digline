@@ -49,6 +49,13 @@ correct its structural mistakes and are not negotiable.
    git, as `runs/` is, and neither is versioned the way `baselines/` is. The
    reason above is unchanged: no home directory, no global state, everything
    addressed by the tenant.
+   *Added to the list 2026-11-05 (ADR 0058 §4, as amended that day).* The
+   same directory also holds, while a run is in progress, the **gate's
+   marker**, `runs/.gate/<pid>-<run_id>.json`, which a writer of recordings
+   in another process reads to mark the run's own calls as the gate's. It is
+   removed when the run ends, and ignored by git, as `runs/` is. The reason
+   above is unchanged: no home directory, no global state, everything
+   addressed by the tenant.
 3. **No vacuously green assertion.** Every assertion has a mandatory threshold
    or a default that can fail. A default of 0 that always passes is a bug.
 4. **Cost and latency are budgets, not metrics.** A declared ceiling fails the

@@ -256,6 +256,18 @@ none.
   part of the contract: a writer outside Python leaves none, and the status
   says *not counted* for its process rather than *nothing recorded*.
 
+*Amended 2026-11-05, by Alessandro Prandini's ruling (P-1520, its parameters
+confirmed in P-1523): **a writer outside digline reads the gate's marker.***
+The contract gains two optional keys, `origin`, written `"gate"` or not at
+all, and `run_id`, only beside it; `RECORDING_VERSION` stays 1. Before writing
+a file, a writer lists `.digline/<tenant>/runs/.gate/`, takes as live a
+`*.json` there not starting with a dot and touched in the last 120 seconds,
+and where one is live writes the file with the two keys (ADR 0058 §4, as
+amended the same day). The proxy follows from the in-process recorder, which
+it shares; the Java writer is held to `recorders/fixtures/gates.json`, which
+digline's own rule writes. [`recording-format.md`](../recording-format.md)
+says it for whoever writes the next one.
+
 ### 3. The proxy — *decided here*
 
 **The command**: `digline record proxy --tenant T [--port N]`, listening on

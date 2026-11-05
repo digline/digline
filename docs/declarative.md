@@ -329,6 +329,16 @@ Your application, on the other end of a URL. It can be written in anything.
 | `timeout` | seconds. Default 30 |
 | `[target.body]` | mandatory: the payload |
 
+**Before the first case, digline sends a `HEAD` to `url`**, to ask whether
+anything is listening: a service that is down fails once, with a sentence,
+instead of once per case. Any status is an answer, a `404` or a `405` too.
+So your application **answers a `HEAD` without calling the model**: a route
+that treats every request as a question pays for one call to nobody, and if
+it records its calls, through `digline record proxy` or a recorder of its
+own, it records that call as well. The run's own calls are marked as the
+gate's and kept apart (see [the recording's format](recording-format.md)),
+but the cheapest call is the one not made.
+
 #### The trajectory: `tools_path` and `tool_calls_path`
 
 Without one of these, `tools_called` and `tool_called_with` **load and then
