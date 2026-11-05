@@ -26,6 +26,7 @@ deliberate departures, both because a screen is not a document:
 
 from __future__ import annotations
 
+import re
 import urllib.parse
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -145,6 +146,29 @@ def recorder_address(tenant: str) -> str:
 def where_address(tenant: str, suite: str) -> str:
     """Where the view of what comes next is shown, for a suite of a tenant."""
     return f"/where/{_segment(tenant)}/{_segment(suite)}/"
+
+
+def tenant_where_address(tenant: str) -> str:
+    """Where a server started without a suite says where a tenant is."""
+    return f"/where/{_segment(tenant)}/"
+
+
+def with_tenant_screens(
+    document: str, *, tenant: str, locale: Locale, here: str = ""
+) -> str:
+    """The bar of a server started without `--suite`: *Where you are*, which
+    is its `/`, and the recorder, the two pages a tenant has without a suite.
+    The runs' entry is replaced, since there are no runs to list without a
+    suite to read them for."""
+    runs = re.search(r'<a href="/\?locale=[a-z]+"[^>]*>[^<]*</a>', document)
+    if runs is None or document.count('<nav class="bar">') != 1:
+        raise ValueError("this document has no navigation bar to add a view to")
+    links: list[str] = []
+    for name, href in (("where", "/"), ("recorder", recorder_address(tenant))):
+        mark = ' class="here"' if name == here else ""
+        label = escape(phrase(locale, f"view.nav.{name}"))
+        links.append(f'<a href="{escape(href)}?locale={locale}"{mark}>{label}</a>')
+    return document.replace(runs.group(0), "".join(links), 1)
 
 
 def with_screens(

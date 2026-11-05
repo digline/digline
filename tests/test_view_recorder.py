@@ -307,6 +307,18 @@ def test_the_answers_table_fits_the_page_and_its_last_column_inside_it(
     assert "overflow-wrap: anywhere" in _rule("table.answers code.key")
 
 
+def test_the_keys_two_setups_differ_on_fit_the_page(root: Path) -> None:
+    """Seen on the Node pass: two values of 60 characters beside a key ran
+    off the page's right edge, the answers table's defect on another table.
+    The same mending: a box that scrolls, and cells that wrap."""
+    found = compared(root, setups=[S1[:8], S2[:8]], show_setup=True)
+    page = recorder_pages.setups_page(found, locale="en")
+    assert '<div class="fits"><table class="keys">' in page
+    rule = _rule("body.wide table.keys td")
+    assert "white-space: normal" in rule
+    assert "overflow-wrap: anywhere" in rule
+
+
 def test_the_command_under_a_button_wraps_and_is_read_whole() -> None:
     """The line grows with each answer named, and was cut at the box's edge
     with no wrap; it wraps now, and a copy is still one line."""

@@ -96,6 +96,7 @@ from digline.host import (
     record_compare,
     recorder_status,
     suite_runs,
+    suites_of,
     switch_off,
     switch_on,
     utc_now_iso,
@@ -269,6 +270,66 @@ def launch_cookie(port: int) -> str:
     return f"digline-view-{port}"
 
 
+#: What a reload hands back: the suite, the module it was loaded from, and the
+#: declared-price digest of its target.
+Loaded3 = tuple[Suite, ModuleType | None, str]
+
+
+class LiveSuite:
+    """The suite a server reads, loaded again when its files change.
+
+    A server started with `--suite` used to load the suite once, at launch, and
+    then describe that suite for as long as it ran: a `[capture]` written while
+    it was up read as *no suite yet*, and a case imported from its own page
+    read as none. A person who edits a suite does not expect to restart the
+    page that shows it.
+
+    **Loaded again when a file beside the suite changes, not at every request.**
+    Measured on two projects of a user pass, a load costs about a millisecond
+    once the suite's own imports are cached (median 0.88 ms for a `suite.toml`,
+    1.04 ms for a `suite.py`), and the first load of that `suite.py` took 3.2 s.
+    The cost is not what decides: loading a `suite.py` executes the user's
+    module, and a module with a side effect would perform it on every page, the
+    reason `_load` in the command loads once. So the signature is the name, the
+    modification time and the size of each file in the suite file's directory,
+    one `stat` each per request: the suite, its cases files and its capture
+    file sit there in every layout the documentation shows. A file the suite
+    imports from elsewhere is not watched.
+
+    A reload that fails keeps nothing stale: it raises, and the page says why,
+    as the command would.
+    """
+
+    def __init__(
+        self, first: Loaded3, *, watched: Path | None, load: Callable[[], Loaded3]
+    ) -> None:
+        self._load = load
+        self._watched = watched
+        self._lock = threading.Lock()
+        self._current = first
+        self._signature = self._sign()
+
+    def _sign(self) -> tuple[tuple[str, int, int], ...]:
+        if self._watched is None or not self._watched.is_dir():
+            return ()
+        found: list[tuple[str, int, int]] = []
+        for entry in sorted(self._watched.iterdir()):
+            if entry.is_file():
+                stat = entry.stat()
+                found.append((entry.name, stat.st_mtime_ns, stat.st_size))
+        return tuple(found)
+
+    def current(self) -> Loaded3:
+        """The suite as its files are now: the one held, or a fresh load when
+        a file beside it changed since the last."""
+        with self._lock:
+            signature = self._sign()
+            if signature != self._signature:
+                self._current = self._load()
+                self._signature = signature
+            return self._current
+
+
 @dataclass
 class Launch:
     """One start's launch key, and the session it is traded for — once.
@@ -405,7 +466,7 @@ class ViewHandler(BaseHTTPRequestHandler):
     def __init__(
         self,
         *args: object,
-        suite: Suite,
+        suite: Suite | None = None,
         store: ResultStore,
         pricing: str = "",
         known: AbstractSet[str] = frozenset(),
@@ -416,9 +477,19 @@ class ViewHandler(BaseHTTPRequestHandler):
         root: str = "",
         module: ModuleType | None = None,
         suite_arg: str = "",
+        live: LiveSuite | None = None,
+        tenant: str = "",
         **kwargs: object,
     ) -> None:
-        self.suite = suite
+        #: The suite as it stood when this request began: `live` refreshes it
+        #: at the start of each request, from the files beside it. `None` on a
+        #: server started without `--suite`, which serves the tenant's pages
+        #: alone and never reads it.
+        self._suite = suite
+        self.live = live
+        #: The tenant every page is about: the suite's, or the one a server
+        #: started without a suite was given.
+        self.tenant = tenant or (suite.tenant if suite is not None else "")
         self.store = store
         #: The module the suite was loaded from, which says where its capture
         #: file is when the suite names it relative to its own file.
@@ -463,6 +534,31 @@ class ViewHandler(BaseHTTPRequestHandler):
         # attribute this class needs must be set before calling it.
         super().__init__(*args, **kwargs)  # pyright: ignore[reportArgumentType]
 
+    @property
+    def suite(self) -> Suite:
+        """The suite this server serves. Only the pages of a server started
+        with `--suite` read it; a server started without one routes to the
+        tenant's pages before any of them is reached."""
+        if self._suite is None:
+            raise RefusedError(
+                "this page belongs to a suite, and digline view was started "
+                "without --suite: start it with --suite and the suite's file"
+            )
+        return self._suite
+
+    def _refresh(self) -> bool:
+        """The suite as its files stand now, for the rest of this request; a
+        suite that no longer loads is said on the page, and nothing stale is
+        served in its place."""
+        if self.live is None:
+            return True
+        try:
+            self._suite, self.module, self.pricing = self.live.current()
+        except Exception as exc:  # noqa: BLE001 — the page says it, whatever it is
+            self._error(400, f"the suite no longer loads: {exc}")
+            return False
+        return True
+
     # -- plumbing ----------------------------------------------------------- #
 
     def log_message(self, format: str, *args: object) -> None:
@@ -504,6 +600,10 @@ class ViewHandler(BaseHTTPRequestHandler):
         )
 
     def _screens(self, document: str, here: str, locale: Locale) -> str:
+        if self._suite is None:
+            return pages.with_tenant_screens(
+                document, tenant=self.tenant, locale=locale, here=here
+            )
         return pages.with_screens(
             document,
             tenant=self.suite.tenant,
@@ -513,6 +613,9 @@ class ViewHandler(BaseHTTPRequestHandler):
         )
 
     def _menu(self) -> tuple[MenuEntry, ...]:
+        if self._suite is None:
+            # Another package's view is about a suite, and there is none here.
+            return ()
         return tuple(
             MenuEntry(name=name, package=extension.package)
             for name, extension in sorted(self.extensions.items())
@@ -674,7 +777,12 @@ class ViewHandler(BaseHTTPRequestHandler):
         path, query = self._query()
         if self._hand_over(query):
             return
+        if not self._refresh():
+            return
         locale: Locale = pages.locale_of(query)
+        if self._suite is None:
+            self._tenant_screens(locale, path)
+            return
         try:
             if path == "/":
                 self._screen_runs(locale)
@@ -999,19 +1107,62 @@ class ViewHandler(BaseHTTPRequestHandler):
         tenant = parts[0]
         root = Path(self.root)
         imports: dict[str, tuple[int | None, int]] = {}
-        if tenant == self.suite.tenant and self.suite.capture is not None:
-            imports[self.suite.name] = imported_since(
-                root, self.suite, self.module, tenant
-            )
+        suite = self._suite
+        if suite is not None and tenant == suite.tenant and suite.capture is not None:
+            imports[suite.name] = imported_since(root, suite, self.module, tenant)
         [status] = recorder_status(root, tenant, imports)
         self._page(
             recorder_pages.recorder_page(
                 status,
-                suite=self.suite.name,
+                suite=suite.name if suite is not None else "",
                 locale=locale,
                 writes=self._switch_flags(tenant),
             ),
             here="recorder",
+            locale=locale,
+        )
+
+    def _tenant_screens(self, locale: Locale, path: str) -> None:
+        """A server started without `--suite`: the tenant's pages alone.
+        `/` is *Where you are*, read for the tenant, which needs no suite to
+        say the first three states and lists the suites the store holds from
+        the fourth; the recorder's page; and the static files. Every other
+        path is no page here, and says why."""
+        tenant_where = pages.tenant_where_address(self.tenant)
+        try:
+            if path in ("/", tenant_where):
+                self._screen_tenant_where(locale)
+            elif path.startswith("/recorder/"):
+                self._screen_recorder(locale, path)
+            elif path in STATIC:
+                self._static(path)
+            else:
+                self._error(
+                    404,
+                    f"no such page: {path}. digline view was started without "
+                    "--suite, so it serves the tenant's pages alone: start it "
+                    "with --suite and a suite's file for the rest",
+                )
+        except FileNotFoundError as exc:
+            self._error(404, str(exc))
+        except REFUSALS as exc:
+            self._error(400, str(exc))
+
+    def _screen_tenant_where(self, locale: Locale) -> None:
+        """Where the tenant is, from `digline.host.where` with no suite, and
+        the suites the store holds, to start a server for one of them."""
+        found = where(Path(self.root), self.tenant, suite=None, module=None)
+        self._page(
+            recorder_pages.where_page(
+                found,
+                suite=None,
+                suite_arg=None,
+                root=self._root_flags(),
+                locale=locale,
+                writes=self._switch_flags(self.tenant),
+                suites=suites_of(Path(self.root), self.tenant),
+            ),
+            here="where",
             locale=locale,
         )
 
@@ -1155,6 +1306,8 @@ class ViewHandler(BaseHTTPRequestHandler):
         """
         if not self._addressed_to_us():
             return
+        if not self._refresh():
+            return
         path, _query = self._query()
         route = self._write_route(path)
         if route is None:
@@ -1257,7 +1410,12 @@ class ViewHandler(BaseHTTPRequestHandler):
                 return ("switch", parts[0])
         if path.startswith("/recordings/"):
             parts = self._segments(path, "/recordings/", 2)
-            if parts is not None and not parts[2] and parts[1] == self.suite.name:
+            if (
+                parts is not None
+                and not parts[2]
+                and self._suite is not None
+                and parts[1] == self._suite.name
+            ):
                 return ("import", parts[0])
         return None
 
@@ -1389,7 +1547,7 @@ def _number[T: (int, float)](
 
 
 def serve(
-    suite: Suite,
+    suite: Suite | None,
     store: ResultStore,
     *,
     port: int = 7373,
@@ -1399,6 +1557,8 @@ def serve(
     root: str = ".",
     module: ModuleType | None = None,
     suite_arg: str = "",
+    live: LiveSuite | None = None,
+    tenant: str = "",
 ) -> None:
     """Serve until interrupted, on loopback and nowhere else: this server has
     no authentication because it has no user, only a developer at the same
@@ -1439,6 +1599,8 @@ def serve(
         root=root,
         module=module,
         suite_arg=suite_arg,
+        live=live,
+        tenant=tenant,
     )
     with ThreadingHTTPServer((HOST, port), handler) as httpd:  # pyright: ignore[reportArgumentType]
         known.update(self_netlocs(HOST, int(httpd.server_address[1])))
@@ -1471,6 +1633,15 @@ def serve(
             mode = "promotion enabled, for the first browser that opens this address"
         else:
             mode = "read-only; --allow-promote to promote"
+        if suite is None:
+            # A tenant's pages: there is no run to promote, so the flag that
+            # promotes is not offered, and the line says whose pages these are.
+            mode = f"tenant {tenant!r}, no suite: where you are, and the recorder" + (
+                "; the recorder's writes enabled, for the first browser that opens "
+                "this address"
+                if allow_record
+                else ""
+            )
         say(f"digline view on {shown} — {mode} — ctrl-c to stop")
         flush()
         try:

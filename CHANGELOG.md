@@ -78,6 +78,21 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **`digline view` starts without `--suite`**, and serves a tenant's pages:
+  *Where you are* is its `/`, and the recorder beside it. The tenant is
+  `--tenant` or the one `.digline/` holds; from the fourth state on the page
+  lists the suites the store holds, with the command that serves one.
+  `--allow-promote` is refused without a suite. With `--suite`, `/` stays the
+  runs and the menu opens with *Where you are*, as before.
+- **`digline view` reads its suite again when a file beside it changes**: a
+  `[capture]` written, or a case imported, while it runs is on the next page,
+  where it used to read as *no suite yet* and as no case until a restart.
+- ***Where you are* shows each language's lines with the page's tenant and
+  suite**, where it showed the documentation's example, `acme` and `triage`,
+  above a command that named the page's; each language links its own page.
+  Before `--from _unassigned` it says to declare `[capture]` first, for a
+  suite that declares none, which the import refuses. The keys two setups
+  differ on fit the page, as the answers table does.
 - **The recordings page fits its answers in the page**: the column that
   names an answer sat outside the box on a wide table, and the command under
   the button was cut at the box's edge. The table's cells wrap, the date

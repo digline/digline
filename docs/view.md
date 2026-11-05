@@ -100,6 +100,32 @@ project is and what comes next, read from `.digline/`: one state, the first
 of these that holds, with two sentences, the command for the next step, and
 the page that says more. The runs stay at `/`.
 
+**Without `--suite`** the server serves a tenant's pages, and *Where you are*
+is its `/`:
+
+```console
+$ digline view --tenant acme
+digline view on http://127.0.0.1:7373/ — tenant 'acme', no suite: where you are, and the recorder — ctrl-c to stop
+```
+
+The tenant is `--tenant`, or the one tenant `.digline/` holds; with two, or
+none, the command says so and names them. The first three states below need no
+suite. From the fourth on, the page lists the suites the tenant's store holds,
+each with its recordings and runs, and the command that serves one,
+`digline view --suite` and its file: a store files a suite by its name, and the
+file that declares it is yours. The recorder's page is served too, with its
+switch under `--allow-record`. `--allow-promote` is refused, because a
+promotion is a suite's run. Every other page is a suite's, and says so.
+
+**A server with `--suite` reads the suite again when it changes.** A
+`[capture]` written, or a case imported, while the server is up is on the next
+page it serves, with no restart. It watches the files in the suite file's
+directory, by name, size and modification time, and loads the suite again
+when one of them changes, not at every request: loading a `suite.py` runs
+your module, and a module with a side effect would run it on every page. A
+file the suite imports from another directory is not watched. A suite that
+no longer loads is said on the page, as the command would say it.
+
 | State | When it holds | The next step |
 |---|---|---|
 | *Nothing recorded yet* | no recording, and the suite has never run | the three lines that start recording, for Python, Java, Node or any other language, quoted from [`record.md`](record.md), [digline for Java](record-java.md) and [digline for Node](record-node.md) |

@@ -17,7 +17,7 @@ import pytest
 
 from digline.cli.recorder_pages import WHERE_DOCS, where_page
 from digline.host.importing import Shape
-from digline.host.where import RECORD_LINES, STATES, State, Where
+from digline.host.where import RECORD_LINES, STATES, State, Where, record_lines
 from digline.report.pages import nav, recorder_address, where_address, with_screens
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -151,8 +151,10 @@ def test_the_switch_is_a_button_only_on_a_server_that_writes() -> None:
 
 
 def test_nothing_recorded_shows_each_language_s_three_lines() -> None:
+    """The documentation's lines, with the page's tenant and suite in place of
+    its example's: the sample is tenant acme, suite triage."""
     shown = page("nothing_recorded")
-    for language, _page, lines in RECORD_LINES:
+    for language, _page, lines in record_lines("acme", "triage"):
         assert f"<summary>{language}</summary>" in shown
         block = shown.split(f"<summary>{language}</summary>")[1].split("</details>")[0]
         for line in lines:
@@ -170,6 +172,68 @@ def test_each_line_is_quoted_from_its_page_as_it_stands(
     text = (DOCS / doc).read_text(encoding="utf-8")
     for line in lines:
         assert line in text, (language, doc, line)
+
+
+def test_the_lines_record_where_the_page_reads() -> None:
+    """The documentation's example records under tenant acme and suites
+    category, triage and refunds; copied from a page about tenant dev and
+    suite screening, those lines would record somewhere else. Every line
+    shows the page's tenant and suite, and keeps the rest as it stands."""
+    shown = where_page(
+        Where("nothing_recorded", "dev", suite="screening"),
+        suite="screening",
+        suite_arg="suite.toml",
+        root=[],
+        locale="en",
+        writes=None,
+    )
+    blocks = shown.split("<details>")[1:]
+    assert len(blocks) == len(RECORD_LINES)
+    for block in blocks:
+        snippet = block.split('<pre class="snippet">')[1].split("</pre>")[0]
+        assert "acme" not in snippet, snippet
+        assert "dev" in snippet, snippet
+        for example in ("category", "triage", "refunds"):
+            assert example not in snippet, snippet
+    assert "digline record on --tenant dev" in shown
+
+
+def test_each_language_links_its_own_page() -> None:
+    shown = page("nothing_recorded")
+    for language, href in (
+        ("Java", "https://digline.dev/product/record-java/"),
+        ("Node", "https://digline.dev/product/record-node/"),
+        ("Python", "https://digline.dev/product/record/#wrapping-the-client"),
+    ):
+        block = shown.split(f"<summary>{language}</summary>")[1].split("</details>")[0]
+        assert f'href="{href}"' in block, (language, block)
+
+
+def test_calls_that_named_no_suite_say_capture_first_where_none_is_declared() -> None:
+    """`--from _unassigned` is refused for a suite with no capture source: the
+    page says to declare one first, and links where it is said how, before
+    the command. Where the suite declares one, the command alone."""
+    without = where_page(
+        Where("unassigned", "dev", count=4, capture=False),
+        suite="screening",
+        suite_arg="suite.toml",
+        root=[],
+        locale="en",
+        writes=None,
+    )
+    declare = without.index("First declare where the suite")
+    assert declare < without.index("--from _unassigned</pre>")
+    assert 'href="https://digline.dev/product/declarative/#capture"' in without
+    declared = where_page(
+        Where("unassigned", "dev", count=4, capture=True),
+        suite="screening",
+        suite_arg="suite.toml",
+        root=[],
+        locale="en",
+        writes=None,
+    )
+    assert "First declare where the suite" not in declared
+    assert "--from _unassigned</pre>" in declared
 
 
 def test_no_suite_yet_shows_the_shapes_it_counted() -> None:

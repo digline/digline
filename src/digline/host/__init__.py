@@ -103,7 +103,16 @@ from digline.host.resolve import (
     resolve_key,
 )
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
-from digline.host.where import STATES, State, Where, where
+from digline.host.where import (
+    STATES,
+    State,
+    SuiteFound,
+    Where,
+    record_lines,
+    suites_of,
+    tenants_under,
+    where,
+)
 
 __all__ = [
     "DIRTY_SUFFIX",
@@ -183,4 +192,8 @@ __all__ = [
     "State",
     "Where",
     "where",
+    "SuiteFound",
+    "record_lines",
+    "suites_of",
+    "tenants_under",
 ]

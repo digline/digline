@@ -894,6 +894,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.title.case": "Case {case_id} — {suite}",
         "view.title.suspend": "Suspend {case_id} — {suite}",
         "view.nav.where": "Where you are",
+        "view.title.where_tenant": "Where you are — tenant {tenant}",
+        "view.where.tenant_label": "tenant {tenant}",
+        "view.where.nothing_recorded.tenant": (
+            "digline holds no recording of tenant {tenant}. Record what the "
+            "application asks the model, from its own language, and the calls "
+            "become the material a suite is made of."
+        ),
+        "view.where.unassigned.declare": (
+            "First declare where the suite's captured cases go, a [capture] "
+            "table or capture=: the import refuses --from _unassigned for a "
+            "suite that declares none."
+        ),
+        "view.where.suites": "The suites tenant {tenant} holds",
+        "view.where.suite_found": "{suite}: {recordings} recording(s), {runs} run(s)",
         "view.title.where": "Where you are — {suite}",
         "view.where.command": "The command",
         "view.where.docs": "The page that says more",
@@ -2563,6 +2577,22 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.title.case": "Caso {case_id} — {suite}",
         "view.title.suspend": "Sospendi {case_id} — {suite}",
         "view.nav.where": "Dove sei",
+        "view.title.where_tenant": "Dove sei — tenant {tenant}",
+        "view.where.tenant_label": "tenant {tenant}",
+        "view.where.nothing_recorded.tenant": (
+            "digline non ha registrazioni del tenant {tenant}. Registra quello "
+            "che l'applicazione chiede al modello, dal suo linguaggio, e le "
+            "chiamate diventano il materiale di una suite."
+        ),
+        "view.where.unassigned.declare": (
+            "Prima dichiara dove vanno i casi catturati della suite, una tabella "
+            "[capture] o capture=: l'import rifiuta --from _unassigned per una "
+            "suite che non ne dichiara."
+        ),
+        "view.where.suites": "Le suite del tenant {tenant}",
+        "view.where.suite_found": (
+            "{suite}: {recordings} registrazione/i, {runs} esecuzione/i"
+        ),
         "view.title.where": "Dove sei — {suite}",
         "view.where.command": "Il comando",
         "view.where.docs": "La pagina che dice di più",
