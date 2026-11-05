@@ -116,6 +116,13 @@ fixes it.
   beside its response is refused by name. The recorder's steps are in
   [`record.md`](record.md#steps-live).
 
+## The switch
+
+A writer reads the tenant's switch, `.digline/<tenant>/recorder.toml`, with
+the rules of [`record.md`](record.md#switching-it-on), and a root that holds
+no `.digline/` has no switch: the writer is off, as digline's own is, unless
+`DIGLINE_RECORD=1` switches it on in development.
+
 ## What is free
 
 What a writer puts inside `setup`, beyond its being JSON; the `app` name; the

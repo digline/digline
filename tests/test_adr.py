@@ -268,8 +268,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "`digline.recording_wire` read OpenAI, Anthropic and Bedrock, signed "
         "again, and an episode's tool steps are closed by the next call's "
         "results: OpenAI and Anthropic in #909, Bedrock and the steps after "
-        "it. Bedrock was measured against a fake only. "
-        "§4's Java files do not exist"
+        "it. Bedrock was measured against a fake only. §4 in part: the Java "
+        "recorder's writer, `recorders/java` (#912); its hooks for a "
+        "client's calls do not exist"
     ),
 }
 

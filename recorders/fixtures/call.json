@@ -1,0 +1,71 @@
+{
+  "tenant": "acme",
+  "app": "support",
+  "suite": "refunds",
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "case": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "Où est mon remboursement ? 100 €, \"vite\"\n😀   "
+      }
+    ]
+  },
+  "setup": {
+    "model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "top_p": 1.0,
+    "frequency_penalty": 1e-05,
+    "presence_penalty": -0.0,
+    "logit_scale": 1e+16,
+    "seed": 12345678901234567890,
+    "stop": [
+      "\n\n",
+      "Fin."
+    ],
+    "system": [
+      {
+        "role": "system",
+        "content": "Réponds en français, brièvement. 😀"
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "lookup",
+          "parameters": {}
+        }
+      }
+    ],
+    "response_format": null,
+    "logprobs": false,
+    "Zeta": 1,
+    "ä": 2,
+    "delete": ""
+  },
+  "output": "Il a été envoyé lundi.",
+  "latency_ms": 812.3456789,
+  "usage": {
+    "input_tokens": 14,
+    "output_tokens": 7,
+    "cache_read_tokens": 3,
+    "cache_write_tokens": 0,
+    "thinking_tokens": 0
+  },
+  "finish": "tool_use",
+  "tool_calls": [
+    {
+      "tool": "lookup",
+      "arguments": {
+        "order": "A1",
+        "weight": 0.1234567,
+        "n": 2
+      }
+    },
+    {
+      "tool": null,
+      "arguments": "not json"
+    }
+  ]
+}
