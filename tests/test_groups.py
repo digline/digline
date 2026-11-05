@@ -22,6 +22,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import pytest
+from tests._helpers import runs_page_as_served
 
 from digline.core import (
     Accuracy,
@@ -38,7 +39,7 @@ from digline.core import (
     grouped_name,
     split_grouped_name,
 )
-from digline.report import headline, render_html, runs_page
+from digline.report import headline, render_html
 from digline.report.text import LOCALES
 from digline.run import Case, Response, Suite, execute
 
@@ -528,7 +529,7 @@ def test_the_grid_puts_the_whole_run_figure_first_and_sorts_the_groups() -> None
     """The figure that gates the release stays leftmost, where it was before
     groups existed; the classes follow it in an order a reader can rely on."""
     run = ran([*RETURNS, *ORDERS, *REFUNDS])
-    html = runs_page(
+    html = runs_page_as_served(
         [("k1", run)],
         baseline_key=None,
         config_hash=run.config_hash,
@@ -544,7 +545,7 @@ def test_a_group_only_an_older_run_carries_keeps_its_place() -> None:
     columns rearranging themselves as runs come and go."""
     older = ran([*ORDERS, *REFUNDS])
     newer = ran([*ORDERS, *RETURNS], at=LATER_AT)
-    html = runs_page(
+    html = runs_page_as_served(
         [("k1", older), ("k2", newer)],
         baseline_key=None,
         config_hash=newer.config_hash,

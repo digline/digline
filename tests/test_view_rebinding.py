@@ -233,9 +233,9 @@ def test_the_same_post_from_the_server_s_own_name_is_accepted(
         body=form,
         cookie=cookie,
     )
-    assert status == 200 and f"Baseline set to {key}." in body, (
-        f"the legitimate POST was answered {status}: {body[:200]!r}"
-    )
+    # A write that happened answers a 303 to the page that reads it back,
+    # and a refusal of any kind is a 400 or a 403. (ADR 0061 §4.2)
+    assert status == 303, f"the legitimate POST was answered {status}: {body[:200]!r}"
 
 
 def test_a_get_from_a_rebound_name_does_not_serve_the_store(

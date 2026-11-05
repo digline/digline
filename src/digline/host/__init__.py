@@ -80,6 +80,7 @@ from digline.host.promotion import (
     promote,
     promote_priced,
     promotion_notes,
+    promotion_refusal,
 )
 from digline.host.reading import (
     Explained,
@@ -156,6 +157,7 @@ __all__ = [
     "promote",
     "promote_priced",
     "promotion_notes",
+    "promotion_refusal",
     "need_baseline",
     "read_artifacts",
     "read_cases",

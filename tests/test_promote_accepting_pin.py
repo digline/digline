@@ -389,6 +389,24 @@ def test_the_command_line_refuses_and_then_accepts_and_says_so(repo: Path) -> No
     assert "accepting" not in document
 
 
+def test_the_runs_page_draws_no_button_on_a_drift_and_says_where_to_go(
+    repo: Path,
+) -> None:
+    """Condition 11 asked before the click, with nothing accepted, which is
+    all the form can send: the row a pin moved in carries the marker and
+    names the flag, where the button would have been refused."""
+    from tests.test_view import act_cell, get, server
+
+    _reference, moved = planted(repo)
+    with server(repo, "--allow-promote") as (base, _line):
+        status, page = get(f"{base}?locale=en")
+    assert status == 200, page
+    cell = act_cell(page, moved)
+    assert "<button" not in cell, cell
+    assert ">pin moved</span>" in cell, cell
+    assert "--accepting-pin" in cell
+
+
 def test_the_view_button_refuses_a_drift_and_sends_to_the_command_line(
     repo: Path,
 ) -> None:
@@ -403,7 +421,8 @@ def test_the_view_button_refuses_a_drift_and_sends_to_the_command_line(
         status, page = post_page(
             base, f"run={moved}&replacing={reference}&locale=en", cookie=cookie
         )
-    assert status == 200, page
+    # A refusal writes nothing, so it is a 400 and never the 303 of a write.
+    assert status == 400, page
     assert "digline promote" in page, page
     assert f"--accepting-pin {PROMPT}" in page, page
     assert baseline_in(repo) == reference

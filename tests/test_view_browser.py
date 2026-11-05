@@ -195,8 +195,7 @@ def test_a_promotion_goes_through_as_chrome_posts_it(repo: Path) -> None:
             "/promote",
             f"locale=en&run={newer}&replacing={key}",
         )
-    assert answer.status == 200, answer.body
-    assert "refused" not in answer.body
+    assert answer.status == 303, answer.body
     assert baseline_of(repo) != before
 
 

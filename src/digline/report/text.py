@@ -916,6 +916,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.recordings.earlier": "earlier",
         "view.recordings.undated": "undated",
         "view.recordings.attached": "{count} call(s) attached",
+        "view.recordings.from_first_call": "case from the first call",
         "view.title.answer": "Answer {answer} — {suite}",
         "view.answer.input": "Input",
         "view.answer.response": "Response",
@@ -1045,6 +1046,53 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} not judged",
         "view.chip.older_config": "older suite",
+        "view.chip.crossing": "artifact held",
+        "view.promote.crossing": (
+            "A file this suite declares may not leave the perimeter, and a "
+            "baseline carries every artifact's text into baselines/, which is "
+            "versioned. Change the suite before promoting."
+        ),
+        "view.chip.nothing_judged": "nothing judged",
+        "view.promote.nothing_judged": (
+            "This run judged none of the cases its suite measures: it measured "
+            "nothing, so it cannot become a baseline."
+        ),
+        "view.chip.unmeasured": "not measured",
+        "view.promote.unmeasured": (
+            "What this run measured cannot be stated: a check does not reconcile "
+            "with its suite, or a run-level check could not be computed. An error "
+            "is not a reference."
+        ),
+        "view.chip.uncalibrated": "scale lost",
+        "view.promote.uncalibrated": (
+            "A calibration case fell outside its declared band, so the judge lost "
+            "its scale in this run and it cannot become a baseline. Promote a run "
+            "whose calibration held."
+        ),
+        "view.chip.contradicted": "contradicts a person",
+        "view.promote.contradicted": (
+            "The judge contradicted a person's yes or no on a reviewed answer, "
+            "and the person's answer is the expected verdict, so this run cannot "
+            "become a baseline. Promote a run whose judge agreed with every person."
+        ),
+        "view.chip.pinned": "pin moved",
+        "view.promote.pinned": (
+            "A file declared not to change moved, or lost its path, since the "
+            "baseline. This page carries no authorisation: compare the run, and "
+            "if the change was meant, promote it from the command line, naming "
+            "each path with --accepting-pin."
+        ),
+        "view.chip.refused": "refused",
+        "view.promote.unnamed": (
+            "The store would refuse to promote this run, for a reason this page "
+            "has no marker for yet: digline promote names it."
+        ),
+        "view.chip.replayed": "replay",
+        "view.promote.replayed": (
+            "This run judged again the recorded answers of {run_key}, and never "
+            "asked the target, so it cannot become a baseline: its interval is "
+            "the judge's wobble alone. Promote a run that measured."
+        ),
         # The header marker, and the only line in the product that has to teach
         # `--allow-promote`. The flag itself is not localised, for the reason an
         # ISO date is not: the sentence around it is the document, the eight
@@ -1106,11 +1154,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "score: that is where judge noise is visible."
         ),
         "view.promote.button": "Make baseline",
-        "view.promote.done": "Baseline set to {run_key}.",
         "view.promote.refused": "Refused: {why}",
-        # Under the outcome of a promotion, when the list of runs cannot be read
-        # back: the outcome still has to reach the person (friction 59).
+        # The runs page when its list cannot be drawn: the baseline, read from
+        # the store on its own, still has to reach a person who has just
+        # promoted, whom the 303 brings here (friction 59).
         "view.list.unavailable": "The list of runs could not be drawn: {why}",
+        "view.baseline.promoted": (
+            "The baseline is {run_key}, promoted at {promoted_at}."
+        ),
+        "view.baseline.is": "The baseline is {run_key}.",
+        "view.baseline.none": "This suite has no baseline yet.",
+        "view.baseline.unreadable": "The baseline could not be read either: {why}",
         "view.suspend.title": "Set {case_id} aside",
         "view.suspend.reason": "Why is it set aside?",
         "view.suspend.show": "Show the edit",
@@ -2450,6 +2504,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.recordings.earlier": "precedente",
         "view.recordings.undated": "senza data",
         "view.recordings.attached": "{count} chiamata/e collegate",
+        "view.recordings.from_first_call": "caso dalla prima chiamata",
         "view.title.answer": "Risposta {answer} — {suite}",
         "view.answer.input": "Input",
         "view.answer.response": "Testo",
@@ -2582,6 +2637,56 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} non giudicati",
         "view.chip.older_config": "suite precedente",
+        "view.chip.crossing": "artefatto trattenuto",
+        "view.promote.crossing": (
+            "Un file che questa suite dichiara non può uscire dal perimetro, e un "
+            "riferimento porta il testo di ogni artefatto in baselines/, che è "
+            "versionata. Cambia la suite prima di promuovere."
+        ),
+        "view.chip.nothing_judged": "nulla giudicato",
+        "view.promote.nothing_judged": (
+            "Questo run non ha giudicato nessuno dei casi che la sua suite misura: "
+            "non ha misurato niente, quindi non può diventare un riferimento."
+        ),
+        "view.chip.unmeasured": "non misurato",
+        "view.promote.unmeasured": (
+            "Non si può dire che cosa abbia misurato questo run: un controllo non "
+            "si riconcilia con la sua suite, o un controllo sull'intero run non si "
+            "è potuto calcolare. Un errore non è un riferimento."
+        ),
+        "view.chip.uncalibrated": "scala persa",
+        "view.promote.uncalibrated": (
+            "Un caso di calibrazione è uscito dalla sua banda dichiarata: in questo "
+            "run il giudice ha perso la scala, quindi non può diventare un "
+            "riferimento. Promuovi un run in cui la calibrazione ha tenuto."
+        ),
+        "view.chip.contradicted": "contraddice una persona",
+        "view.promote.contradicted": (
+            "Il giudice ha contraddetto il sì o il no di una persona su una "
+            "risposta rivista, e la risposta della persona è il verdetto atteso, "
+            "quindi questo run non può diventare un riferimento. Promuovi un run "
+            "il cui giudice ha dato ragione a ogni persona."
+        ),
+        "view.chip.pinned": "pin spostato",
+        "view.promote.pinned": (
+            "Un file dichiarato immutabile si è spostato, o ha perso il suo "
+            "percorso, rispetto al riferimento. Questa pagina non porta "
+            "autorizzazioni: confronta il run e, se il cambiamento era voluto, "
+            "promuovilo dalla riga di comando nominando ogni percorso con "
+            "--accepting-pin."
+        ),
+        "view.chip.refused": "rifiutato",
+        "view.promote.unnamed": (
+            "Lo store rifiuterebbe di promuovere questo run, per un motivo per cui "
+            "questa pagina non ha ancora un marcatore: digline promote lo nomina."
+        ),
+        "view.chip.replayed": "replay",
+        "view.promote.replayed": (
+            "Questo run ha giudicato di nuovo le risposte registrate di "
+            "{run_key} e non ha interrogato il target, quindi non può diventare "
+            "un riferimento: il suo intervallo è solo l'oscillazione del "
+            "giudice. Promuovi un run che ha misurato."
+        ),
         "view.read_only": ("sola lettura — riavvia con --allow-promote per promuovere"),
         "view.read_only.why": (
             "Questo server non promuove: nessun pulsante su nessuna riga, e "
@@ -2642,10 +2747,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "combinato: è lì che il rumore del giudice si vede."
         ),
         "view.promote.button": "Rendi riferimento",
-        "view.promote.done": "Riferimento impostato su {run_key}.",
         "view.promote.refused": "Rifiutato: {why}",
         "view.list.unavailable": (
             "L'elenco delle esecuzioni non si può mostrare: {why}"
+        ),
+        "view.baseline.promoted": (
+            "Il riferimento è {run_key}, impostato il {promoted_at}."
+        ),
+        "view.baseline.is": "Il riferimento è {run_key}.",
+        "view.baseline.none": "Questa suite non ha ancora un riferimento.",
+        "view.baseline.unreadable": (
+            "Nemmeno il riferimento si è potuto leggere: {why}"
         ),
         "view.suspend.title": "Metti da parte {case_id}",
         "view.suspend.reason": "Perché viene messo da parte?",

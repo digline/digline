@@ -92,6 +92,7 @@ from digline.host import (
     imported_since,
     left_out_parts,
     promote_priced,
+    promotion_refusal,
     record_compare,
     recorder_status,
     suite_runs,
@@ -704,21 +705,79 @@ class ViewHandler(BaseHTTPRequestHandler):
         except REFUSALS as exc:
             self._error(400, str(exc))
 
-    def _screen_runs(self, locale: Locale, message: str = "") -> None:
-        listed = self._runs()
-        self._page(
-            pages.runs_page(
+    def _screen_runs(self, locale: Locale) -> None:
+        """The runs, or, when they cannot be drawn, the baseline and why.
+
+        **The baseline is the part that must arrive.** A promotion answers
+        with a 303 to this page (ADR 0061 §4.2), so this is where a person
+        who has just promoted reads whether it happened. The list is read
+        from the whole store, and a list that raises used to leave that
+        person with a closed connection after the baseline had been written:
+        a promotion that looks failed and is not, which is worse than one
+        that failed. So the list is optional here and the baseline is not.
+        (friction 59)
+
+        **So this catches every exception**, which classifies nothing: the
+        handlers in `do_GET` classify a failure, and this one keeps a page
+        that can say the state of the reference from being lost with the
+        list. Catching only `REFUSALS` would let every failure that is not a
+        refusal close the connection again (ADR 0041 §4.2).
+        """
+        try:
+            listed = self._runs()
+            config_hash = self.suite.config_hash(pricing=self.pricing)
+            declared = self.suite.declared()
+            # The baseline's own run, for the pins: the same document the
+            # baseline was promoted from, but for the time it was signed.
+            baseline = dict(listed.runs).get(listed.baseline_key or "")
+            # Asked of the store's functions once per row, in the store's
+            # order: the page draws the answer and decides nothing.
+            refused = {
+                key: type(refusal).__name__
+                for key, run in listed.runs
+                if (
+                    refusal := promotion_refusal(
+                        run, baseline, config_hash, declared=declared
+                    )
+                )
+                is not None
+            }
+            document = pages.runs_page(
                 listed.runs,
                 baseline_key=listed.baseline_key,
-                config_hash=self.suite.config_hash(pricing=self.pricing),
+                config_hash=config_hash,
                 locale=locale,
                 suite=self.suite.name,
                 allow_promote=self.allow_promote,
+                refused=refused,
                 ignored=left_out_parts(listed, locale=locale),
-                message=message,
-            ),
-            here="runs",
-            locale=locale,
+            )
+        except Exception as exc:  # noqa: BLE001 — the baseline must arrive whatever the list does
+            self._plain(
+                200,
+                self._baseline_said(locale),
+                pages.phrase(locale, "view.list.unavailable", why=str(exc)),
+            )
+            return
+        self._page(document, here="runs", locale=locale)
+
+    def _baseline_said(self, locale: Locale) -> str:
+        """The suite's baseline in one sentence, read from the store on its
+        own, without the list: a baseline that cannot be read says so too."""
+        try:
+            baseline = self.store.read_baseline(self.suite.tenant, self.suite.name)
+        except Exception as exc:  # noqa: BLE001 — said, as the list's failure is
+            return pages.phrase(locale, "view.baseline.unreadable", why=str(exc))
+        if baseline is None:
+            return pages.phrase(locale, "view.baseline.none")
+        key = key_of(baseline.created_at, baseline.config_hash)
+        if not baseline.promoted_at:
+            return pages.phrase(locale, "view.baseline.is", run_key=key)
+        return pages.phrase(
+            locale,
+            "view.baseline.promoted",
+            run_key=key,
+            promoted_at=baseline.promoted_at,
         )
 
     def _screen_compare(
@@ -1135,14 +1194,12 @@ class ViewHandler(BaseHTTPRequestHandler):
             # classification's rather than this file's: it used to be six
             # names written here, and 0.19.2 added two refusals this list never
             # learned, which reached the browser as a closed connection.
-            # (friction 59)
-            self._after_promotion(
-                locale, pages.phrase(locale, "view.promote.refused", why=str(exc))
-            )
+            # (friction 59) Nothing was written, so a 400 and never the 303.
+            self._error(400, pages.phrase(locale, "view.promote.refused", why=str(exc)))
             return
-        self._after_promotion(
-            locale, pages.phrase(locale, "view.promote.done", run_key=key)
-        )
+        # The runs page reads the baseline back from the store, and says it
+        # even when the list cannot be drawn. (ADR 0061 §4.2, friction 59)
+        self._see_other("/", locale)
 
     def _write_route(self, path: str) -> tuple[str, str] | None:
         """The write `path` names on this server, and its tenant, or `None`.
@@ -1273,39 +1330,6 @@ class ViewHandler(BaseHTTPRequestHandler):
             self._error(400, "refused: the request ended before its declared length")
             return None
         return body
-
-    def _after_promotion(self, locale: Locale, outcome: str) -> None:
-        """Say what the promotion did, and draw the runs under it if they can
-        be drawn.
-
-        **The outcome is the part that must arrive.** The list is re-read from
-        the store after the write, and one unreadable run file anywhere in it
-        used to make that read raise — after the baseline had been written. The
-        browser got a closed connection, and a person who had just promoted
-        concluded that nothing happened. A promotion that looks failed and is
-        not is worse than one that failed: the reference moved and nobody
-        believes it did. So the list is optional here and the sentence is not.
-        (friction 59)
-
-        **So this catches every exception, and it answers a different
-        requirement from the other handlers, not an exception to theirs.**
-        They classify a failure that happens before anything has changed: a
-        refusal is a 400, and a failure nobody anticipated is left to be one.
-        Here the state has already changed, and a front end that has changed
-        state must say so whatever fails afterwards. The catch classifies
-        nothing. When ADR 0041 §4.2 took the bare `ValueError` out of the
-        refusals, catching only `REFUSALS` here would have reopened friction 59
-        for every failure that is not a refusal, and the test that injects a
-        fault into the list caught exactly that.
-        """
-        try:
-            self._screen_runs(locale, outcome)
-        except Exception as exc:  # noqa: BLE001 — the outcome must arrive whatever the list does
-            self._plain(
-                200,
-                outcome,
-                pages.phrase(locale, "view.list.unavailable", why=str(exc)),
-            )
 
 
 def _number[T: (int, float)](

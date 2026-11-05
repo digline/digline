@@ -32,11 +32,19 @@ import urllib.parse
 import urllib.request
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
+from dataclasses import replace
 from html import unescape
 from pathlib import Path
 
 import pytest
-from tests._helpers import baseline_in, cli, hand_over, run_key, write_suite
+from tests._helpers import (
+    baseline_in,
+    cli,
+    hand_over,
+    run_key,
+    runs_page_as_served,
+    write_suite,
+)
 
 from digline.core import (
     Artifact,
@@ -51,6 +59,7 @@ from digline.core import (
     compare,
     key_of,
 )
+from digline.core.reviewed import Reviewed
 from digline.report import (
     SHEET,
     LeftOutPart,
@@ -68,6 +77,7 @@ from digline.report import (
 )
 from digline.report import escape as report_escape
 from digline.report.pages import SHEET_ADDRESS
+from digline.report.text import LOCALES, phrase
 from digline.store import FileResultStore
 
 #: The sheet as the report carries it, and as a served page links to it.
@@ -138,7 +148,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
     """The reason the screen exists. Choosing which run to promote means reading
     precision down a column and taking the median; with key, date and commit
     alone the choice cannot be made, and the first green run gets frozen."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -151,7 +161,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
 
 
 def test_the_baseline_is_marked() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -163,7 +173,7 @@ def test_the_baseline_is_marked() -> None:
 
 
 def test_the_newest_run_is_first() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key=None,
         config_hash="cfg",
@@ -178,7 +188,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
     """Comparing against the baseline is the release question; comparing run 1
     with run 3 of a calibration is the noise question, and that is the one that
     says what tolerance to set."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -191,7 +201,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
 
 
 def test_what_the_scan_ignored_is_said_on_the_page() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -208,7 +218,7 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
 
 
 def page_with(parts: tuple[LeftOutPart, ...], locale: Locale = "en") -> str:
-    return runs_page(
+    return runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -256,7 +266,7 @@ def test_the_files_a_part_names_are_one_line_each() -> None:
 def test_one_line_is_still_shown_as_one_line() -> None:
     """`left_out` returns a string, and a caller that passes it keeps
     working: the page shows it as it is, with no frame. (#440)"""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -271,7 +281,7 @@ def test_one_line_is_still_shown_as_one_line() -> None:
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [],
         baseline_key=None,
         config_hash="cfg",
@@ -899,6 +909,19 @@ def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
     assert get(f"{base}compare?run={newer}")[0] == 200
 
 
+class _Unfollowed(urllib.request.HTTPRedirectHandler):
+    """A redirect answered, not followed: a POST's own status is the 303, and
+    following it would report the page the GET draws instead."""
+
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
+#: Every POST in these tests goes through this, so a write's 303 is read as a
+#: 303 rather than as the 200 of the page it leads to. (ADR 0061 §4.2)
+UNFOLLOWED = urllib.request.build_opener(_Unfollowed)
+
+
 def post(url: str, data: str, *, origin: str | None, cookie: str = "") -> int:
     return send(url, data, origin=origin, cookie=cookie)[0]
 
@@ -917,7 +940,7 @@ def send(
     if cookie:
         request.add_header("Cookie", cookie)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with UNFOLLOWED.open(request, timeout=10) as response:
             return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8")
@@ -951,7 +974,7 @@ def test_a_post_from_the_page_itself_is_accepted(
             origin=f"http://{host}",
             cookie=cookie,
         )
-        == 200
+        == 303
     )
 
 
@@ -960,25 +983,34 @@ def test_promotion_goes_through_the_same_refusals(
     served_promoting: tuple[str, str, str],
 ) -> None:
     """It is the same `promote_baseline`, so a run produced under another
-    configuration is refused here exactly as it is on the command line."""
+    configuration is refused here exactly as it is on the command line.
+
+    Another configuration is a threshold moved. This wrote `fr_score="0.2"`,
+    which is what the judge answers and not the configuration, so the run was
+    promotable and the promotion went through; a 200 for a refusal and a 200
+    for a write hid it, and the 303 showed it."""
     base, key, cookie = served_promoting
-    write_suite(repo, fr_score="0.2")
+    suite = write_suite(repo)
+    suite.write_text(
+        suite.read_text(encoding="utf-8").replace("threshold=0.7", "threshold=0.6"),
+        encoding="utf-8",
+    )
     other = run_key(repo)
     write_suite(repo)  # the configuration in force is the original one again
+    # A run key ends in its configuration's digest.
+    assert other.rsplit("-", 1)[1] != key.rsplit("-", 1)[1], (other, key)
 
     host = base.removeprefix("http://").rstrip("/")
-    assert (
-        post(
-            f"{base}promote",
-            f"run={other}&replacing={key}",
-            origin=f"http://{host}",
-            cookie=cookie,
-        )
-        == 200
+    status, page = send(
+        f"{base}promote",
+        f"run={other}&replacing={key}",
+        origin=f"http://{host}",
+        cookie=cookie,
     )
+    assert status == 400, page
+    assert "Refused:" in page
     # The baseline did not move: the refusal is real, not cosmetic.
-    baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
-    assert json.loads(baseline.read_text(encoding="utf-8"))["config_hash"] != ""
+    assert baseline_in(repo) == key
 
 
 def post_page(base: str, data: str, *, cookie: str = "") -> tuple[int, str]:
@@ -999,12 +1031,43 @@ def post_page(base: str, data: str, *, cookie: str = "") -> tuple[int, str]:
         headers=headers,
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with UNFOLLOWED.open(request, timeout=10) as response:
             return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8")
     except (ConnectionError, http.client.HTTPException):
         return 0, ""
+
+
+def promoted_then_read(base: str, data: str, *, cookie: str) -> tuple[str, int, str]:
+    """A promotion as a browser meets it: the POST answers a 303, and the page
+    is the one its `Location` leads to, read with a GET. Returned with that
+    `Location`, the GET's status and its page; a connection the server closed
+    on the GET is status 0, as in `post_page`. (ADR 0061 §4.2)"""
+    host = base.removeprefix("http://").rstrip("/")
+    request = urllib.request.Request(
+        f"{base}promote",
+        data=data.encode("utf-8"),
+        method="POST",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": f"http://{host}",
+            "Cookie": cookie,
+        },
+    )
+    try:
+        with UNFOLLOWED.open(request, timeout=10) as response:
+            raise AssertionError(f"the promotion answered {response.status}")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 303, (exc.code, exc.read().decode("utf-8"))
+        location = exc.headers["Location"]
+    try:
+        with urllib.request.urlopen(base + location.lstrip("/"), timeout=10) as page:
+            return location, page.status, page.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        return location, exc.code, exc.read().decode("utf-8")
+    except (ConnectionError, http.client.HTTPException):
+        return location, 0, ""
 
 
 def plant(repo: Path, key: str, name: str, **changes: object) -> None:
@@ -1047,11 +1110,15 @@ def test_the_first_day_one_run_opened_then_promoted_through_the_view(
         assert fields["run"] == key
         assert fields["replacing"] == "none"
 
-        status, page = post_page(base, urllib.parse.urlencode(fields), cookie=cookie)
+        location, status, page = promoted_then_read(
+            base, urllib.parse.urlencode(fields), cookie=cookie
+        )
 
+    assert location == "/?locale=en"
     assert status == 200, page
-    assert f"Baseline set to {key}." in page
     assert baseline_in(repo) == key
+    # The page the 303 leads to reads the baseline back: the row is marked.
+    assert '<span class="chip">baseline</span>' in page, page
 
 
 #: The sentence the injected fault raises, and so the `why` the fallback page
@@ -1095,6 +1162,8 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     A promotion that looks failed and is not. The outcome must arrive whatever
     the list does.
 
+    It arrives on the page the 303 leads to, which reads the baseline from the
+    store on its own: the POST says nothing but where to go (ADR 0061 §4.2).
     The list fails here because the fixture makes it fail, and the page must
     say so **with the injected sentence**: a page that fell back for another
     reason, or drew the list, fails this test rather than passing it."""
@@ -1102,30 +1171,31 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
 
-    status, page = post_page(
+    _location, status, page = promoted_then_read(
         base, f"run={key}&replacing={key}&locale=en", cookie=cookie
     )
 
-    assert status == 200
-    assert f"Baseline set to {key}." in page
-    assert "The list of runs could not be drawn: injected-scan-fault" in page
     # And it did happen: the page is telling the truth about the write.
-    assert json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"] != before
+    after = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
+    assert after != before
+    assert status == 200
+    assert f"The baseline is {key}, promoted at {after}." in page
+    assert "The list of runs could not be drawn: injected-scan-fault" in page
 
 
 def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     repo: Path, served_with_a_list_that_fails: tuple[str, str, str]
 ) -> None:
-    """The fallback page — the outcome of a promotion when the list of runs
-    cannot be drawn — escaped with `html.escape`, which leaves C0, C1 and the
-    bidi overrides alone. A refusal quoting a committed baseline's
-    `promoted_at` therefore wrote them raw: an RLO reverses the sentence that
-    names which key was found. Every other page goes through `report.escape`.
-    (0.20.0 delta-pass, F-2)
+    """The fallback page — the baseline, when the list of runs cannot be
+    drawn — escaped with `html.escape`, which leaves C0, C1 and the bidi
+    overrides alone. A committed baseline's `promoted_at` therefore wrote them
+    raw: an RLO reverses the sentence that names which key was found. Every
+    other page goes through `report.escape`. (0.20.0 delta-pass, F-2)
 
-    Both sentences on the page carry the controls: the refusal, through
+    Both sentences on the page carry the controls: the baseline, through
     `promoted_at`, and the reason the list is missing, through the injected
-    fault (see the fixture)."""
+    fault (see the fixture). So does the refusal of the POST that comes first,
+    which quotes `promoted_at` too."""
     base, key, cookie = served_with_a_list_that_fails
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     document = json.loads(baseline.read_text(encoding="utf-8"))
@@ -1133,12 +1203,20 @@ def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     baseline.write_text(json.dumps(document), encoding="utf-8")
 
     # `none` over a baseline that exists: refused, naming what it found.
-    status, page = post_page(base, f"run={key}&replacing=none&locale=en", cookie=cookie)
+    status, refusal = post_page(
+        base, f"run={key}&replacing=none&locale=en", cookie=cookie
+    )
+    assert status == 400
+    assert refusal.count("FORGED") == 1, refusal
+
+    status, page = get(f"{base}?locale=en")
 
     assert status == 200
+    assert f"The baseline is {key}, promoted at " in page
     assert "The list of runs could not be drawn: injected-scan-fault" in page
     assert page.count("FORGED") == 2, page
     for raw in ("\x1b", "\r", "\u202e", "\x9b"):
+        assert raw not in refusal, f"{raw!r} reached the refusal raw"
         assert raw not in page, f"{raw!r} reached the page raw"
 
 
@@ -1154,7 +1232,7 @@ def test_a_run_that_lies_about_its_suite_is_refused_in_words(
 
     status, page = post_page(base, "run=zz-other-suite&replacing=" + key, cookie=cookie)
 
-    assert status == 200
+    assert status == 400
     assert "Refused:" in page
     assert "declares suite &#x27;another-suite&#x27;" in page
 
@@ -1254,7 +1332,7 @@ def test_the_flag_turns_both_halves_on_together(
         post(
             f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
         )
-        == 200
+        == 303
     )
     assert baseline_of(repo) != before
 
@@ -1316,7 +1394,7 @@ def test_a_shell_without_the_key_cannot_promote_on_a_flagged_server(
         post(
             f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
         )
-        == 200
+        == 303
     )
     assert baseline_of(repo) != before
 
@@ -1463,8 +1541,10 @@ def test_no_page_the_flagged_server_renders_contains_the_key(
         assert status == 200, url
         assert launch not in page, f"{url} rendered the launch key"
         assert session not in page, f"{url} rendered the session"
-    _status, outcome = post_page(base, f"run={other}&replacing={key}", cookie=cookie)
-    assert "Baseline set to" in outcome
+    _location, status, outcome = promoted_then_read(
+        base, f"run={other}&replacing={key}", cookie=cookie
+    )
+    assert status == 200 and baseline_in(repo) == other
     assert launch not in outcome
     assert session not in outcome
 
@@ -1519,7 +1599,7 @@ def test_the_key_itself_is_not_a_cookie(
     assert "not issued by this start" in page
     assert baseline_of(repo) == before
 
-    assert post(f"{base}promote", data, origin=None, cookie=cookie) == 200
+    assert post(f"{base}promote", data, origin=None, cookie=cookie) == 303
     assert baseline_of(repo) != before
 
 
@@ -1615,7 +1695,7 @@ def test_a_foreign_cookie_before_ours_does_not_hide_it(
             origin=None,
             cookie=f"{foreign}; {cookie}",
         )
-        assert status == 200, (foreign, status, page[:200])
+        assert status == 303, (foreign, status, page[:200])
 
 
 def test_the_refusal_says_what_the_request_carried(
@@ -1677,6 +1757,21 @@ ERRORED = Run(
                 ),
             ),
         ),
+        # A case judged beside it, so the store's first refusal is the errored
+        # case (condition 3) and not a run that judged nothing (condition 10),
+        # which it asks first.
+        CaseResult(
+            case_id="b",
+            verdicts=(
+                Verdict(
+                    score=Score(name=AGREES, score=1.0),
+                    threshold=0.5,
+                    status="pass",
+                    reason="judged",
+                    assertion_id="id-agrees",
+                ),
+            ),
+        ),
     ),
 )
 
@@ -1691,7 +1786,7 @@ def runs_html(
     rows = [("key-a", RUN_A), ("key-b", RUN_B)]
     if extra is not None:
         rows.append(("key-e", extra))
-    return runs_page(
+    return runs_page_as_served(
         rows,
         baseline_key="key-a",
         config_hash=config_hash,
@@ -1778,6 +1873,32 @@ def test_a_run_with_errors_offers_no_promotion_and_says_why() -> None:
     assert "/compare?run=key-e" in cell
 
 
+def test_a_run_that_judged_nothing_says_so_and_not_how_many_errored() -> None:
+    """Every case errored: the store refuses it for having measured nothing
+    (condition 10), which it asks before the errors (condition 3), and the
+    marker is that refusal's. Drawn by hand, this row said *1 not judged*,
+    which is the refusal the store would not have given."""
+    first = ERRORED.results[0]
+    nothing = replace(ERRORED, results=(first,))
+    cell = act_cell(runs_html(extra=nothing), "key-e")
+    assert "<button" not in cell
+    assert ">nothing judged</span>" in cell, cell
+    assert "not judged</span>" not in cell.replace(">nothing judged</span>", "")
+    assert "/compare?run=key-e" in cell
+
+
+def test_a_run_whose_run_level_check_errored_says_it_was_not_measured() -> None:
+    """`ErroredRunError` with no case to count: a run-level check that could
+    not be computed. The store refuses it under condition 3 all the same, and
+    the marker says what is missing rather than *0 not judged*."""
+    [figure] = RUN_B.aggregate
+    errored = replace(figure, status="error", score=replace(figure.score, score=None))
+    cell = act_cell(runs_html(extra=replace(RUN_B, aggregate=(errored,))), "key-e")
+    assert "<button" not in cell
+    assert ">not measured</span>" in cell, cell
+    assert "0 not judged" not in cell
+
+
 def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> None:
     """The refusal `promote_baseline` would give, given before the click. The
     row stays — those numbers were measured — attenuated, because they were
@@ -1790,6 +1911,124 @@ def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> No
     assert "produced under an earlier version of the suite" in cell
     assert "/compare?run=key-b" in cell
     assert '<tr class="stale">' in html
+
+
+def test_a_replayed_run_is_comparable_but_not_promotable() -> None:
+    """`promote_baseline` refuses a run judged again from recorded answers,
+    and the page says so before the click, where the button would be."""
+    html = runs_page_as_served(
+        [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        allow_promote=True,
+    )
+    cell = act_cell(html, "key-b")
+    assert "<button" not in cell
+    assert ">replay</span>" in cell
+    assert "judged again the recorded answers of key-a" in cell
+    assert "/compare?run=key-b" in cell
+    assert 'action="/promote"' not in html
+
+
+def test_a_replayed_run_says_why_in_italian_too() -> None:
+    """The marker's reason in the other locale: the chip is the same word,
+    and the sentence behind it is the Italian table's."""
+    html = runs_page_as_served(
+        [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="it",
+        suite="brief",
+        allow_promote=True,
+    )
+    cell = act_cell(html, "key-b")
+    assert ">replay</span>" in cell
+    assert "giudicato di nuovo le risposte registrate di key-a" in cell
+    assert "<button" not in cell
+
+
+def _contradicted(run: Run) -> Run:
+    """`run`, with a person's no on its first case, whose judge passed it."""
+    first, *rest = run.results
+    [verdict] = first.verdicts
+    assert verdict.status == "pass" and verdict.assertion_id is not None
+    said = Reviewed(
+        check=verdict.score.name, assertion_id=verdict.assertion_id, good=False
+    )
+    return replace(run, results=(replace(first, reviewed=said), *rest))
+
+
+def test_a_run_the_judge_contradicted_a_person_in_is_not_promotable() -> None:
+    """Condition 12 (#910), asked of the store's own function: the marker
+    stands where the button would be, says why in both locales, and the run
+    stays comparable. The same run without the person's no is the control."""
+    contradicted = _contradicted(RUN_B)
+    said_in: tuple[tuple[Locale, str, str], ...] = (
+        ("en", "contradicts a person", "The judge contradicted a person"),
+        ("it", "contraddice una persona", "Il giudice ha contraddetto il sì o il no"),
+    )
+    for locale, chip, why in said_in:
+        html = runs_page_as_served(
+            [("key-a", RUN_A), ("key-b", contradicted)],
+            baseline_key="key-a",
+            config_hash="cfg",
+            locale=locale,
+            suite="brief",
+            allow_promote=True,
+        )
+        cell = act_cell(html, "key-b")
+        assert "<button" not in cell, locale
+        assert f">{chip}</span>" in cell, cell
+        assert why in cell, cell
+        assert "/compare?run=key-b" in cell
+    control = runs_page_as_served(
+        [("key-a", RUN_A), ("key-b", RUN_B)],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        allow_promote=True,
+    )
+    assert "<button" in act_cell(control, "key-b")
+
+
+def test_every_refusal_the_store_can_raise_before_the_write_has_a_marker() -> None:
+    """The page's table, held equal to the types `promotion_refusal` can
+    return: a refusal the store adds fails here until it is given its words,
+    and is drawn meanwhile under the generic marker (the next test)."""
+    from typing import get_args
+
+    from digline.report.pages import REFUSAL_CHIPS
+    from digline.store import PromotionRefusal, UnacceptedPinsError
+
+    returned = {kind.__name__ for kind in get_args(PromotionRefusal.__value__)}
+    assert set(REFUSAL_CHIPS) == returned | {UnacceptedPinsError.__name__}
+    for locale in LOCALES:
+        for chip, why in REFUSAL_CHIPS.values():
+            assert phrase(locale, chip, count=1, run_key="k")
+            assert phrase(locale, why, count=1, run_key="k")
+
+
+def test_a_refusal_the_page_has_no_words_for_is_still_drawn_as_one() -> None:
+    """A type the table does not hold yet still takes the button away: the
+    store said no, and the page says that much in both locales."""
+    chips: tuple[tuple[Locale, str], ...] = (("en", "refused"), ("it", "rifiutato"))
+    for locale, chip in chips:
+        html = runs_page(
+            [("key-a", RUN_A), ("key-b", RUN_B)],
+            baseline_key="key-a",
+            config_hash="cfg",
+            locale=locale,
+            suite="brief",
+            allow_promote=True,
+            refused={"key-b": "AFutureRefusalError"},
+        )
+        cell = act_cell(html, "key-b")
+        assert "<button" not in cell
+        assert f">{chip}</span>" in cell, cell
+        assert "digline promote" in cell
 
 
 def test_the_baseline_keeps_its_own_marker_under_a_changed_configuration() -> None:
@@ -1806,7 +2045,7 @@ def test_before_there_is_a_baseline_every_row_opens_its_run() -> None:
     aggregates only: without a link to the run, a promotion was made by
     somebody who had not seen one case. The link says *Open*, not *Compare* —
     there is nothing yet to compare with, and the page behind it says so."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key=None,
         config_hash="cfg",
@@ -1844,7 +2083,7 @@ def test_a_missing_commit_says_which_kind_of_missing() -> None:
     object.__setattr__(
         dirty, "git_commit", "3feea0e576470b6e4b5ae9f0f06bcc9df7836627-dirty"
     )
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-d", dirty)],
         baseline_key=None,
         config_hash="cfg",
@@ -1877,7 +2116,7 @@ def test_runs_in_the_same_minute_are_still_told_apart() -> None:
     for. Caught by looking at the screenshot, not by thinking about it."""
     a = make_run("2026-08-26T12:40:33.032281+00:00", scores={"a": 1.0}, precision=0.5)
     b = make_run("2026-08-26T12:40:33.472519+00:00", scores={"a": 0.0}, precision=0.6)
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", a), ("key-b", b)],
         baseline_key=None,
         config_hash="cfg",
@@ -1895,7 +2134,7 @@ def test_the_whole_column_moves_to_seconds_not_only_the_pair() -> None:
     a = make_run("2026-08-26T12:40:33.032281+00:00", scores={"a": 1.0}, precision=0.5)
     b = make_run("2026-08-26T12:40:33.472519+00:00", scores={"a": 0.0}, precision=0.6)
     far = make_run("2026-08-24T09:00:00.000000+00:00", scores={"a": 1.0}, precision=0.5)
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", a), ("key-b", b), ("key-f", far)],
         baseline_key=None,
         config_hash="cfg",
@@ -2003,7 +2242,7 @@ def test_the_free_comparison_is_below_the_table_and_drops_the_baseline() -> None
 
 
 def test_with_a_single_run_there_is_nothing_to_compare_it_with() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -2063,7 +2302,7 @@ def with_prompt(sha: str) -> Run:
 def test_the_run_carries_the_digest_of_what_was_under_test() -> None:
     """A label beside the moment, not a column: it is read to group runs, and
     the table is already wide."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-p", with_prompt("a" * 64))],
         baseline_key=None,
         config_hash="cfg",
@@ -2083,7 +2322,7 @@ def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
     same_a = ("key-a", with_prompt("a" * 64))
     same_b = ("key-b", with_prompt("a" * 64))
     other = ("key-c", with_prompt("b" * 64))
-    html = runs_page(
+    html = runs_page_as_served(
         [same_a, same_b, other],
         baseline_key=None,
         config_hash="cfg",
@@ -2099,7 +2338,7 @@ def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
 def test_a_suite_with_no_artifacts_shows_no_label() -> None:
     """Most suites declare none, and a label that is always there is a label
     nobody reads."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
