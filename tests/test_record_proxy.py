@@ -773,16 +773,19 @@ def test_a_process_that_ignores_sigterm_still_ends_when_its_test_fails() -> None
             sys.executable,
             "-c",
             "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
-            "print('ready', flush=True); time.sleep(60)",
+            "print('ready', flush=True); time.sleep(30)",
         ],
         stdout=subprocess.PIPE,
         text=True,
     )
     assert started.stdout is not None
+    began = time.monotonic()
     with pytest.raises(RuntimeError), stopped_after(started):
         assert started.stdout.readline() == "ready\n"
         raise RuntimeError("the test failed here")
     assert started.poll() is not None
+    # Killed after the 10 seconds SIGTERM is given, not left to end itself.
+    assert time.monotonic() - began < 20
 
 
 @pytest.mark.parametrize(

@@ -423,7 +423,9 @@ def test_a_system_of_messages_is_shown_by_its_first_text_never_as_json(
     """A `system` the way Chat Completions carries it, a list of messages: each
     side shows its first message's text, clipped at 60, and how many messages
     there are. Before, it was the list as JSON, its quotes escaped."""
-    first = "You are the support agent of a shop that sells parcels, and nothing else."
+    first = (
+        'You are the "support" agent of a shop that sells parcels, and nothing else.'
+    )
     one: dict[str, object] = {
         "model": "m",
         "system": [{"role": "system", "content": "Be brief."}],
