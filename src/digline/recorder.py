@@ -1653,6 +1653,7 @@ def _record(
 
     try:
         stage = "not JSON"
+        gate = _gate(state.root, tenant)
         recording = Recording(
             source_tenant=tenant,
             app=state.app,
@@ -1669,6 +1670,8 @@ def _record(
             # and keeps the id of the episode it began in.
             orphan=late or (inside is None and bool(_OPEN)),
             recorded_at=_now(),
+            origin=gate[0],
+            run_id=gate[1],
         )
 
         stage = "writer"
@@ -2390,6 +2393,20 @@ def _now() -> str:
     return utc_now_iso()
 
 
+def _gate(root: Path, tenant: str) -> tuple[str | None, str | None]:
+    """`origin` and `run_id` for a recording written now: the gate's where a
+    `digline run` is in progress in this tenant, read from its marker, and
+    nothing where none is. Read at every recording, which is one listing of
+    a directory that is usually not there. (`host.gate`)"""
+    from digline.core.recording import GATE_ORIGIN
+    from digline.host.gate import gate_markers
+
+    markers = gate_markers(root, tenant)
+    if not markers.live:
+        return None, None
+    return GATE_ORIGIN, markers.run_id
+
+
 def _commit(state: _State) -> str | None:
     """The repository's commit, read as a run reads it, once until the next
     look: two `git` processes are tens of milliseconds."""
@@ -2510,6 +2527,7 @@ def _record_episode(
             return "ceiling"
 
         stage = "not JSON"
+        gate = _gate(state.root, tenant)
         suite = ep._suite  # pyright: ignore[reportPrivateUsage]
         recording = Recording(
             source_tenant=tenant,
@@ -2526,6 +2544,8 @@ def _record_episode(
             id=ep.id,
             recorded_at=_now(),
             case_from_first_call=ep._from_first_call,  # pyright: ignore[reportPrivateUsage]
+            origin=gate[0],
+            run_id=gate[1],
         )
 
         stage = "writer"

@@ -384,7 +384,7 @@ def _killed(root: Path, target: object, declared: Suite) -> FileResultStore:
         artifacts={},
     )
     with pytest.raises(SystemExit):
-        measure(declared, target, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(declared, target, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     return store
 
 

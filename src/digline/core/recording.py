@@ -58,6 +58,15 @@ Three things were ruled for it, with the format unreleased, so
   to fill. A document written with one is still read, and the key ignored, as
   the reader ignores a key it does not know; `steps` beside the response is
   the one it refuses by name, above.
+
+**A call the gate made is recorded and says so** (ADR 0058, as amended
+2026-11-05). A run of `digline run` against an application that records
+itself, through the proxy or a writer in another language, would otherwise
+file its own calls as the application's traffic. While a run is in progress
+it leaves a marker in its tenant's directory; a writer that finds one still
+records, and writes `origin: "gate"` and the run's key in `run_id`. Absent,
+the recording is the application's. Two optional keys added to the contract,
+so `RECORDING_VERSION` stays 1, as it did for `id` and `recorded_at`.
 """
 
 from __future__ import annotations
@@ -78,6 +87,7 @@ from digline.core.run import (
 )
 
 __all__ = [
+    "GATE_ORIGIN",
     "RECORDING_VERSION",
     "Recording",
     "RecordingRefusedError",
@@ -93,6 +103,11 @@ __all__ = [
 #: `JOURNAL_VERSION`: a recording is a document of its own, and a reader that
 #: meets another version refuses it rather than guessing. (ADR 0058 §11)
 RECORDING_VERSION = 1
+
+#: The one value `origin` takes: a call made while a `digline run` was in
+#: progress in the recording's tenant, which is the gate's and not the
+#: application's traffic. Absent is the application.
+GATE_ORIGIN = "gate"
 
 #: `recorded_at`'s one form: a date, a time to the second with up to six
 #: digits after it, and the UTC offset written `+00:00`. What Python's
@@ -289,6 +304,14 @@ class Recording:
     #: case is its first call's, and the import says so (ADR 0062 §3). Only
     #: an episode carries it.
     case_from_first_call: bool = False
+    #: `"gate"` where the call was made while a `digline run` was in progress
+    #: in this tenant, `None` for the application's traffic. Kept apart by
+    #: every reader: never listed, never imported, never counted as new.
+    origin: str | None = None
+    #: The key of the run whose marker the writer found, beside `origin`
+    #: only. `None` with an origin where more than one run was in progress,
+    #: since the call cannot say which of them made it.
+    run_id: str | None = None
 
     def __post_init__(self) -> None:
         for name in ("source_tenant", "app", "suite", "setup_digest"):
@@ -323,6 +346,22 @@ class Recording:
         if type(self.case_from_first_call) is not bool:
             raise RecordingRefusedError(
                 "Recording.case_from_first_call must be a boolean"
+            )
+        if self.origin is not None and self.origin != GATE_ORIGIN:
+            raise RecordingRefusedError(
+                f"Recording.origin is {GATE_ORIGIN!r} or absent, never "
+                f"{str(self.origin)[:40]!r}"
+            )
+        if self.run_id is not None and (
+            not isinstance(self.run_id, str) or not self.run_id
+        ):
+            raise RecordingRefusedError(
+                "Recording.run_id must be a non-empty string, or None"
+            )
+        if self.run_id is not None and self.origin is None:
+            raise RecordingRefusedError(
+                "only a recording of the gate carries a run_id: run_id without "
+                f"origin {GATE_ORIGIN!r}"
             )
         if self.case_from_first_call and not self.is_episode:
             raise RecordingRefusedError(
@@ -395,6 +434,10 @@ def recording_to_dict(recording: Recording) -> dict[str, object]:
         payload["id"] = recording.id
     if recording.recorded_at is not None:
         payload["recorded_at"] = recording.recorded_at
+    if recording.origin is not None:
+        payload["origin"] = recording.origin
+    if recording.run_id is not None:
+        payload["run_id"] = recording.run_id
     return payload
 
 
@@ -451,6 +494,8 @@ def recording_from_dict(raw: object, *, where: str = "this recording") -> Record
             case_from_first_call=_flag(document, "case_from_first_call"),
             id=_optional_text(document, "id"),
             recorded_at=_optional_text(document, "recorded_at"),
+            origin=_optional_text(document, "origin"),
+            run_id=_optional_text(document, "run_id"),
         )
     except RecordingRefusedError:
         raise

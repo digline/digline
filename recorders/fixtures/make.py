@@ -888,6 +888,59 @@ def _written(
         return path.read_text(encoding="utf-8")
 
 
+#: The gate's markers a writer may find in `.digline/<tenant>/runs/.gate/`,
+#: each with its age in seconds, far from `STALE_SECONDS` on either side so
+#: the second a test takes cannot move it across. (ADR 0058, 2026-11-05)
+_KEY = "2026-11-05T12-30-00-123456-00-00-0123456789abcdef"
+_OTHER = "2026-11-05T12-31-00-000001-00-00-fedcba9876543210"
+
+
+def _marker(run_id: object, age: int, name: str = "") -> dict[str, Any]:
+    text = json.dumps(
+        {"run_id": run_id, "pid": 4242, "started_at": "x", "suite": "refunds"}
+    )
+    return {"name": name or f"4242-{run_id}.json", "text": text, "age": age}
+
+
+GATES: list[list[dict[str, Any]]] = [
+    [],
+    [_marker(_KEY, 10)],
+    [_marker(_KEY, 1000)],
+    [_marker(_KEY, 10), _marker(_OTHER, 10, "4343-other.json")],
+    [_marker(_KEY, 10), _marker(_OTHER, 1000, "4343-other.json")],
+    [{"name": "4242-x.json", "text": "not JSON", "age": 10}],
+    [{"name": "4242-x.json", "text": "[]", "age": 10}],
+    [_marker("", 10, "4242-x.json")],
+    [_marker(7, 10, "4242-x.json")],
+    [_marker(_KEY, 10, f".4242-{_KEY}.json.partial")],
+    [_marker(_KEY, 10, f"4242-{_KEY}.txt")],
+]
+
+
+def _gates() -> list[dict[str, Any]]:
+    """What `digline.recorder._gate` answers for each set of markers, laid
+    out in a scratch directory with each file's time set back by its age."""
+    import os
+    import time
+
+    from digline.host.gate import GATE_DIRECTORY
+    from digline.recorder import _gate  # pyright: ignore[reportPrivateUsage]
+
+    rows: list[dict[str, Any]] = []
+    for markers in GATES:
+        with tempfile.TemporaryDirectory() as scratch:
+            place = Path(scratch, ".digline", "acme", *GATE_DIRECTORY)
+            place.mkdir(parents=True)
+            now = time.time()
+            for marker in markers:
+                path = place / marker["name"]
+                path.write_text(marker["text"], encoding="utf-8")
+                os.utime(path, (now - marker["age"], now - marker["age"]))
+            origin, run_id = _gate(Path(scratch), "acme")
+        rows.append({"markers": markers, "origin": origin, "run_id": run_id})
+    return rows
+
+
 def _json(value: object) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False) + "\n"
 
@@ -902,6 +955,7 @@ def expected() -> dict[str, str]:
         + ",\n".join(json.dumps(row) for row in _floats())
         + "\n]\n",
         "switches.json": _json(_switches()),
+        "gates.json": _json(_gates()),
         "call.json": _json(CALL),
         "call.expected.json": _call_bytes(),
         "layout/gitignore": _GITIGNORE,

@@ -656,7 +656,11 @@ def test_a_measured_run_records_none_of_its_judges_calls(
         suite, target, now="2026-11-04T00:00:00Z", git_commit=None, artifacts={}
     )
     measured = measure(
-        suite, target, store=FileResultStore(tmp_path), prepared=prepared
+        suite,
+        target,
+        store=FileResultStore(tmp_path),
+        prepared=prepared,
+        marker_root=tmp_path,
     )
     assert measured.run.results[0].verdicts[0].status == "pass"
     assert recordings(tmp_path) == []

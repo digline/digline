@@ -20,6 +20,7 @@ import os
 from collections.abc import Mapping
 from pathlib import Path
 
+from digline.host.gate import gate_markers
 from digline.recorder import SWITCH_KEYS, RecorderStartError, Switch, parse_switch
 from digline.store.file_store import (
     COUNTS_FILENAME,
@@ -191,6 +192,7 @@ def _suite(
         orphans=counts[2],
         inside_episodes=counts[3],
         interrupted=counts[4],
+        from_gate=counts[5],
         not_recorded=dict(sorted(missed.items())),
         noted=dict(sorted(noted.items())),
         imported=None if imported is None else since is not None,
@@ -222,7 +224,9 @@ def _tenant(
         except RecorderStartError as exc:
             refusal = str(exc)
     directory = store.recordings_dir(tenant)
-    # calls, episodes, orphans, calls inside an episode, interrupted episodes
+    # calls, episodes, orphans, calls inside an episode, interrupted episodes,
+    # and the gate's own: a recording made while a run was in progress is
+    # counted there and nowhere else (ADR 0058, as amended 2026-11-05)
     suites: dict[str, list[int]] = {}
     unreadable = 0
     size = 0
@@ -236,8 +240,10 @@ def _tenant(
         except (ValueError, OSError):
             unreadable += 1
             continue
-        counts = suites.setdefault(recording.suite, [0, 0, 0, 0, 0])
-        if not recording.is_episode:
+        counts = suites.setdefault(recording.suite, [0, 0, 0, 0, 0, 0])
+        if recording.origin is not None:
+            counts[5] += 1
+        elif not recording.is_episode:
             counts[0] += 1
             counts[2] += recording.orphan
             # An orphan that carries an id ended after its episode closed: it
@@ -259,7 +265,7 @@ def _tenant(
         and any(not item.name.startswith(".") for item in place.glob("*.json"))
     )
     for name in (*missed, *noted):
-        suites.setdefault(name, [0, 0, 0, 0, 0])
+        suites.setdefault(name, [0, 0, 0, 0, 0, 0])
     return TenantRecorder(
         tenant=tenant,
         switch_path=str(path),
@@ -293,4 +299,7 @@ def _tenant(
         size=size,
         stopped_at_ceiling=store.ceiling_marker_path(tenant).is_file(),
         uncounted=uncounted,
+        stale_gate_markers=tuple(
+            marker.run_id for marker in gate_markers(store.root.parent, tenant).stale
+        ),
     )

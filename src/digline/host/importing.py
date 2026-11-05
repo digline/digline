@@ -325,17 +325,26 @@ def refuse_another_tenant(
 
 
 def read_recordings(store: FileResultStore, tenant: str) -> tuple[list[Recording], int]:
-    """Every readable recording of the tenant, in the files' order, and how
-    many files were not readable recordings."""
+    """Every readable recording of the tenant's application, in the files'
+    order, and how many files were not readable recordings.
+
+    A recording of the gate (`origin: "gate"`) is not the application's: it
+    is a call a `digline run` made, recorded in another process while the run
+    was in progress. It is left out here, which is every list, import, `where`
+    and compare reads, and counted by `digline record status` alone. Never
+    deleted. (ADR 0058, as amended 2026-11-05)"""
     found: list[Recording] = []
     unreadable = 0
     for path in sorted(store.recordings_dir(tenant).glob("*/*.json")):
         if path.name.startswith("."):
             continue
         try:
-            found.append(store.read_recording(path))
+            recording = store.read_recording(path)
         except (ValueError, OSError):
             unreadable += 1
+            continue
+        if recording.origin is None:
+            found.append(recording)
     return found, unreadable
 
 

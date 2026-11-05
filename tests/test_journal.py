@@ -137,7 +137,7 @@ def killed(root: Path, suite: Suite, target: Counting, *, now: str = CREATED) ->
     """Run until the target kills the process, and return the journal's key."""
     store, prepared = launch(root, suite, target, now=now)
     with pytest.raises(SystemExit):
-        measure(suite, target, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(suite, target, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     return journal_key(prepared.header)
 
 
@@ -222,12 +222,16 @@ def test_the_resumed_run_is_the_document_the_kill_prevented(tmp_path: Path) -> N
     is nothing about it to mark."""
     whole = tmp_path / "whole"
     store, prepared = launch(whole, a_suite(), Counting())
-    uninterrupted = measure(a_suite(), Counting(), store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+    uninterrupted = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    )  # pyright: ignore[reportArgumentType]
 
     broken = tmp_path / "broken"
     key = killed(broken, a_suite(), Counting(die_at=4))
     store, prepared = launch(broken, a_suite(), Counting(), now=LATER, resume_key=key)
-    resumed = measure(a_suite(), Counting(), store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+    resumed = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    )  # pyright: ignore[reportArgumentType]
 
     assert resumed.ref.key == uninterrupted.ref.key
     assert run_to_json(resumed.run) == run_to_json(uninterrupted.run)
@@ -244,12 +248,12 @@ def test_a_resume_can_itself_be_killed_and_resumed(tmp_path: Path) -> None:
     second = Counting(die_at=2)
     store, prepared = launch(tmp_path, suite, second, resume_key=key, now=LATER)
     with pytest.raises(SystemExit):
-        measure(suite, second, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(suite, second, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     assert len(legs(tmp_path, key)) == 2
 
     third = Counting()
     store, prepared = launch(tmp_path, suite, third, resume_key=key, now=LATER)
-    measured = measure(suite, third, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+    measured = measure(suite, third, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
 
     assert measured.ref.key == key, "still the run the first leg started"
     assert measured.run.created_at == CREATED
@@ -264,7 +268,9 @@ def test_the_order_of_the_results_comes_from_the_suite(tmp_path: Path) -> None:
     key = killed(tmp_path, a_suite(), Counting(die_at=4))
     # Journalled c1..c3; the resume calls c4..c6 and must not append them.
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
-    run = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    run = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    ).run  # pyright: ignore[reportArgumentType]
     assert [case.case_id for case in run.results] == [
         "c1",
         "c2",
@@ -290,7 +296,7 @@ def test_a_resume_with_nothing_left_to_call_still_writes_the_run(
     target = Counting()
     store, prepared = launch(tmp_path, suite, target, resume_key=journal.key, now=LATER)
     assert prepared.plan.target_calls == 0
-    measured = measure(suite, target, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+    measured = measure(suite, target, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     assert target.calls == []
     assert len(measured.run.results) == 3
     assert legs(tmp_path, journal.key) == []
@@ -300,7 +306,9 @@ def test_the_journal_is_deleted_only_once_the_run_exists(tmp_path: Path) -> None
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     assert legs(tmp_path, key), "a killed run keeps its journal"
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
-    measured = measure(a_suite(), Counting(), store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+    measured = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    )  # pyright: ignore[reportArgumentType]
     assert store.run_path(measured.ref).exists()
     assert legs(tmp_path, key) == []
 
@@ -503,7 +511,7 @@ def test_an_alias_that_rolled_across_the_seam_errors_instead_of_averaging(
     first = Dying(["m-1"])
     _, prepared = launch(tmp_path, suite, first)
     with pytest.raises(SystemExit):
-        measure(suite, first, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(suite, first, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
 
     second = Rolling(["m-2"])
     pending = store.pending(TENANT, SUITE)[0]
@@ -511,7 +519,7 @@ def test_an_alias_that_rolled_across_the_seam_errors_instead_of_averaging(
     prepared = prepare(
         suite, second, now=LATER, git_commit="deadbeef", artifacts={}, resume=pending
     )
-    run = measure(suite, second, store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    run = measure(suite, second, store=store, prepared=prepared, marker_root=None).run  # pyright: ignore[reportArgumentType]
 
     errored = [
         case.case_id
@@ -538,7 +546,9 @@ def test_a_target_that_observes_nothing_is_seeded_with_nothing(
     """A plain function has no identity to average, so nothing has to happen."""
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
-    run = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    run = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    ).run  # pyright: ignore[reportArgumentType]
     assert run.target_config.values["model"] == "m-1"
 
 
@@ -581,7 +591,7 @@ def test_a_resume_retries_an_errored_case_by_default(tmp_path: Path) -> None:
     )
     assert prepared.plan.target_calls == 1
     assert prepared.plan.retried == 1
-    run = measure(suite, better, store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    run = measure(suite, better, store=store, prepared=prepared, marker_root=None).run  # pyright: ignore[reportArgumentType]
     assert better.calls == ["c2"]
     assert all(
         verdict.status != "error" for case in run.results for verdict in case.verdicts
@@ -610,7 +620,7 @@ def test_keep_errors_keeps_them(tmp_path: Path) -> None:
     )
     assert prepared.plan.target_calls == 0
     assert prepared.retrying == {}
-    run = measure(suite, better, store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    run = measure(suite, better, store=store, prepared=prepared, marker_root=None).run  # pyright: ignore[reportArgumentType]
     assert better.calls == []
     assert run.results[1].verdicts[0].status == "error"
 
@@ -778,7 +788,9 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     assert (SCHEMA_VERSION, JOURNAL_VERSION) == (23, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
-    resumed = measure(a_suite(), Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    resumed = measure(
+        a_suite(), Counting(), store=store, prepared=prepared, marker_root=None
+    ).run  # pyright: ignore[reportArgumentType]
     plain = Run(
         tenant=TENANT,
         environment="staging",

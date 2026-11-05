@@ -491,7 +491,7 @@ def test_0_14_1_refuses_a_journal_leg_carrying_one_by_name(tmp_path: Path) -> No
         declared, target, now=CREATED, git_commit="deadbeef", artifacts={}
     )
     with pytest.raises(SystemExit):
-        measure(declared, target, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(declared, target, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     key = journal_key(prepared.header)
     (here,) = store.pending("acme", "qa")
     assert here.key == key and not here.refusal, here.refusal

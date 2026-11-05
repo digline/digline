@@ -8,11 +8,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The writer held to what digline's Python answers, on the files
@@ -121,6 +123,35 @@ class FixturesTest {
                         (Long) usage.get("cache_write_tokens"), (Long) usage.get("thinking_tokens")),
                 (String) call.get("finish"),
                 tools);
+    }
+
+    @Test
+    void everyGateMarkerIsReadAsPythonReadsIt(@TempDir Path scratch) throws IOException {
+        // Each row: the markers laid out, each with its age in seconds, and
+        // what digline.recorder._gate answered for them. (ADR 0058, 2026-11-05)
+        List<Map<String, Object>> gates = parsed("gates.json");
+        assertTrue(gates.size() > 5, "none, live, stale, two, unreadable, ignored names");
+        int row = 0;
+        for (Map<String, Object> each : gates) {
+            Path root = Files.createDirectory(scratch.resolve("row" + row++));
+            Path place = root.resolve(".digline").resolve("acme").resolve("runs").resolve(".gate");
+            Files.createDirectories(place);
+            long now = System.currentTimeMillis();
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> markers = (List<Map<String, Object>>) each.get("markers");
+            for (Map<String, Object> marker : markers) {
+                Path file = place.resolve((String) marker.get("name"));
+                Files.writeString(file, (String) marker.get("text"), StandardCharsets.UTF_8);
+                long age = ((Number) marker.get("age")).longValue();
+                Files.setLastModifiedTime(file, FileTime.fromMillis(now - age * 1000));
+            }
+            String[] gate = DiglineRecorder.gate(root, "acme", now);
+            String origin = gate == null ? null : gate[0];
+            String runId = gate == null ? null : gate[1];
+            assertEquals(each.get("origin"), origin, markers.toString());
+            assertEquals(each.get("run_id"), runId, markers.toString());
+        }
+        assertEquals(List.of("runs", ".gate"), List.of(DiglineRecorder.GATE_DIRECTORY));
     }
 
     @Test
