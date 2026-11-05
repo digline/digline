@@ -260,6 +260,48 @@ class HooksTest {
     }
 
     @Test
+    void anAttachInTheCallbackComesTooLate() throws Exception {
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(wire("openai-single"));
+                var episode = recorder.episode("agent", Map.of("ticket", "A1"))) {
+            String id = episode.id();
+            openai(provider, recorder).async().chat().completions().create(OPENAI_ASKED)
+                    .thenApply(reply -> {
+                        try (var attached = DiglineRecorder.attach(id);
+                                var suite = DiglineRecorder.suite("refunds")) {
+                            return reply;
+                        }
+                    }).get();
+            episode.output("done");
+        }
+        // The call was made, and recorded, before the callback ran.
+        Map<String, Object> call = recordings().get(0);
+        assertEquals("_unassigned", call.get("suite"));
+        assertEquals(Boolean.TRUE, call.get("orphan"));
+        assertFalse(call.containsKey("call_site"));
+    }
+
+    @Test
+    void aCallThatNamesNoSuiteSaysWhereItWasMadeAndTheDigestDoesNotMove() throws IOException {
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(wire("anthropic-single"))) {
+            AnthropicClient client = anthropic(provider, recorder);
+            client.messages().create(ANTHROPIC_ASKED);
+            try (var suite = DiglineRecorder.suite("refunds")) {
+                client.messages().create(ANTHROPIC_ASKED);
+            }
+        }
+        List<Map<String, Object>> written = recordings();
+        // `class:method` of the application's frame, as digline's Python
+        // recorder writes `module:function`.
+        assertEquals(getClass().getName() + ":aCallThatNamesNoSuiteSaysWhereItWasMadeAndTheDigestDoesNotMove",
+                written.get(0).get("call_site"));
+        assertFalse(written.get(1).containsKey("call_site"));
+        // The call site is beside the setup, never in it.
+        assertEquals(written.get(0).get("setup_digest"), written.get(1).get("setup_digest"));
+    }
+
+    @Test
     void offTheHooksRecordNothingAndTheCallsGoOn() throws IOException {
         DiglineRecorder recorder = DiglineRecorder.development(root, "acme", "support");
         try (FakeProvider provider = new FakeProvider(wire("openai-single"))) {

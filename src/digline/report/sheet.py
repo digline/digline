@@ -227,6 +227,9 @@ td.absent { color: var(--faint); font-style: italic; }
 pre.snippet { background: var(--sunken); border: 1px dashed var(--line-strong);
               border-radius: .375rem; padding: .75rem 1rem; overflow-x: auto;
               font-size: .875rem; user-select: all; -webkit-user-select: all; }
+/* The command under a button grows with the answers named, and is read
+   whole: it wraps where the box ends, and a copy is still one line. */
+pre.snippet.command { white-space: pre-wrap; overflow-wrap: anywhere; }
 p.note, ul.note { color: var(--muted); font-size: .85rem; margin: .5rem 0 0;
                   max-width: 46rem; }
 ul.note { padding-left: 1.25rem; }
@@ -255,6 +258,13 @@ p.declaration { font-family: var(--mono); font-size: .85rem; overflow-wrap: anyw
    do not: one long answer would otherwise push the table off the page. */
 body.wide td.said, body.wide td.state { white-space: normal; min-width: 10rem;
                                         overflow-wrap: anywhere; }
+/* The answers, with the column that names them last: every cell may wrap,
+   so the table fits the page and the column stays inside it; the box scrolls
+   rather than letting a table wider than it run off the page. */
+.fits { max-width: 100%; overflow-x: auto; }
+body.wide table.answers td { white-space: normal; }
+body.wide table.answers td.when { white-space: nowrap; }
+table.answers code.key { overflow-wrap: anywhere; }
 .card { background: var(--surface); border: 1px solid var(--line);
         border-radius: var(--radius); margin: 1rem 0; }
 .chart { padding: .5rem .25rem 0; }

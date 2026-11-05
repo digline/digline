@@ -78,6 +78,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **The recordings page fits its answers in the page**: the column that
+  names an answer sat outside the box on a wide table, and the command under
+  the button was cut at the box's edge. The table's cells wrap, the date
+  excepted, inside a box that scrolls rather than run off the page, and the
+  command wraps; a copy of it is still one line.
 - **`digline view` opens its menu with *Where you are***, which reads
   `.digline/` and says the next step: one state of eleven, the first that
   holds, from *Nothing recorded yet* to *Nothing to do*, each with two
@@ -311,6 +316,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   and Quarkus, and what stays out: Spring AI, not measured, and a call made
   through an asynchronous client, which reaches the hook on another thread
   and is recorded under `_unassigned`.
+- **`docs/record-java.md` says what a Java team does around the files**, from a
+  user's pass over it: how to install the `digline` command as a tool of its
+  own, `uv tool install digline --with digline-openai`; how the gate runs a
+  Java app, a `suite.toml` with an `http` target at the app's endpoint and a
+  judge by coordinates, and that a suite of reviewed answers alone never calls
+  the target; a `suite()` inside an episode, without which the turn's calls are
+  `_unassigned`; and an asynchronous call, which the SDKs make on their own
+  thread and an `attach` in its callback reaches too late, made instead with
+  the synchronous client on a thread that names its suite and episode. Every
+  Java line on the page is run by the Java tests, and its `suite.toml` is
+  loaded by digline's. `docs/record.md` no longer lists Java among the
+  interceptors not yet written.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
@@ -333,6 +350,26 @@ nothing. No public name is removed or renamed and no exit code changes.
   (ADR 0059 §1).
 - Its floor on `digline` becomes `1.1.0` in its own release, after the core's:
   RELEASING.md, *Owed at the cut*.
+
+## digline-openai — unreleased
+
+- **A call recorded with `extra_body` has the setup it has off the wire.** The
+  recorder's map merges `extra_body`'s keys into the setup at the top level,
+  as the SDK merges them into the body it sends, where it kept them under a
+  key of their own, `extra_body`. So a call recorded in process, through
+  `digline record proxy` or by the Java recorder has one setup digest. **A
+  setup that sent `extra_body` records under another digest than before**, so
+  `digline record import` lists its earlier answers under an earlier setup:
+  the number is the cut's to choose (RELEASING.md, *Choosing the version*).
+  The stream readings are typed with `digline.recorder.StreamReading`, for the
+  type checker alone (ADR 0062 §2).
+
+## digline-anthropic — unreleased
+
+- **A call recorded with `extra_body` has the setup it has off the wire**, as
+  for `digline-openai` above, and with the same consequence: a setup that sent
+  `extra_body` records under another digest than before. The stream readings
+  are typed with `digline.recorder.StreamReading` (ADR 0062 §2).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

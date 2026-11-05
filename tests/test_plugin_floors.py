@@ -75,6 +75,11 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
+    # 1.1.0, the number the cut is expected to give the core release that
+    # carries `digline.recorder` — not yet a release. The three providers' maps
+    # type their stream readings with it, imported for the type checker
+    # alone; their floors are owed at the cut, in RELEASING.md's table.
+    "StreamReading": "1.1.0",
     # 0.35.0, the number the cut is expected to give the core release that
     # carries #548 — not yet a release. digline-mcp's `--names project` loads
     # its table with `load_name_table`, holds one answer to one table with
