@@ -224,6 +224,16 @@ nothing. No public name is removed or renamed and no exit code changes.
   Each plugin reads its route through a new entry point,
   `digline.recording_wire`. An episode whose case nobody gave says
   `case_from_first_call`, and the import shows it (ADR 0062 §3).
+- **`digline record proxy` records Bedrock's `converse` and
+  `converse-stream`**, with `digline-bedrock` installed. The AWS SDK's
+  request is signed again with the credentials and region boto3 finds on the
+  proxy's machine, and the start prints `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`.
+  In an episode, a tool step is now closed by the result the next call sends
+  back to the model, with the provider's status where it carries one. A
+  path a plugin reads goes to that provider whatever the headers say: boto3
+  sends a Bedrock API key as a bearer, which would otherwise have gone to
+  OpenAI. Measured against a fake Bedrock only: the one real call made was
+  refused for its key (ADR 0062 §3).
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
