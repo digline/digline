@@ -256,6 +256,13 @@ class AssertionBase:
         {"threshold", "tolerance", "floor_standard_errors"}
     )
 
+    #: Whether a sampled verdict keeps what each sample said beside the mean
+    #: (`combine_samples`). A check on the steps names the tools in its
+    #: reason, and a mean of 0 and 0 says neither which call was missing nor
+    #: what was called instead; a judge's reason is long and is the judge's,
+    #: so the default keeps the mean alone. (ADR 0018 §1)
+    SAYS_EACH_SAMPLE: ClassVar[bool] = False
+
     @property
     def identity(self) -> str:
         """Fingerprint of *what this assertion checks*: its type and its
@@ -1770,6 +1777,7 @@ class Subsequence(AssertionBase):
     tools: Sequence[str]
     name: str = "subsequence"
     KIND: ClassVar[CheckKind] = "deterministic"
+    SAYS_EACH_SAMPLE: ClassVar[bool] = True
     threshold: float = 1.0
     tolerance: float = 0.0
     floor_standard_errors: float | None = field(default=None, kw_only=True)
@@ -1816,8 +1824,8 @@ class Subsequence(AssertionBase):
             )
         return self._graded(
             0.0,
-            f"called {_named(read.names)}: {matched} of {len(want)} of "
-            f"{_named(want)} found in this order",
+            f"expected {_named(want)} in this order, saw {_named(read.names)}: "
+            f"{matched} of {len(want)} found in order",
             metadata=metadata,
         )
 
@@ -1859,6 +1867,7 @@ class Before(AssertionBase):
     then: str
     name: str = "before"
     KIND: ClassVar[CheckKind] = "deterministic"
+    SAYS_EACH_SAMPLE: ClassVar[bool] = True
     threshold: float = 1.0
     tolerance: float = 0.0
     floor_standard_errors: float | None = field(default=None, kw_only=True)
@@ -1938,6 +1947,7 @@ class Never(AssertionBase):
     tool: str
     name: str = "never"
     KIND: ClassVar[CheckKind] = "deterministic"
+    SAYS_EACH_SAMPLE: ClassVar[bool] = True
     threshold: float = 1.0
     tolerance: float = 0.0
     floor_standard_errors: float | None = field(default=None, kw_only=True)
@@ -1989,6 +1999,7 @@ class MaxSteps(AssertionBase):
     count: StepActor
     name: str = "max_steps"
     KIND: ClassVar[CheckKind] = "deterministic"
+    SAYS_EACH_SAMPLE: ClassVar[bool] = True
     threshold: float = 1.0
     tolerance: float = 0.0
     floor_standard_errors: float | None = field(default=None, kw_only=True)

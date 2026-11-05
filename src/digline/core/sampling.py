@@ -204,7 +204,9 @@ def _rendered(verdicts: Sequence[Verdict]) -> str:
     )
 
 
-def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Verdict:
+def combine_samples(
+    verdicts: Sequence[Verdict], *, min_agreement: float, each: bool = False
+) -> Verdict:
     """Fold repeated verdicts for one check into the one that gets recorded.
 
     **With a single sample this is the identity function.** Sampling must not
@@ -247,6 +249,11 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
     was — the defect was never that the centre sat in the wrong place, it was
     that one number cannot say how far it moves — so every baseline recorded
     before that ADR records the number this function still computes.
+
+    With `each`, the folded reason ends with what the samples said, each
+    distinct reason once and in the order first given, where the check's own
+    class asks for it (`SAYS_EACH_SAMPLE`): a check on the steps names the
+    tools, and a mean does not. (ADR 0018 §1)
     """
     if not verdicts:
         raise ValueError("combine_samples needs at least one verdict")
@@ -294,7 +301,8 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         return failed(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "
-            f"(scores: {_rendered(verdicts)}){against}",
+            f"(scores: {_rendered(verdicts)}){against}"
+            f"{_each_said(verdicts) if each else ''}",
             # The counts the fold has just computed, carried onto the verdict
             # that refuses. Without them the one check a reader most needs
             # explained — the one that errored *because* the samples disagreed —
@@ -356,9 +364,24 @@ def combine_samples(verdicts: Sequence[Verdict], *, min_agreement: float) -> Ver
         reason=(
             f"mean of {len(verdicts)} samples ({_rendered(verdicts)})"
             f"{_could_not_be_judged(verdicts)}"
+            f"{_each_said(verdicts) if each else ''}"
         ),
         assertion_id=first.assertion_id,
         floor_standard_errors=first.floor_standard_errors,
+    )
+
+
+def _each_said(verdicts: Sequence[Verdict]) -> str:
+    """What the samples said, after the mean: one reason where they all said
+    the same, each distinct one with how many said it otherwise."""
+    said: dict[str, int] = {}
+    for verdict in verdicts:
+        said[verdict.reason] = said.get(verdict.reason, 0) + 1
+    if len(said) == 1:
+        return f"; every sample: {next(iter(said))}"
+    return "; " + "; ".join(
+        f"{count} sample{'' if count == 1 else 's'}: {reason}"
+        for reason, count in said.items()
     )
 
 

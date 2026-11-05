@@ -363,6 +363,24 @@ nothing. No public name is removed or renamed and no exit code changes.
   keys, so `recording_version` stays 1. `docs/declarative.md` now says what
   only `docs/api.md` said: the `HEAD`, and that an application answers it
   without calling the model (ADR 0058 §4, ADR 0062 §2, amended 2026-11-05).
+- **A sampled check on the steps says what each sample said.** `Subsequence`,
+  `Before`, `Never` and `MaxSteps` name the tools in their reason, and a suite
+  that samples folded it into *mean of 2 samples (0.000000, 0.000000)*. The
+  folded reason now ends with each distinct sample's reason, once, with how
+  many said it; a judge's reason is not added. `Subsequence`'s red reads
+  *expected 'search', 'answer' in this order, saw 'answer', 'search'* (ADR 0018
+  §1, noted 2026-11-05).
+- **An episode's reviewed answer carries its steps, and the suite's trajectory
+  checks run on it.** `ReviewedAnswer.steps`, written by `digline record
+  import` for an answer taken from an episode, in the run document's form. The
+  six checks on a trajectory run on the case beside the named check, and on a
+  yes a red one is a contradiction, exit `1` and refused by `promote` like the
+  named check's. An answer without steps is asked its check alone, as before
+  (ADR 0059 §1, amended 2026-11-05).
+- **`digline run` names `explain`, never `promote`, after a run whose own exit
+  is not 0**, and says why on a contradiction: *reads this run back; the judge
+  contradicted a person*. Measured: every cause of a lone run's 1 or 2 was
+  already one `promote` refuses, so the line changed only in its words.
 - **Three more patterns are anchored whole**: a window's date, an endpoint's
   host and a journal leg's name matched with `^…$`, where `$` also matches
   before a final newline. They are `\A…\Z` with `fullmatch` now. Measured:

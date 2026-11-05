@@ -110,6 +110,12 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
     The verdict binds by `assertion_id`, and `Run` refuses a reviewed answer
     that binds none, so empty means *every judge agreed*, never *nothing was
     checked*.
+
+    **An episode's answer is asked its trajectory checks too** (ADR 0059 §1,
+    amended 2026-11-05), and they are the case's other verdicts. On a yes
+    each of them must pass, as the check must: a person who said yes to the
+    turn said yes to the steps it took. On a no they say nothing, because a
+    no does not say which part of the turn was wrong.
     """
     found: list[Contradiction] = []
     for case in run.results:
@@ -117,17 +123,22 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
         if reviewed is None:
             continue
         for verdict in case.verdicts:
-            if (
-                verdict.assertion_id != reviewed.assertion_id
-                or verdict.status == "error"
-            ):
+            if verdict.status == "error":
                 continue
-            if (verdict.status == "pass") == reviewed.good:
+            if verdict.assertion_id != reviewed.assertion_id:
+                # A trajectory check beside the one reviewed: only a yes
+                # binds it, and only a red one contradicts it.
+                if not reviewed.good or verdict.status == "pass":
+                    continue
+                check = verdict.score.name
+            elif (verdict.status == "pass") == reviewed.good:
                 continue
+            else:
+                check = reviewed.check
             found.append(
                 Contradiction(
                     case_id=case.case_id,
-                    check=reviewed.check,
+                    check=check,
                     good=reviewed.good,
                     score=verdict.score.score,
                 )

@@ -430,6 +430,18 @@ asserted on a journal leg read by 0.14.1's `case_from_dict`. And this reader ref
 `"tool": null`, `tool` beside `tool_absence`, and `tool_absence:
 "not_recorded"`, each by name.
 
+*Noted 2026-11-05 (P-1530), the section above kept as written.* **A sampled
+check on the steps keeps what each sample said.** Its reason names the tools,
+and a suite that samples folded it into *mean of 2 samples (0.000000,
+0.000000)*, which says neither which call was missing nor what was called
+instead: a user pass on an agent, on 2026-11-05, read `before` that way on a
+refund made without a lookup. `Subsequence`, `Before`, `Never` and `MaxSteps` declare
+`SAYS_EACH_SAMPLE`, and the fold ends their reason with each distinct sample's
+reason, once, with how many said it. A judge's reason is not added: it is the
+judge's, long, and already in the samples. And `Subsequence`'s red says what it
+expected first: *expected 'search', 'answer' in this order, saw 'answer',
+'search'*.
+
 ### 2. It rides `RecordedResponse`, because that is where the boundary already is
 
 Not a free-standing field on `CaseResult`, and not `Score.metadata`.

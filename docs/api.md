@@ -347,13 +347,25 @@ It has a calibration case's mechanics and a verdict of its own:
 - **the answer is fixed**, the one the person read, so the target is not called
   for it;
 - **only the named check runs** on it, and it must be a judged check of the
-  suite;
+  suite. An episode's answer is the exception: it carries `steps`, below;
 - **the expected verdict is the person's**: for `good=True` the check passes,
   for `good=False` it does not, and a judge that contradicts the person fails
   the case;
 - it is kept in the gate and out of the aggregate accuracy.
 
-**What the run holds.** The case's one verdict is the judge's, as it scored,
+**An episode's answer carries its steps** (ADR 0059 §1, amended
+2026-11-05). `ReviewedAnswer.steps` is the trajectory the person read beside
+the answer, a sequence of `RecordedStep` in order from 0, and in a cases file
+the run document's form of a step. `digline record import` writes it for an
+answer it took from an episode. With steps, the suite's checks on a trajectory
+(`ToolsCalled`, `ToolCalledWith`, `Subsequence`, `Before`, `Never`,
+`MaxSteps`) run on the case beside the named check, read off the steps as a
+target's would be. **On a yes, a red one is a contradiction**, `failed_yes`,
+named by that check; on a no they decide nothing, since a no does not say
+which part of the turn was wrong. Without steps the named check runs alone, as
+before.
+
+**What the run holds.** The judge's verdict is as it scored,
 and beside it `CaseResult.reviewed`, a `Reviewed` with the `check`, its
 `assertion_id` and the person's `good`, written on that case alone as
 `reviewed` in the run document (schema 23). `contradicted(run)` reads the two

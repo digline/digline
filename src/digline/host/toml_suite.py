@@ -66,6 +66,7 @@ from digline.core import (
 from digline.core import (
     LlmRubric as LlmRubricAssertion,
 )
+from digline.core.run import recorded_steps_from_list
 from digline.host.errors import UsageError
 from digline.host.toml_errors import (
     code_only,
@@ -756,6 +757,10 @@ def _reviewed_answer(raw: object, spot: str) -> ReviewedAnswer:
     given = cast("Mapping[str, object]", raw)
     _refuse_unknown(given, set(_init_fields(ReviewedAnswer)), where, "field")
     try:
+        if "steps" in given:
+            # An episode's trajectory, in the run document's form, read by the
+            # run document's reader. (ADR 0059 §1, amended 2026-11-05)
+            given = {**given, "steps": recorded_steps_from_list(given["steps"])}
         return ReviewedAnswer(**cast("Any", given))
     except (TypeError, ValueError) as exc:
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
