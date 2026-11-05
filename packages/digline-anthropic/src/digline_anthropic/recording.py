@@ -24,10 +24,17 @@ the whole reply would have been, and then by `completion_of` like any other:
 - `messages.stream()` is another method, declared under its own entry point,
   `anthropic.Anthropic:messages.stream`. It returns a manager, and the stream
   its `with` gives accumulates itself: its final message is read when it ends.
+
+**Off the wire** (ADR 0062 §3), `WIRE` is what `digline record proxy` reads a
+Messages call with, declared under `digline.recording_wire` as `anthropic`.
+The reply's JSON, and each streamed event's, become the SDK's own types the
+way the SDK builds them from a response, `construct_type`, and `MAP` reads
+them as it reads a call made through the client.
 """
 
 from __future__ import annotations
 
+import importlib
 import inspect
 from collections.abc import Mapping
 from typing import Any
@@ -35,7 +42,14 @@ from typing import Any
 from digline.targets import Completion
 from digline_anthropic.client import completion_of
 
-__all__ = ["MAP", "NOT_SETUP", "STREAM_MAP", "AnthropicRecording"]
+__all__ = [
+    "MAP",
+    "NOT_SETUP",
+    "STREAM_MAP",
+    "WIRE",
+    "AnthropicRecording",
+    "AnthropicWire",
+]
 
 #: The keywords of `messages.create` that are neither the case nor the setup,
 #: beside the messages themselves.
@@ -118,3 +132,43 @@ async def _later(final: Any) -> Completion:
 
 MAP = AnthropicRecording()
 STREAM_MAP = AnthropicStreamRecording()
+
+
+class AnthropicWire:
+    """Messages off the wire, for `digline record proxy`."""
+
+    map = MAP
+    #: `ANTHROPIC_BASE_URL` is the host: the SDK adds `/v1/messages` itself.
+    base = ""
+    upstream = "https://api.anthropic.com"
+
+    def matches(self, path: str) -> bool:
+        return path.partition("?")[0].rstrip("/").endswith("/v1/messages")
+
+    def claims(self, headers: Mapping[str, str]) -> bool:
+        """`anthropic-version`, which the SDK sends on every call, or
+        `x-api-key`. Not the key's header alone: the SDK sends its key as
+        `Authorization: Bearer`, as OpenAI's does (read in the SDK's
+        `_client.py`, and measured through the proxy)."""
+        return "anthropic-version" in headers or "x-api-key" in headers
+
+    def reply(self, raw: object) -> Any:
+        from anthropic._models import construct_type
+        from anthropic.types import Message
+
+        return construct_type(type_=Message, value=raw)
+
+    def event(self, raw: object) -> Any:
+        from anthropic._models import construct_type
+        from anthropic.types import RawMessageStreamEvent
+
+        return construct_type(type_=RawMessageStreamEvent, value=raw)
+
+    def load(self) -> None:
+        # The streaming module first: two threads importing it for the first
+        # time at once were measured to fail on a circular import.
+        for name in ("anthropic.lib.streaming._messages", "anthropic._models"):
+            importlib.import_module(name)
+
+
+WIRE = AnthropicWire()

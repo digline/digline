@@ -33,10 +33,19 @@ have been:
 - `chat.completions.stream()`, another method, declared under its own entry
   point, `openai.OpenAI:chat.completions.stream`. It returns a manager, and
   the stream its `with` gives keeps its own completion, read when it ends.
+
+**Off the wire** (ADR 0062 §3), `WIRE` is what `digline record proxy` reads a
+Chat Completions call with, declared under `digline.recording_wire` as
+`openai`. The reply's JSON, and each streamed chunk's, become the SDK's own
+types the way the SDK builds them from a response, `construct_type`, and
+`MAP` reads them as it reads a call made through the client. So a call reads
+the same through either door, and an endpoint that answers in OpenAI's shape
+is read the way the SDK would read it.
 """
 
 from __future__ import annotations
 
+import importlib
 import inspect
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
@@ -49,7 +58,9 @@ __all__ = [
     "MAP",
     "NOT_SETUP",
     "STREAM_MAP",
+    "WIRE",
     "OpenAIRecording",
+    "OpenAIWire",
 ]
 
 #: The keywords of `chat.completions.create` that are neither the case nor the
@@ -171,3 +182,40 @@ async def _later(final: Any, model: str) -> Completion:
 
 MAP = OpenAIRecording()
 STREAM_MAP = OpenAIStreamRecording()
+
+
+class OpenAIWire:
+    """Chat Completions off the wire, for `digline record proxy`."""
+
+    map = MAP
+    #: `OPENAI_BASE_URL` ends in `/v1`, and so does the default upstream.
+    base = "/v1"
+    upstream = "https://api.openai.com/v1"
+
+    def matches(self, path: str) -> bool:
+        return path.partition("?")[0].rstrip("/").endswith("/chat/completions")
+
+    def claims(self, headers: Mapping[str, str]) -> bool:
+        """A bearer key on a call that is not Anthropic's: Anthropic's SDK
+        sends its key as a bearer too, beside `anthropic-version`."""
+        bearer = headers.get("authorization", "").lower().startswith("bearer ")
+        return bearer and "anthropic-version" not in headers
+
+    def reply(self, raw: object) -> Any:
+        from openai._models import construct_type
+        from openai.types.chat import ChatCompletion
+
+        return construct_type(type_=ChatCompletion, value=raw)
+
+    def event(self, raw: object) -> Any:
+        from openai._models import construct_type
+        from openai.types.chat import ChatCompletionChunk
+
+        return construct_type(type_=ChatCompletionChunk, value=raw)
+
+    def load(self) -> None:
+        for name in ("openai._models", "openai.lib.streaming.chat"):
+            importlib.import_module(name)
+
+
+WIRE = OpenAIWire()

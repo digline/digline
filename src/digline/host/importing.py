@@ -189,7 +189,9 @@ class ImportAnswer:
     cannot be elected, or is `None` where it can. `attached` is, for an
     episode, how many calls were found carrying its id. `call_sites` are the
     functions the calls were made from, where they named no suite, in the
-    order first met: what a person reads to give them one."""
+    order first met: what a person reads to give them one.
+    `case_from_first_call` is an episode the proxy read off the wire with no
+    case given, whose case is its first call's (ADR 0062 §3)."""
 
     id: str
     case: str
@@ -204,6 +206,7 @@ class ImportAnswer:
     refusal: str | None
     attached: int
     call_sites: tuple[str, ...] = ()
+    case_from_first_call: bool = False
 
     @property
     def electable(self) -> bool:
@@ -507,6 +510,7 @@ def import_listing(
                 call_sites=tuple(
                     dict.fromkeys(r.call_site for r in recordings if r.call_site)
                 ),
+                case_from_first_call=first.case_from_first_call,
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -780,7 +784,8 @@ def _say_answer(answer: ImportAnswer, setup: str | None) -> list[str]:
         f"  {answer.id} · {answer.first_at or 'undated'} · setup {setups}"
         f"{times}{attached}",
         *made,
-        f"    input:  {input_line(answer)}",
+        f"    input:  {input_line(answer)}"
+        + (" (case from the first call)" if answer.case_from_first_call else ""),
         f"    answer: {answer.text}",
         f"    {answer_state(answer)}",
     ]

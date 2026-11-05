@@ -307,6 +307,28 @@ call over a route it does not know, which it forwards and does not record;
 and the application's own code between two calls, so an episode's steps are
 what crossed the wire.
 
+*Noted 2026-11-04, with the proxy's code, and the section above kept as
+written.* What the code adds, by the maintainer's ruling of the same day:
+
+- **`--app A`**, the app a call with no `X-Digline-App` is filed under,
+  `proxy` unless it is given; and a call that names no suite carries the
+  SDK's `User-Agent` and the path as its call site. Both are additions.
+- **The upstream from the headers** where `--upstream` does not name the
+  route. Measured: both SDKs send their key as `Authorization: Bearer`
+  (anthropic 2.3.0), so Anthropic's call is told by `anthropic-version`, and
+  OpenAI's is a bearer without it, never by the key's header alone.
+- **An episode off the wire is written by the proxy**, once its
+  `X-Digline-Episode` has been idle for `--episode-idle` seconds (30) or the
+  proxy stops: without it the calls would carry an id whose episode no file
+  holds, and the import would make no case of them. Its id is the first 32
+  hexadecimal characters of the SHA-256 of the header's value; its answer is
+  the last call's text; its case is `X-Digline-Case`, or the first call's,
+  and then the recording says `case_from_first_call`. The explicit comes
+  before the inferred, as ADR 0023 §11.1 rules for an expected, and where
+  the case is inferred the import says so. It is never *interrupted*.
+- **A stream the application closes before its end** is *stream abandoned*,
+  counted and not recorded, as in process.
+
 ### 4. The interceptor, per language — *decided here*, Java in 1.1
 
 **A writer and a hook, each a file copied into the project.** Not a library

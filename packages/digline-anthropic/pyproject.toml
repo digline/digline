@@ -87,6 +87,12 @@ anthropic = "digline_anthropic:PROVIDER"
 "anthropic.AsyncAnthropic:messages.create" = "digline_anthropic.recording:MAP"
 "anthropic.AsyncAnthropic:messages.stream" = "digline_anthropic.recording:STREAM_MAP"
 
+# How `digline record proxy` reads this provider's calls off the wire: one
+# entry per route, named as `--upstream ROUTE=URL` names it, loaded when the
+# proxy starts (ADR 0062 §3).
+[project.entry-points."digline.recording_wire"]
+anthropic = "digline_anthropic.recording:WIRE"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
