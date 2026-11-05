@@ -129,3 +129,20 @@ updates:
     open-pull-requests-limit: 3
     commit-message:
       prefix: "Bump"
+
+  # The Java recorder's test project, `recorders/java` (ADR 0062 §4): the SDKs
+  # its hooks hook, and JUnit. Its own entry and group, so a bump of what an
+  # application hooks arrives apart from the example's, and the job
+  # `recorder-java` says on that pull request whether the hooks still read
+  # each SDK's calls.
+  - package-ecosystem: maven
+    directory: /recorders/java
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      java-recorder:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Bump"
