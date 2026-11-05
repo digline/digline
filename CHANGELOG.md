@@ -213,6 +213,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   written with one is still read. `digline record status` says *not counted*
   of a process that keeps no counts file, and `--json` carries it as
   `recordings.uncounted`. `RECORDING_VERSION` stays 1 (ADR 0062 §2).
+- **`digline record proxy --tenant T`** records the calls of an application
+  in any language, which points its SDK's base URL at it: OpenAI's and
+  Anthropic's, whole and streamed, under the same switch, into the same
+  files, with the same digest and counts as `digline.recorder.wrap`. It
+  listens on `127.0.0.1` alone, and passes each reply on as it came. The
+  suite comes from `X-Digline-Suite` or a `/suite/<name>/` path,
+  `X-Digline-Episode` makes an episode of the calls that carry it, and
+  `--upstream ROUTE=URL` sends a route to a gateway or a compatible endpoint.
+  Each plugin reads its route through a new entry point,
+  `digline.recording_wire`. An episode whose case nobody gave says
+  `case_from_first_call`, and the import shows it (ADR 0062 §3).
 - **A recorder for Java, as a file to copy**:
   `recorders/java/src/main/java/dev/digline/DiglineRecorder.java`, the JDK
   alone, which writes the recording to its contract (ADR 0062 §4). It reads

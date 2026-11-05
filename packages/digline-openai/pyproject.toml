@@ -89,6 +89,12 @@ openai = "digline_openai:PROVIDER"
 "openai.AsyncOpenAI:chat.completions.create" = "digline_openai.recording:MAP"
 "openai.AsyncOpenAI:chat.completions.stream" = "digline_openai.recording:STREAM_MAP"
 
+# How `digline record proxy` reads this provider's calls off the wire: one
+# entry per route, named as `--upstream ROUTE=URL` names it, loaded when the
+# proxy starts (ADR 0062 §3).
+[project.entry-points."digline.recording_wire"]
+openai = "digline_openai.recording:WIRE"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

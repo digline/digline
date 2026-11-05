@@ -30,14 +30,16 @@ import argparse
 import json
 import os
 import shlex
+import signal
 import sys
+import threading
 import traceback
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 from digline import __version__
-from digline.cli.output import emit, own_stdout, say
+from digline.cli.output import emit, flush, own_stdout, say
 from digline.cli.view import serve
 from digline.core import (
     DISPOSITIONS,
@@ -176,6 +178,11 @@ TARGET_HELP = (
     "same syntax as --suite; the target the run was made with, for a suite.py "
     "that holds more than one"
 )
+
+if TYPE_CHECKING:
+    # Imported where the command runs, so the CLI's start does not load a
+    # server it may not run.
+    from digline.host.proxy import Proxy
 
 
 def _meta(pairs: Sequence[str]) -> Mapping[str, object]:
@@ -1328,6 +1335,10 @@ def cmd_record(args: argparse.Namespace) -> int:
         "since": ("compare",),
         "setup": ("compare",),
         "show_setup": ("compare",),
+        "app": ("proxy",),
+        "port": ("proxy",),
+        "upstream": ("proxy",),
+        "episode_idle": ("proxy",),
     }
     for option, actions in belongs.items():
         given = getattr(args, option)
@@ -1343,6 +1354,8 @@ def cmd_record(args: argparse.Namespace) -> int:
         return cmd_record_import(args)
     if args.action == "compare":
         return cmd_record_compare(args)
+    if args.action == "proxy":
+        return cmd_record_proxy(args)
     if args.tenant is None:
         raise UsageError(f"`digline record {args.action}` needs --tenant")
     if args.action == "off":
@@ -1403,6 +1416,79 @@ def _say_values(root: Path, tenant: str) -> None:
     [status] = recorder_status(root, tenant)
     if status.switch == "valid":
         say(f"  values: {_values_line(status)}")
+
+
+def cmd_record_proxy(args: argparse.Namespace) -> int:
+    """Listen on 127.0.0.1, forward each call to its provider, and record it
+    as the recorder in process does, under the tenant's switch, until
+    interrupted. Then every open episode and the counts are written.
+    (ADR 0062 §3)"""
+    if args.tenant is None:
+        raise UsageError("`digline record proxy` needs --tenant")
+    from digline.host.proxy import DEFAULT_PORT, EPISODE_IDLE, start_proxy
+
+    root = Path(args.root)
+    # Stopped as a server is, by SIGTERM, the same way as by Ctrl-C: the open
+    # episodes and the counts are written either way. Installed before the
+    # first line is said, and the lines are inside the `try`: whoever starts
+    # the proxy may stop it as soon as it has read them.
+    signal.signal(signal.SIGTERM, _interrupted)
+    # A switch the recorder refuses is a refusal like any other here.
+    proxy = start_proxy(
+        root=root,
+        tenant=args.tenant,
+        app=args.app if args.app is not None else "proxy",
+        port=args.port if args.port is not None else DEFAULT_PORT,
+        upstream=args.upstream or (),
+        episode_idle=(
+            args.episode_idle if args.episode_idle is not None else EPISODE_IDLE
+        ),
+    )
+    try:
+        _say_proxy(proxy, root, args.tenant)
+        # Read by whoever started it, as `digline view`'s port is: not held
+        # in a buffer while the proxy runs.
+        flush()
+        threading.Event().wait()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        proxy.stop()
+    say("digline record proxy: stopped; open episodes and the counts are written")
+    return EXIT_OK
+
+
+def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
+    """Where the proxy listens, what it records and how to point an SDK at
+    it. The recording line is the switch the proxy read, which
+    `DIGLINE_RECORD=1` gives where no file does: the status reads the file
+    alone."""
+    [status] = recorder_status(root, tenant)
+    switch = proxy.recorder.switch
+    say(f"digline record proxy: listening on {proxy.address}")
+    say(f"  tenant:     {tenant}, app {proxy.recorder.app}")
+    say(f"  writes to:  {status.recordings_path}")
+    if switch is not None and switch.on:
+        source = "recorder.toml" if status.switch == "valid" else "DIGLINE_RECORD=1"
+        say(
+            f"  recording:  on, from {source}: sample {switch.sample:g}, "
+            f"ceiling {switch.ceiling} bytes, interval {switch.interval:g} s"
+        )
+    else:
+        say("  recording:  off for this tenant: calls are forwarded, none is written")
+    for route, wire in sorted(proxy.wires.items()):
+        upstream = proxy.upstreams.get(route)
+        where = wire.upstream if upstream is None else f"{upstream} (--upstream)"
+        say(f"  route {route}: {where}")
+    if not proxy.wires:
+        say("  no route: install digline-openai or digline-anthropic")
+    say("  point the SDK here:")
+    for route, wire in sorted(proxy.wires.items()):
+        say(f"    {route.upper()}_BASE_URL={proxy.address}{wire.base}")
+
+
+def _interrupted(signum: int, frame: object) -> None:
+    raise KeyboardInterrupt
 
 
 def cmd_record_import(args: argparse.Namespace) -> int:
@@ -2087,12 +2173,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec_p.add_argument(
         "action",
-        choices=("on", "off", "status", "import", "compare"),
+        choices=("on", "off", "status", "import", "compare", "proxy"),
         help=(
             "on and off write .digline/<tenant>/recorder.toml; status reads it "
             "and the tenant's recordings, and is never a gate; import lists a "
             "suite's recorded cases, or writes the ones named; compare shows a "
-            "suite's recorded answers by case and by setup, and writes nothing"
+            "suite's recorded answers by case and by setup, and writes nothing; "
+            "proxy forwards an application's calls from 127.0.0.1 and records "
+            "them as the recorder in process does"
         ),
     )
     rec_p.add_argument(
@@ -2199,6 +2287,35 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "import only, mandatory with --good or --bad: your own name, the "
             "mark the cases carry; never read from git or the environment"
+        ),
+    )
+    rec_p.add_argument(
+        "--app",
+        help=(
+            "proxy only: the app a call with no X-Digline-App is filed under (proxy)"
+        ),
+    )
+    rec_p.add_argument(
+        "--port",
+        type=int,
+        help="proxy only: the port on 127.0.0.1 (8787); 0 takes a free one",
+    )
+    rec_p.add_argument(
+        "--upstream",
+        action="append",
+        metavar="ROUTE=URL",
+        help=(
+            "proxy only: where a route goes, for a gateway or a compatible "
+            "endpoint, e.g. openai=https://example.test/v1; once per route"
+        ),
+    )
+    rec_p.add_argument(
+        "--episode-idle",
+        type=float,
+        metavar="SECONDS",
+        help=(
+            "proxy only: seconds without a call after which an episode off the "
+            "wire is closed and written (30)"
         ),
     )
     rec_p.set_defaults(func=cmd_record)
