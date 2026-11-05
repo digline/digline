@@ -569,10 +569,13 @@ class _Handler(BaseHTTPRequestHandler):
         frames = getattr(wire, "frames", None)
         request_of = getattr(wire, "request_of", None)
         results_of = getattr(wire, "results", None)
+        map_for = getattr(wire, "map_for", None)
         try:
             if request_of is not None:
                 request = cast(dict[str, Any], request_of(path, request))
-            mapped = wire.map
+            # One route, more than one call: the path says which map reads it,
+            # where the wire says so (Bedrock's Converse and InvokeModel).
+            mapped = wire.map if map_for is None else map_for(path)
             framed = self._framed(frames, kind, data)
             if framed is not None or "text/event-stream" in kind:
                 events = framed if framed is not None else _events(data.decode("utf-8"))
