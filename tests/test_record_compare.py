@@ -31,9 +31,14 @@ import pytest
 
 from digline.cli.main import main
 from digline.core.capture import capture_id
-from digline.core.recording import Recording, setup_digest_of
+from digline.core.recording import Recording, episode_setup, setup_digest_of
 from digline.core.refused import RefusedError
-from digline.core.run import RecordedResponse, RecordedStep
+from digline.core.run import (
+    RecordedResponse,
+    RecordedStep,
+    RecordedToolCall,
+    steps_of,
+)
 from digline.host import load_suite, record_compare
 from digline.store.file_store import FileResultStore, RecordingWriter
 from digline.wire import EXIT_OK, EXIT_USAGE, record_compare_json
@@ -456,3 +461,69 @@ def test_a_system_of_messages_is_shown_by_its_first_text_never_as_json(
         len(first),
         True,
     )
+
+
+def test_an_episode_shows_its_calls_and_models_and_its_children_one_per_line(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An episode's setup is shown by the shape of its steps: how many model
+    calls each episode made, and the models its child setups name, beside the
+    setup's name. `--show-setup` resolves `child_setups` one per line. A list,
+    never a ranking."""
+    haiku: dict[str, object] = {"model": "claude-haiku", "system": "Be brief."}
+    sonnet: dict[str, object] = {"model": "claude-sonnet", "system": "Be brief."}
+    dh, ds = setup_digest_of(haiku), setup_digest_of(sonnet)
+    one = episode_setup([dh], "a" * 40)
+    two = episode_setup([ds, dh], "a" * 40)
+    # The second episode asked a tool between its two calls: a tool step is
+    # not a call to a model, and is not counted as one.
+    lookup = RecordedToolCall(tool="lookup")
+    writer = RecordingWriter(FileResultStore(tmp_path))
+    for at, setup, steps, tools, ident, children in (
+        ("01", one, steps_of([("stop", [])]), (), "1" * 32, (haiku,)),
+        (
+            "02",
+            two,
+            steps_of([("tool_use", [lookup]), ("stop", [])]),
+            (lookup,),
+            "2" * 32,
+            (sonnet, haiku),
+        ),
+    ):
+        response = RecordedResponse(
+            output="found it", kind="text", steps=steps, tool_calls=tools
+        )
+        writer.write(
+            recording(PARCEL, setup, "found it", at, response=response, id=ident)
+        )
+        for child in children:
+            writer.write(recording(case("where?"), child, "looking", at, episode=ident))
+    suite_file(tmp_path)
+    a, b = (setup_digest_of(s)[:8] for s in (one, two))
+    found = compared(tmp_path, setups=(a, b), show_setup=True)
+    [parcel] = [c for c in found.cases if c.kind == "episode"]
+    shapes = {s.setup[:8]: (s.calls, s.models) for s in parcel.setups}
+    assert shapes == {
+        a: ((1,), ("claude-haiku",)),
+        b: ((2,), ("claude-haiku", "claude-sonnet")),
+    }
+    [children] = [k for k in found.setup_keys if k.key == "child_setups"]
+    assert children.b is not None
+    assert [(c.digest, c.model) for c in children.b.children] == sorted(
+        [(dh[:8], "claude-haiku"), (ds[:8], "claude-sonnet")]
+    )
+    assert main(run(tmp_path, "--setup", a, b, "--show-setup")) == EXIT_OK
+    out = capsys.readouterr().out
+    assert (
+        f"  setup B {b} · model calls per episode: 2 · "
+        "models: claude-haiku, claude-sonnet"
+    ) in out
+    assert f"  setup A {a} · model calls per episode: 1 · models: claude-haiku" in out
+    lines = out.splitlines()
+    start = lines.index("    child_setups:")
+    assert lines[start + 1 : start + 4] == [
+        f"      A {dh[:8]} · claude-haiku",
+        *sorted(
+            [f"      B {dh[:8]} · claude-haiku", f"      B {ds[:8]} · claude-sonnet"]
+        ),
+    ]

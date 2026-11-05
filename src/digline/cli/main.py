@@ -143,6 +143,7 @@ from digline.wire import (
     ahead_note,
     compare_json,
     diff_json,
+    episode_shape,
     exit_code,
     explain_json,
     log_json,
@@ -1642,6 +1643,18 @@ def cmd_record_compare(args: argparse.Namespace) -> int:
             else f"  the two setups hold the same {found.same_keys} keys"
         )
         for key in found.setup_keys:
+            if any(value is not None and value.children for value in (key.a, key.b)):
+                # An episode's child setups, one per line: each by its digest
+                # and the model it names, never as a list in one line.
+                say(f"    {key.key}:")
+                for side, value in (("A", key.a), ("B", key.b)):
+                    if value is None:
+                        say(f"      not in {side}")
+                        continue
+                    for child in value.children:
+                        model = child.model or "model not recorded"
+                        say(f"      {side} {child.digest} · {model}")
+                continue
             sides = [
                 f"{side} {_setup_value(value)}"
                 if value is not None
@@ -1662,7 +1675,9 @@ def cmd_record_compare(args: argparse.Namespace) -> int:
             side = ""
             if found.pair is not None:
                 side = "A " if setup.setup == found.pair[0] else "B "
-            say(f"  setup {side}{setup.setup[:8]}")
+            shaped = case.kind == "episode" and (setup.calls or setup.models)
+            shape = f" · {episode_shape(setup)}" if shaped else ""
+            say(f"  setup {side}{setup.setup[:8]}{shape}")
             if not setup.answers:
                 say("    nothing recorded")
             for answer in setup.answers:

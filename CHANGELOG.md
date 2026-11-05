@@ -407,6 +407,15 @@ nothing. No public name is removed or renamed and no exit code changes.
   `judge_pricing`, the rates of `[target.pricing]`; a judge whose model has no
   price says that key where its cost is asked, where it said *Pass
   `pricing=` to the target*, which a TOML file cannot write (ADR 0007 §3).
+- **An episode's setup is a set, written down and exposed**: its calls'
+  setups, the order not counted and each once, and the commit; a declared
+  `setup=` wins whole. It was already so in the Python and the Java recorder,
+  and is now one function, `digline.core.recording.episode_setup`, which the
+  recorder writes with (ADR 0058 §8).
+- **`digline record compare` and the view's *Across setups* show an
+  episode's shape**: beside its setup, how many model calls its episodes made
+  and the models its calls named; `--show-setup` shows `child_setups` one per
+  line, each with its model. `--json` is unchanged.
 
 ## pytest-digline — unreleased
 

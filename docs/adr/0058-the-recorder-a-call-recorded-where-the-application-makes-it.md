@@ -383,6 +383,24 @@ of those changes, no prompt moves; with the children's setups alone, the import
 would see *the same setup, different responses*, and report as noise what is a
 change.
 
+*Noted 2026-11-05, and the section above kept as written: the children's
+setups are a set.* The order the calls were made in does not count, and a
+setup met twice is one. So a turn that asks two models has a setup of its own,
+unlike either of its calls', and the same turn recorded with its calls in
+another order has the same setup. A setup declared with `setup=` wins whole:
+nothing is added to it. Measured on `main` at `700c6345`, before this note, with
+the Python recorder: two episodes that asked the same two models in opposite
+orders were written under one digest. Java's recorder builds the same set, its
+collector's digests being a sorted set. What was not written down is now one
+function, `digline.core.recording.episode_setup`, which the Python recorder
+writes with. `setup_digest`, the setup in force per form, `where`'s answers
+from a new setup and the page's marks read the digest of what it returned, and
+nothing else decides an episode's identity. A digest says nothing of an
+episode's shape, so `record compare` and the page's *Across setups* show,
+beside an episode's setup, how many model calls its episodes made and the
+models its child setups name; `--show-setup` resolves `child_setups` one per
+line. A list: no setup is ranked above another.
+
 ### 9. A step, and who acted
 
 **A step of a trajectory is a `RecordedStep`, and it carries an `actor`**:

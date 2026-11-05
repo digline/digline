@@ -1032,6 +1032,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.chars": "{chars} characters",
         "view.setups.messages.one": "{count} message",
         "view.setups.messages.many": "{count} messages",
+        "view.setups.episode": "model calls per episode: {calls} · models: {models}",
+        "view.setups.unrecorded": "not recorded",
         "view.setups.case": "Case {case_id} · {kind}",
         "view.setups.digest": (
             "setup {digest}: shown by its first 8 characters, as digline record "
@@ -2721,6 +2723,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.chars": "{chars} caratteri",
         "view.setups.messages.one": "{count} messaggio",
         "view.setups.messages.many": "{count} messaggi",
+        "view.setups.episode": (
+            "chiamate al modello per episodio: {calls} · modelli: {models}"
+        ),
+        "view.setups.unrecorded": "non registrati",
         "view.setups.case": "Caso {case_id} · {kind}",
         "view.setups.digest": (
             "setup {digest}: mostrato dai suoi primi 8 caratteri, come lo stampa "

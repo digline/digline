@@ -2459,7 +2459,12 @@ def _record_episode(
     ceiling with the text and the trajectory, whole or nothing."""
     stage = "unexpected"
     try:
-        from digline.core.recording import Recording, input_of, setup_digest_of
+        from digline.core.recording import (
+            Recording,
+            episode_setup,
+            input_of,
+            setup_digest_of,
+        )
         from digline.core.run import (
             MAX_RECORDED_CHARS,
             RecordedResponse,
@@ -2474,13 +2479,11 @@ def _record_episode(
 
         stage = "setup"
         given = ep._setup  # pyright: ignore[reportPrivateUsage]
-        if given is not None:
-            setup = dict(given)
-        else:
-            setup: dict[str, object] = {"child_setups": sorted(collector.digests())}
-            commit = _commit(state)
-            if commit is not None:
-                setup["git_commit"] = commit
+        setup = episode_setup(
+            collector.digests(),
+            None if given is not None else _commit(state),
+            declared=given,
+        )
 
         stage = "not JSON"
         digest = setup_digest_of(setup)
