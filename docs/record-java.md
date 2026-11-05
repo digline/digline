@@ -6,7 +6,7 @@ cases. Which door it goes through depends on what makes the call:
 
 | What makes the call | The door | How it was read |
 |---|---|---|
-| The official OpenAI Java SDK, the official Anthropic Java SDK, the AWS SDK v2 for Bedrock | **Two files copied into the project**, a writer and a hook for the client | run by `recorders/java`'s tests, on each SDK's real client against a fake provider on `127.0.0.1` |
+| The official OpenAI Java SDK, the official Anthropic Java SDK, the AWS SDK v2 for Bedrock | **Two files copied into the project**, a writer and a hook for the client | run by `recorders/java`'s tests, on each SDK's real client against a fake provider on `127.0.0.1`: measured at the versions [ADR 0062](adr/0062-the-recorder-out-of-process-and-in-other-processes.md) read, and run by CI at those `recorders/java/pom.xml` names |
 | LangChain4j, Quarkus-LangChain4j | **[`digline record proxy`](record.md#through-the-proxy-digline-record-proxy)**, with the base URL from configuration and the suite in a header or the path | LangChain4j with a header, single and streamed, run through the proxy by the CI job `through-the-proxy` on every pull request; Quarkus-LangChain4j by the path alone, run through the proxy for [ADR 0062](adr/0062-the-recorder-out-of-process-and-in-other-processes.md) on 2026-11-04 |
 | Spring AI | not measured | no version of it was read |
 
