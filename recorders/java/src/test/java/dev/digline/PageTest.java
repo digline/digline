@@ -20,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -230,4 +231,32 @@ class PageTest {
         assertEquals(turn, call.get("episode"));
         assertTrue(!call.containsKey("orphan"));
     }
+
+    @Test
+    void aClientAFrameworkBuildsAndTheSuiteNamedByTheOneMethod() throws IOException {
+        switchOn("on = true\n");
+        DiglineRecorder recorder = DiglineRecorder.development(root, "acme", "support");
+        try (FakeProvider b = new FakeProvider(HooksTest.wire("bedrock-single"), 0, 18788)) {
+            // page:
+            BedrockRuntimeClient client = BedrockRuntimeClient.builder()
+                    .overrideConfiguration(c -> c.addExecutionInterceptor(new DiglineAws(recorder)))
+                    .build();
+            // end
+            ask("triage", () -> client.converse(ConverseRequest.builder().modelId(HooksTest.MODEL)
+                    .messages(HooksTest.bedrockAsked()).build()));
+            client.close();
+        }
+        Map<String, Object> call = recordings().get(0);
+        assertEquals("triage", call.get("suite"));
+        // Named by the suite: no call site is written beside it.
+        assertTrue(!call.containsKey("call_site"));
+    }
+
+    // page:
+    <T> T ask(String feature, Supplier<T> call) {
+        try (var suite = DiglineRecorder.suite(feature)) {
+            return call.get();
+        }
+    }
+    // end
 }

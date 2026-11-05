@@ -835,7 +835,12 @@ public final class DiglineRecorder {
         }
     }
 
-    /** The class and method that made the call: the first frame outside the hooks and the SDKs. */
+    /**
+     * The class and method that made the call: the first frame outside the
+     * hooks, the SDKs and the libraries built on them. LangChain4j is one: an
+     * application that asks through it would otherwise be named by the
+     * library's class, the same for every call.
+     */
     private static String callSite() {
         return StackWalker.getInstance().walk(frames -> frames
                 .filter(frame -> !foreign(frame.getClassName()))
@@ -851,7 +856,7 @@ public final class DiglineRecorder {
                 "dev.digline.DiglineAnthropic", "dev.digline.DiglineAws", "java.", "javax.", "jdk.",
                 "sun.", "kotlin.",
                 "okhttp3.", "okio.", "com.openai.", "com.anthropic.", "software.amazon.", "io.netty.",
-                "org.reactivestreams.", "org.apache.http.")) {
+                "org.reactivestreams.", "org.apache.http.", "dev.langchain4j.")) {
             if (name.startsWith(prefix)) {
                 return true;
             }

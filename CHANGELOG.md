@@ -331,6 +331,9 @@ nothing. No public name is removed or renamed and no exit code changes.
   and Quarkus, and what stays out: Spring AI, not measured, and a call made
   through an asynchronous client, which reaches the hook on another thread
   and is recorded under `_unassigned`.
+- **The Java recorder's call site skips LangChain4j's frames**, as it skips
+  the SDKs': a call made through LangChain4j is named by the first frame
+  outside both, not by the library's class.
 - **`docs/record-java.md` says what a Java team does around the files**, from a
   user's pass over it: how to install the `digline` command as a tool of its
   own, `uv tool install digline --with digline-openai`; how the gate runs a
