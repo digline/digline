@@ -75,8 +75,8 @@ __all__ = ["RECORD_LINES", "STATES", "State", "Where", "where"]
 #: Where a person starts recording, by the language of the application: the
 #: page that says it, and three lines quoted from it as they stand there,
 #: never rewritten here. `tests/test_where_page.py` holds each line to its
-#: page. Java has no recorder of its own on `main` yet, so it is the proxy,
-#: as any other language is.
+#: page. Java's are the writer and a hook copied into the project
+#: (`record-java.md`); any other language goes through the proxy.
 _PROXY: tuple[str, tuple[str, ...]] = (
     "record.md",
     (
@@ -96,7 +96,16 @@ RECORD_LINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             '    suite="category",',
         ),
     ),
-    ("Java", *_PROXY),
+    (
+        "Java",
+        "record-java.md",
+        (
+            'DiglineRecorder recorder = DiglineRecorder.development(root, "acme", '
+            '"support");',
+            "        .addInterceptor(new DiglineOkHttp(recorder))",
+            'try (var suite = DiglineRecorder.suite("refunds")) {',
+        ),
+    ),
     (
         "Node",
         "record-node.md",

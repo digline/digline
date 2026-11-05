@@ -102,7 +102,7 @@ the page that says more. The runs stay at `/`.
 
 | State | When it holds | The next step |
 |---|---|---|
-| *Nothing recorded yet* | no recording, and the suite has never run | the three lines that start recording, for Python, Java, Node or any other language, quoted from [`record.md`](record.md) and [digline for Node](record-node.md) |
+| *Nothing recorded yet* | no recording, and the suite has never run | the three lines that start recording, for Python, Java, Node or any other language, quoted from [`record.md`](record.md), [digline for Java](record-java.md) and [digline for Node](record-node.md) |
 | *Recording is off* | the switch says off, every recording has been imported, and the suite has never run | `digline record on`; a button only with `--allow-record` |
 | *N calls named no suite* | every recording named no suite | the suite at the call site, or `--from _unassigned` |
 | *N recordings in S, no suite yet* | the suite has recordings and no capture declaration | the recordings counted by the shape of their output, and [an agent's proposal](proposing-a-suite.md) or [the capture declaration](declarative.md#capture) |
