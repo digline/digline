@@ -96,7 +96,16 @@ def directory_of(root: Path, tenant: str) -> Path:
     store, as the store holds every file it reads (`FileResultStore._inside`):
     a `.gate` that is a link out of `.digline/` is refused."""
     store = FileResultStore(root)
-    place = store.tenant_dir(tenant).joinpath(*GATE_DIRECTORY).resolve()
+    # The name first, as a string: normalised and held under the store before
+    # anything on disk is asked, the form CodeQL's path check reads as a guard
+    # (alerts 133-135). Then the disk: a link out of the store is refused.
+    base = os.path.normpath(store.root)
+    candidate = os.path.normpath(
+        os.path.join(store.tenant_dir(tenant), *GATE_DIRECTORY)
+    )
+    if not candidate.startswith(base + os.sep):
+        raise PathRefusedError(f"the gate's markers at {candidate} are outside {base}")
+    place = Path(candidate).resolve()
     if not place.is_relative_to(store.root.resolve()):
         raise PathRefusedError(
             f"the gate's markers at {place} are outside {store.root}: a link "
