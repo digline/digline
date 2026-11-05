@@ -31,7 +31,8 @@ The decision behind it is
 [ADR 0058](adr/0058-the-recorder-a-call-recorded-where-the-application-makes-it.md),
 and the rules the import follows are [ADR 0023](adr/0023-capture.md)'s.
 What a recording file holds, for a program in another language that writes
-one, is [the recording document](recording-format.md).
+one, is [the recording document](recording-format.md), and an application in
+Java has [a page of its own](record-java.md).
 
 ## Wrapping the client
 

@@ -1,0 +1,82 @@
+{
+  "route": "openai",
+  "path": "/v1/chat/completions",
+  "request": {
+    "model": "gpt-4o-mini",
+    "messages": [
+      {
+        "role": "system",
+        "content": "Answer in one line."
+      },
+      {
+        "role": "user",
+        "content": "Où est la commande A1 ?"
+      }
+    ],
+    "temperature": 0.2,
+    "max_tokens": 64,
+    "user": "customer-42",
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "lookup",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "order": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "reply": {
+    "id": "chatcmpl-1",
+    "object": "chat.completion",
+    "created": 1762329600,
+    "model": "gpt-4o-mini-2024-07-18",
+    "system_fingerprint": "fp_1",
+    "choices": [
+      {
+        "index": 0,
+        "finish_reason": "tool_calls",
+        "message": {
+          "role": "assistant",
+          "content": "Je regarde.",
+          "tool_calls": [
+            {
+              "id": "call_1",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": "{\"order\": \"A1\", \"weight\": 1.5}"
+              }
+            },
+            {
+              "id": "call_2",
+              "type": "function",
+              "function": {
+                "name": "lookup",
+                "arguments": "A2?"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "usage": {
+      "prompt_tokens": 40,
+      "completion_tokens": 12,
+      "total_tokens": 52,
+      "prompt_tokens_details": {
+        "cached_tokens": 8
+      },
+      "completion_tokens_details": {
+        "reasoning_tokens": 0
+      }
+    }
+  }
+}

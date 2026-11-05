@@ -1,0 +1,90 @@
+{
+  "route": "openai",
+  "path": "/v1/chat/completions",
+  "request": {
+    "model": "gpt-4o-mini",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Where is A1?"
+      }
+    ],
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "events": [
+    {
+      "id": "c",
+      "object": "chat.completion.chunk",
+      "created": 1762329600,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "role": "assistant",
+            "content": ""
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "object": "chat.completion.chunk",
+      "created": 1762329600,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "It left "
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "object": "chat.completion.chunk",
+      "created": 1762329600,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {
+            "content": "on Monday."
+          },
+          "finish_reason": null
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "object": "chat.completion.chunk",
+      "created": 1762329600,
+      "model": "gpt-4o-mini",
+      "choices": [
+        {
+          "index": 0,
+          "delta": {},
+          "finish_reason": "stop"
+        }
+      ]
+    },
+    {
+      "id": "c",
+      "object": "chat.completion.chunk",
+      "created": 1762329600,
+      "model": "gpt-4o-mini",
+      "choices": [],
+      "usage": {
+        "prompt_tokens": 9,
+        "completion_tokens": 5,
+        "total_tokens": 14
+      }
+    }
+  ]
+}

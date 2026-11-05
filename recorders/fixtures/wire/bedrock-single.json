@@ -1,0 +1,60 @@
+{
+  "route": "bedrock",
+  "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/converse",
+  "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "request": {
+    "messages": [
+      {
+        "role": "user",
+        "content": [
+          {
+            "text": "Où est la commande A1 ?"
+          }
+        ]
+      }
+    ],
+    "system": [
+      {
+        "text": "Answer in one line."
+      }
+    ],
+    "inferenceConfig": {
+      "maxTokens": 256,
+      "temperature": 0.2
+    },
+    "requestMetadata": {
+      "customer": "42"
+    }
+  },
+  "reply": {
+    "output": {
+      "message": {
+        "role": "assistant",
+        "content": [
+          {
+            "text": "Je regarde."
+          },
+          {
+            "toolUse": {
+              "toolUseId": "t1",
+              "name": "lookup",
+              "input": {
+                "order": "A1"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "stopReason": "tool_use",
+    "usage": {
+      "inputTokens": 30,
+      "outputTokens": 12,
+      "totalTokens": 142,
+      "cacheReadInputTokens": 100
+    },
+    "metrics": {
+      "latencyMs": 300
+    }
+  }
+}
