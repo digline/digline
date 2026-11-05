@@ -630,6 +630,13 @@ class _TomlPricing(Pricing):
             )
         return Pricing.cost(self, model, usage)
 
+    def why_unpriced(self, model: str, usage: Usage) -> str | None:
+        """The base's answer, stated here because `cost` is overridden: a
+        model this list does not know is `None` here as there, and `cost`
+        refuses it, now naming the TOML key (`Pricing.why_unpriced`'s rule
+        on a subclass that overrides `cost`)."""
+        return Pricing.why_unpriced(self, model, usage)
+
 
 # --------------------------------------------------------------------------- #
 # Cases, always a file
