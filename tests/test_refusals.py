@@ -14,6 +14,7 @@ import importlib
 import inspect
 import pkgutil
 import threading
+import urllib.error
 import urllib.request
 from functools import partial
 from http.server import ThreadingHTTPServer
@@ -186,10 +187,15 @@ def test_the_view_says_every_refusal(kind: type[Exception], repo: Path) -> None:
                     "Cookie": f"digline-view-{port}={SESSION}",
                 },
             )
-            with urllib.request.urlopen(request, timeout=10) as response:
-                status, body = response.status, response.read().decode("utf-8")
+            try:
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    status, body = response.status, response.read().decode("utf-8")
+            except urllib.error.HTTPError as exc:
+                status, body = exc.code, exc.read().decode("utf-8")
         finally:
             httpd.shutdown()
             thread.join(timeout=10)
-    assert status == 200
+    # A refusal writes nothing: a 400 with the sentence, never the 303 of a
+    # write that happened. (ADR 0061 §4.2)
+    assert status == 400
     assert SENTENCE in body

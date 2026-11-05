@@ -370,12 +370,11 @@ def _commit_cell(run: Run, locale: Locale) -> str:
 
 
 def _errored_cases(run: Run) -> int:
-    """How many cases this run could not judge.
+    """How many cases this run could not judge, for the marker's words.
 
-    Read here rather than asked of the store, because it decides whether the
-    row offers a promotion at all — and `promote_baseline` refuses an errored
-    run anyway. Showing the refusal before it happens is the difference between
-    a screen that explains and one that argues.
+    It decides nothing: whether the row offers a promotion is the store's
+    answer, in `refused`. Showing the refusal before it happens is the
+    difference between a screen that explains and one that argues.
     """
     return len(
         {
@@ -445,8 +444,8 @@ def runs_page(
     locale: Locale,
     suite: str,
     allow_promote: bool,
+    refused: Mapping[str, str],
     ignored: str | Sequence[LeftOutPart] = "",
-    message: str = "",
 ) -> str:
     """Every readable run, newest first, with its aggregates beside it.
 
@@ -461,6 +460,16 @@ def runs_page(
     with a button. Where the button is absent the marker in its place names the
     refusal that would have come — `BASELINE`, `OLDER CONFIG`, `NOT JUDGED` —
     so the rule is met before the click and not through one.
+
+    **`refused` is the store's answer, not this page's.** It names, by run
+    key, the type of the refusal the promotion would raise first, as
+    `digline.host.promotion_refusal` asks it of the store's own functions; a
+    key absent from it is promotable. The page draws the marker for that
+    type and decides nothing: a condition the store adds reaches the page
+    without a line here, under the generic marker until it is given its own.
+    Mandatory for `config_hash`'s reason: a default would tell every row it
+    is promotable. Type names and not the types, because the report imports
+    nothing from the store.
 
     `config_hash` is the configuration currently in force, and it is mandatory
     for the reason `environment` is: a screen that had to guess it would tell
@@ -500,8 +509,6 @@ def runs_page(
     ]
     title = phrase(locale, "view.title.runs", suite=suite)
     body.append(f"<h1>{escape(title)}</h1>\n")
-    if message:
-        body.append(f'<p class="note">{escape(message)}</p>\n')
 
     if not ordered:
         body.append(f'<p class="empty">{escape(phrase(locale, "view.no_runs"))}</p>\n')
@@ -517,6 +524,7 @@ def runs_page(
                 labels,
                 locale,
                 allow_promote,
+                refused,
             )
         )
         if not measures:
@@ -595,6 +603,7 @@ def _runs_table(
     labels: Mapping[str, str],
     locale: Locale,
     allow_promote: bool,
+    refused: Mapping[str, str],
 ) -> str:
     head = (
         "".join(
@@ -647,7 +656,7 @@ def _runs_table(
                 key,
                 run,
                 is_baseline=is_baseline,
-                stale=stale,
+                refusal=refused.get(key),
                 baseline_key=baseline_key,
                 locale=locale,
                 allow_promote=allow_promote,
@@ -664,7 +673,7 @@ def _actions_cell(
     run: Run,
     *,
     is_baseline: bool,
-    stale: bool,
+    refusal: str | None,
     baseline_key: str | None,
     locale: Locale,
     allow_promote: bool,
@@ -712,20 +721,8 @@ def _actions_cell(
 
     if is_baseline:
         parts.append(_chip("view.baseline", locale))
-    elif stale:
-        parts.append(
-            _chip("view.chip.older_config", locale, warn=True, why="view.promote.older")
-        )
-    elif errored := _errored_cases(run):
-        parts.append(
-            _chip(
-                "view.chip.errored",
-                locale,
-                warn=True,
-                why="view.promote.errored",
-                count=errored,
-            )
-        )
+    elif refusal is not None:
+        parts.append(_refusal_chip(refusal, run, locale))
     elif allow_promote:
         parts.append(
             '<form method="post" action="/promote">'
@@ -742,6 +739,40 @@ def _actions_cell(
             "</form>"
         )
     return f'<td class="act">{"".join(parts)}</td>'
+
+
+#: The marker for each refusal a promotion can raise before its write, by the
+#: refusal's type name, in the order the store asks them: `refusals_for`'s,
+#: then the pins'. `tests/test_view.py` holds it equal to the types
+#: `promotion_refusal` can return.
+REFUSAL_CHIPS: Mapping[str, tuple[str, str]] = {
+    "CrossingRefusedError": ("view.chip.crossing", "view.promote.crossing"),
+    "ConfigMismatchError": ("view.chip.older_config", "view.promote.older"),
+    "ReplayedRunError": ("view.chip.replayed", "view.promote.replayed"),
+    "ErroredRunError": ("view.chip.errored", "view.promote.errored"),
+    "NothingJudgedError": ("view.chip.nothing_judged", "view.promote.nothing_judged"),
+    "UncalibratedRunError": ("view.chip.uncalibrated", "view.promote.uncalibrated"),
+    "ContradictedRunError": ("view.chip.contradicted", "view.promote.contradicted"),
+    "UnacceptedPinsError": ("view.chip.pinned", "view.promote.pinned"),
+}
+
+
+def _refusal_chip(refusal: str, run: Run, locale: Locale) -> str:
+    """The marker for `refusal`, a type name from `REFUSAL_CHIPS`, or the
+    generic one for a type the table does not hold yet.
+
+    `ErroredRunError` is two conditions sharing a type: cases that could not
+    be judged, counted, and a run that does not reconcile or a run-level
+    check that could not be computed, where there is no case to count."""
+    chip, why = REFUSAL_CHIPS.get(
+        refusal, ("view.chip.refused", "view.promote.unnamed")
+    )
+    if refusal == "ErroredRunError":
+        count = _errored_cases(run)
+        if not count:
+            chip, why = "view.chip.unmeasured", "view.promote.unmeasured"
+        return _chip(chip, locale, warn=True, why=why, count=count)
+    return _chip(chip, locale, warn=True, why=why, run_key=run.rejudged_from or "")
 
 
 def _chip(

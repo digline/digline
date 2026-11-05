@@ -316,11 +316,20 @@ def _answer_row(
         if answer.attached
         else ""
     )
+    # An episode the proxy read with no case given takes its first call's,
+    # and says so beside the id, as `digline record import` does after the
+    # input. (ADR 0062 §3)
+    first_call = (
+        f'<div class="note">'
+        f"{escape(phrase(locale, 'view.recordings.from_first_call'))}</div>"
+        if answer.case_from_first_call
+        else ""
+    )
     when = answer.first_at or phrase(locale, "view.recordings.undated")
     return (
         "<tr>"
         f'<td><a href="{escape(whole)}?locale={locale}">'
-        f'<code class="key">{escape(answer.id)}</code></a>{attached}</td>'
+        f'<code class="key">{escape(answer.id)}</code></a>{first_call}{attached}</td>'
         f'<td class="when">{escape(when)}</td>'
         f"<td>{setups}</td>"
         f'<td class="said">{escape(shown)}{more}</td>'
