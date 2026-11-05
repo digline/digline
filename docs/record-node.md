@@ -6,8 +6,8 @@ an application in Python. In Node the door is **`digline record proxy`**, a
 process on the application's own machine that its SDK points at. Nothing is
 installed in the application.
 
-> **Arrives with digline 1.1.** On 1.0.3, `digline record proxy` does not
-> exist.
+> **Arrives with digline 1.1.** No earlier release has `digline record
+> proxy`.
 
 ## The proxy
 
@@ -25,9 +25,9 @@ do, are in [*Through the proxy*](record.md#through-the-proxy-digline-record-prox
 ## Three lines
 
 Each line below is a line of `recorders/node/through-the-proxy.mjs`, which
-the CI job `through-the-proxy` runs on every pull request: `openai` 7.50.0
-and `@anthropic-ai/sdk` 1.4.0, a single call and a stream from each, through
-the proxy to a fake provider. A test holds every line quoted here to that
+the CI job `through-the-proxy` runs on every pull request: `openai` and
+`@anthropic-ai/sdk` at the versions `recorders/node/package.json` pins, a
+single call and a stream from each, through the proxy to a fake provider. A test holds every line quoted here to that
 file. What the job measures is that the proxy records Node's calls with the
 same case and the same setup digest as the same request sent from Python,
 and, for OpenAI's, from LangChain4j in Java.
