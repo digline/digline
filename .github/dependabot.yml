@@ -130,6 +130,35 @@ updates:
     commit-message:
       prefix: "Bump"
 
+  # The SDKs the CI job `through-the-proxy` sends through `digline record
+  # proxy` (ADR 0062 §5): Node's, and LangChain4j's in Java. Their own entries
+  # and groups, so a bump arrives apart and the job says on that pull request
+  # whether the proxy still records what the new version sends.
+  - package-ecosystem: npm
+    directories:
+      - /recorders/node
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      through-the-proxy-node:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Bump"
+
+  - package-ecosystem: maven
+    directory: /recorders/java-proxy
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      through-the-proxy-java:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Bump"
+
   # The Java recorder's test project, `recorders/java` (ADR 0062 §4): the SDKs
   # its hooks hook, and JUnit. Its own entry and group, so a bump of what an
   # application hooks arrives apart from the example's, and the job

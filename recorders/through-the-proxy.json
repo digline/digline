@@ -1,0 +1,13 @@
+{
+  "suite": "triage",
+  "openai": {
+    "model": "gpt-test",
+    "max_tokens": 16,
+    "messages": [{"role": "user", "content": "What is the capital of France?"}]
+  },
+  "anthropic": {
+    "model": "claude-test",
+    "max_tokens": 16,
+    "messages": [{"role": "user", "content": "What is the capital of France?"}]
+  }
+}
