@@ -16,12 +16,15 @@ import secrets
 import shutil
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from digline.cli import EXIT_OK
-from digline.core import NO_BASELINE, key_of, project
+from digline.core import NO_BASELINE, Run, key_of, project
+from digline.core.declared import Declared
 from digline.core.run import run_from_json, run_to_json
+from digline.host import promotion_refusal
+from digline.report import runs_page
 from digline.store import FileResultStore
 
 __all__ = [
@@ -33,6 +36,7 @@ __all__ = [
     "hand_over",
     "printing_repo",
     "run_key",
+    "runs_page_as_served",
     "stamp_journal_format",
     "suite_source",
     "write_suite",
@@ -351,3 +355,33 @@ def printing_repo(root: Path) -> Path:
     )
     assert promoted.returncode == EXIT_OK, promoted.stderr
     return root
+
+
+def runs_page_as_served(
+    runs: Sequence[tuple[str, Run]],
+    *,
+    baseline_key: str | None,
+    config_hash: str,
+    declared: Declared | None = None,
+    **drawn: object,
+) -> str:
+    """`runs_page`, with `refused` asked of the store as `digline view` asks
+    it: `promotion_refusal` for every row, against the baseline's own run.
+
+    So a test of a marker reads the store's answer and not one written into
+    the test, and a condition the store adds reaches these tests too.
+    """
+    baseline = dict(runs).get(baseline_key or "")
+    refused = {
+        key: type(refusal).__name__
+        for key, run in runs
+        if (refusal := promotion_refusal(run, baseline, config_hash, declared=declared))
+        is not None
+    }
+    return runs_page(
+        runs,
+        baseline_key=baseline_key,
+        config_hash=config_hash,
+        refused=refused,
+        **drawn,  # pyright: ignore[reportArgumentType]
+    )

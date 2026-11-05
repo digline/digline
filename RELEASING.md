@@ -926,8 +926,9 @@ for itself.
 1. In that store, run `digline view --suite suite.py --allow-promote`.
 2. Click the address the startup line prints. The page loads, and the address
    bar ends in `/`, **without** `?launch=`.
-3. Press *Make baseline* on a row that is not the baseline. The page says
-   *Baseline set to …*, and `git diff .digline/*/baselines/` shows the move.
+3. Press *Make baseline* on a row that is not the baseline. The page comes
+   back on `/` with that row marked *baseline* (a `303` since 1.1.0, ADR 0061
+   §4.2), and `git diff .digline/*/baselines/` shows the move.
 4. The control, which is what makes step 3 mean anything: in a private window,
    open the bare `http://127.0.0.1:<port>/` and press *Make baseline* on
    another row. It is refused with a 403 naming the printed address, and the

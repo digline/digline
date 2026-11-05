@@ -14,7 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from tests._helpers import baseline_in, cli, run_key
+from tests._helpers import baseline_in, cli, run_key, runs_page_as_served
 
 from digline.core import (
     NO_BASELINE,
@@ -277,12 +277,11 @@ def test_the_help_states_the_guarantee_and_its_limit(repo: Path) -> None:
 
 
 def test_the_view_form_carries_the_baseline_the_page_was_drawn_against() -> None:
-    from digline.report import runs_page
 
     baseline = replace(run("2026-01-01T10:00:00+00:00"), promoted_at=SIGNED)
     other = run("2026-01-01T11:00:00+00:00")
     reference = key_of(baseline.created_at, baseline.config_hash)
-    page = runs_page(
+    page = runs_page_as_served(
         [
             (reference, baseline),
             (key_of(other.created_at, other.config_hash), other),
