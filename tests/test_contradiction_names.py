@@ -241,3 +241,61 @@ def test_two_checks_on_one_answer_are_one_answer() -> None:
         "checks on the steps contradicted a person on 1 reviewed answer: "
         "before, on case T3; max_steps, on case T3"
     )
+
+
+def test_cs_minimal_case_with_the_judge_repeated() -> None:
+    """C's minimal case as given, a judge wrapped in `Repeated` that always
+    says 1.0 beside `Before`, and a yes on a turn that refunds without a
+    lookup. C wrote `samples=1` for `Repeated`, which is refused at
+    declaration ("repeating once is the assertion itself"); 2 is the least it
+    takes. Measured before the fix: `contradicted` gave `(T3, before,
+    failed_yes)`, the line said the judge, and explain listed nothing."""
+    from digline.core import Repeated
+
+    declared = Suite(
+        tenant="acme",
+        environment="dev",
+        name="pluto",
+        assertions=[
+            Repeated(
+                inner=LlmRubric(
+                    rubric="handled?", judge=says("yes"), threshold=0.7, tolerance=0.05
+                ),
+                samples=2,
+                min_agreement="2/2",
+            ),
+            Before(first="lookup_order", then="issue_refund"),
+        ],
+        cases=[
+            Case(id="by-hand"),
+            Case(
+                id="T3",
+                reviewed_answer=ReviewedAnswer(
+                    output="Done.",
+                    check="llm_rubric",
+                    good=True,
+                    input="T3 refund-quick order 103",
+                    steps=refund_without_lookup(),
+                ),
+            ),
+        ],
+        samples=2,
+        min_agreement="2/2",
+    )
+    found_run = execute(declared, target, created_at=CREATED)
+    (case,) = [r for r in found_run.results if r.case_id == "T3"]
+    assert {v.score.name: v.status for v in case.verdicts} == {
+        "llm_rubric": "pass",
+        "before": "fail",
+    }
+    found = contradicted(found_run)
+    assert [(c.case_id, c.check, c.direction) for c in found] == [
+        ("T3", "before", "failed_yes")
+    ]
+    assert contradicted_said(found, "en") == (
+        "a check on the steps contradicted a person on 1 reviewed answer: "
+        "before, on case T3"
+    )
+    lines = explain_text(facts(found_run), locale="en")
+    assert any(line.startswith("T3 · before failed at") for line in lines), lines
+    assert not any("The judge contradicted" in line for line in lines), lines
