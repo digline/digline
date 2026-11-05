@@ -590,6 +590,12 @@ write them all.
 
 An answer recorded only under an earlier setup is shown and cannot be written:
 a yes about an answer the setup in force did not give says nothing about it.
+**The setup in force is per form**, the newest among the episodes for an
+episode and among the single calls for a single call, and each group says
+its own under its heading, `setup in force for single calls: …`. An episode
+recorded after them does not put the single calls under an earlier setup, so
+an answer reads the same in the suite's listing and with
+`--from _unassigned`.
 Nor can one recorded without its input, which the judge reads, or a
 conversation, which a cases file cannot hold as an answer yet. Orphans,
 interrupted episodes and recordings over the ceiling are counted, and are never

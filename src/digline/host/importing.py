@@ -31,9 +31,15 @@ each case written, so a copied declaration is in front of the person each time
 (ADR 0059 §4).
 
 **Under which setup.** The setup in force is the `setup_digest` of the newest
-eligible recording of the suite. An answer recorded under it may be elected;
-one recorded only under earlier setups is shown, and never elected: a yes about
-an answer the current setup did not give says nothing about it.
+eligible recording **of the same form**: an episode's among the episodes, a
+single call's among the single calls, the partition the groups are made in. An
+answer recorded under it may be elected; one recorded only under earlier
+setups is shown, and never elected: a yes about an answer the current setup
+did not give says nothing about it. Per form, because an episode and the calls
+an application makes outside one are two setups by construction: a turn that
+was recorded last would otherwise put every single call under an earlier
+setup, and the same answer would read as not electable in one listing and be
+written from `--from _unassigned` in another (ADR 0059 §3).
 
 **The listing groups and counts, and never ranks or proposes** (ADR 0059 §3).
 A group is the shape of the output: the core's `OutputKind` for a single call,
@@ -101,6 +107,7 @@ __all__ = [
     "listing_lines",
     "read_recordings",
     "refuse_another_tenant",
+    "group_setup_line",
     "setup_line",
     "split_recordings",
     "unloaded_capture",
@@ -207,6 +214,9 @@ class ImportAnswer:
     attached: int
     call_sites: tuple[str, ...] = ()
     case_from_first_call: bool = False
+    #: The setup in force for this answer's form, an episode's or a single
+    #: call's, or `None` where no recording of it is eligible.
+    in_force: str | None = None
 
     @property
     def electable(self) -> bool:
@@ -219,6 +229,9 @@ class ImportGroup:
 
     shape: Shape
     answers: tuple[ImportAnswer, ...]
+    #: The setup in force for the group's form, which the listing says under
+    #: its heading.
+    setup: str | None = None
 
     @property
     def recordings(self) -> int:
@@ -231,7 +244,9 @@ class ImportListing:
     anything: the structure the CLI prints and the local page reads."""
 
     declaration: Declaration
-    setup: str | None
+    #: The setup in force per form: `True` for the episodes, `False` for the
+    #: single calls, `None` where the form has no eligible recording.
+    setups: Mapping[bool, str | None]
     deterministic_output: bool
     samples: int
     groups: tuple[ImportGroup, ...]
@@ -436,10 +451,13 @@ def shape_counts(
     return tuple(counts.items())
 
 
-def setup_in_force(everything: Sequence[Recording], suite: str) -> str | None:
-    """The setup in force for `suite`, as the listing says it: the setup of
-    its newest eligible recording."""
-    return _setup_in_force(split_recordings(everything, suite).eligible)
+def setups_in_force(
+    everything: Sequence[Recording], suite: str
+) -> dict[bool, str | None]:
+    """The setup in force for `suite` per form, as the listing says it: for
+    the episodes, `True`, and for the single calls, `False`, the setup of the
+    newest eligible recording of that form."""
+    return _setups_in_force(split_recordings(everything, suite).eligible)
 
 
 def _refusal(
@@ -498,7 +516,7 @@ def import_listing(
     draft = _draft(path)
     everything, unreadable = read_recordings(store, tenant)
     split = split_recordings(everything, taken_from or suite.name)
-    setup = _setup_in_force(split.eligible)
+    in_force = _setups_in_force(split.eligible)
 
     by_answer: dict[str, list[Recording]] = {}
     for recording in split.eligible:
@@ -515,6 +533,7 @@ def import_listing(
             else held.reviewed_answer.good
         )
         dated = [r.recorded_at for r in recordings if r.recorded_at is not None]
+        setup = in_force[first.id is not None]
         groups.setdefault(_shape(first), []).append(
             ImportAnswer(
                 id=pair,
@@ -533,6 +552,7 @@ def import_listing(
                     dict.fromkeys(r.call_site for r in recordings if r.call_site)
                 ),
                 case_from_first_call=first.case_from_first_call,
+                in_force=setup,
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -546,11 +566,13 @@ def import_listing(
             taken_from=taken_from,
             root=root,
         ),
-        setup=setup,
+        setups=in_force,
         deterministic_output=suite.deterministic_output,
         samples=suite.samples,
         groups=tuple(
-            ImportGroup(shape=shape, answers=tuple(answers))
+            ImportGroup(
+                shape=shape, answers=tuple(answers), setup=in_force[shape.episode]
+            )
             for shape, answers in groups.items()
         ),
         recordings=len(split.recordings),
@@ -561,6 +583,15 @@ def import_listing(
         unreadable=unreadable,
         examined_through=max(stamps, key=instant_of) if stamps else None,
     )
+
+
+def _setups_in_force(eligible: Sequence[Recording]) -> dict[bool, str | None]:
+    """The setup in force per form, an episode's (`True`) and a single
+    call's (`False`): each the newest of its own form."""
+    return {
+        form: _setup_in_force([r for r in eligible if (r.id is not None) == form])
+        for form in (True, False)
+    }
 
 
 def _setup_in_force(eligible: Sequence[Recording]) -> str | None:
@@ -676,10 +707,10 @@ def import_elect(
     return tuple(cast(str, entry["id"]) for entry in entries)
 
 
-def _metadata(found: ImportListing, by: str) -> dict[str, object]:
+def _metadata(found: ImportListing, answer: ImportAnswer, by: str) -> dict[str, object]:
     metadata: dict[str, object] = {"source": SOURCE, "reviewed_by": by}
-    if found.setup is not None:
-        metadata["setup_digest"] = found.setup
+    if answer.in_force is not None:
+        metadata["setup_digest"] = answer.in_force
     if found.examined_through is not None:
         metadata["examined_through"] = found.examined_through
     return metadata
@@ -704,7 +735,7 @@ def _reviewed(
             "good": good,
             "input": answer.input,
         },
-        "metadata": _metadata(found, by),
+        "metadata": _metadata(found, answer, by),
     }
 
 
@@ -716,7 +747,7 @@ def _expected(answer: ImportAnswer, found: ImportListing, by: str) -> dict[str, 
         "id": answer.case,
         "vars": dict(answer.vars),
         "expected": _output(answer),
-        "metadata": _metadata(found, by),
+        "metadata": _metadata(found, answer, by),
     }
 
 
@@ -795,9 +826,10 @@ def input_line(answer: ImportAnswer) -> str:
     return json.dumps(answer.vars, ensure_ascii=False, sort_keys=True)
 
 
-def _say_answer(answer: ImportAnswer, setup: str | None) -> list[str]:
+def _say_answer(answer: ImportAnswer) -> list[str]:
     setups = ", ".join(
-        f"{s[:SHORT]}{'' if s == setup else ' (earlier)'}" for s in answer.setups
+        f"{s[:SHORT]}{'' if s == answer.in_force else ' (earlier)'}"
+        for s in answer.setups
     )
     times = f" · ×{answer.times}" if answer.times > 1 else ""
     attached = f" · {answer.attached} calls attached" if answer.attached else ""
@@ -825,19 +857,25 @@ def listing_lines(found: ImportListing) -> list[str]:
     for number, group in enumerate(found.groups, start=1):
         lines.append("")
         lines.append(group_line(number, group))
+        lines.append(f"  {group_setup_line(group)}")
         for answer in group.answers:
-            lines.extend(_say_answer(answer, found.setup))
+            lines.extend(_say_answer(answer))
     lines.append("")
     lines.extend(closing_lines(found))
     return lines
 
 
 def setup_line(found: ImportListing) -> str:
-    """The setup in force and whether the suite's output is deterministic."""
-    return (
-        f"setup in force: {(found.setup or 'none')[:SHORT]} · "
-        f"deterministic_output {'true' if found.deterministic_output else 'false'}"
-    )
+    """Whether the suite's output is deterministic. The setup in force is
+    said under each group, since it is the group's form's."""
+    return f"deterministic_output {'true' if found.deterministic_output else 'false'}"
+
+
+def group_setup_line(group: ImportGroup) -> str:
+    """The setup in force for a group's form: the episodes' or the single
+    calls'."""
+    form = "episodes" if group.shape.episode else "single calls"
+    return f"setup in force for {form}: {(group.setup or 'none')[:SHORT]}"
 
 
 def group_line(number: int, group: ImportGroup) -> str:

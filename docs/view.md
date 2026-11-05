@@ -131,8 +131,8 @@ two different things about the same recordings.
 **Recordings** (`/recordings/<tenant>/<suite>/`) — what
 [`digline record import`](record.md#from-recordings-to-cases-digline-record-import)
 lists, from the same `import_listing`. The declaration that says where a case
-would go is at the head, then the setup in force, then each group with its
-count, in the sentences the command prints. Each answer is a row: its id, when
+would go is at the head, then each group with its count and the setup in
+force for its form, in the sentences the command prints. Each answer is a row: its id, when
 it was first recorded, the setups it was recorded under, the first 200
 characters of the answer, and how many recordings gave the same answer. A
 longer answer links to a page that shows it whole, with the input it was given

@@ -59,7 +59,7 @@ from digline.host.importing import (
     Shape,
     imported_since,
     read_recordings,
-    setup_in_force,
+    setups_in_force,
     shape_counts,
     split_recordings,
 )
@@ -307,15 +307,21 @@ def _answers_from_a_new_setup(
     """How many answers the setup in force gave to cases that also have an
     answer under an earlier setup, where its first answer came after the
     newest run; 0 otherwise, and where a time is not recorded."""
-    in_force = setup_in_force(everything, suite)
+    in_force = setups_in_force(everything, suite)
     eligible = split_recordings(everything, suite).eligible
-    under = [r for r in eligible if r.setup_digest == in_force]
+    # Per form, as the listing reads it: an episode's setup against the
+    # episodes, a single call's against the single calls.
+    under = [r for r in eligible if r.setup_digest == in_force[r.id is not None]]
     dated = [r.recorded_at for r in under if r.recorded_at is not None]
-    if in_force is None or not dated:
+    if not dated:
         return 0
     if min(instant_of(at) for at in dated) <= instant_of(newest.created_at):
         return 0
-    before = {capture_id(r.case) for r in eligible if r.setup_digest != in_force}
+    before = {
+        capture_id(r.case)
+        for r in eligible
+        if r.setup_digest != in_force[r.id is not None]
+    }
     return sum(1 for r in under if capture_id(r.case) in before)
 
 

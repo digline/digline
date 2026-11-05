@@ -217,6 +217,18 @@ carry no verdict and no label to pair, the listing groups by the shape of the
 output — the core's `OutputKind`, the finish, and an episode's actors in order
 — and prints each group's count, in the files' order and never ranked."*
 
+*Noted 2026-11-05, by the maintainer's ruling; the section above is kept as
+written.* **The setup in force is per form**, the partition the groups are
+first made in: the newest eligible recording among the episodes for an
+episode's answer, among the single calls for a single call's, and each group
+says under its heading which setup is in force there. The listing's head no
+longer names one setup. Measured on a Node application (P-1518): a turn
+recorded last as an episode put every single call under an earlier setup, so
+the same answer was not electable in the suite's listing and was written from
+`--from _unassigned`, where no episode was. Two SDKs asked the same question
+still give two setups, by their default fields: that is the setup's identity,
+and it is not changed here.
+
 ### 4. The source is declared as data too — ADR 0023 §3 amended, and its open question decided
 
 *Ruled.* A `[capture]` table in the suite's TOML file declares `cases_file` and
