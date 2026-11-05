@@ -282,6 +282,40 @@ def test_a_case_from_the_first_call_says_so_beside_the_id(root: Path) -> None:
         assert page.count(said) == 1, locale
 
 
+def _rule(selector: str) -> str:
+    """The declarations of one rule of the sheet, by its exact selector."""
+    from digline.report import SHEET
+
+    start = SHEET.index(selector + " {")
+    return SHEET[start : SHEET.index("}", start)]
+
+
+def test_the_answers_table_fits_the_page_and_its_last_column_inside_it(
+    root: Path,
+) -> None:
+    """Seen in a browser on the Java pass: the table of answers was wider than
+    the page, because a wide page's cells never wrap, and the column that
+    names an answer sat outside the box. The table is now in a box that
+    scrolls rather than run off the page, and its cells wrap, the date
+    excepted. What a browser lays out is measured in the scratch screenshots
+    of the pull request; this holds the rules that do it."""
+    page = recorder_pages.recordings_page(listing(root), locale="en", writes=WRITES)
+    assert '<div class="fits"><table class="answers">' in page
+    assert page.count('<table class="answers">') == page.count("<table")
+    assert "overflow-x: auto" in _rule(".fits")
+    assert "white-space: normal" in _rule("body.wide table.answers td")
+    assert "white-space: nowrap" in _rule("body.wide table.answers td.when")
+    assert "overflow-wrap: anywhere" in _rule("table.answers code.key")
+
+
+def test_the_command_under_a_button_wraps_and_is_read_whole() -> None:
+    """The line grows with each answer named, and was cut at the box's edge
+    with no wrap; it wraps now, and a copy is still one line."""
+    rule = _rule("pre.snippet.command")
+    assert "white-space: pre-wrap" in rule
+    assert "overflow-wrap: anywhere" in rule
+
+
 def test_each_answer_is_a_row_with_its_id_date_setup_and_count(root: Path) -> None:
     found = listing(root)
     page = recorder_pages.recordings_page(found, locale="en", writes=None)

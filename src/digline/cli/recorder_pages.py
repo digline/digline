@@ -289,7 +289,10 @@ def _answers_table(
     rows = "".join(
         _answer_row(found, answer, order, locale, form=form) for answer in answers
     )
-    return f"<table><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>\n"
+    return (
+        f'<div class="fits"><table class="answers"><thead><tr>{head}</tr></thead>'
+        f"<tbody>{rows}</tbody></table></div>\n"
+    )
 
 
 def _answer_row(
