@@ -31,7 +31,9 @@ from digline.store.file_store import (
     _GITIGNORE,  # pyright: ignore[reportPrivateUsage]
     FileResultStore,
     RecordingWriter,
+    checked_name,
 )
+from digline.store.protocol import PathRefusedError
 from digline.targets import Completion, ToolCall
 
 HERE = Path(__file__).resolve().parent
@@ -887,6 +889,42 @@ def _written(
         return path.read_text(encoding="utf-8")
 
 
+#: Names a tenant may and may not be, and the store's sentence for each it
+#: refuses: what `checked_name` answers, which the Java writer is held to.
+NAMES: list[str] = [
+    "acme",
+    "acme-2",
+    "a.b_c",
+    "9lives",
+    "",
+    ".",
+    "..",
+    "../x",
+    "a/b",
+    "a\\b",
+    "acme\n",
+    "acme\r",
+    "\nacme",
+    "_unassigned",
+    "-x",
+    "a b",
+    "é",
+    "x" * 50,
+]
+
+
+def _names() -> list[dict[str, object]]:
+    found: list[dict[str, object]] = []
+    for name in NAMES:
+        try:
+            checked_name(name, "tenant")
+        except PathRefusedError as exc:
+            found.append({"name": name, "refusal": str(exc)})
+        else:
+            found.append({"name": name, "refusal": None})
+    return found
+
+
 def _json(value: object) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False) + "\n"
 
@@ -903,6 +941,7 @@ def expected() -> dict[str, str]:
         "switches.json": _json(_switches()),
         "call.json": _json(CALL),
         "call.expected.json": _call_bytes(),
+        "names.json": _json(_names()),
         "layout/gitignore": _GITIGNORE,
         "layout/gitattributes": _GITATTRIBUTES,
         **{f"wire/{name}.json": _json(call) for name, call in WIRE_CALLS.items()},

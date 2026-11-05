@@ -262,6 +262,9 @@ public final class DiglineRecorder {
         if (tenant == null || tenant.isEmpty()) {
             throw new StartError("DiglineRecorder needs tenant, a non-empty name");
         }
+        if (!isName(tenant)) {
+            throw new StartError(refusal(tenant));
+        }
         return new DiglineRecorder(Objects.requireNonNull(root, "root"), app, tenant, null);
     }
 
@@ -680,7 +683,30 @@ public final class DiglineRecorder {
 
     private String tenantNow() {
         String found = production ? tenantFunction.get() : tenant;
-        return found == null || found.isEmpty() ? null : found;
+        // A function's answer that is not a name is no tenant: it never
+        // becomes a directory, and the call is counted `tenant`.
+        return isName(found) ? found : null;
+    }
+
+    /**
+     * Whether {@code value} may be a directory of the layout: digline's
+     * {@code checked_name} rule (GHSA-j878-2v6m-m4vx), a letter or a digit
+     * and then letters, digits, dots, dashes and underscores, the whole of
+     * it. Held to the names digline's Python accepts and refuses by
+     * {@code recorders/fixtures/names.json}.
+     */
+    static boolean isName(String value) {
+        return value != null && NAME.matcher(value).matches();
+    }
+
+    private static final java.util.regex.Pattern NAME =
+            java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
+
+    /** The store's sentence for a tenant that is not a name, the value cut to 40 characters. */
+    static String refusal(String tenant) {
+        String shown = tenant.length() > 40 ? tenant.substring(0, tenant.offsetByCodePoints(0, 40)) : tenant;
+        return "invalid tenant name: " + pythonRepr(shown)
+                + " (letters, digits, dot, dash and underscore are allowed)";
     }
 
     private static boolean sampledIn(Switch on) {
@@ -1505,9 +1531,8 @@ public final class DiglineRecorder {
         }
 
         private static String checked(String tenant) {
-            if (tenant.isEmpty() || tenant.equals(".") || tenant.equals("..") || tenant.contains("/")
-                    || tenant.contains("\\") || tenant.contains("\0")) {
-                throw new IllegalArgumentException("a tenant is a directory name");
+            if (!isName(tenant)) {
+                throw new IllegalArgumentException(refusal(tenant));
             }
             return tenant;
         }
