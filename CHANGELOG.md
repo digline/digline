@@ -384,6 +384,12 @@ nothing. No public name is removed or renamed and no exit code changes.
   is not 0**, and says why on a contradiction: *reads this run back; the judge
   contradicted a person*. Measured: every cause of a lone run's 1 or 2 was
   already one `promote` refuses, so the line changed only in its words.
+- **The recorder page of `digline view` says the calls from gate runs**, as
+  `digline record status` says them, under the table of suites: *suite
+  refunds: 2 from gate runs, kept apart: not listed, imported or compared*,
+  and in Italian on `?locale=it`. The `proposing-a-suite` skill says where the
+  checks on the steps go, that every case is asked every check, and that a yes
+  on an episode is a yes to its steps too.
 - **Three more patterns are anchored whole**: a window's date, an endpoint's
   host and a journal leg's name matched with `^…$`, where `$` also matches
   before a final newline. They are `\A…\Z` with `fullmatch` now. Measured:

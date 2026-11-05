@@ -60,6 +60,14 @@ person already said about it.
   to: `good` is the person's word, `reviewed_by` their name. Count the yeses
   and the noes. They are the most valuable thing in the repository for you:
   the noes are where your counterexample comes from (step 3).
+- **A yes on an episode is a yes to its steps too.** An answer the import
+  took from an episode carries that episode's `steps`, and the suite's checks
+  on the steps run on it beside the check it names. On a yes, a red one is a
+  contradiction, as the named check's is: the person read a turn, and a turn
+  is its answer and the steps it took to it. On a no they decide nothing,
+  because a no does not say which part of the turn was wrong (`docs/api.md`;
+  ADR 0059). Say this to the person before they mark an episode: a yes given
+  for the text alone also vouches for every call the agent made.
 - **How the application calls the model.** An HTTP endpoint, a provider
   called with a prompt file, or a call inside the application's own code:
   this decides the form of the suite in step 3 (`docs/declarative.md`, *What
@@ -76,6 +84,20 @@ read in step 1, not with what you would like to measure.
   `ToolsCalled`, `Subsequence`, `Before`, `Never`, `MaxSteps`, and
   `ToolCalledWith` for the arguments. A judgement only words can state:
   `LlmRubric`; supported by a retrieved context: `Faithfulness`.
+- **For an episode, the checks on the steps go where the others go.**
+  `Subsequence`, `Before`, `Never` and `MaxSteps` are assertions like the
+  checks on the output, in the same block: the `assertions` list of a
+  `suite.py`, or `[[assertions]]` entries of a `suite.toml` named
+  `subsequence`, `before`, `never` and `max_steps` (`docs/api.md`, *Four
+  checks on the steps*; ADR 0060). They read the steps the target reports, so
+  the target runs the agent and reports its steps.
+- **Every case is asked every check.** No form narrows a check to some of the
+  cases or to one group (ADR 0010 §5), so propose only a check that holds for
+  every case of the suite. `Subsequence(["lookup_order", "issue_refund"])` in
+  a suite that also holds questions with no refund fails each of them;
+  `Before(first="lookup_order", then="issue_refund")` states the rule and
+  passes where no refund was made. Where the cases need rules that contradict
+  each other, say so: they are two suites, and that is the person's call.
 - **Deterministic first, judged after.** Whatever a deterministic check can
   state, state with one: it costs nothing, never wobbles, and its failure needs
   no interpretation. A judged check is for what is left.
@@ -133,8 +155,9 @@ read in step 1, not with what you would like to measure.
 - **At least one case the suite fails on — a suite that cannot fail measures
   nothing.** Take it from the noes: a reviewed answer with `good: false` is an
   answer the judged check must fail, and its verdict, `fail`, is the proof
-  that the check can say no. Where there are no noes, or the check that must
-  fail is deterministic, construct one: an input whose answer the check must
+  that the check can say no. A no on an episode is that proof for the judged
+  check alone: its steps decide nothing (step 1). Where there are no noes, or
+  the check that must fail is deterministic, construct one: an input whose answer the check must
   refuse, with an id and a comment that say it is constructed —
   `counterexample-…` — so nobody mistakes it for a recorded answer. Say in
   your summary which case it is and which check it fails.
@@ -155,8 +178,10 @@ read in step 1, not with what you would like to measure.
   cannot fail on the case you put there for that purpose: say so before
   anything else.
 - **If the judge contradicted a person, say so and stop there.** `explain`
-  names the reviewed answer and which way the judge went. Do not touch the
-  rubric, the threshold, the judge or the case to make it agree: the person's
+  names the reviewed answer, the check and which way it went. On an episode's
+  yes the check can be one on the steps: the person vouched for a call the
+  check refuses, and that is theirs to read again. Do not touch the rubric,
+  the threshold, the judge, the check or the case to make it agree: the person's
   yes or no is the expected verdict, and a judge tuned until it agrees has
   learned the answer key (ADR 0023; `docs/calibration.md`, *Does the judge
   agree with a person?*). Report it as a finding about the judge.
