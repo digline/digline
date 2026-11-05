@@ -21,6 +21,27 @@
   </properties>
 
   <dependencies>
+    <!-- What the hooks hook, at the versions ADR 0062 read on 2026-11-04. -->
+    <dependency>
+      <groupId>com.openai</groupId>
+      <artifactId>openai-java</artifactId>
+      <version>4.99.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.squareup.okhttp3</groupId>
+      <artifactId>okhttp</artifactId>
+      <version>4.12.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.anthropic</groupId>
+      <artifactId>anthropic-java</artifactId>
+      <version>3.4.0</version>
+    </dependency>
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>bedrockruntime</artifactId>
+      <version>2.42.41</version>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -50,7 +71,23 @@
           <systemPropertyVariables>
             <!-- The fixtures digline's Python writes, read by both sides. -->
             <digline.fixtures>${project.basedir}/../fixtures</digline.fixtures>
+            <digline.page>${project.basedir}/../../docs/record-java.md</digline.page>
           </systemPropertyVariables>
+          <!--
+            What the page's clients read from the environment, `fromEnv()` and
+            the AWS SDK's own variables: fake providers on fixed ports of
+            127.0.0.1, which PageTest starts. A key here opens nothing.
+          -->
+          <environmentVariables>
+            <OPENAI_API_KEY>page</OPENAI_API_KEY>
+            <OPENAI_BASE_URL>http://127.0.0.1:18787/v1</OPENAI_BASE_URL>
+            <ANTHROPIC_API_KEY>page</ANTHROPIC_API_KEY>
+            <ANTHROPIC_BASE_URL>http://127.0.0.1:18789</ANTHROPIC_BASE_URL>
+            <AWS_REGION>us-east-1</AWS_REGION>
+            <AWS_ACCESS_KEY_ID>page</AWS_ACCESS_KEY_ID>
+            <AWS_SECRET_ACCESS_KEY>page</AWS_SECRET_ACCESS_KEY>
+            <AWS_ENDPOINT_URL_BEDROCK_RUNTIME>http://127.0.0.1:18788</AWS_ENDPOINT_URL_BEDROCK_RUNTIME>
+          </environmentVariables>
         </configuration>
       </plugin>
     </plugins>

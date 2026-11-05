@@ -1,0 +1,30 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": "Where is A1?",
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "stop",
+    "input": "[{\"content\":\"Where is A1?\",\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 250.5,
+    "output": "It left on Monday.",
+    "usage": {
+      "input_tokens": 9,
+      "output_tokens": 5
+    }
+  },
+  "setup": {
+    "model": "gpt-4o-mini"
+  },
+  "setup_digest": "2b3ecdc83926c52c",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}
