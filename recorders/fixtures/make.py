@@ -915,6 +915,7 @@ GATES: list[list[dict[str, Any]]] = [
     [_marker("", 10, "4242-x.json")],
     [_marker(7, 10, "4242-x.json")],
     [_marker(_KEY, 10, f".4242-{_KEY}.json.partial")],
+    [_marker(_KEY, 10, f".4242-{_KEY}.json")],
     [_marker(_KEY, 10, f"4242-{_KEY}.txt")],
 ]
 

@@ -173,6 +173,7 @@ def test_the_gate_without_a_run_where_the_call_cannot_say_which(
 
 def test_a_name_no_reader_reads_is_no_marker(tmp_path: Path) -> None:
     plant(tmp_path, f".1-{KEY}.json.partial", marker())
+    plant(tmp_path, f".1-{KEY}.json", marker())
     plant(tmp_path, f"1-{KEY}.txt", marker())
     assert gate_markers(tmp_path, "acme").live == ()
     assert recorder._gate(tmp_path, "acme") == (None, None)  # pyright: ignore[reportPrivateUsage]
