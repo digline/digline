@@ -1,0 +1,217 @@
+[
+  {
+    "text": "on = true\n",
+    "production": false,
+    "switch": {
+      "on": true,
+      "sample": 1.0,
+      "ceiling": 104857600,
+      "interval": 5.0,
+      "production": false,
+      "declared": [
+        "on"
+      ]
+    }
+  },
+  {
+    "text": "on = false\n",
+    "production": true,
+    "switch": {
+      "on": false,
+      "sample": 1.0,
+      "ceiling": 104857600,
+      "interval": 5.0,
+      "production": false,
+      "declared": [
+        "on"
+      ]
+    }
+  },
+  {
+    "text": "on = true\nsample = 0.25\nredact = \"none\"\nceiling = 1048576\ninterval = 2\n",
+    "production": true,
+    "switch": {
+      "on": true,
+      "sample": 0.25,
+      "ceiling": 1048576,
+      "interval": 2.0,
+      "production": false,
+      "declared": [
+        "ceiling",
+        "interval",
+        "on",
+        "redact",
+        "sample"
+      ]
+    }
+  },
+  {
+    "text": "on = true\n",
+    "production": true,
+    "refusal": "recorder.toml switches recording on in production with no declared redaction (write redact = \"none\", the one this release implements); no declared sampling (write sample = p, above 0 and at most 1); no ceiling on the size of its recordings (write ceiling = N, in bytes). In production all three are declared (ADR 0058 §10)"
+  },
+  {
+    "text": "on = true\nsample = 0.5\n",
+    "production": true,
+    "refusal": "recorder.toml switches recording on in production with no declared redaction (write redact = \"none\", the one this release implements); no ceiling on the size of its recordings (write ceiling = N, in bytes). In production all three are declared (ADR 0058 §10)"
+  },
+  {
+    "text": "on = true\nproduction = true\n",
+    "production": false,
+    "refusal": "recorder.toml switches recording on in production with no declared redaction (write redact = \"none\", the one this release implements); no declared sampling (write sample = p, above 0 and at most 1); no ceiling on the size of its recordings (write ceiling = N, in bytes). In production all three are declared (ADR 0058 §10)"
+  },
+  {
+    "text": "on = maybe\n",
+    "production": false,
+    "refusal": "recorder.toml is not valid TOML"
+  },
+  {
+    "text": "on = true\ncolour = 1\nzz = 2\n",
+    "production": false,
+    "refusal": "recorder.toml has keys the recorder does not read: colour, zz. It reads on, sample, redact, ceiling, interval, production"
+  },
+  {
+    "text": "sample = 0.5\n",
+    "production": false,
+    "refusal": "recorder.toml must say on = true or on = false"
+  },
+  {
+    "text": "on = 1\n",
+    "production": false,
+    "refusal": "recorder.toml must say on = true or on = false"
+  },
+  {
+    "text": "on = true\nsample = 0\n",
+    "production": false,
+    "refusal": "recorder.toml: sample must be a number above 0 and at most 1"
+  },
+  {
+    "text": "on = true\nsample = 1.5\n",
+    "production": false,
+    "refusal": "recorder.toml: sample must be a number above 0 and at most 1"
+  },
+  {
+    "text": "on = true\nsample = true\n",
+    "production": false,
+    "refusal": "recorder.toml: sample must be a number above 0 and at most 1"
+  },
+  {
+    "text": "on = true\nsample = nan\n",
+    "production": false,
+    "refusal": "recorder.toml: sample must be a number above 0 and at most 1"
+  },
+  {
+    "text": "on = true\nsample = 1\n",
+    "production": false,
+    "switch": {
+      "on": true,
+      "sample": 1.0,
+      "ceiling": 104857600,
+      "interval": 5.0,
+      "production": false,
+      "declared": [
+        "on",
+        "sample"
+      ]
+    }
+  },
+  {
+    "text": "on = true\nredact = \"names\"\n",
+    "production": false,
+    "refusal": "recorder.toml: redact = 'names' is not implemented. This release implements redact = \"none\" alone (ADR 0058 §4)"
+  },
+  {
+    "text": "on = true\nredact = \"it's\"\n",
+    "production": false,
+    "refusal": "recorder.toml: redact = \"it's\" is not implemented. This release implements redact = \"none\" alone (ADR 0058 §4)"
+  },
+  {
+    "text": "on = true\nredact = 5\n",
+    "production": false,
+    "refusal": "recorder.toml: redact = '5' is not implemented. This release implements redact = \"none\" alone (ADR 0058 §4)"
+  },
+  {
+    "text": "on = true\nredact = \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"\n",
+    "production": false,
+    "refusal": "recorder.toml: redact = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' is not implemented. This release implements redact = \"none\" alone (ADR 0058 §4)"
+  },
+  {
+    "text": "on = true\nceiling = 0\n",
+    "production": false,
+    "refusal": "recorder.toml: ceiling must be a whole number of bytes, at least 1"
+  },
+  {
+    "text": "on = true\nceiling = 1.5\n",
+    "production": false,
+    "refusal": "recorder.toml: ceiling must be a whole number of bytes, at least 1"
+  },
+  {
+    "text": "on = true\nceiling = 1_000_000\n",
+    "production": false,
+    "switch": {
+      "on": true,
+      "sample": 1.0,
+      "ceiling": 1000000,
+      "interval": 5.0,
+      "production": false,
+      "declared": [
+        "ceiling",
+        "on"
+      ]
+    }
+  },
+  {
+    "text": "on = true\ninterval = 0\n",
+    "production": false,
+    "refusal": "recorder.toml: interval must be a number of seconds above 0"
+  },
+  {
+    "text": "on = true\ninterval = 0.5\n",
+    "production": false,
+    "switch": {
+      "on": true,
+      "sample": 1.0,
+      "ceiling": 104857600,
+      "interval": 0.5,
+      "production": false,
+      "declared": [
+        "interval",
+        "on"
+      ]
+    }
+  },
+  {
+    "text": "on = true\nproduction = 1\n",
+    "production": false,
+    "refusal": "recorder.toml: production must be true or false"
+  },
+  {
+    "text": "# the switch\non = false # off for now\n\n",
+    "production": false,
+    "switch": {
+      "on": false,
+      "sample": 1.0,
+      "ceiling": 104857600,
+      "interval": 5.0,
+      "production": false,
+      "declared": [
+        "on"
+      ]
+    }
+  },
+  {
+    "text": "on = true\n[table]\nkey = 1\n",
+    "production": false,
+    "refusal": "recorder.toml has keys the recorder does not read: table. It reads on, sample, redact, ceiling, interval, production"
+  },
+  {
+    "text": "on = true\non = false\n",
+    "production": false,
+    "refusal": "recorder.toml is not valid TOML"
+  },
+  {
+    "text": "",
+    "production": false,
+    "refusal": "recorder.toml must say on = true or on = false"
+  }
+]
