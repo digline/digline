@@ -1600,6 +1600,7 @@ _ADDED: tuple[_AddedKey, ...] = (
         {"case_id": _STR, "check": _STR, "direction": _STR},
         _REVIEWED,
     ),
+    _AddedKey("fact.check", "good", _k("boolean", optional=True), _REVIEWED),
     *_shape_added(
         "fact.tally.band",
         {

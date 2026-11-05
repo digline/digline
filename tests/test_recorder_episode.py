@@ -225,6 +225,10 @@ def test_an_episode_of_three_calls_is_one_recording_and_three_children(
         (4, "model", "stop", None),
     ]
     assert turn["response"]["steps"][1]["arguments"] == '{"order":"A1"}'
+    # Read off the steps, as a run reads them live: the last model step's
+    # finish, and the tool steps' names, one per call, in order.
+    assert turn["response"]["finish"] == "stop"
+    assert turn["response"]["tools"] == ["lookup", "refund"]
     assert "interrupted" not in turn
     assert "unrecorded_children" not in turn
     assert counts(client) == {
@@ -292,6 +296,10 @@ def test_an_episode_with_an_output_and_no_call_has_no_steps(tmp_path: Path) -> N
     assert turn["response"]["output"] == '{"route":"human"}'
     assert turn["response"]["kind"] == "structured"
     assert turn["response"]["tool_calls"] == []
+    # No call, so no reply ended: no finish, and no tool named, as
+    # `tool_calls` says.
+    assert "finish" not in turn["response"]
+    assert turn["response"]["tools"] == []
     assert turn["setup"] == {"child_setups": [], "git_commit": "a" * 40}
 
 

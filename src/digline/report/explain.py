@@ -96,6 +96,12 @@ type CheckKind = Literal[
     "errored",
     "failing",
     "suspended",
+    # A reviewed answer the judge contradicted a person about: what the run
+    # found on that case, whichever way the verdict went, so it is said
+    # beside the failing checks and not only counted. Its own kind, because
+    # `failing` says a score is under its bar, and a judge that passed an
+    # answer the person said no to is above it. (ADR 0059 §1)
+    "contradicted",
 ]
 
 #: Which of the three things under examination a setting belongs to. Not the
@@ -248,6 +254,9 @@ class CheckFact:
     #: state. Off the wire like the two numbers above: a program reads the
     #: matrix off `compare --json full`, and this is the sentence's input.
     counted: Denominator | None = None
+    #: Only on `contradicted`: what the person said, `True` for a yes and
+    #: `False` for a no. The judge's verdict was the other. (ADR 0059 §1)
+    good: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -578,6 +587,35 @@ def _rule_fact(delta: SuiteDelta) -> SettingFact:
     )
 
 
+def _contradictions(run: Run) -> list[Fact]:
+    """Each reviewed answer the judge contradicted a person about, as a check:
+    first among what the run found, because the case fails and the person's
+    verdict is the expected one. Read off the run, so a reading alone and one
+    against a reference say the same. (ADR 0059 §1)"""
+    found = {(c.case_id, c.check): c for c in contradicted(run)}
+    out: list[Fact] = []
+    for case in run.results:
+        reviewed = case.reviewed
+        if reviewed is None or (case.case_id, reviewed.check) not in found:
+            continue
+        for verdict in case.verdicts:
+            if verdict.assertion_id != reviewed.assertion_id:
+                continue
+            out.append(
+                CheckFact(
+                    "contradicted",
+                    "case",
+                    case.case_id,
+                    verdict.score.name,
+                    verdict.assertion_id,
+                    after=verdict.score.score,
+                    threshold=verdict.threshold,
+                    good=reviewed.good,
+                )
+            )
+    return out
+
+
 def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
     """The checks, worst first, in the document's own reading order."""
     if comparison is None:
@@ -601,7 +639,7 @@ def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
             continue
         by_outcome.setdefault(delta.outcome, []).append(delta)
 
-    out: list[Fact] = []
+    out: list[Fact] = _contradictions(run)
     for outcome in _OUTCOME_ORDER:
         for delta in by_outcome.get(outcome, []):
             out.append(_check_fact(delta))
@@ -691,8 +729,11 @@ def _checks_alone(run: Run) -> list[Fact]:
     Three states and not four. A check that passed is in the tally and nowhere
     else — naming every green check would bury the ones that are not, and the
     document this is held against files them in a section that is closed.
+    A reviewed answer the judge contradicted leads, whichever way its verdict
+    went: that is what the run found on it. (ADR 0059 §1)
     """
-    out: list[Fact] = [
+    out: list[Fact] = _contradictions(run)
+    out += [
         CheckFact(
             "failing",
             "case",
@@ -1228,6 +1269,11 @@ def _check_said(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
             return said + _bar(fact, locale, compared=compared) + _on_line(fact, locale)
         case "suspended":
             return phrase(locale, "explain.check.suspended", case=fact.case_id)
+        case "contradicted":
+            said = "yes" if fact.good else "no"
+            return phrase(
+                locale, f"explain.check.contradicted.{said}", where=where, now=now
+            )
     assert_never(fact.kind)
 
 

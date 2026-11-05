@@ -7,7 +7,7 @@ answer three different questions:
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
    and it is answered as the run is read (`read_run`).
-2. **The document.** Conditions 2 to 6, 9 and 10 answer from the run, and 10
+2. **The document.** Conditions 2 to 6, 9, 10 and 12 answer from the run, and 10
    from the suite's declaration beside it, which a run document does not carry
    and the caller hands in as it hands in the configuration hash. Anybody,
    anywhere, holding the same two gets the same answer, so they are a
@@ -51,10 +51,12 @@ from digline.core.compare import compare
 from digline.core.declared import Declared, cases_that_count, nothing_judged
 from digline.core.gate import causes_of_two, pins_implicated
 from digline.core.reconcile import unreconciled
+from digline.core.reviewed import contradicted
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
     ConfigMismatchError,
+    ContradictedRunError,
     ErroredRunError,
     NothingJudgedError,
     ReplayedRunError,
@@ -77,6 +79,7 @@ type PromotionRefusal = (
     | ReplayedRunError
     | ErroredRunError
     | UncalibratedRunError
+    | ContradictedRunError
     | CrossingRefusedError
     | NothingJudgedError
 )
@@ -259,7 +262,29 @@ def refusals_for(
             )
         )
 
+    # Condition 12, beside 5 and for the judge's other fault: a person's yes
+    # or no is the expected verdict, and a reference scored by a judge that
+    # gave the other is not one. Named by case and direction. (ADR 0059 §1)
+    against = contradicted(run)
+    if against:
+        named = ", ".join(
+            f"{item.case_id} ({_WENT[item.direction]})" for item in against
+        )
+        refusals.append(
+            ContradictedRunError(
+                f"run {key} has {len(against)} reviewed answer(s) the judge "
+                f"contradicted a person about ({named}): the person's yes or no "
+                "is the expected verdict, and a baseline where the judge "
+                "contradicts the person is not a baseline. Promote a run whose "
+                "judge agreed with every person"
+            )
+        )
+
     return tuple(refusals)
+
+
+#: Which way a judge contradicted a person, as condition 12 names it.
+_WENT = {"passed_no": "passed a no", "failed_yes": "failed a yes"}
 
 
 def refusal_for_a_moved_baseline(

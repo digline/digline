@@ -87,6 +87,9 @@ def fact_json(
                 # `compare --json full` beside it.
                 # (the delta-pass over 0.15.1)
                 "denominator_moved": fact.denominator_moved,
+                # Only on a contradiction, so every other check is byte for
+                # byte what it was: what the person said. (ADR 0059 §1)
+                **({} if fact.good is None else {"good": fact.good}),
             }
         case SettingFact():
             setting: dict[str, object] = {

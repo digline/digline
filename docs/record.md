@@ -55,7 +55,14 @@ reply = client.messages.create(
   the same name as that suite's `Suite(name=...)`. It is a name, where
   `--suite` on the command line is a path to the suite's file. A call that
   names no suite is recorded under `_unassigned`, with the function it was
-  made from, and enters no suite until a person gives it one.
+  made from, and enters no suite until a person gives it one. There are two
+  ways to give it one: name the suite at that call site, `suite=...`, the
+  function the listing below prints as `made at:`; or import from it,
+  `digline record import --tenant T --suite S --from _unassigned`, which lists
+  the calls that named no suite as suite `S`'s, under `S`'s capture
+  declaration, and writes the ones you name into `S`'s cases file. The
+  recordings stay where they are, and the next listing shows what you said
+  of each.
 - **`digline_vars=`**, on the call, adds the variables a template was filled
   with to the case, beside the messages, where the user message mixes a
   template and the data.
@@ -232,8 +239,12 @@ them (`status`, `result` and `result_absence` are left out below).
   steps of every call it made inside the case, in the order their replies
   were read. `digline run` and the MCP server open the collection around each
   call of the target, recorder on or off, and close it before the assertions
-  run, so a judge's calls are never the agent's. Off, nothing is written to
-  disk.
+  run, so a judge's calls are never the agent's. **On or off, nothing of a
+  run is recorded**: the target's calls and a judge's are the gate's, not
+  your application's traffic, so they write no recording and move no count,
+  and an `episode()` opened inside one is an empty context. A program that
+  calls `execute()` itself enters `digline.recorder.running()` around it for
+  the same.
 - **A target that does not wrap its client** has what it reports: a function
   that returns its last call's response reports that call alone, and one that
   returns text reports no steps.
