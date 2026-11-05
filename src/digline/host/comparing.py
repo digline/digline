@@ -31,6 +31,7 @@ import json
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 from digline.core.capture import capture_id
 from digline.core.recording import Recording
@@ -287,7 +288,19 @@ def _setup_of(recordings: Sequence[Recording], digest: str) -> Mapping[str, obje
 
 def _value(value: object) -> SetupValue:
     """A value as far as it is shown: its first line, clipped, and its length.
-    A value that is not text is shown as JSON."""
+    A list of messages is shown by its first message's text and how many there
+    are; any other value that is not text, as JSON."""
+    messages = _messages(value)
+    if messages is not None:
+        whole = _text_of(messages[0])
+        line = whole.split("\n", 1)[0]
+        preview = line[:PREVIEW_CHARS]
+        return SetupValue(
+            preview=preview,
+            chars=len(whole),
+            clipped=preview != whole,
+            message_count=len(messages),
+        )
     whole = (
         value
         if isinstance(value, str)
@@ -296,6 +309,35 @@ def _value(value: object) -> SetupValue:
     line = whole.split("\n", 1)[0]
     preview = line[:PREVIEW_CHARS]
     return SetupValue(preview=preview, chars=len(whole), clipped=preview != whole)
+
+
+def _messages(value: object) -> list[Mapping[str, object]] | None:
+    """`value` as a list of messages, each a mapping with a `content`, or
+    `None` where it is not one."""
+    if not isinstance(value, list) or not value:
+        return None
+    items = cast(list[object], value)
+    if not all(isinstance(m, Mapping) and "content" in m for m in items):
+        return None
+    return [cast(Mapping[str, object], m) for m in items]
+
+
+def _text_of(message: Mapping[str, object]) -> str:
+    """A message's text: its `content` where that is text, its text blocks
+    joined where it is a list of them, and JSON otherwise."""
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        blocks = cast(list[object], content)
+        texts = [
+            str(cast(Mapping[str, object], b)["text"])
+            for b in blocks
+            if isinstance(b, Mapping) and "text" in b
+        ]
+        if texts:
+            return "".join(texts)
+    return json.dumps(content, sort_keys=True, ensure_ascii=False)
 
 
 def _differ(

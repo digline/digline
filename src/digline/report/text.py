@@ -1016,6 +1016,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.keys.none": "The two setups hold the same {same} keys.",
         "view.setups.absent": "not in {side}",
         "view.setups.chars": "{chars} characters",
+        "view.setups.messages.one": "{count} message",
+        "view.setups.messages.many": "{count} messages",
         "view.setups.case": "Case {case_id} · {kind}",
         "view.setups.digest": (
             "setup {digest}: shown by its first 8 characters, as digline record "
@@ -2687,6 +2689,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.setups.keys.none": "I due setup hanno le stesse {same} chiavi.",
         "view.setups.absent": "assente in {side}",
         "view.setups.chars": "{chars} caratteri",
+        "view.setups.messages.one": "{count} messaggio",
+        "view.setups.messages.many": "{count} messaggi",
         "view.setups.case": "Caso {case_id} · {kind}",
         "view.setups.digest": (
             "setup {digest}: mostrato dai suoi primi 8 caratteri, come lo stampa "

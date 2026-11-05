@@ -77,6 +77,7 @@ from digline.host.toml_errors import (
     unknown_key,
     unknown_type,
 )
+from digline.host.unasked import no_target
 from digline.run import (
     Calibration,
     CaptureSource,
@@ -302,6 +303,10 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
         # the Python form already fails with (ADR 0007 §6).
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
 
+    if "target" not in document:
+        # A suite of reviewed answers and calibration cases calls no target,
+        # and may declare none; one with any other case may not. (ADR 0059 §1)
+        return suite, no_target(suite, f"{path.name}: no [target] table")
     return suite, _target(document, path, perimeter)
 
 

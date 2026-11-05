@@ -698,6 +698,22 @@ def test_record_on_prints_the_values_the_file_holds(
     ) in out
 
 
+def test_record_on_says_what_production_is_in_every_language(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Production is an application that resolves its tenant per request,
+    whatever language it is in, and the proxy, which takes one tenant, never
+    is: the sentence names the three doors, not a Python function alone."""
+    assert main(["record", "on", "--tenant", "acme", "--root", str(tmp_path)]) == 0
+    out = " ".join(capsys.readouterr().out.split())
+    assert (
+        "an application that resolves its tenant per request is production "
+        "(wrap(tenant=callable) in Python, DiglineRecorder.production in Java; "
+        "the proxy's --tenant is never production)"
+    ) in out
+    assert "names its tenant with a function" not in out
+
+
 def test_the_counts_are_written_at_the_tick_never_per_call(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, clock: list[float]
 ) -> None:

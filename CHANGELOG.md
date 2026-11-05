@@ -341,6 +341,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   kept. The listing, `off`, `status` and `compare` are not asked about.
   `digline record` now refuses an abbreviated option, so `--good` and `--bad`
   have no other spelling for the hook to miss.
+- **A suite that declares a capture may hold no case yet**, so the first
+  `digline record import` into it, which is what writes its cases, is no
+  longer refused with *declares no cases*. Its run judges nothing and exits
+  2. Without a capture an empty suite is refused as before.
+- **A suite whose cases are all reviewed answers or calibration cases may
+  leave its target out**, in `suite.py` or as `[target]`: the run never calls
+  the target for either. Run, `rejudge` and `promote` treat it as any suite.
+  A case the target answers needs one, and the refusal names that case
+  (ADR 0059 §1).
+- **`digline record on` says what production is in every language**: an
+  application that resolves its tenant per request, `wrap(tenant=callable)`
+  in Python or `DiglineRecorder.production` in Java, and never the proxy.
+- **`digline record compare --show-setup`, and the view's setups page, show a
+  list of messages by its first message's text and how many there are**, a
+  `system` the way Chat Completions carries it. It was the list as JSON, with
+  its quotes escaped.
 
 ## pytest-digline — unreleased
 

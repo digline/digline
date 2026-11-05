@@ -83,11 +83,16 @@ class ComparedCase:
 @dataclass(frozen=True, slots=True)
 class SetupValue:
     """A setup's value, as far as it is shown: its first line, clipped, and how
-    many characters the whole value has. Payload, and never on the wire."""
+    many characters the whole value has. Payload, and never on the wire.
+
+    Where the value is a list of messages, a `system` the way Chat Completions
+    carries it, `message_count` is how many there are and the preview is the first
+    one's text, never the list as JSON."""
 
     preview: str
     chars: int
     clipped: bool
+    message_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
