@@ -96,6 +96,14 @@ dependencies = [
     #
     # The floor did not move for 1.0.0: nothing this plugin imports or calls
     # was renamed or changed there.
+    #
+    # **Owed at the cut: the floor raised to 1.1.0, added 2026-11-05.**
+    # `--digline-run` imports `running` from `digline.recorder` and
+    # `around_target` from `digline.host`, and a reviewed answer's row reads
+    # `contradicted` and `AssertionDelta.reviewed`: all first ship in 1.1.0,
+    # which no index serves yet, and a floor may not name a release that does
+    # not exist. So it is raised in this package's own release, after the
+    # core's. RELEASING.md, *Owed at the cut*, holds the row.
     "digline>=0.34.0,<2",
     # A floor and no cap, unlike `digline-mcp`'s `mcp<3`. That cap records a
     # rename that actually happened; pytest has not moved the `pytest11` entry

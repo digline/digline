@@ -70,6 +70,7 @@ from digline.host.loader import (
 from digline.host.measure import (
     Measured,
     Prepared,
+    around_target,
     measure,
     prepare,
     refuse_unreadable_baseline,
@@ -132,6 +133,7 @@ __all__ = [
     "ImportListing",
     "Shape",
     "answer_id",
+    "around_target",
     "import_elect",
     "import_listing",
     "listing_lines",
