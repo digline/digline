@@ -372,6 +372,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   list of messages by its first message's text and how many there are**, a
   `system` the way Chat Completions carries it. It was the list as JSON, with
   its quotes escaped.
+- **`digline record import` reads the setup in force per form**: the newest
+  among the episodes for an episode, among the single calls for a single call,
+  and each group says its own. An episode recorded last no longer puts every
+  single call under an earlier setup, so an answer reads the same in a suite's
+  listing and with `--from _unassigned` (ADR 0059 §3). The listing's head no
+  longer names one setup.
+- **`digline record proxy --upstream` names the package** for a route whose
+  plugin is not installed, as the start does; and a client that closes its
+  connection is one line on standard error, never a traceback, its call
+  counted `client gone`. `docs/record-node.md` says the proxy's machine needs
+  the plugins and the application does not, and the SDK versions it was
+  measured with.
+- **A `suite.toml` prices its judge beside the coordinate**, with
+  `judge_pricing`, the rates of `[target.pricing]`; a judge whose model has no
+  price says that key where its cost is asked, where it said *Pass
+  `pricing=` to the target*, which a TOML file cannot write (ADR 0007 §3).
 
 ## pytest-digline — unreleased
 

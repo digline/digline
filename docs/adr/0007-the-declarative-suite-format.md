@@ -248,6 +248,18 @@ a `Judge` and a `ClaimJudge`, so `LlmRubric` is given the first and
 `Faithfulness` the second from the same string. Choosing a provider stays one
 decision, which is the whole point of that ADR.
 
+*Noted 2026-11-05, by the maintainer's ruling; the section above is kept as
+written.* **A judge's price is beside its coordinate, not in it.** A model the
+plugin does not price errored every check its judge judged, and the sentence
+said `pricing=`, which a TOML file cannot write: measured on a Node
+application's suite (P-1518). `judge_pricing`, a table of per-million rates in
+`[target.pricing]`'s shape, sits beside `judge` in the same `[[assertions]]`
+entry; and a judge whose model has no price says that key where its cost is
+asked. It is not refused at load: Bedrock's list depends on the region the
+run is in, and `digline list` builds a judge with no key and no region. The coordinate stays the instrument's identity: a rate is what
+a call costs, not how the judge grades, and a table *as* the coordinate is
+still refused as settings.
+
 **No credential appears in a suite file, ever.** There is no `api_key` key, and
 its absence is not an oversight to be fixed by a later revision: ADR 0004 §5
 resolves keys through the SDK's own environment lookup precisely so that no

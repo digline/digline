@@ -498,7 +498,8 @@ many were made inside an episode), the orphans, the episodes (with how many
 were interrupted), and **what was not recorded, by reason**: `not JSON` for a
 request a recording cannot hold, `sampled out`, `ceiling`, `stream
 abandoned`, `stream error` for a stream that carried an error after it began
-(through the proxy), `config invalid` and the rest, and what was **recorded with
+and `client gone` for a client that left before it had sent its whole request
+(both through the proxy), `config invalid` and the rest, and what was **recorded with
 something noted**: `usage not reported`, `ended after its episode`. A suite
 says only what it holds: a suite of episodes whose calls name another suite
 shows no calls.
@@ -591,6 +592,12 @@ write them all.
 
 An answer recorded only under an earlier setup is shown and cannot be written:
 a yes about an answer the setup in force did not give says nothing about it.
+**The setup in force is per form**, the newest among the episodes for an
+episode and among the single calls for a single call, and each group says
+its own under its heading, `setup in force for single calls: …`. An episode
+recorded after them does not put the single calls under an earlier setup, so
+an answer reads the same in the suite's listing and with
+`--from _unassigned`.
 Nor can one recorded without its input, which the judge reads, or a
 conversation, which a cases file cannot hold as an answer yet. Orphans,
 interrupted episodes and recordings over the ceiling are counted, and are never
@@ -629,7 +636,10 @@ perimeter [ADR 0034](adr/0034-the-store-outside-and-the-reference-that-names-not
 
 ## Comparing setups: `digline record compare`
 
-What the application answered, case by case, under each setup it ran with:
+What the application answered, case by case, under each setup it ran with.
+Where a suite's target is the application over HTTP, a run's `config_hash`
+does not see the application's prompt or model: compare setups through the
+recordings, here; the run's identity is the suite's, not the app's.
 
 ```console
 $ digline record compare --tenant acme --suite eval/suite.py

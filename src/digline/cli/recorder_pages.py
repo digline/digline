@@ -45,6 +45,7 @@ from digline.host.importing import (
     answer_state,
     closing_lines,
     group_line,
+    group_setup_line,
     input_line,
     setup_line,
 )
@@ -250,6 +251,7 @@ def recordings_page(
         )
     for number, group in enumerate(found.groups, start=1):
         body.append(f"<h2>{escape(group_line(number, group))}</h2>\n")
+        body.append(_p(group_setup_line(group), "note"))
         body.append(_answers_table(found, group.answers, order, locale, form=form))
     if form and writes is not None:
         base = ["digline", "record", "import", *writes]
@@ -307,7 +309,7 @@ def _answer_row(
     whole = answer_address(declaration.tenant, declaration.suite, answer.id)
     earlier = f" ({phrase(locale, 'view.recordings.earlier')})"
     setups = ", ".join(
-        _tag(setup, order, locale, "" if setup == found.setup else earlier)
+        _tag(setup, order, locale, "" if setup == answer.in_force else earlier)
         for setup in answer.setups
     )
     shown = answer.text[:SHOWN_CHARS]

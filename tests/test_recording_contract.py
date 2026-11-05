@@ -174,7 +174,8 @@ def test_the_setup_in_force_is_read_by_instant_the_later_file_on_a_tie(
     writer.write(recording(A, S2, A_NEW, "01", recorded_at=at + "000+00:00"))
     writer.write(recording(A, S1, A_OLD, "01", recorded_at=at + "+00:00"))
     suite_file(tmp_path)
-    assert listed(tmp_path).setup == S1
+    # Both single calls: the single calls' setup in force.
+    assert listed(tmp_path).setups[False] == S1
 
 
 # -- label -------------------------------------------------------------------- #
