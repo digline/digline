@@ -7,6 +7,7 @@ from digline.store.file_store import (
     REGISTER_DIRNAME,
     FileJournal,
     FileResultStore,
+    checked_name,
     journal_key,
 )
 from digline.store.migrate import (
@@ -77,6 +78,7 @@ __all__ = [
     "FileJournal",
     "Filing",
     "FileResultStore",
+    "checked_name",
     "Journal",
     "JournalBusyError",
     "JournalHeader",
