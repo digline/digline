@@ -40,6 +40,7 @@ from __future__ import annotations
 import gzip
 import http.client
 import json
+import sys
 import threading
 import time
 import zlib
@@ -189,7 +190,7 @@ def start_proxy(
     Handler.upstreams = upstreams
     Handler.timeout_s = timeout
     try:
-        server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        server = _Server(("127.0.0.1", port), Handler)
     except OSError as exc:
         raise UsageError(
             f"digline record proxy cannot listen on 127.0.0.1:{port}: {exc.strerror}"
@@ -207,6 +208,27 @@ def start_proxy(
         recorder=recorder,
         wires=loaded,
         upstreams=upstreams,
+    )
+
+
+class _Server(ThreadingHTTPServer):
+    """The proxy's server: a client that closes its connection between two
+    requests, as an SDK's pool does when its process ends, is one line on
+    standard error, never `socketserver`'s traceback."""
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            _say_gone()
+            return
+        super().handle_error(request, client_address)
+
+
+def _say_gone() -> None:
+    print(
+        "digline record proxy: a client closed its connection before it sent a "
+        "whole request",
+        file=sys.stderr,
+        flush=True,
     )
 
 
@@ -248,7 +270,6 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _forward(self) -> None:
         started = time.perf_counter()
-        body = self._body()
         headers = {key.lower(): value for key, value in self.headers.items()}
         ours = {k: _text(v) for k, v in headers.items() if k.startswith(_OURS)}
         path = self.path
@@ -261,6 +282,22 @@ class _Handler(BaseHTTPRequestHandler):
         route = next(
             (name for name, wire in self.wires.items() if wire.matches(path)), None
         )
+        try:
+            body = self._body()
+        except ConnectionError:
+            # The client went before it had sent the whole request: one line,
+            # never a traceback, and a call of a route the proxy records is
+            # counted, as one whose stream the client closed is.
+            self.close_connection = True
+            _say_gone()
+            if route is not None and self.command == "POST":
+                self.recorder.missed(
+                    "client gone",
+                    suite=ours.get(_OURS + "suite") or None,
+                    app=ours.get(_OURS + "app") or None,
+                    episode=ours.get(_OURS + "episode") or None,
+                )
+            return
         where = self._upstream(route, headers)
         if where is None:
             self._refuse(

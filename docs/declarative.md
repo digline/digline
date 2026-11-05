@@ -332,6 +332,10 @@ case ([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.m
 ### `type = "http"`
 
 Your application, on the other end of a URL. It can be written in anything.
+Its prompt and its model are inside it, so a run's `config_hash` does not see
+them: compare setups through the recordings, with
+[`digline record compare`](record.md#comparing-setups-digline-record-compare);
+the run's identity is the suite's, not the app's.
 
 | Key | |
 |---|---|

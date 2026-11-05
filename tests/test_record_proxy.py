@@ -822,3 +822,39 @@ def test_upstream_for_a_route_whose_plugin_is_missing_names_the_package() -> Non
     with pytest.raises(UsageError) as unknown:
         upstreams_of(["nowhere=http://127.0.0.1:9"], {})
     assert "install" not in str(unknown.value)
+
+
+def reset(port: int, sent: bytes) -> None:
+    """Send `sent` and close the connection with a reset, as a process that
+    ends with a connection open does."""
+    import socket
+    import struct
+
+    with socket.create_connection(("127.0.0.1", port)) as connection:
+        connection.sendall(sent)
+        time.sleep(0.2)
+        connection.setsockopt(
+            socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0)
+        )
+    time.sleep(0.3)
+
+
+def test_a_client_that_goes_is_one_line_and_its_call_is_counted(
+    proxy: Proxy, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """Between two requests, nothing to count and one line; inside one, the
+    call of a route the proxy records is counted `client gone`. Never
+    `socketserver`'s traceback."""
+    reset(proxy.port, b"GET /v1/models HTTP/1.1\r\nHost: x\r\n")
+    reset(
+        proxy.port,
+        b"POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nX-Digline-Suite: triage\r\n"
+        b'Content-Length: 100\r\n\r\n{"a"',
+    )
+    proxy.stop()
+    err = capfd.readouterr().err
+    assert "Traceback" not in err and "ConnectionResetError" not in err
+    assert (
+        err.count("a client closed its connection before it sent a whole request") == 2
+    )
+    assert counted(tmp_path) == {"triage": {"client gone": 1}}
