@@ -148,8 +148,7 @@ def upstreams_of(
             # A route digline knows and this machine has no plugin for: the
             # package that reads it, as the start says where no route is.
             install = (
-                f": install {PACKAGES[route]}, which reads it, on the proxy's "
-                "machine"
+                f": install {PACKAGES[route]}, which reads it, on the proxy's machine"
                 if route in PACKAGES
                 else ""
             )
