@@ -73,6 +73,7 @@ from digline.host import (
     switch_on,
 )
 from digline.host.importing import answer_id, closing_lines, group_line, setup_line
+from digline.report import Locale
 from digline.report.pages import (
     answer_address,
     recorder_address,
@@ -250,6 +251,33 @@ def test_the_recordings_page_says_the_listing_s_own_sentences(root: Path) -> Non
         assert sentence in said, sentence
     # The capture file is the suite's, beside its own file: the module said so.
     assert "writes to suites/captured.json ·" in said
+
+
+def test_a_case_from_the_first_call_says_so_beside_the_id(root: Path) -> None:
+    """An episode the proxy read with no case given takes its first call's
+    case, and the row says so beside the id, as the command says it after the
+    input (ADR 0062 §3). One answer of the listing is marked; the others are
+    the control, and say nothing."""
+    found = listing(root)
+    group = found.groups[0]
+    marked = replace(group.answers[0], case_from_first_call=True)
+    found = replace(
+        found,
+        groups=(
+            replace(group, answers=(marked, *group.answers[1:])),
+            *found.groups[1:],
+        ),
+    )
+    said_in: tuple[tuple[Locale, str], ...] = (
+        ("en", "case from the first call"),
+        ("it", "caso dalla prima chiamata"),
+    )
+    for locale, said in said_in:
+        page = recorder_pages.recordings_page(found, locale=locale, writes=None)
+        cell = page[page.index(f'<code class="key">{marked.id}</code>') :]
+        cell = cell[: cell.index("</td>")]
+        assert f'<div class="note">{said}</div>' in cell, cell
+        assert page.count(said) == 1, locale
 
 
 def test_each_answer_is_a_row_with_its_id_date_setup_and_count(root: Path) -> None:

@@ -70,6 +70,10 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **The runs page draws no *Make baseline* on a replayed run**, which the
   store refuses: a `replay` marker stands there, and says why when hovered.
   The run stays comparable.
+- **The recordings page says *case from the first call* beside an answer's
+  id**, where the proxy read an episode with no case given and took its
+  first call's, as `digline record import` says it after the input
+  (ADR 0062 §3).
 - **`digline record import` says the cases file from the repository**, in
   the declaration and in the line after a write, the same from a `suite.py`
   and a `suite.toml`: one printed it whole and the other as typed.
