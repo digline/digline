@@ -608,6 +608,10 @@ what you said fails the case, so `digline report` and `digline compare` exit
 beside the other ways of reading a judge, calibration cases, the labelled
 aggregates and `Repeated`, is [Calibrating a judge](calibration.md).
 
+A coding agent can propose the suite these cases run in, by digline's
+method, and leave the yes and no to you:
+[Letting an agent propose a suite](proposing-a-suite.md).
+
 Recordings of another tenant than the suite's are refused before anything is
 shown: bringing one tenant's material into another's suite is the bridge,
 which is planned and not built, and until then the recordings stay in the
