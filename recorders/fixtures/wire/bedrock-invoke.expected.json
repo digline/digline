@@ -1,0 +1,59 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": "Où est la commande A1 ?",
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "tool_use",
+    "input": "[{\"content\":\"Où est la commande A1 ?\",\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 250.5,
+    "output": "Je regarde.",
+    "steps": [
+      {
+        "actor": "model",
+        "finish": "tool_use",
+        "index": 0
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"order\":\"A1\"}",
+        "index": 1,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      }
+    ],
+    "tool_calls": [
+      {
+        "arguments": "{\"order\":\"A1\"}",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      }
+    ],
+    "tools": [
+      "lookup"
+    ],
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 12
+    }
+  },
+  "setup": {
+    "anthropic_version": "bedrock-2023-05-31",
+    "max_tokens": 256,
+    "modelId": "anthropic.claude-3-5-haiku-20241022-v1:0",
+    "system": "Answer in one line."
+  },
+  "setup_digest": "9ec2bf51e725c930",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}

@@ -1,0 +1,45 @@
+{
+  "route": "bedrock",
+  "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/invoke",
+  "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+  "request": {
+    "anthropic_version": "bedrock-2023-05-31",
+    "max_tokens": 256,
+    "system": "Answer in one line.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Où est la commande A1 ?"
+      }
+    ],
+    "metadata": {
+      "user_id": "customer-42"
+    }
+  },
+  "reply": {
+    "id": "msg_bedrock_1",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-3-5-haiku-20241022",
+    "content": [
+      {
+        "type": "text",
+        "text": "Je regarde."
+      },
+      {
+        "type": "tool_use",
+        "id": "toolu_1",
+        "name": "lookup",
+        "input": {
+          "order": "A1"
+        }
+      }
+    ],
+    "stop_reason": "tool_use",
+    "stop_sequence": null,
+    "usage": {
+      "input_tokens": 30,
+      "output_tokens": 12
+    }
+  }
+}

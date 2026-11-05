@@ -677,12 +677,14 @@ source = { editable = "packages/digline-bedrock" }
 dependencies = [
     { name = "boto3" },
     { name = "digline" },
+    { name = "digline-anthropic" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.35" },
     { name = "digline", editable = "." },
+    { name = "digline-anthropic", editable = "packages/digline-anthropic" },
 ]
 
 [[package]]

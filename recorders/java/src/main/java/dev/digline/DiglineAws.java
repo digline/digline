@@ -1,12 +1,14 @@
 /*
  * digline's recorder for Java: the hook for the AWS SDK v2, for Bedrock's
- * Converse and ConverseStream.
+ * Converse and ConverseStream, and InvokeModel and InvokeModelWithResponseStream
+ * with an Anthropic model, whose body is Anthropic's Messages.
  *
  * RECORDING_VERSION 1, written to the contract as it stood on 2026-11-05:
  * https://github.com/digline/digline/blob/main/docs/recording-format.md
  *
- * Copy it beside DiglineRecorder.java, under the package dev.digline. It needs
- * the AWS SDK v2's bedrockruntime on the classpath.
+ * Copy it beside DiglineRecorder.java and DiglineMessages.java, under the
+ * package dev.digline. It needs the AWS SDK v2's bedrockruntime on the
+ * classpath.
  *
  * Licensed as digline is: Apache-2.0.
  */
@@ -66,7 +68,17 @@ public final class DiglineAws implements ExecutionInterceptor {
             "tool_use", "guardrail_intervened", "filtered", "content_filtered", "filtered",
             "malformed_model_output", "other", "malformed_tool_use", "other");
 
-    private static final Set<String> OPERATIONS = Set.of("Converse", "ConverseStream");
+    private static final Set<String> OPERATIONS = Set.of("Converse", "ConverseStream",
+            "InvokeModel", "InvokeModelWithResponseStream");
+
+    /**
+     * A cross-region inference profile's prefix, before the vendor's name: taken
+     * off before the family is read, as digline's Bedrock map takes it.
+     */
+    static final List<String> REGION_PREFIXES = List.of("us.", "eu.", "apac.", "global.");
+
+    /** The families already said on standard error in this process. */
+    private static final Set<String> SAID = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private static final ExecutionAttribute<Watched> WATCHED = new ExecutionAttribute<>(
             "digline.watched");
@@ -82,11 +94,16 @@ public final class DiglineAws implements ExecutionInterceptor {
         final DiglineRecorder.Captured at;
         final long started = System.nanoTime();
         final ByteArrayOutputStream sent = new ByteArrayOutputStream();
+        /** InvokeModel's name in digline's words, or {@code null} for Converse. */
+        final String invoke;
         volatile String modelId;
         volatile boolean ended;
 
-        Watched(DiglineRecorder.Captured at) {
+        Watched(DiglineRecorder.Captured at, String operation) {
             this.at = at;
+            this.invoke = "InvokeModel".equals(operation) ? "invoke_model"
+                    : "InvokeModelWithResponseStream".equals(operation)
+                    ? "invoke_model_with_response_stream" : null;
         }
 
         void ended(byte[] kept, boolean whole, boolean streamed) {
@@ -94,11 +111,23 @@ public final class DiglineAws implements ExecutionInterceptor {
                 return;
             }
             ended = true;
+            if (invoke != null) {
+                String[] refusal = refusal(invoke, modelId);
+                if (refusal != null) {
+                    // Another family's body is not read: counted by its reason,
+                    // and said once a family. (P-1543)
+                    if (SAID.add(refusal[1])) {
+                        System.err.println("digline recorder: " + refusal[2]);
+                    }
+                    recorder.miss(refusal[0], at);
+                    return;
+                }
+            }
             Map<String, Object> request;
             try {
                 request = new LinkedHashMap<>();
                 request.put("modelId", modelId);
-                request.putAll(DiglineOkHttp.asMap(DiglineRecorder.Json.parse(
+                request.putAll(DiglineRecorder.asMap(DiglineRecorder.Json.parse(
                         sent.toString(StandardCharsets.UTF_8))));
             } catch (RuntimeException notJson) {
                 recorder.miss("not JSON", at);
@@ -108,10 +137,17 @@ public final class DiglineAws implements ExecutionInterceptor {
                 double elapsed = (System.nanoTime() - started) / 1_000_000.0;
                 if (streamed && !whole) {
                     recorder.miss("stream abandoned", at);
+                } else if (invoke != null && streamed) {
+                    recorder.record(DiglineMessages.streamed(request, chunks(frames(kept)), elapsed),
+                            at);
+                } else if (invoke != null) {
+                    recorder.record(DiglineMessages.call(request, DiglineRecorder.asMap(
+                            DiglineRecorder.Json.parse(new String(kept, StandardCharsets.UTF_8))),
+                            elapsed), at);
                 } else if (streamed) {
                     recorder.record(streamed(request, frames(kept), elapsed), at);
                 } else {
-                    recorder.record(call(request, DiglineOkHttp.asMap(DiglineRecorder.Json.parse(
+                    recorder.record(call(request, DiglineRecorder.asMap(DiglineRecorder.Json.parse(
                             new String(kept, StandardCharsets.UTF_8))), elapsed), at);
                 }
             } catch (StreamError failed) {
@@ -138,9 +174,9 @@ public final class DiglineAws implements ExecutionInterceptor {
     @Override
     public void beforeExecution(Context.BeforeExecution context, ExecutionAttributes attributes) {
         try {
-            if (OPERATIONS.contains(attributes.getAttribute(SdkExecutionAttribute.OPERATION_NAME))
-                    && recorder.on()) {
-                attributes.putAttribute(WATCHED, new Watched(recorder.capture()));
+            String operation = attributes.getAttribute(SdkExecutionAttribute.OPERATION_NAME);
+            if (OPERATIONS.contains(operation) && recorder.on()) {
+                attributes.putAttribute(WATCHED, new Watched(recorder.capture(), operation));
             }
         } catch (RuntimeException unknown) {
             // Not watched: the call goes on as it would without the hook.
@@ -206,7 +242,7 @@ public final class DiglineAws implements ExecutionInterceptor {
             return body;
         }
         boolean streamed = eventStream(context);
-        return Optional.of(new DiglineAnthropic.Kept(body.get(),
+        return Optional.of(new DiglineRecorder.Kept(body.get(),
                 (kept, whole) -> watched.ended(kept, whole, streamed)));
     }
 
@@ -227,6 +263,60 @@ public final class DiglineAws implements ExecutionInterceptor {
     private static boolean eventStream(Context.ModifyHttpResponse context) {
         return context.httpResponse().firstMatchingHeader("Content-Type")
                 .map(value -> value.contains("eventstream")).orElse(false);
+    }
+
+    /**
+     * The vendor a model id names, and what its body is to the recorder:
+     * {@code messages}, {@code embeddings} or {@code other}, as digline's
+     * {@code family_of} reads it. An ARN is read by its last segment.
+     */
+    static String[] familyOf(String modelId) {
+        String name = modelId.substring(modelId.lastIndexOf('/') + 1);
+        for (String prefix : REGION_PREFIXES) {
+            if (name.startsWith(prefix)) {
+                name = name.substring(prefix.length());
+                break;
+            }
+        }
+        int dot = name.indexOf('.');
+        String vendor = dot < 0 ? name : name.substring(0, dot);
+        String family = name.contains("embed") ? "embeddings"
+                : "anthropic".equals(vendor) ? "messages" : "other";
+        return new String[] {vendor, family};
+    }
+
+    /**
+     * Why InvokeModel on this model is not recorded, as the reason it is
+     * counted as, the family it is said once for and the sentence, or
+     * {@code null} for Anthropic's Messages. The words are digline's.
+     */
+    static String[] refusal(String method, String modelId) {
+        String[] found = familyOf(modelId == null ? "" : modelId);
+        if ("messages".equals(found[1])) {
+            return null;
+        }
+        if ("embeddings".equals(found[1])) {
+            return new String[] {"embeddings not recorded", "bedrock embeddings " + found[0],
+                    method + " on " + modelId + ": embeddings are not recorded"};
+        }
+        return new String[] {"model family not recorded", "bedrock " + found[0],
+                method + " on " + modelId + ": this model family is not recorded"};
+    }
+
+    /**
+     * InvokeModelWithResponseStream's events, each a {@code chunk} whose
+     * {@code bytes} carry a Messages event in base64: the events, decoded.
+     */
+    static List<Object> chunks(List<Object> frames) {
+        List<Object> events = new ArrayList<>();
+        for (Object frame : frames) {
+            Map<String, Object> event = DiglineRecorder.asMap(frame);
+            if (event.get("chunk") instanceof Map<?, ?> chunk && chunk.get("bytes") instanceof String data) {
+                events.add(DiglineRecorder.Json.parse(new String(
+                        java.util.Base64.getDecoder().decode(data), StandardCharsets.UTF_8)));
+            }
+        }
+        return events;
     }
 
     /** The model's id, from {@code /model/<id>/converse}, percent-decoded and nothing else. */
@@ -395,7 +485,7 @@ public final class DiglineAws implements ExecutionInterceptor {
         Object stop = reply.get("stopReason");
         return new DiglineRecorder.Call(caseCompartment, setup, text.toString(), latencyMs,
                 usage(reply.get("usage")),
-                DiglineRecorder.finishOf(DiglineOkHttp.truthy(stop) ? String.valueOf(stop) : null,
+                DiglineRecorder.finishOf(DiglineRecorder.truthy(stop) ? String.valueOf(stop) : null,
                         FINISH),
                 toolCalls(blocks));
     }
@@ -411,49 +501,49 @@ public final class DiglineAws implements ExecutionInterceptor {
             if (!(raw instanceof Map<?, ?>)) {
                 continue;
             }
-            Map<String, Object> event = DiglineOkHttp.asMap(raw);
+            Map<String, Object> event = DiglineRecorder.asMap(raw);
             if (event.containsKey("messageStart")) {
-                Object said = DiglineOkHttp.asMap(event.get("messageStart")).getOrDefault("role",
+                Object said = DiglineRecorder.asMap(event.get("messageStart")).getOrDefault("role",
                         "assistant");
                 role = String.valueOf(said);
             } else if (event.containsKey("contentBlockStart")) {
-                Map<String, Object> start = DiglineOkHttp.asMap(event.get("contentBlockStart"));
+                Map<String, Object> start = DiglineRecorder.asMap(event.get("contentBlockStart"));
                 Object begun = start.get("start") instanceof Map<?, ?> map ? map.get("toolUse") : null;
                 if (begun != null) {
-                    Map<String, Object> use = DiglineOkHttp.asMap(begun);
+                    Map<String, Object> use = DiglineRecorder.asMap(begun);
                     use.put("input", "");
                     Map<String, Object> block = new LinkedHashMap<>();
                     block.put("toolUse", use);
                     held.put(index(start.get("contentBlockIndex")), block);
                 }
             } else if (event.containsKey("contentBlockDelta")) {
-                Map<String, Object> delta = DiglineOkHttp.asMap(event.get("contentBlockDelta"));
+                Map<String, Object> delta = DiglineRecorder.asMap(event.get("contentBlockDelta"));
                 int at = index(delta.get("contentBlockIndex"));
                 Map<String, Object> change = delta.get("delta") instanceof Map<?, ?>
-                        ? DiglineOkHttp.asMap(delta.get("delta")) : Map.of();
+                        ? DiglineRecorder.asMap(delta.get("delta")) : Map.of();
                 Map<String, Object> block = held.computeIfAbsent(at, key -> new LinkedHashMap<>());
                 if (change.containsKey("text")) {
                     block.put("text", String.valueOf(block.getOrDefault("text", ""))
                             + String.valueOf(change.get("text")));
                 } else if (change.containsKey("toolUse")) {
                     Map<String, Object> use = block.get("toolUse") instanceof Map<?, ?>
-                            ? DiglineOkHttp.asMap(block.get("toolUse")) : new LinkedHashMap<>(Map.of("input", ""));
-                    Object more = DiglineOkHttp.asMap(change.get("toolUse")).getOrDefault("input", "");
+                            ? DiglineRecorder.asMap(block.get("toolUse")) : new LinkedHashMap<>(Map.of("input", ""));
+                    Object more = DiglineRecorder.asMap(change.get("toolUse")).getOrDefault("input", "");
                     use.put("input", String.valueOf(use.getOrDefault("input", "")) + String.valueOf(more));
                     block.put("toolUse", use);
                 }
             } else if (event.containsKey("messageStop")) {
-                stop = DiglineOkHttp.asMap(event.get("messageStop")).get("stopReason");
+                stop = DiglineRecorder.asMap(event.get("messageStop")).get("stopReason");
             } else if (event.containsKey("metadata")) {
-                usage = DiglineOkHttp.asMap(event.get("metadata")).get("usage");
+                usage = DiglineRecorder.asMap(event.get("metadata")).get("usage");
             }
         }
         List<Object> content = new ArrayList<>();
         for (Map<String, Object> block : held.values()) {
             if (block.containsKey("toolUse")) {
-                Map<String, Object> use = DiglineOkHttp.asMap(block.get("toolUse"));
+                Map<String, Object> use = DiglineRecorder.asMap(block.get("toolUse"));
                 Object raw = use.get("input");
-                Object input = DiglineOkHttp.truthy(raw) ? raw : "{}";
+                Object input = DiglineRecorder.truthy(raw) ? raw : "{}";
                 use.put("input", input instanceof String written ? DiglineRecorder.Json.parse(written) : input);
                 content.add(Map.of("toolUse", use));
             } else if (block.containsKey("text")) {
@@ -473,7 +563,7 @@ public final class DiglineAws implements ExecutionInterceptor {
     }
 
     private static int index(Object value) {
-        Long at = DiglineOkHttp.count(value);
+        Long at = DiglineRecorder.count(value);
         if (at == null) {
             throw new IllegalArgumentException("a content block with no index");
         }
@@ -496,9 +586,9 @@ public final class DiglineAws implements ExecutionInterceptor {
         if (!(raw instanceof Map<?, ?>)) {
             return null;
         }
-        Map<String, Object> usage = DiglineOkHttp.asMap(raw);
+        Map<String, Object> usage = DiglineRecorder.asMap(raw);
         Object details = usage.get("cacheDetails");
-        if (DiglineOkHttp.truthy(details)) {
+        if (DiglineRecorder.truthy(details)) {
             if (!(details instanceof List<?> list)) {
                 throw new IllegalArgumentException("usage.cacheDetails is not a list of cache writes");
             }
@@ -538,7 +628,7 @@ public final class DiglineAws implements ExecutionInterceptor {
         Map<String, Map<String, Object>> outcomes = new LinkedHashMap<>();
         for (Object block : blocks) {
             if (block instanceof Map<?, ?> map && map.get("toolResult") instanceof Map<?, ?> result) {
-                Map<String, Object> found = DiglineOkHttp.asMap(result);
+                Map<String, Object> found = DiglineRecorder.asMap(result);
                 outcomes.put(String.valueOf(found.getOrDefault("toolUseId", "")), found);
             }
         }
@@ -547,8 +637,8 @@ public final class DiglineAws implements ExecutionInterceptor {
             if (!(block instanceof Map<?, ?> map) || !map.containsKey("toolUse")) {
                 continue;
             }
-            Map<String, Object> use = DiglineOkHttp.asMap(map.get("toolUse"));
-            String name = DiglineOkHttp.name(use.get("name"));
+            Map<String, Object> use = DiglineRecorder.asMap(map.get("toolUse"));
+            String name = DiglineRecorder.name(use.get("name"));
             Object arguments = arguments(use.get("input"));
             Map<String, Object> outcome = "server_tool_use".equals(use.get("type"))
                     ? outcomes.get(String.valueOf(use.getOrDefault("toolUseId", ""))) : null;

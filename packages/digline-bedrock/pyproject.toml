@@ -58,6 +58,15 @@ dependencies = [
     # only reader of caps, `.github/plugins_against_core.py`, reads
     # `requires_dist` from PyPI. RELEASING.md, *Owed at the cut*, holds the row.
     "digline>=0.35.0,<2",
+    # digline-anthropic, for InvokeModel's Anthropic Messages body: read with
+    # the map a direct Messages call is read with, so there is one reading of
+    # Messages and not two that drift (P-1543; ADR 0062 §2, noted 2026-11-05).
+    # A dependency and not an extra, because an extra adds a state to explain:
+    # a call counted for want of a package. **Owed at the cut**, as the digline
+    # floor above: the floor raised to the digline-anthropic release that
+    # carries `WIRE` and the stream reading, which 0.8.0 does not; RELEASING.md,
+    # *Owed at the cut*, holds the row. And its cap, the next major.
+    "digline-anthropic>=0.8.0,<1",
     # boto3 and nothing else. No wrapper, no gateway: the Converse API is one
     # call, and a layer on top would only add a second thing to be wrong.
     "boto3>=1.35",
@@ -85,6 +94,8 @@ bedrock = "digline_bedrock:PROVIDER"
 [project.entry-points."digline.recording_maps"]
 "botocore.BedrockRuntime:converse" = "digline_bedrock.recording:MAP"
 "botocore.BedrockRuntime:converse_stream" = "digline_bedrock.recording:STREAM_MAP"
+"botocore.BedrockRuntime:invoke_model" = "digline_bedrock.recording:INVOKE_MAP"
+"botocore.BedrockRuntime:invoke_model_with_response_stream" = "digline_bedrock.recording:INVOKE_STREAM_MAP"
 
 # How `digline record proxy` reads this provider's calls off the wire: one
 # entry per route, named as `--upstream ROUTE=URL` names it, loaded when the
@@ -101,3 +112,4 @@ packages = ["src/digline_bedrock"]
 
 [tool.uv.sources]
 digline = { workspace = true }
+digline-anthropic = { workspace = true }

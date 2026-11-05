@@ -23,6 +23,17 @@ with: `modelId`, `system`, `inferenceConfig`, `toolConfig`, `guardrailConfig`,
 A recording does not price: the price list passed is empty, so a reply without
 a usage block is recorded as *not recorded*, never as zero.
 
+**`invoke_model` and `invoke_model_with_response_stream`** (P-1541, P-1543)
+carry a model family's own body. Anthropic's is the Messages API, read with
+the map `digline-anthropic` reads a direct call with, so there is one reading
+of Messages: the body's `messages` are the case, the setup is `modelId` and
+the body's other keys but those Anthropic's map leaves out, and the reply,
+or each stream chunk's `bytes`, is a Messages reply or event. Another family
+is not read: `family_of` tells it from the model id, a cross-region prefix
+(`us.`, `eu.`, `apac.`, `global.`) taken off first, and the call is counted
+as not recorded, with a sentence said once a family (`Refusal`). An
+embedding model is said apart.
+
 **Off the wire**, for `digline record proxy`, `WIRE` reads the same two
 calls, `/model/<id>/converse` and `/model/<id>/converse-stream`, with the same
 maps (ADR 0062 §3). The application's AWS SDK signed its request for the
@@ -37,9 +48,11 @@ streamed reply is an AWS event stream, decoded by botocore's own buffer.
 
 from __future__ import annotations
 
+import base64
 import calendar
 import hmac
 import importlib
+import io
 import json
 import re
 import time
@@ -53,7 +66,19 @@ from digline_bedrock.client import completion_of
 if TYPE_CHECKING:
     from digline.recorder import StreamReading
 
-__all__ = ["MAP", "NOT_SETUP", "STREAM_MAP", "WIRE", "BedrockRecording", "BedrockWire"]
+__all__ = [
+    "INVOKE_MAP",
+    "INVOKE_STREAM_MAP",
+    "MAP",
+    "NOT_SETUP",
+    "REGION_PREFIXES",
+    "STREAM_MAP",
+    "WIRE",
+    "BedrockInvokeRecording",
+    "BedrockRecording",
+    "BedrockWire",
+    "family_of",
+]
 
 #: The keywords of `converse` that are neither the case nor the setup, beside
 #: the messages themselves.
@@ -155,9 +180,174 @@ MAP = BedrockRecording()
 STREAM_MAP = BedrockStreamRecording()
 
 
-#: The two calls the wire reads: `converse` and `converse-stream`, the model id
-#: in the path as the SDK writes it, percent-encoded.
-_CALL = re.compile(r"/model/([^/]+)/(converse|converse-stream)")
+#: A cross-region inference profile's prefix, before the vendor's name: taken
+#: off before the family is read, so `us.anthropic.claude-…` is Anthropic's.
+REGION_PREFIXES: tuple[str, ...] = ("us.", "eu.", "apac.", "global.")
+
+type Family = Literal["messages", "embeddings", "other"]
+
+
+def family_of(model_id: str) -> tuple[str, Family]:
+    """The vendor a model id names, and what its body is to the recorder:
+    Anthropic's Messages, an embedding model, or another family. Read from the
+    id, never the body: the body of another family may look like anything.
+    An ARN is read by its last segment."""
+    name = model_id.rsplit("/", 1)[-1]
+    for prefix in REGION_PREFIXES:
+        if name.startswith(prefix):
+            name = name[len(prefix) :]
+            break
+    vendor = name.split(".", 1)[0]
+    if "embed" in name:
+        return vendor, "embeddings"
+    if vendor == "anthropic":
+        return vendor, "messages"
+    return vendor, "other"
+
+
+def _refusal(method: str, model_id: str) -> Any:
+    """The `Refusal` for a model family not read, or `None` for Anthropic's."""
+    vendor, family = family_of(model_id)
+    if family == "messages":
+        return None
+    from digline.recorder import Refusal
+
+    if family == "embeddings":
+        return Refusal(
+            reason="embeddings not recorded",
+            family=f"bedrock embeddings {vendor}",
+            said=f"{method} on {model_id}: embeddings are not recorded",
+        )
+    return Refusal(
+        reason="model family not recorded",
+        family=f"bedrock {vendor}",
+        said=f"{method} on {model_id}: this model family is not recorded",
+    )
+
+
+def _body_of(request: Mapping[str, Any]) -> Mapping[str, Any]:
+    """The InvokeModel body as an object: the proxy hands it parsed, boto3's
+    caller as JSON text or bytes. A file is not read, which would empty it."""
+    body = request.get("body")
+    if isinstance(body, Mapping):
+        return cast(Mapping[str, Any], body)
+    if isinstance(body, bytes | bytearray | str):
+        found = json.loads(body)
+        if isinstance(found, dict):
+            return cast(Mapping[str, Any], found)
+    raise ValueError("the body is not a JSON object the recorder can read")
+
+
+def _reply_of(reply: Any) -> object:
+    """The reply's Messages JSON. In process it is boto3's `body`, a stream the
+    application has not read yet: read here, and put back as a new stream of
+    the same bytes before anything else, so the application reads what it
+    would have. Off the wire it is the JSON already."""
+    if not isinstance(reply, dict):
+        return cast(object, reply)
+    found = cast(dict[str, Any], reply)
+    if "body" not in found:
+        return found
+    data = found["body"].read()
+    response: Any = importlib.import_module("botocore.response")
+    found["body"] = response.StreamingBody(io.BytesIO(data), len(data))
+    return json.loads(data)
+
+
+class BedrockInvokeRecording:
+    """The map for `invoke_model`: a body of the Anthropic Messages family,
+    read with `digline-anthropic`'s map; any other family declined."""
+
+    method = "invoke_model"
+
+    def refusal(self, request: Mapping[str, Any]) -> Any:
+        return _refusal(self.method, str(request.get("modelId", "")))
+
+    def split(
+        self, request: Mapping[str, Any]
+    ) -> tuple[dict[str, object], dict[str, object]]:
+        from digline_anthropic.recording import NOT_SETUP as MESSAGES_NOT_SETUP
+
+        body = _body_of(request)
+        case: dict[str, object] = {"messages": body.get("messages")}
+        setup: dict[str, object] = {"modelId": request.get("modelId")}
+        setup.update({k: v for k, v in body.items() if k not in MESSAGES_NOT_SETUP})
+        return case, setup
+
+    def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
+        from digline_anthropic.recording import MAP as MESSAGES
+        from digline_anthropic.recording import WIRE as MESSAGES_WIRE
+
+        return MESSAGES.completion(MESSAGES_WIRE.reply(_reply_of(reply)), request)
+
+
+class BedrockInvokeStreamRecording(BedrockInvokeRecording):
+    """The map for `invoke_model_with_response_stream`: the same body, and a
+    reply whose `body` is a stream of `chunk`s, each a Messages event's JSON
+    in its `bytes`."""
+
+    method = "invoke_model_with_response_stream"
+
+    def streams(self, request: Mapping[str, Any]) -> bool:
+        return True
+
+    def stream_of(self, reply: Any) -> Any:
+        return reply["body"]
+
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
+        if self.refusal(request) is not None:
+            # Declined before its reply is read: the chunks of another family
+            # are not Messages events, and nothing here reads them.
+            return _Declined()
+        from digline_anthropic.recording import MAP as MESSAGES
+
+        return _Chunks(MESSAGES.reading(request))
+
+
+class _Chunks:
+    """Each `chunk`'s bytes, a Messages event, handed to the Messages reading."""
+
+    def __init__(self, inner: StreamReading) -> None:
+        self._inner = inner
+
+    def add(self, event: Any) -> None:
+        if not isinstance(event, Mapping):
+            return
+        chunk = cast(Mapping[str, Any], event).get("chunk")
+        if not isinstance(chunk, Mapping):
+            return
+        data = cast(Mapping[str, Any], chunk).get("bytes")
+        if not isinstance(data, bytes | bytearray | str):
+            return
+        from digline_anthropic.recording import WIRE as MESSAGES_WIRE
+
+        self._inner.add(MESSAGES_WIRE.event(json.loads(data)))
+
+    def completion(self, stream: Any) -> Any:
+        return self._inner.completion(stream)
+
+
+class _Declined:
+    """The reading of a stream whose family is declined: it reads nothing, and
+    the call is counted by the map's `refusal` before any of it is used."""
+
+    def add(self, event: Any) -> None:
+        return None
+
+    def completion(self, stream: Any) -> Completion:
+        return Completion(text="", usage=None)
+
+
+INVOKE_MAP = BedrockInvokeRecording()
+INVOKE_STREAM_MAP = BedrockInvokeStreamRecording()
+
+
+#: The calls the wire reads: `converse` and `converse-stream`, and `invoke`
+#: and `invoke-with-response-stream`, the model id in the path as the SDK
+#: writes it, percent-encoded.
+_CALL = re.compile(
+    r"/model/([^/]+)/(converse|converse-stream|invoke|invoke-with-response-stream)"
+)
 
 #: What the application's signature put in the headers, replaced by this one.
 _SIGNATURE = frozenset(
@@ -332,11 +522,24 @@ class BedrockWire:
         signed = cast(Mapping[str, object], request.headers)
         return {str(key): str(value) for key, value in signed.items()}
 
+    def map_for(self, path: str) -> Any:
+        """The map that reads the call the path names: Converse's, or
+        InvokeModel's for `invoke` and `invoke-with-response-stream`."""
+        found = _CALL.fullmatch(path.partition("?")[0])
+        if found is not None and found.group(2) == "invoke":
+            return INVOKE_MAP
+        if found is not None and found.group(2) == "invoke-with-response-stream":
+            return INVOKE_STREAM_MAP
+        return self.map
+
     def request_of(self, path: str, request: Mapping[str, Any]) -> dict[str, Any]:
-        """The request as boto3's `converse` takes it: `modelId` from the
-        path, the body's keys beside it."""
+        """The request as boto3 takes it: `modelId` from the path, and for
+        `converse` the body's keys beside it, for `invoke` the body whole, as
+        `body`."""
         found = _CALL.fullmatch(path.partition("?")[0])
         model = unquote(found.group(1)) if found is not None else ""
+        if found is not None and found.group(2).startswith("invoke"):
+            return {"modelId": model, "body": dict(request)}
         return {"modelId": model, **request}
 
     def frames(self, content_type: str, data: bytes) -> list[object] | None:
@@ -354,15 +557,29 @@ class BedrockWire:
             if headers.get(":message-type") != "event":
                 raise ValueError(str(headers.get(":exception-type", "exception")))
             payload = cast(bytes, message.payload)
-            events.append(
-                {str(headers[":event-type"]): json.loads(payload) if payload else {}}
-            )
+            kind = str(headers[":event-type"])
+            found: Any = json.loads(payload) if payload else {}
+            if kind == "chunk" and isinstance(found, dict):
+                # InvokeModelWithResponseStream: the event in base64 under
+                # `bytes`, decoded here as boto3 decodes it for its caller.
+                chunk = cast(dict[str, Any], found)
+                found = {
+                    **chunk,
+                    "bytes": base64.b64decode(str(chunk.get("bytes", ""))),
+                }
+            events.append({kind: found})
         return events
 
     def results(self, request: Mapping[str, Any]) -> Sequence[ToolCall] | None:
         """The `toolResult` blocks after the last assistant message that asked
         for tools, in the order it asked: a result's text, its `json` as
-        canonical JSON, and its `status` where it says one."""
+        canonical JSON, and its `status` where it says one. An InvokeModel
+        body is Anthropic's Messages, whose results Anthropic's wire reads."""
+        body = request.get("body")
+        if isinstance(body, Mapping):
+            from digline_anthropic.recording import WIRE as MESSAGES_WIRE
+
+            return MESSAGES_WIRE.results(cast(Mapping[str, Any], body))
         messages = _mappings(request.get("messages"))
         asked: list[Mapping[str, Any]] = []
         at = -1

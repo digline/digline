@@ -99,6 +99,7 @@ import sys
 import threading
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextvars import ContextVar, Token
+from dataclasses import dataclass
 from importlib.metadata import entry_points
 from pathlib import Path
 from time import monotonic, perf_counter
@@ -132,6 +133,7 @@ __all__ = [
     "RecordedClient",
     "RecorderStartError",
     "Episode",
+    "Refusal",
     "RecordingMap",
     "RecordingWire",
     "StreamReading",
@@ -141,6 +143,7 @@ __all__ = [
     "collecting",
     "episode",
     "parse_switch",
+    "refused",
     "running",
     "wrap",
 ]
@@ -214,6 +217,42 @@ UNASSIGNED = "_unassigned"
 #: sees it, recording or not.
 _SUITE = "suite"
 _VARS = "digline_vars"
+
+
+@dataclass(frozen=True, slots=True)
+class Refusal:
+    """A call a map reads and declines to record, by a rule of its own: a
+    Bedrock model family whose body is not one it reads, say. A map with a
+    `refusal(request)` method returns one, or `None` for a call it records.
+
+    `reason` is what the call is counted as, beside the other reasons, so the
+    status shows it and the call never passes without a trace. `said` is the
+    sentence the application's standard error hears, **once per process for
+    each `family`**: a warning at every call would drown the application's own
+    output, and one per family says each thing once. (P-1543)"""
+
+    reason: str
+    family: str
+    said: str
+
+
+#: The families already said in this process, by `Refusal.family`.
+_SAID: set[str] = set()
+_SAID_LOCK = threading.Lock()
+
+
+def refused(refusal: Refusal) -> str:
+    """Count-ready: `refusal.reason`, after its sentence has been said on
+    standard error if its family has not been in this process. Never raises."""
+    with _SAID_LOCK:
+        first = refusal.family not in _SAID
+        _SAID.add(refusal.family)
+    if first:
+        with contextlib.suppress(Exception):
+            print(  # noqa: T201 — the application's own stderr, once a family
+                f"digline recorder: {refusal.said}", file=sys.stderr
+            )
+    return refusal.reason
 
 
 class RecorderStartError(ValueError):
@@ -1654,6 +1693,12 @@ def _record(
 
         stage = "map"
         mapped: RecordingMap = slot.mapped()
+        # A call the map declines by a rule of its own: counted by its reason,
+        # said once a family, never recorded. (P-1543)
+        declines = getattr(mapped, "refusal", None)
+        found = None if declines is None else declines(request)
+        if isinstance(found, Refusal):
+            return refused(found), None
         case, setup = mapped.split(request)
         if variables is not None:
             if not isinstance(variables, Mapping):

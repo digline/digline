@@ -393,6 +393,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   and in Italian on `?locale=it`. The `proposing-a-suite` skill says where the
   checks on the steps go, that every case is asked every check, and that a yes
   on an episode is a yes to its steps too.
+- **Bedrock's `invoke_model` is recorded for an Anthropic model, and counted
+  by name for any other.** `invoke_model` and
+  `invoke_model_with_response_stream` passed through the recorder in process
+  and the Java hook with no trace, and through the proxy as *route not read*.
+  Now the three read an Anthropic model's body with `digline-anthropic`'s map,
+  which `digline-bedrock` depends on, and the Java hook with the new
+  `DiglineMessages.java`, which `DiglineAnthropic.java` uses too. Titan,
+  Llama, Mistral and embedding models are not recorded: each call is counted,
+  *model family not recorded* or *embeddings not recorded*, and standard
+  error says it once a family. `docs/record-java.md` lists the files each
+  port copies, and the Java hooks no longer need `DiglineOkHttp.java` to
+  compile (ADR 0062 §2, noted 2026-11-05).
 - **Three more patterns are anchored whole**: a window's date, an endpoint's
   host and a journal leg's name matched with `^…$`, where `$` also matches
   before a final newline. They are `\A…\Z` with `fullmatch` now. Measured:

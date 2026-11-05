@@ -7,13 +7,17 @@
  * Copy this file into your project, under the package dev.digline. It needs
  * the JDK alone, version 21 or later. A hook beside it reads your HTTP
  * client's calls and hands them here: DiglineOkHttp.java, DiglineAnthropic.java
- * or DiglineAws.java. digline's repository holds the copy its tests run, in
+ * or DiglineAws.java, the last two with DiglineMessages.java beside them.
+ * docs/record-java.md lists the files each port copies. digline's repository
+ * holds the copy its tests run, in
  * recorders/java/, and a change to the format is a new RECORDING_VERSION there.
  *
  * Licensed as digline is: Apache-2.0.
  */
 package dev.digline;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -2313,6 +2317,113 @@ public final class DiglineRecorder {
                 return Double.parseDouble(plain);
             }
             throw new IllegalArgumentException("not a value a switch holds");
+        }
+    }
+
+    // The JSON helpers every hook reads a reply with: here, in the one file
+    // every port copies, so no hook needs another hook's file to compile.
+
+    static String name(Object value) {
+        return value instanceof String text && !text.isEmpty() ? text : null;
+    }
+
+    static Long count(Object value) {
+        if (value instanceof Long whole) {
+            return whole;
+        }
+        if (value instanceof Number number && !(value instanceof Boolean)) {
+            return number.longValue();
+        }
+        return null;
+    }
+
+    /** Python's truth of a JSON value: null, false, 0, "" and empty containers are false. */
+    static boolean truthy(Object value) {
+        if (value == null || Boolean.FALSE.equals(value)) {
+            return false;
+        }
+        if (value instanceof String text) {
+            return !text.isEmpty();
+        }
+        if (value instanceof Number number) {
+            return number.doubleValue() != 0;
+        }
+        if (value instanceof Map<?, ?> map) {
+            return !map.isEmpty();
+        }
+        if (value instanceof List<?> list) {
+            return !list.isEmpty();
+        }
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    static Map<String, Object> asMap(Object value) {
+        if (!(value instanceof Map<?, ?>)) {
+            throw new IllegalArgumentException("not a JSON object");
+        }
+        return new LinkedHashMap<>((Map<String, Object>) value);
+    }
+
+    /**
+     * A body that keeps what is read through it, and says what was kept once:
+     * at its end, or when it is closed before it, which the second argument
+     * tells apart.
+     */
+    static final class Kept extends FilterInputStream {
+        private final ByteArrayOutputStream kept = new ByteArrayOutputStream();
+        private final java.util.function.BiConsumer<byte[], Boolean> end;
+        private boolean done;
+
+        Kept(InputStream in, java.util.function.BiConsumer<byte[], Boolean> end) {
+            super(in);
+            this.end = end;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int read = super.read();
+            if (read == -1) {
+                ended(true);
+            } else {
+                kept.write(read);
+            }
+            return read;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int read = super.read(buffer, offset, length);
+            if (read == -1) {
+                ended(true);
+            } else if (read > 0) {
+                kept.write(buffer, offset, read);
+            }
+            return read;
+        }
+
+        @Override
+        public long skip(long count) throws IOException {
+            // Skipped bytes are not read through here, so what is kept would
+            // be short: said as an abandoned body rather than misread.
+            done = true;
+            return super.skip(count);
+        }
+
+        @Override
+        public void close() throws IOException {
+            try {
+                super.close();
+            } finally {
+                ended(false);
+            }
+        }
+
+        private void ended(boolean whole) {
+            if (!done) {
+                done = true;
+                end.accept(kept.toByteArray(), whole);
+            }
         }
     }
 }
