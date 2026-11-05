@@ -139,6 +139,7 @@ __all__ = [
     "collecting",
     "episode",
     "parse_switch",
+    "running",
     "wrap",
 ]
 
@@ -210,6 +211,14 @@ _CURRENT: ContextVar[str | None] = ContextVar("digline_episode", default=None)
 _COLLECTING: ContextVar[_Collected | None] = ContextVar(
     "digline_collecting", default=None
 )
+
+#: Whether the current context is inside a run, its target's calls and its
+#: judges' alike: what `running()` opens around `execute()`. A run's calls are
+#: the gate's, not the application's traffic, so nothing inside one is written
+#: as a recording, and the counts do not move. `collecting()` says the same of
+#: the target's calls on its own, for a library caller that passes it to
+#: `execute()` without `running()`.
+_RUNNING: ContextVar[bool] = ContextVar("digline_running", default=False)
 
 #: The episodes open in this process, by id. A call made inside one, through any
 #: wrapped client, adds its step to it.
@@ -754,9 +763,12 @@ def _intercepted(
         # Read before the one test an off client makes: a run's collection is
         # open whether or not the recorder is on (ADR 0060 §3).
         collected = _COLLECTING.get()
-        if collected is None and not state.any_on:
+        # Inside a run the wrapper collects and never writes: the target's
+        # and the judges' calls are the gate's, not the application's traffic,
+        # and a recording of them would be filed as the application's suite.
+        records = state.any_on and collected is None and not _RUNNING.get()
+        if collected is None and not records:
             return method(*args, **kwargs)
-        records = state.any_on
         inside = _CURRENT.get() if records else None
         known = None if state.production else cast(str, state.tenant)
         if args:
@@ -2018,6 +2030,26 @@ def collecting(
         collected.close()
 
 
+@contextlib.contextmanager
+def running() -> Generator[None]:
+    """Mark the context as a run's: what `digline.host` enters around
+    `execute()`, so that no call made inside it, by the target or by a judge,
+    through a client `wrap()` returned, is written as a recording or moves a
+    client's counts. A run's calls are the gate's, and recorded they were
+    filed under whatever suite the call site named, as if the application had
+    made them. `collecting()` still reads the target's calls inside it.
+
+        with digline.recorder.running():
+            run = execute(suite, target, ..., around_target=collecting)
+    """
+    token = _RUNNING.set(True)
+    try:
+        yield
+    finally:
+        with contextlib.suppress(ValueError):
+            _RUNNING.reset(token)
+
+
 def _settled(
     collected: _Collected,
     response: Response,
@@ -2147,7 +2179,9 @@ class Episode:
       a tool step's result is absent and says `not_reported`, never filled
       in. A nested episode's steps are spliced in where it closed. Where
       nothing inside it was recorded, the response carries no steps: absent
-      is *not recorded*, never an empty list.
+      is *not recorded*, never an empty list. Its `finish` is the last model
+      step's, and its `tools` the tool steps' names in order, as a run reads
+      them live;
 
     Over `MAX_RECORDED_CHARS`, whole or nothing as a run's recorded response
     is: the response says `oversize` and carries no steps, which carry the
@@ -2208,7 +2242,9 @@ class Episode:
             self._output = (result,)
 
     def __enter__(self) -> Episode:
-        if not self._state.any_on:
+        # Inside a run it is the empty context it is when the recorder is off:
+        # a run's calls are not the application's traffic. (`running()`)
+        if not self._state.any_on or _COLLECTING.get() is not None or _RUNNING.get():
             return self
         self.id = os.urandom(16).hex()
         self._parent = _CURRENT.get()
@@ -2422,6 +2458,19 @@ def _record_episode(
                 # the ceiling there are none: the steps carry the calls'
                 # arguments, so they go with the text (ADR 0015 §3).
                 steps=tuple(steps) or None,
+                # Read off the steps, as a run's collection reads them live
+                # (`_settled`): why the turn ended is its last model step's
+                # finish, and the names are its tool steps', one per call in
+                # order, where every call said what it called. (ADR 0057; ADR
+                # 0058 §5, §7)
+                finish=_last_finish(steps),
+                tools=None
+                if trajectory is None
+                else tuple(
+                    step.call.tool
+                    for step in steps
+                    if step.actor == "tool" and step.call is not None
+                ),
             )
         )
 
@@ -2460,6 +2509,13 @@ def _record_episode(
     except Exception:  # noqa: BLE001 — the rule of this module
         return stage
     return None
+
+
+def _last_finish(steps: Any) -> str | None:
+    """The finish of the last model step: why the turn ended. `None` where it
+    reported none, and never an earlier step's, which ended another reply."""
+    models = [step for step in steps if step.actor == "model"]
+    return models[-1].finish if models else None
 
 
 def _switched_on() -> bool:

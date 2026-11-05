@@ -972,6 +972,15 @@ class Suite:
                 f"{self.deterministic_output!r}: it is true or false, and is "
                 "declared, never read off a value that is merely truthy"
             )
+        # The same for the switch that writes the target's answers to disk:
+        # from a data suite `record_responses = "no"` was a string, which is
+        # truthy, so it recorded. (ADR 0015 §2)
+        if type(self.record_responses) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+            raise RefusedError(
+                f"suite {self.name!r} declares record_responses="
+                f"{self.record_responses!r}: it is true or false, and is "
+                "declared, never read off a value that is merely truthy"
+            )
         check = None if self.capture is None else self.capture.check
         if check is None:
             return

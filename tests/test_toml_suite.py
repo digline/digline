@@ -167,6 +167,25 @@ def test_sampling_without_a_floor_is_refused(build: Build) -> None:
         build(SUITE + "samples = 3\n" + TARGET + CONTAINS)
 
 
+def test_record_responses_is_a_key_of_the_suite_table(build: Build) -> None:
+    """The switch that keeps the target's answers for a re-judge, as the
+    Python field is, and outside `config_hash` there too. (ADR 0015 §2)"""
+    kept = build(SUITE + "record_responses = true\n" + TARGET + CONTAINS)
+    assert kept.record_responses is True
+    plain = build()
+    assert plain.record_responses is False
+    assert kept.config_hash() == plain.config_hash()
+
+
+@pytest.mark.parametrize("value", ['"no"', '"yes"', "1"])
+def test_a_record_responses_that_is_not_true_or_false_is_refused(
+    build: Build, value: str
+) -> None:
+    """A string is truthy, so `"no"` recorded every answer."""
+    with pytest.raises(UsageError, match="record_responses=.*true or false"):
+        build(SUITE + f"record_responses = {value}\n" + TARGET + CONTAINS)
+
+
 def test_a_ratio_no_sample_count_can_produce_is_refused(build: Build) -> None:
     """`"2/5"` over three samples is a bar that cannot be met or missed."""
     with pytest.raises(UsageError, match="2/5|min_agreement"):

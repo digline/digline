@@ -46,6 +46,7 @@ from digline.core import (
     Run,
     Written,
     compare,
+    contradicted,
     diff,
     key_of,
     nothing_judged,
@@ -412,6 +413,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             key = "one" if errored == 1 else "many"
             say(
                 f"digline: {phrase('en', f'fact.errored_checks.{key}', count=errored)}",
+                err=True,
+            )
+        # And a reviewed answer the judge contradicted, beside it: the run
+        # exits 0, and report, explain and compare exit 1 on it, so the person
+        # who ran the command hears it here first. The `next:` line below then
+        # names explain, because promote refuses such a run. (ADR 0059 §1)
+        against = len(contradicted(measured.run))
+        if against:
+            key = "one" if against == 1 else "many"
+            say(
+                f"digline: {phrase('en', f'fact.contradicted.{key}', count=against)}",
                 err=True,
             )
         # Only the key on stdout, so a shell can capture it:
@@ -1491,7 +1503,9 @@ def cmd_record_import(args: argparse.Namespace) -> int:
     if args.tenant is None or args.suite is None:
         raise UsageError("`digline record import` needs --tenant and --suite")
     suite, loaded = _record_suite(args)
-    found = import_listing(Path(args.root), suite, loaded.module, args.tenant)
+    found = import_listing(
+        Path(args.root), suite, loaded.module, args.tenant, taken_from=args.taken_from
+    )
     if args.good or args.bad or args.by is not None:
         written = import_elect(
             found, good=args.good or (), bad=args.bad or (), by=args.by
@@ -2255,6 +2269,16 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "import only: write this recorded answer as reviewed bad, by the "
             "id the listing prints; once per answer"
+        ),
+    )
+    rec_p.add_argument(
+        "--from",
+        dest="taken_from",
+        metavar="_unassigned",
+        help=(
+            "import only: list the calls that named no suite, `_unassigned`, "
+            "as --suite's, under its capture declaration; they stay where they "
+            "are"
         ),
     )
     rec_p.add_argument(
