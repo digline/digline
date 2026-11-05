@@ -213,6 +213,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   written with one is still read. `digline record status` says *not counted*
   of a process that keeps no counts file, and `--json` carries it as
   `recordings.uncounted`. `RECORDING_VERSION` stays 1 (ADR 0062 §2).
+- **A recorder for Java, as a file to copy**:
+  `recorders/java/src/main/java/dev/digline/DiglineRecorder.java`, the JDK
+  alone, which writes the recording to its contract (ADR 0062 §4). It reads
+  the tenant's `recorder.toml` with the rules digline reads it with, in
+  development and in production, names a suite, an episode and an attached
+  thread per thread, and never fails the application's call. It keeps no
+  counts file, so `digline record status` says *not counted* of its process.
+  The hooks that hand it a client's calls, for OkHttp, the Anthropic SDK and
+  the AWS SDK, come next, with `docs/record-java.md`. The CI job
+  `recorder-java` holds it to fixtures digline's Python writes, a recorded
+  call byte for byte among them, and imports what it writes with digline
+  alone.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is
