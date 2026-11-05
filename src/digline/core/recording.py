@@ -65,7 +65,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, cast
@@ -81,6 +81,7 @@ __all__ = [
     "RECORDING_VERSION",
     "Recording",
     "RecordingRefusedError",
+    "episode_setup",
     "float_text",
     "input_of",
     "instant_of",
@@ -126,6 +127,33 @@ def _json_value(value: object, where: str) -> object:
             "pass strings, numbers, booleans, null, lists and objects with "
             "string keys"
         ) from None
+
+
+def episode_setup(
+    child_setups: Iterable[str],
+    git_commit: str | None = None,
+    *,
+    declared: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """An episode's setup: the **set** of its direct children's setup digests
+    and the commit the code ran at (ADR 0058 §8, note of 2026-11-05).
+
+    A set: the order the calls were made in does not count, and a setup met
+    twice is one. So an episode that calls two models has a setup unlike
+    either of its calls', and the same episode recorded with its calls in
+    another order has the same one. A setup the programmer declared
+    (`setup=`) wins whole, and nothing is added to it.
+
+    The one place the identity is decided: the recorder writes it, and
+    whatever reads an episode's setup (`setup_digest`, the setup in force,
+    the page's marks) reads what this returned, through its digest. Java's
+    recorder builds the same set (`Collector.digests`, a sorted set)."""
+    if declared is not None:
+        return dict(declared)
+    setup: dict[str, object] = {"child_setups": sorted(set(child_setups))}
+    if git_commit is not None:
+        setup["git_commit"] = git_commit
+    return setup
 
 
 def setup_digest_of(setup: Mapping[str, object]) -> str:
