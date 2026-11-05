@@ -78,6 +78,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **The recordings page fits its answers in the page**: the column that
+  names an answer sat outside the box on a wide table, and the command under
+  the button was cut at the box's edge. The table's cells wrap, the date
+  excepted, inside a box that scrolls rather than run off the page, and the
+  command wraps; a copy of it is still one line.
 - **`digline view` opens its menu with *Where you are***, which reads
   `.digline/` and says the next step: one state of eleven, the first that
   holds, from *Nothing recorded yet* to *Nothing to do*, each with two
