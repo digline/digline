@@ -1093,6 +1093,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "The recorder stopped at the ceiling.",
         "view.recorder.unreadable": "{count} file(s) that are not recordings",
+        # `digline record status`'s sentence, with the suite it is printed
+        # under (ADR 0058, 2026-11-05).
+        "view.recorder.from_gate": (
+            "suite {suite}: {count} from gate runs, kept apart: not listed, "
+            "imported or compared"
+        ),
         "view.recorder.uncounted": (
             "Not counted: {count} process(es) keep recordings and no counts, so "
             "what was not recorded there is not known."
@@ -2788,6 +2794,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.recorder.stopped": "Il registratore si è fermato al tetto.",
         "view.recorder.unreadable": "{count} file che non sono registrazioni",
+        "view.recorder.from_gate": (
+            "suite {suite}: {count} da esecuzioni del gate, tenute a parte: non "
+            "elencate, importate né confrontate"
+        ),
         "view.recorder.uncounted": (
             "Non contato: {count} processo/i hanno registrazioni e nessun "
             "conteggio, quindi non si sa cosa non vi è stato registrato."
