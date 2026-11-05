@@ -9,6 +9,10 @@ back and names the ones that become cases.
 > **Arrives with digline 1.1.** On 1.0.3, `digline record` and
 > `digline.recorder` do not exist.
 
+If you don't know what to do next, open `digline view`: its first page,
+[*Where you are*](view.md#where-you-are), reads `.digline/` and says the next
+step, with its command.
+
 It is five things:
 
 - **`digline.recorder.wrap`**, around the provider's own client, in the

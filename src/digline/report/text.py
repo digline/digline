@@ -893,6 +893,84 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.title.runs": "Runs — {suite}",
         "view.title.case": "Case {case_id} — {suite}",
         "view.title.suspend": "Suspend {case_id} — {suite}",
+        "view.nav.where": "Where you are",
+        "view.title.where": "Where you are — {suite}",
+        "view.where.command": "The command",
+        "view.where.docs": "The page that says more",
+        "view.where.open": "Open it here",
+        "view.where.language": "Recording, in the language of the application",
+        "view.where.lines": "Three lines from {page}, as they stand there.",
+        "view.where.shapes": "The recordings, by the shape of their output",
+        "view.where.never": "no import yet",
+        "view.where.nothing_recorded.title": "Nothing recorded yet",
+        "view.where.nothing_recorded.say": (
+            "digline holds no recording of tenant {tenant}, and this suite has "
+            "never run. Record what the application asks the model, from its own "
+            "language, and the calls become the material a suite is made of."
+        ),
+        "view.where.recording_off.title": "Recording is off",
+        "view.where.recording_off.say": (
+            "The switch of tenant {tenant} says off, and the {count} recording(s) "
+            "it holds have all been through an import. Switch it on to keep the "
+            "calls the application makes from now on."
+        ),
+        "view.where.unassigned.title": "{count} call(s) named no suite",
+        "view.where.unassigned.say": (
+            "Every recording of tenant {tenant} was made by a call that named no "
+            "suite, so no suite reads it. Name the suite where the call is made, "
+            "or list these calls as a suite's with --from _unassigned."
+        ),
+        "view.where.no_suite_yet.title": (
+            "{count} recording(s) in {suite}, no suite yet"
+        ),
+        "view.where.no_suite_yet.say": (
+            "The recordings name suite {suite}, and no suite declares where its "
+            "captured cases go, so nothing reads them as cases. Write the suite "
+            "with a capture declaration, or let an agent propose one by "
+            "digline's method."
+        ),
+        "view.where.to_import.title": "{count} since the last import",
+        "view.where.to_import.say": (
+            "Suite {suite} has {count} recording(s) no import has read yet. List "
+            "them, and name the answers you would say yes or no to."
+        ),
+        "view.where.never_run.title": "The suite has never run",
+        "view.where.never_run.say": (
+            "Suite {suite} holds {count} reviewed answer(s) and no run. Run it "
+            "to read what its checks say: this page shows the command and never "
+            "runs it."
+        ),
+        "view.where.judge_disagrees.title": (
+            "The judge disagrees with a person on {count}"
+        ),
+        "view.where.judge_disagrees.say": (
+            "The newest run has {count} reviewed answer(s) the judge contradicted "
+            "or calibration case(s) outside their band. Read them before any "
+            "other number: a person's yes or no is the expected verdict."
+        ),
+        "view.where.green_without_red.title": "Green without a red",
+        "view.where.green_without_red.say": (
+            "The newest run exits 0, and no run of suite {suite} has ever failed "
+            "a check. A suite that cannot fail measures nothing: add a case it "
+            "must fail on."
+        ),
+        "view.where.new_setup.title": "{count} answer(s) from a new setup",
+        "view.where.new_setup.say": (
+            "The setup in force first answered after the newest run, and {count} "
+            "of its answers are to cases an earlier setup answered too. Read them "
+            "side by side before the suite runs again."
+        ),
+        "view.where.nothing_to_do.title": "Nothing to do",
+        "view.where.nothing_to_do.say": (
+            "{count} case(s), the newest run exits 0, and the last import read "
+            "the recordings up to {last_import}. Come back when the application "
+            "changes."
+        ),
+        "view.where.last_run_red.title": "The newest run exits {exit_code}",
+        "view.where.last_run_red.say": (
+            "The newest run of suite {suite} exits {exit_code}, for a reason none "
+            "of the states before this one names. digline explain says which."
+        ),
         "view.nav.runs": "Runs",
         "view.nav.report": "Report",
         # The recorder's three views (ADR 0061 §1). What the host says about
@@ -2484,6 +2562,88 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.title.runs": "Esecuzioni — {suite}",
         "view.title.case": "Caso {case_id} — {suite}",
         "view.title.suspend": "Sospendi {case_id} — {suite}",
+        "view.nav.where": "Dove sei",
+        "view.title.where": "Dove sei — {suite}",
+        "view.where.command": "Il comando",
+        "view.where.docs": "La pagina che dice di più",
+        "view.where.open": "Aprila qui",
+        "view.where.language": "Registrare, nel linguaggio dell'applicazione",
+        "view.where.lines": "Tre righe da {page}, come stanno lì.",
+        "view.where.shapes": "Le registrazioni, per forma dell'output",
+        "view.where.never": "nessun import ancora",
+        "view.where.nothing_recorded.title": "Ancora nessuna registrazione",
+        "view.where.nothing_recorded.say": (
+            "digline non ha registrazioni del tenant {tenant}, e questa suite non "
+            "ha mai girato. Registra quello che l'applicazione chiede al modello, "
+            "dal suo linguaggio, e le chiamate diventano il materiale di una suite."
+        ),
+        "view.where.recording_off.title": "La registrazione è spenta",
+        "view.where.recording_off.say": (
+            "L'interruttore del tenant {tenant} dice spento, e le {count} "
+            "registrazioni che tiene sono già passate tutte da un import. "
+            "Accendilo per tenere le chiamate che l'applicazione fa da ora in poi."
+        ),
+        "view.where.unassigned.title": "{count} chiamata/e senza suite",
+        "view.where.unassigned.say": (
+            "Ogni registrazione del tenant {tenant} viene da una chiamata che non "
+            "ha nominato una suite, quindi nessuna suite la legge. Nomina la suite "
+            "dove la chiamata è fatta, o elenca queste chiamate come di una suite "
+            "con --from _unassigned."
+        ),
+        "view.where.no_suite_yet.title": (
+            "{count} registrazione/i in {suite}, nessuna suite ancora"
+        ),
+        "view.where.no_suite_yet.say": (
+            "Le registrazioni nominano la suite {suite}, e nessuna suite dichiara "
+            "dove vanno i suoi casi catturati, quindi niente le legge come casi. "
+            "Scrivi la suite con una dichiarazione di capture, o lascia che un "
+            "agente ne proponga una con il metodo di digline."
+        ),
+        "view.where.to_import.title": "{count} dall'ultimo import",
+        "view.where.to_import.say": (
+            "La suite {suite} ha {count} registrazione/i che nessun import ha "
+            "ancora letto. Elencale, e nomina le risposte a cui diresti sì o no."
+        ),
+        "view.where.never_run.title": "La suite non ha mai girato",
+        "view.where.never_run.say": (
+            "La suite {suite} tiene {count} risposta/e rivista/e e nessuna "
+            "esecuzione. Falla girare per leggere che cosa dicono i suoi "
+            "controlli: questa pagina mostra il comando e non lo lancia mai."
+        ),
+        "view.where.judge_disagrees.title": (
+            "Il giudice non è d'accordo con una persona su {count}"
+        ),
+        "view.where.judge_disagrees.say": (
+            "L'esecuzione più recente ha {count} risposta/e rivista/e che il "
+            "giudice ha contraddetto o caso/i di calibrazione fuori dalla banda. "
+            "Leggili prima di ogni altro numero: il sì o il no di una persona è "
+            "il verdetto atteso."
+        ),
+        "view.where.green_without_red.title": "Verde senza un rosso",
+        "view.where.green_without_red.say": (
+            "L'esecuzione più recente esce 0, e nessuna esecuzione della suite "
+            "{suite} ha mai fatto fallire un controllo. Una suite che non può "
+            "fallire non misura niente: aggiungi un caso su cui deve fallire."
+        ),
+        "view.where.new_setup.title": "{count} risposta/e da un setup nuovo",
+        "view.where.new_setup.say": (
+            "Il setup in vigore ha risposto per la prima volta dopo l'esecuzione "
+            "più recente, e {count} delle sue risposte sono a casi a cui ha "
+            "risposto anche un setup precedente. Leggile fianco a fianco prima "
+            "che la suite giri di nuovo."
+        ),
+        "view.where.nothing_to_do.title": "Niente da fare",
+        "view.where.nothing_to_do.say": (
+            "{count} caso/i, l'esecuzione più recente esce 0, e l'ultimo import "
+            "ha letto le registrazioni fino a {last_import}. Torna quando "
+            "l'applicazione cambia."
+        ),
+        "view.where.last_run_red.title": "L'esecuzione più recente esce {exit_code}",
+        "view.where.last_run_red.say": (
+            "L'esecuzione più recente della suite {suite} esce {exit_code}, per "
+            "un motivo che nessuno degli stati prima di questo nomina. digline "
+            "explain dice quale."
+        ),
         "view.nav.runs": "Esecuzioni",
         "view.nav.report": "Rapporto",
         "view.nav.recordings": "Registrazioni",

@@ -104,6 +104,7 @@ from digline.host.resolve import (
     resolve_key,
 )
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
+from digline.host.where import STATES, State, Where, where
 
 __all__ = [
     "DIRTY_SUFFIX",
@@ -180,4 +181,8 @@ __all__ = [
     "this_process",
     "process_state",
     "ProcessState",
+    "STATES",
+    "State",
+    "Where",
+    "where",
 ]
