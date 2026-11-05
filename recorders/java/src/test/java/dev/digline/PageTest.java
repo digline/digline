@@ -8,6 +8,7 @@ import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -15,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -130,7 +132,9 @@ class PageTest {
                 return "A1 left on Monday.";
             };
             // page:
-            try (var episode = recorder.episode("order-agent", Map.of("ticket", ticket))) {
+            try (var episode = recorder.episode("order-agent", Map.of("ticket", ticket));
+                    // The turn's calls name their suite here, or they are _unassigned.
+                    var calls = DiglineRecorder.suite("order-agent")) {
                 try {
                     String answer = agent.answer(ticket);
                     episode.output(answer);
@@ -173,8 +177,9 @@ class PageTest {
         }
         List<Map<String, Object>> written = recordings();
         assertEquals(6, written.size());
-        // The turn, and its call.
+        // The turn, and its call, which names the suite the scope inside it named.
         assertEquals(written.get(1).get("id"), written.get(0).get("episode"));
+        assertEquals("order-agent", written.get(0).get("suite"));
         // The turn that failed: written with what was seen, and said interrupted.
         assertEquals(Boolean.TRUE, written.get(3).get("interrupted"));
         assertEquals(written.get(3).get("id"), written.get(2).get("episode"));
@@ -190,5 +195,39 @@ class PageTest {
         DiglineRecorder recorder = DiglineRecorder.production(root, () -> tenantOf(request), "support");
         // end
         assertTrue(recorder.on());
+    }
+
+    @Test
+    void anAsynchronousCallMadeOnAThreadThatNamesIt() throws Exception {
+        switchOn("on = true\n");
+        DiglineRecorder recorder = DiglineRecorder.development(root, "acme", "support");
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        ChatCompletion answered;
+        String turn;
+        try (FakeProvider o = new FakeProvider(HooksTest.wire("openai-single"), 0, 18787)) {
+            OpenAIClient openai = OpenAIOkHttpClient.builder().fromEnv()
+                    .addInterceptor(new DiglineOkHttp(recorder)).build();
+            try (var episode = recorder.episode("order-agent", Map.of("ticket", "A1"))) {
+                turn = episode.id();
+                // page:
+                String id = episode.id();
+                CompletableFuture<ChatCompletion> later = CompletableFuture.supplyAsync(() -> {
+                    try (var attached = DiglineRecorder.attach(id);
+                            var suite = DiglineRecorder.suite("refunds")) {
+                        return openai.chat().completions().create(params);
+                    }
+                }, pool);
+                // end
+                answered = later.get(10, TimeUnit.SECONDS);
+                episode.output("A1 left on Monday.");
+            }
+        } finally {
+            pool.shutdown();
+        }
+        assertEquals("Je regarde.", answered.choices().get(0).message().content().orElseThrow());
+        Map<String, Object> call = recordings().get(0);
+        assertEquals("refunds", call.get("suite"));
+        assertEquals(turn, call.get("episode"));
+        assertTrue(!call.containsKey("orphan"));
     }
 }
