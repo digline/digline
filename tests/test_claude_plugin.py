@@ -128,7 +128,11 @@ def test_no_plugin_surface_can_promote() -> None:
             continue
         if path.name == "SKILL.md":
             front = path.read_text(encoding="utf-8").split("---\n", 2)[1]
-            assert "name: operating-digline" in front
+            # Reviewed for this: `proposing-a-suite` names `promote` only to
+            # forbid it, and its tests below hold the prohibitions in place.
+            assert (
+                "name: operating-digline" in front or "name: proposing-a-suite" in front
+            ), front
             continue
         if path.name == "README.md" and path.parent == PLUGIN:
             continue
@@ -569,3 +573,171 @@ def test_the_commands_the_hook_watches_are_ones_the_cli_has(watched: str) -> Non
         capture_output=True,
         check=True,
     )
+
+
+# --------------------------------------------------------------------------- #
+# The proposing-a-suite skill, held to the CLI, the registry and the docs
+# --------------------------------------------------------------------------- #
+
+PROPOSING = PLUGIN / "skills" / "proposing-a-suite" / "SKILL.md"
+AGENTS = ROOT / "AGENTS.md"
+PROPOSING_PAGE = ROOT / "docs" / "proposing-a-suite.md"
+
+#: Where the procedure is written, each read by a different agent: the skill
+#: by Claude Code with the plugin, the section of `AGENTS.md` by any agent that
+#: reads that file, and the page by the person.
+PROCEDURE = (PROPOSING, AGENTS, PROPOSING_PAGE)
+
+
+def _spans(path: Path) -> list[str]:
+    """Every inline code span, with a line break inside one read as a space."""
+    import re
+
+    text = path.read_text(encoding="utf-8").replace("\n", " ")
+    return re.findall(r"`([^`]+)`", text)
+
+
+def _subcommands() -> dict[str, argparse.ArgumentParser]:
+    from digline.cli.main import build_parser
+
+    return next(
+        cast("dict[str, argparse.ArgumentParser]", a.choices)  # pyright: ignore[reportUnknownMemberType]
+        for a in build_parser()._actions  # pyright: ignore[reportPrivateUsage]
+        if isinstance(a.choices, dict)  # pyright: ignore[reportUnknownMemberType]
+    )
+
+
+def _positional_choices(parser: argparse.ArgumentParser) -> set[str]:
+    return {
+        str(choice)
+        for action in parser._actions  # pyright: ignore[reportPrivateUsage]
+        if not action.option_strings and action.choices is not None
+        for choice in cast("list[object]", action.choices)  # pyright: ignore[reportUnknownMemberType]
+    }
+
+
+def _cited_commands(path: Path) -> list[list[str]]:
+    import shlex
+
+    return [shlex.split(span) for span in _spans(path) if span.startswith("digline ")]
+
+
+@pytest.mark.parametrize("path", PROCEDURE, ids=lambda p: p.name)
+def test_every_command_the_procedure_cites_is_one_the_cli_has(path: Path) -> None:
+    """A command written in prose nothing runs: the parser is the authority on
+    whether its subcommand, its action and each of its flags exist. A command
+    cited with all its values is also parsed whole; one cited bare, as an act
+    the procedure forbids, is held to its words alone."""
+    from digline.cli.main import build_parser
+
+    commands = _subcommands()
+    cited = _cited_commands(path)
+    assert cited, f"{path.name} cites no digline command"
+    for words in cited:
+        sub = commands.get(words[1])
+        assert sub is not None, f"`{' '.join(words)}`: no subcommand {words[1]!r}"
+        actions = _positional_choices(sub)
+        if actions and len(words) > 2 and not words[2].startswith("-"):
+            assert words[2] in actions, f"`{' '.join(words)}`: no action {words[2]!r}"
+        for word in words[2:]:
+            if word.startswith("--"):
+                assert word in sub._option_string_actions, (  # pyright: ignore[reportPrivateUsage]
+                    f"`{' '.join(words)}`: `digline {words[1]}` takes no {word}"
+                )
+        if any(word.startswith("<") for word in words) or len(words) > 3:
+            filled = [w.strip("<>") if w.startswith("<") else w for w in words[1:]]
+            try:
+                build_parser().parse_args(filled)
+            except SystemExit as exc:  # pragma: no cover - the message is the point
+                raise AssertionError(f"`{' '.join(words)}` does not parse") from exc
+
+
+@pytest.mark.parametrize("path", PROCEDURE, ids=lambda p: p.name)
+def test_every_flag_the_procedure_names_alone_is_one_the_cli_has(path: Path) -> None:
+    """`--good` and `--bad`, named to forbid them, are still spellings of
+    something: a flag the CLI dropped would leave the prohibition guarding a
+    word nobody types."""
+    flags = {
+        flag
+        for sub in _subcommands().values()
+        for flag in sub._option_string_actions  # pyright: ignore[reportPrivateUsage]
+    }
+    for span in _spans(path):
+        if span.startswith("--"):
+            assert span.split()[0] in flags, f"{path.name} names {span}"
+
+
+def test_every_metric_the_skill_cites_is_in_the_registry() -> None:
+    """Every name in code style that looks like a class is a check the suite
+    formats can build, read off the registry the TOML loader uses, so a
+    renamed metric fails here rather than in a person's first suite."""
+    import re
+
+    from digline.host.toml_suite import AGGREGATES, ASSERTIONS
+
+    registry = {kind.__name__ for kind in (*ASSERTIONS.values(), *AGGREGATES.values())}
+    cited = {
+        name
+        for span in _spans(PROPOSING)
+        for name in re.findall(r"^([A-Z][A-Za-z0-9]+)$", span)
+    }
+    assert {"LlmRubric", "Repeated", "Accuracy"} <= cited, cited
+    assert cited <= registry, sorted(cited - registry)
+
+
+@pytest.mark.parametrize("path", PROCEDURE, ids=lambda p: p.name)
+def test_every_page_and_record_the_procedure_cites_exists(path: Path) -> None:
+    """A page named for a step is where the agent goes to do it: one that
+    moved leaves the step pointing nowhere."""
+    import re
+
+    text = path.read_text(encoding="utf-8").replace("\n", " ")
+    pages = set(re.findall(r"`(docs/[^`]+\.md)`", text))
+    pages |= {
+        f"docs/{link}"
+        for link in re.findall(r"\]\(([a-z0-9-]+\.md)(?:#[^)]*)?\)", text)
+    }
+    pages |= set(re.findall(r"\]\((docs/[^)#]+\.md)", text))
+    assert pages, f"{path.name} cites no page"
+    for page in pages:
+        assert (ROOT / page).is_file(), f"{path.name} cites {page}"
+    for number in re.findall(r"ADR (\d{4})", text):
+        assert list((ROOT / "docs" / "adr").glob(f"{number}-*.md")), number
+
+
+#: The sentence the counterexample rule is stated in, and the three phrases
+#: the skill forbids an agent to write about its own work.
+COUNTEREXAMPLE = "A suite that cannot fail measures nothing."
+FORBIDDEN = ('"I labelled"', '"I promoted"', '"I imported"')
+
+
+@pytest.mark.parametrize(
+    ("path", "times"), ((PROPOSING, 2), (AGENTS, 1)), ids=("skill", "AGENTS.md")
+)
+def test_the_procedure_states_the_counterexample_and_the_three_prohibitions(
+    path: Path, times: int
+) -> None:
+    """The skill states the counterexample among its three rules and again at
+    the step that writes the case, so it is counted in both places."""
+    text = " ".join(path.read_text(encoding="utf-8").split())
+    assert text.lower().count(COUNTEREXAMPLE.lower().rstrip(".")) == times
+    for phrase in FORBIDDEN:
+        assert phrase in text, phrase
+
+
+def test_agents_md_sends_the_reader_to_the_skill() -> None:
+    """The section is the procedure for an agent without the plugin, and it
+    points at the skill that says each step in full."""
+    text = AGENTS.read_text(encoding="utf-8")
+    assert "plugins/digline/skills/proposing-a-suite/SKILL.md" in text
+    assert (ROOT / "plugins/digline/skills/proposing-a-suite/SKILL.md").is_file()
+
+
+def test_the_proposing_skill_declares_its_frontmatter() -> None:
+    import re
+
+    text = PROPOSING.read_text(encoding="utf-8")
+    front = text.split("---\n", 2)[1]
+    assert re.search(r"^name: proposing-a-suite$", front, re.MULTILINE), front
+    description = re.search(r"^description: (.+)$", front, re.MULTILINE)
+    assert description is not None and "USE WHEN" in description.group(1)

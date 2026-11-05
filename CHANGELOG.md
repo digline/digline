@@ -78,6 +78,16 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **A second skill in the Claude Code plugin, `proposing-a-suite`**, and the
+  same procedure in `AGENTS.md` for any other agent: how an agent proposes a
+  first suite by digline's method. It reads what was recorded and reviewed
+  (`digline record status`, the grouped listing of `digline record import`,
+  the reviewed answers), chooses the checks from the tree in
+  `docs/metrics.md`, writes the suite with at least one case it fails on, runs
+  it once, and hands it over as a proposal: it never marks an answer, promotes
+  or imports, and the commit is the person's. A test holds every command,
+  flag, metric and page it cites to the CLI, the registry and the docs. A page
+  says the three rules: [Letting an agent propose a suite](docs/proposing-a-suite.md).
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input

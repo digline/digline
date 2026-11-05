@@ -303,6 +303,45 @@ request.
 
 ---
 
+## Proposing a suite to a person who has none
+
+When a person asks you to set up digline, or a repository has recordings and
+reviewed answers and no suite that reads them, propose one by this procedure.
+It is the `proposing-a-suite` skill in the Claude Code plugin,
+[`plugins/digline/skills/proposing-a-suite/SKILL.md`](plugins/digline/skills/proposing-a-suite/SKILL.md),
+which says each step in full; this is the same procedure for an agent that
+reads this file instead.
+
+1. **Read what is there.** `digline record status`; the grouped listing,
+   `digline record import --tenant <tenant> --suite <suite>`, for the shape of
+   the output, the counts and the setup in force (it needs a suite with a
+   capture declaration, so write the skeleton of step 3 first where there is
+   none); the reviewed answers in the capture file, their yeses and noes; and
+   how the application calls the model ([`docs/record.md`](docs/record.md),
+   [`docs/declarative.md`](docs/declarative.md)).
+2. **Choose the checks from the tree** in
+   [`docs/metrics.md`](docs/metrics.md), *Choosing one*: the shape of the
+   output picks the family, deterministic before judged, every judged check
+   in `Repeated` with a `min_agreement`, one calibration case where there is
+   a judge (ADR 0024), counts written as fractions and thresholds where the
+   system measurably is ([`docs/guide.md`](docs/guide.md), chapters 3 to 5),
+   and never `Accuracy`, `Precision`, `Recall` or `F1` without a label a person
+   gave. The judge, and the model behind it, are the person's to choose.
+3. **Write the suite**, `suite.toml` or `suite.py` as
+   [`docs/declarative.md`](docs/declarative.md) says the target requires, with
+   its capture declaration, the reviewed answers untouched, and **at least
+   one case it fails on**: a reviewed no, or a case constructed and named
+   `counterexample-…`. A suite that cannot fail measures nothing.
+4. **Run it once**: `digline run --suite <suite>` and
+   `digline explain --suite <suite> --run latest`; a reviewed no the judge
+   agreed with is read in the report's *What the judge said of the reviewed
+   answers*. If the judge contradicted a person, say so and leave the judge
+   as it is: the person's yes or no is the expected verdict (ADR 0023).
+5. **Hand it over as a proposal**, with what you assumed. You never mark an
+   answer, promote or import (rule 1; ADR 0023, ADR 0037), and the commit is
+   the person's. Never write "I labelled", "I promoted" or "I imported" about
+   your own work.
+
 ## What digline refuses, so you need not check
 
 These are enforced by the tool. Knowing them keeps you from writing guards that
