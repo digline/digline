@@ -161,7 +161,8 @@ Absent, `origin` means the application. A file with `run_id` and no `origin`
 is refused, and so is any other `origin`. Two optional keys, so
 `recording_version` stays 1. The readers keep such a file apart: no list,
 import, compare or *since the last import* reads it, and `digline record
-status` counts it as *from gate runs*. Nothing deletes it.
+status` and the recorder page of `digline view` count it as *from gate
+runs*. Nothing deletes it.
 
 `recorders/fixtures/gates.json` holds what digline answers for a set of
 markers, and the Java writer is tested against it.

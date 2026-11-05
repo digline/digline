@@ -87,7 +87,10 @@ another not:
 
 The target is not asked for it, the check it names judges the answer, and a
 judge that says the other of what the person said fails the case: `digline
-report` and `digline compare` exit `1`. What it is, and what it refuses, is in
+report` and `digline compare` exit `1`. An answer taken from an episode
+carries its steps, and the suite's `tools_called`, `tool_called_with`,
+`subsequence`, `before`, `never` and `max_steps` run on it too: on a yes, a
+red one fails the case the same way. What it is, and what it refuses, is in
 the
 [API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer).
 
@@ -250,6 +253,9 @@ suite.toml, [[assertions]] #2: `precision` has no parameter `group`.
 Did you mean `by_group`?
 ```
 
+Nor a narrower form: every case is asked every entry of the list, so write a
+check only where every case of the suite holds it.
+
 The reasoning is in [ADR 0010](adr/0010-per-group-aggregates.md).
 
 ### `repeated` wraps another check
@@ -360,7 +366,8 @@ that treats every request as a question pays for one call to nobody, and if
 it records its calls, through `digline record proxy` or a recorder of its
 own, it records that call as well. The run's own calls are marked as the
 gate's and kept apart (see [the recording's format](recording-format.md)),
-but the cheapest call is the one not made.
+which `digline record status` and the recorder page count as *from gate
+runs*, but the cheapest call is the one not made.
 
 #### The trajectory: `tools_path` and `tool_calls_path`
 
