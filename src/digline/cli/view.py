@@ -99,6 +99,7 @@ from digline.host import (
     switch_off,
     switch_on,
     utc_now_iso,
+    where,
 )
 from digline.report import (
     SHEET,
@@ -691,6 +692,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_setups(locale, path, query)
             elif path.startswith("/recorder/"):
                 self._screen_recorder(locale, path)
+            elif path.startswith("/where/"):
+                self._screen_where(locale, path)
             elif path in STATIC:
                 self._static(path)
             elif path.startswith(EXTENSION_PREFIX):
@@ -1009,6 +1012,41 @@ class ViewHandler(BaseHTTPRequestHandler):
                 writes=self._switch_flags(tenant),
             ),
             here="recorder",
+            locale=locale,
+        )
+
+    def _screen_where(self, locale: Locale, path: str) -> None:
+        """`/where/<tenant>/<suite>/`: where the project is and the next step,
+        from `digline.host.where`, which reads the store and writes nothing.
+        The command it names is shown, never run; the switch is a button only
+        where the recorder's are, under `--allow-record`."""
+        parts = self._segments(path, "/where/", 2)
+        if parts is None or parts[2]:
+            self._error(404, f"no such page: {path}")
+            return
+        tenant, suite, _ = parts
+        if not self._this_suite(suite):
+            return
+        if tenant != self.suite.tenant:
+            # Another tenant's store is another perimeter: this page reads
+            # the suite's own, and names no other (decision 8).
+            self._error(
+                404,
+                f"no such page: suite {self.suite.name!r} is tenant "
+                f"{self.suite.tenant!r}'s, not {tenant!r}'s",
+            )
+            return
+        found = where(Path(self.root), tenant, suite=self.suite, module=self.module)
+        self._page(
+            recorder_pages.where_page(
+                found,
+                suite=self.suite.name,
+                suite_arg=self.suite_arg,
+                root=self._root_flags(),
+                locale=locale,
+                writes=self._switch_flags(tenant),
+            ),
+            here="where",
             locale=locale,
         )
 

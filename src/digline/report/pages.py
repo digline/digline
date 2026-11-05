@@ -142,18 +142,33 @@ def recorder_address(tenant: str) -> str:
     return f"/recorder/{_segment(tenant)}/"
 
 
+def where_address(tenant: str, suite: str) -> str:
+    """Where the view of what comes next is shown, for a suite of a tenant."""
+    return f"/where/{_segment(tenant)}/{_segment(suite)}/"
+
+
 def with_screens(
     document: str, *, tenant: str, suite: str, locale: Locale, here: str = ""
 ) -> str:
-    """A page's navigation bar, with the recorder's three views after the runs.
+    """A page's navigation bar, with the view of where the project is first
+    and the recorder's three views after the runs.
 
     They are digline's own and sit beside the runs, before the suite's name:
     the recordings, the answers across setups and the recorder (ADR 0061 §1).
-    `here` names the one being shown.
+    *Where you are* opens the bar, because it is the one to read when you do
+    not know which of the others comes next; the runs stay at `/`. `here`
+    names the one being shown.
     """
     marker = '<span class="suite">'
-    if document.count(marker) != 1:
+    bar = '<nav class="bar">'
+    if document.count(marker) != 1 or document.count(bar) != 1:
         raise ValueError("this document has no navigation bar to add a view to")
+    mark = ' class="here"' if here == "where" else ""
+    first = (
+        f'<a href="{escape(where_address(tenant, suite))}?locale={locale}"{mark}>'
+        f"{escape(phrase(locale, 'view.nav.where'))}</a>"
+    )
+    document = document.replace(bar, bar + first, 1)
     links: list[str] = []
     for name, href in (
         ("recordings", recordings_address(tenant, suite)),

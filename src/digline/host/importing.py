@@ -420,6 +420,28 @@ def _shape(recording: Recording) -> Shape:
     )
 
 
+def shape_counts(
+    everything: Sequence[Recording], suite: str
+) -> tuple[tuple[Shape, int], ...]:
+    """How many of `suite`'s eligible recordings have each output shape, in
+    the order each shape is first met: the listing's groups, read by shape
+    alone. It needs no capture declaration, because it decides nothing about
+    a case: no draft is read, no answer is paired, nothing is said to be
+    electable. For a suite whose recordings no suite declaration reads yet,
+    which `import_listing` refuses (`capture_file`)."""
+    counts: dict[Shape, int] = {}
+    for recording in split_recordings(everything, suite).eligible:
+        shape = _shape(recording)
+        counts[shape] = counts.get(shape, 0) + 1
+    return tuple(counts.items())
+
+
+def setup_in_force(everything: Sequence[Recording], suite: str) -> str | None:
+    """The setup in force for `suite`, as the listing says it: the setup of
+    its newest eligible recording."""
+    return _setup_in_force(split_recordings(everything, suite).eligible)
+
+
 def _refusal(
     recordings: Sequence[Recording],
     setup: str | None,
