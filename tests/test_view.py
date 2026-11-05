@@ -900,6 +900,19 @@ def test_a_run_that_links_out_of_the_store_is_refused_by_the_server(
     assert get(f"{base}compare?run={newer}")[0] == 200
 
 
+class _Unfollowed(urllib.request.HTTPRedirectHandler):
+    """A redirect answered, not followed: a POST's own status is the 303, and
+    following it would report the page the GET draws instead."""
+
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
+#: Every POST in these tests goes through this, so a write's 303 is read as a
+#: 303 rather than as the 200 of the page it leads to. (ADR 0061 §4.2)
+UNFOLLOWED = urllib.request.build_opener(_Unfollowed)
+
+
 def post(url: str, data: str, *, origin: str | None, cookie: str = "") -> int:
     return send(url, data, origin=origin, cookie=cookie)[0]
 
@@ -918,7 +931,7 @@ def send(
     if cookie:
         request.add_header("Cookie", cookie)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with UNFOLLOWED.open(request, timeout=10) as response:
             return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8")
@@ -952,7 +965,7 @@ def test_a_post_from_the_page_itself_is_accepted(
             origin=f"http://{host}",
             cookie=cookie,
         )
-        == 200
+        == 303
     )
 
 
@@ -961,25 +974,34 @@ def test_promotion_goes_through_the_same_refusals(
     served_promoting: tuple[str, str, str],
 ) -> None:
     """It is the same `promote_baseline`, so a run produced under another
-    configuration is refused here exactly as it is on the command line."""
+    configuration is refused here exactly as it is on the command line.
+
+    Another configuration is a threshold moved. This wrote `fr_score="0.2"`,
+    which is what the judge answers and not the configuration, so the run was
+    promotable and the promotion went through; a 200 for a refusal and a 200
+    for a write hid it, and the 303 showed it."""
     base, key, cookie = served_promoting
-    write_suite(repo, fr_score="0.2")
+    suite = write_suite(repo)
+    suite.write_text(
+        suite.read_text(encoding="utf-8").replace("threshold=0.7", "threshold=0.6"),
+        encoding="utf-8",
+    )
     other = run_key(repo)
     write_suite(repo)  # the configuration in force is the original one again
+    # A run key ends in its configuration's digest.
+    assert other.rsplit("-", 1)[1] != key.rsplit("-", 1)[1], (other, key)
 
     host = base.removeprefix("http://").rstrip("/")
-    assert (
-        post(
-            f"{base}promote",
-            f"run={other}&replacing={key}",
-            origin=f"http://{host}",
-            cookie=cookie,
-        )
-        == 200
+    status, page = send(
+        f"{base}promote",
+        f"run={other}&replacing={key}",
+        origin=f"http://{host}",
+        cookie=cookie,
     )
+    assert status == 400, page
+    assert "Refused:" in page
     # The baseline did not move: the refusal is real, not cosmetic.
-    baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
-    assert json.loads(baseline.read_text(encoding="utf-8"))["config_hash"] != ""
+    assert baseline_in(repo) == key
 
 
 def post_page(base: str, data: str, *, cookie: str = "") -> tuple[int, str]:
@@ -1000,12 +1022,43 @@ def post_page(base: str, data: str, *, cookie: str = "") -> tuple[int, str]:
         headers=headers,
     )
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with UNFOLLOWED.open(request, timeout=10) as response:
             return response.status, response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8")
     except (ConnectionError, http.client.HTTPException):
         return 0, ""
+
+
+def promoted_then_read(base: str, data: str, *, cookie: str) -> tuple[str, int, str]:
+    """A promotion as a browser meets it: the POST answers a 303, and the page
+    is the one its `Location` leads to, read with a GET. Returned with that
+    `Location`, the GET's status and its page; a connection the server closed
+    on the GET is status 0, as in `post_page`. (ADR 0061 §4.2)"""
+    host = base.removeprefix("http://").rstrip("/")
+    request = urllib.request.Request(
+        f"{base}promote",
+        data=data.encode("utf-8"),
+        method="POST",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Origin": f"http://{host}",
+            "Cookie": cookie,
+        },
+    )
+    try:
+        with UNFOLLOWED.open(request, timeout=10) as response:
+            raise AssertionError(f"the promotion answered {response.status}")
+    except urllib.error.HTTPError as exc:
+        assert exc.code == 303, (exc.code, exc.read().decode("utf-8"))
+        location = exc.headers["Location"]
+    try:
+        with urllib.request.urlopen(base + location.lstrip("/"), timeout=10) as page:
+            return location, page.status, page.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        return location, exc.code, exc.read().decode("utf-8")
+    except (ConnectionError, http.client.HTTPException):
+        return location, 0, ""
 
 
 def plant(repo: Path, key: str, name: str, **changes: object) -> None:
@@ -1048,11 +1101,15 @@ def test_the_first_day_one_run_opened_then_promoted_through_the_view(
         assert fields["run"] == key
         assert fields["replacing"] == "none"
 
-        status, page = post_page(base, urllib.parse.urlencode(fields), cookie=cookie)
+        location, status, page = promoted_then_read(
+            base, urllib.parse.urlencode(fields), cookie=cookie
+        )
 
+    assert location == "/?locale=en"
     assert status == 200, page
-    assert f"Baseline set to {key}." in page
     assert baseline_in(repo) == key
+    # The page the 303 leads to reads the baseline back: the row is marked.
+    assert '<span class="chip">baseline</span>' in page, page
 
 
 #: The sentence the injected fault raises, and so the `why` the fallback page
@@ -1096,6 +1153,8 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     A promotion that looks failed and is not. The outcome must arrive whatever
     the list does.
 
+    It arrives on the page the 303 leads to, which reads the baseline from the
+    store on its own: the POST says nothing but where to go (ADR 0061 §4.2).
     The list fails here because the fixture makes it fail, and the page must
     say so **with the injected sentence**: a page that fell back for another
     reason, or drew the list, fails this test rather than passing it."""
@@ -1103,30 +1162,31 @@ def test_a_promotion_that_happened_says_so_when_the_list_cannot_be_drawn(
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     before = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
 
-    status, page = post_page(
+    _location, status, page = promoted_then_read(
         base, f"run={key}&replacing={key}&locale=en", cookie=cookie
     )
 
-    assert status == 200
-    assert f"Baseline set to {key}." in page
-    assert "The list of runs could not be drawn: injected-scan-fault" in page
     # And it did happen: the page is telling the truth about the write.
-    assert json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"] != before
+    after = json.loads(baseline.read_text(encoding="utf-8"))["promoted_at"]
+    assert after != before
+    assert status == 200
+    assert f"The baseline is {key}, promoted at {after}." in page
+    assert "The list of runs could not be drawn: injected-scan-fault" in page
 
 
 def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     repo: Path, served_with_a_list_that_fails: tuple[str, str, str]
 ) -> None:
-    """The fallback page — the outcome of a promotion when the list of runs
-    cannot be drawn — escaped with `html.escape`, which leaves C0, C1 and the
-    bidi overrides alone. A refusal quoting a committed baseline's
-    `promoted_at` therefore wrote them raw: an RLO reverses the sentence that
-    names which key was found. Every other page goes through `report.escape`.
-    (0.20.0 delta-pass, F-2)
+    """The fallback page — the baseline, when the list of runs cannot be
+    drawn — escaped with `html.escape`, which leaves C0, C1 and the bidi
+    overrides alone. A committed baseline's `promoted_at` therefore wrote them
+    raw: an RLO reverses the sentence that names which key was found. Every
+    other page goes through `report.escape`. (0.20.0 delta-pass, F-2)
 
-    Both sentences on the page carry the controls: the refusal, through
+    Both sentences on the page carry the controls: the baseline, through
     `promoted_at`, and the reason the list is missing, through the injected
-    fault (see the fixture)."""
+    fault (see the fixture). So does the refusal of the POST that comes first,
+    which quotes `promoted_at` too."""
     base, key, cookie = served_with_a_list_that_fails
     baseline = repo / ".digline" / "acme-bank" / "baselines" / "qa.json"
     document = json.loads(baseline.read_text(encoding="utf-8"))
@@ -1134,12 +1194,20 @@ def test_the_page_that_says_what_a_promotion_did_writes_no_control_character(
     baseline.write_text(json.dumps(document), encoding="utf-8")
 
     # `none` over a baseline that exists: refused, naming what it found.
-    status, page = post_page(base, f"run={key}&replacing=none&locale=en", cookie=cookie)
+    status, refusal = post_page(
+        base, f"run={key}&replacing=none&locale=en", cookie=cookie
+    )
+    assert status == 400
+    assert refusal.count("FORGED") == 1, refusal
+
+    status, page = get(f"{base}?locale=en")
 
     assert status == 200
+    assert f"The baseline is {key}, promoted at " in page
     assert "The list of runs could not be drawn: injected-scan-fault" in page
     assert page.count("FORGED") == 2, page
     for raw in ("\x1b", "\r", "\u202e", "\x9b"):
+        assert raw not in refusal, f"{raw!r} reached the refusal raw"
         assert raw not in page, f"{raw!r} reached the page raw"
 
 
@@ -1155,7 +1223,7 @@ def test_a_run_that_lies_about_its_suite_is_refused_in_words(
 
     status, page = post_page(base, "run=zz-other-suite&replacing=" + key, cookie=cookie)
 
-    assert status == 200
+    assert status == 400
     assert "Refused:" in page
     assert "declares suite &#x27;another-suite&#x27;" in page
 
@@ -1255,7 +1323,7 @@ def test_the_flag_turns_both_halves_on_together(
         post(
             f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
         )
-        == 200
+        == 303
     )
     assert baseline_of(repo) != before
 
@@ -1317,7 +1385,7 @@ def test_a_shell_without_the_key_cannot_promote_on_a_flagged_server(
         post(
             f"{base}promote", f"run={other}&replacing={key}", origin=None, cookie=cookie
         )
-        == 200
+        == 303
     )
     assert baseline_of(repo) != before
 
@@ -1464,8 +1532,10 @@ def test_no_page_the_flagged_server_renders_contains_the_key(
         assert status == 200, url
         assert launch not in page, f"{url} rendered the launch key"
         assert session not in page, f"{url} rendered the session"
-    _status, outcome = post_page(base, f"run={other}&replacing={key}", cookie=cookie)
-    assert "Baseline set to" in outcome
+    _location, status, outcome = promoted_then_read(
+        base, f"run={other}&replacing={key}", cookie=cookie
+    )
+    assert status == 200 and baseline_in(repo) == other
     assert launch not in outcome
     assert session not in outcome
 
@@ -1520,7 +1590,7 @@ def test_the_key_itself_is_not_a_cookie(
     assert "not issued by this start" in page
     assert baseline_of(repo) == before
 
-    assert post(f"{base}promote", data, origin=None, cookie=cookie) == 200
+    assert post(f"{base}promote", data, origin=None, cookie=cookie) == 303
     assert baseline_of(repo) != before
 
 
@@ -1616,7 +1686,7 @@ def test_a_foreign_cookie_before_ours_does_not_hide_it(
             origin=None,
             cookie=f"{foreign}; {cookie}",
         )
-        assert status == 200, (foreign, status, page[:200])
+        assert status == 303, (foreign, status, page[:200])
 
 
 def test_the_refusal_says_what_the_request_carried(
@@ -1810,6 +1880,23 @@ def test_a_replayed_run_is_comparable_but_not_promotable() -> None:
     assert "judged again the recorded answers of key-a" in cell
     assert "/compare?run=key-b" in cell
     assert 'action="/promote"' not in html
+
+
+def test_a_replayed_run_says_why_in_italian_too() -> None:
+    """The marker's reason in the other locale: the chip is the same word,
+    and the sentence behind it is the Italian table's."""
+    html = runs_page(
+        [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="it",
+        suite="brief",
+        allow_promote=True,
+    )
+    cell = act_cell(html, "key-b")
+    assert ">replay</span>" in cell
+    assert "giudicato di nuovo le risposte registrate di key-a" in cell
+    assert "<button" not in cell
 
 
 def test_the_baseline_keeps_its_own_marker_under_a_changed_configuration() -> None:

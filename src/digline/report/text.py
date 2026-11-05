@@ -1102,11 +1102,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "score: that is where judge noise is visible."
         ),
         "view.promote.button": "Make baseline",
-        "view.promote.done": "Baseline set to {run_key}.",
         "view.promote.refused": "Refused: {why}",
-        # Under the outcome of a promotion, when the list of runs cannot be read
-        # back: the outcome still has to reach the person (friction 59).
+        # The runs page when its list cannot be drawn: the baseline, read from
+        # the store on its own, still has to reach a person who has just
+        # promoted, whom the 303 brings here (friction 59).
         "view.list.unavailable": "The list of runs could not be drawn: {why}",
+        "view.baseline.promoted": (
+            "The baseline is {run_key}, promoted at {promoted_at}."
+        ),
+        "view.baseline.is": "The baseline is {run_key}.",
+        "view.baseline.none": "This suite has no baseline yet.",
+        "view.baseline.unreadable": "The baseline could not be read either: {why}",
         "view.suspend.title": "Set {case_id} aside",
         "view.suspend.reason": "Why is it set aside?",
         "view.suspend.show": "Show the edit",
@@ -2631,10 +2637,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "combinato: è lì che il rumore del giudice si vede."
         ),
         "view.promote.button": "Rendi riferimento",
-        "view.promote.done": "Riferimento impostato su {run_key}.",
         "view.promote.refused": "Rifiutato: {why}",
         "view.list.unavailable": (
             "L'elenco delle esecuzioni non si può mostrare: {why}"
+        ),
+        "view.baseline.promoted": (
+            "Il riferimento è {run_key}, impostato il {promoted_at}."
+        ),
+        "view.baseline.is": "Il riferimento è {run_key}.",
+        "view.baseline.none": "Questa suite non ha ancora un riferimento.",
+        "view.baseline.unreadable": (
+            "Nemmeno il riferimento si è potuto leggere: {why}"
         ),
         "view.suspend.title": "Metti da parte {case_id}",
         "view.suspend.reason": "Perché viene messo da parte?",

@@ -403,7 +403,8 @@ def test_the_view_button_refuses_a_drift_and_sends_to_the_command_line(
         status, page = post_page(
             base, f"run={moved}&replacing={reference}&locale=en", cookie=cookie
         )
-    assert status == 200, page
+    # A refusal writes nothing, so it is a 400 and never the 303 of a write.
+    assert status == 400, page
     assert "digline promote" in page, page
     assert f"--accepting-pin {PROMPT}" in page, page
     assert baseline_in(repo) == reference

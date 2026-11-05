@@ -446,7 +446,6 @@ def runs_page(
     suite: str,
     allow_promote: bool,
     ignored: str | Sequence[LeftOutPart] = "",
-    message: str = "",
 ) -> str:
     """Every readable run, newest first, with its aggregates beside it.
 
@@ -500,8 +499,6 @@ def runs_page(
     ]
     title = phrase(locale, "view.title.runs", suite=suite)
     body.append(f"<h1>{escape(title)}</h1>\n")
-    if message:
-        body.append(f'<p class="note">{escape(message)}</p>\n')
 
     if not ordered:
         body.append(f'<p class="empty">{escape(phrase(locale, "view.no_runs"))}</p>\n')

@@ -59,6 +59,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   sends `Origin: null` on a form posted to its own page, the origin check
   refused it, and no form wrote, promotion included; a request with
   `Origin: null` is refused in a sentence that says what sends it.
+- **A promotion from `digline view` answers a `303` to the runs page**, as
+  every write does, so a reload reads and never promotes again (ADR 0061
+  §4.2). It answered `200` with the runs page and *Baseline set to …*. The
+  page the `303` leads to reads the baseline back from the store, and when
+  the list of runs cannot be drawn it still says which run is the baseline
+  and when it was promoted, beside *The list of runs could not be drawn: …*
+  (friction 59). A refused promotion is a `400` with the refusal, where it
+  was a `200`; nothing was written, so it is never the `303`.
+- **The runs page draws no *Make baseline* on a replayed run**, which the
+  store refuses: a `replay` marker stands there, and says why when hovered.
+  The run stays comparable.
 - **`digline record import` says the cases file from the repository**, in
   the declaration and in the line after a write, the same from a `suite.py`
   and a `suite.toml`: one printed it whole and the other as typed.
