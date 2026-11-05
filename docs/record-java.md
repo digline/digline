@@ -169,13 +169,17 @@ builder, in a CDI bean or not, the hook goes on that builder, and a suite is
 named around the call. A call that names no suite carries the class and method
 it was made from; where every call goes through one method of the
 application's, that is the same method for every call, so the suite is what
-names it:
+names it.
 
 ```java
 BedrockRuntimeClient client = BedrockRuntimeClient.builder()
         .overrideConfiguration(c -> c.addExecutionInterceptor(new DiglineAws(recorder)))
         .build();
+```
 
+And the one method every call goes through names the suite:
+
+```java
 <T> T ask(String feature, Supplier<T> call) {
     try (var suite = DiglineRecorder.suite(feature)) {
         return call.get();
