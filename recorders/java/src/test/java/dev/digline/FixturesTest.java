@@ -124,6 +124,25 @@ class FixturesTest {
     }
 
     @Test
+    void everyTenantNameIsReadAsPythonReadsIt() throws IOException {
+        List<Map<String, Object>> names = parsed("names.json");
+        assertTrue(names.size() > 10);
+        for (Map<String, Object> each : names) {
+            String name = (String) each.get("name");
+            Object refusal = each.get("refusal");
+            assertEquals(refusal == null, DiglineRecorder.isName(name), name);
+            if (refusal != null) {
+                assertEquals(refusal, DiglineRecorder.refusal(name), name);
+                if (!name.isEmpty()) {
+                    DiglineRecorder.StartError refused = assertThrows(DiglineRecorder.StartError.class,
+                            () -> DiglineRecorder.development(Path.of("."), name, "app"), name);
+                    assertEquals(refusal, refused.getMessage(), name);
+                }
+            }
+        }
+    }
+
+    @Test
     void theLayoutIsDiglines() throws IOException {
         assertEquals(read("layout/gitignore"), DiglineRecorder.GITIGNORE);
         assertEquals(read("layout/gitattributes"), DiglineRecorder.GITATTRIBUTES);

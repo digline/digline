@@ -42,6 +42,7 @@ from digline.recorder import (
     wrap,
 )
 from digline.store.file_store import (
+    _NAME_RE,  # pyright: ignore[reportPrivateUsage]
     CEILING_MARKER_FILENAME,
     RECORDER_FILENAME,
     RECORDINGS_DIRNAME,
@@ -141,6 +142,8 @@ def test_the_layouts_names_are_the_stores() -> None:
         RECORDINGS_DIRNAME,
         CEILING_MARKER_FILENAME,
     )
+    # And the rule a tenant is held to, which a directory of the layout is.
+    assert recorder._NAME.pattern == _NAME_RE.pattern  # pyright: ignore[reportPrivateUsage]
 
 
 # -- the three refusals ------------------------------------------------------- #

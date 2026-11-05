@@ -52,7 +52,7 @@ from typing import Any, cast
 import pytest
 from tests.test_view_policy import WANTED, inline_in
 
-from digline.cli import EXIT_OK, recorder_pages
+from digline.cli import EXIT_OK, recorder_pages, view
 from digline.cli.main import build_parser, main
 from digline.cli.recorder_pages import (
     SHOWN_CHARS,
@@ -81,6 +81,7 @@ from digline.report.pages import (
     setups_address,
     where_address,
 )
+from digline.report.text import LOCALES
 from digline.run import Suite
 from digline.store.file_store import FileResultStore, RecordingWriter
 from digline.wire.record_compare import (
@@ -307,6 +308,18 @@ def test_the_answers_table_fits_the_page_and_its_last_column_inside_it(
     assert "white-space: normal" in _rule("body.wide table.answers td")
     assert "white-space: nowrap" in _rule("body.wide table.answers td.when")
     assert "overflow-wrap: anywhere" in _rule("table.answers code.key")
+
+
+def test_the_keys_two_setups_differ_on_fit_the_page(root: Path) -> None:
+    """Seen on the Node pass: two values of 60 characters beside a key ran
+    off the page's right edge, the answers table's defect on another table.
+    The same mending: a box that scrolls, and cells that wrap."""
+    found = compared(root, setups=[S1[:8], S2[:8]], show_setup=True)
+    page = recorder_pages.setups_page(found, locale="en")
+    assert '<div class="fits"><table class="keys">' in page
+    rule = _rule("body.wide table.keys td")
+    assert "white-space: normal" in rule
+    assert "overflow-wrap: anywhere" in rule
 
 
 def test_the_command_under_a_button_wraps_and_is_read_whole() -> None:
@@ -719,6 +732,58 @@ def test_the_host_s_refusals_reach_the_page_as_the_command_prints_them(
     climbing = served.ask("GET", "/recorder/..%2Fglobex/")
     assert climbing.status == 400
     assert "invalid tenant name" in unescape(climbing.body)
+
+
+def test_a_tenant_in_an_address_is_a_name_or_a_400_that_says_so(
+    served: Served,
+) -> None:
+    """Every route that takes a tenant from its address checks it where it
+    arrives, with the store's one function: a climb, a newline and a header
+    smuggled into the name are a 400 naming the field, and nothing is read or
+    written with them. `acme\n` passed before `fullmatch`, and a POST created
+    a tenant directory of that name (P-1515, reproduced on 43b4ea38)."""
+    before = tree(served.root)
+    for name in ("..%2Fglobex", "%2e%2e", "acme%0A", "acme%0D%0ASet-Cookie:%20x=1"):
+        for target in (
+            f"/recordings/{name}/triage/",
+            f"/setups/{name}/triage/",
+            f"/recorder/{name}/",
+            f"/where/{name}/triage/",
+        ):
+            answer = served.ask("GET", target)
+            assert answer.status == 400, (target, answer.status)
+            assert "invalid tenant name" in unescape(answer.body), target
+            assert "Set-Cookie" not in str(answer.headers.get_all("Set-Cookie")), target
+        if served.writing:
+            for target, form in (
+                (f"/recorder/{name}/", "action=on"),
+                (f"/recordings/{name}/triage/", "by=Ada"),
+            ):
+                answer = served.ask(
+                    "POST", target, form, origin=f"http://{HOST}:{served.port}"
+                )
+                assert answer.status == 400, (target, answer.status)
+                assert "invalid tenant name" in unescape(answer.body), target
+    assert tree(served.root) == before
+    assert sorted(
+        path.name for path in (served.root / ".digline").iterdir() if path.is_dir()
+    ) == ["acme"]
+
+
+def test_a_303_writes_a_locale_of_its_own_never_the_requests(
+    writing: Served,
+) -> None:
+    """The `Location` of a write is built from the closed list of locales and
+    names the store took, never from a value the request carried (#118)."""
+    answer = writing.ask(
+        "POST",
+        recorder_address("acme"),
+        "action=on&locale=it%0D%0ASet-Cookie:%20x=1",
+        origin=f"http://{HOST}:{writing.port}",
+    )
+    assert answer.status == 303, answer.body
+    assert answer.headers.get("Location") == f"{recorder_address('acme')}?locale=en"
+    assert sorted(view._LOCALE_PARAMETER) == sorted(LOCALES)  # pyright: ignore[reportPrivateUsage]
 
 
 def test_another_suite_or_a_longer_path_is_no_page(served: Served) -> None:

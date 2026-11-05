@@ -49,7 +49,7 @@ from digline.host.importing import (
     input_line,
     setup_line,
 )
-from digline.host.where import RECORD_LINES, State, Where
+from digline.host.where import State, SuiteFound, Where, record_lines
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
     answer_address,
@@ -531,8 +531,9 @@ def _keys(found: RecordComparison, locale: Locale) -> str:
     heading = phrase(locale, "view.setups.keys", same=same)
     return (
         f"<h2>{escape(heading)}</h2>\n"
-        "<table><thead><tr><th></th><th>A</th><th>B</th></tr></thead>"
-        f"<tbody>{''.join(rows)}</tbody></table>\n"
+        '<div class="fits"><table class="keys">'
+        "<thead><tr><th></th><th>A</th><th>B</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table></div>\n"
     )
 
 
@@ -934,12 +935,19 @@ WHERE_DOCS: dict[State, tuple[tuple[str, str], ...]] = {
 }
 
 
-def where_command(found: Where, suite_arg: str, root: Sequence[str]) -> list[str]:
+#: What a command for a suite says where the server was started without one.
+NO_SUITE_ARG = "<suite file>"
+
+
+def where_command(
+    found: Where, suite_arg: str | None, root: Sequence[str]
+) -> list[str]:
     """The command for the state's next step, as a person types it, or none
     where the step is an edit: a suite written, a counterexample added. It is
-    shown and never run: no button on this page launches a run or a gate."""
+    shown and never run: no button on this page launches a run or a gate.
+    Without a suite it names the suite's file as the person's to fill in."""
     tenant = ["--tenant", found.tenant]
-    suite = ["--suite", suite_arg]
+    suite = ["--suite", suite_arg or NO_SUITE_ARG]
     words: dict[State, list[str]] = {
         "nothing_recorded": ["record", "on", *tenant],
         "recording_off": ["record", "on", *tenant],
@@ -961,15 +969,30 @@ def _docs_link(page: str, anchor: str) -> str:
     return f'<a href="{escape(href)}">{escape(page)}</a>'
 
 
-def _languages(locale: Locale) -> str:
+#: The page and anchor that say more about each language's lines: Python's
+#: wrapper and the proxy are sections of `record.md`, Java and Node have pages
+#: of their own.
+LANGUAGE_DOCS: dict[str, tuple[str, str]] = {
+    "Python": ("record.md", "wrapping-the-client"),
+    "Java": ("record-java.md", ""),
+    "Node": ("record-node.md", ""),
+    "any other": ("record.md", "through-the-proxy-digline-record-proxy"),
+}
+
+
+def _languages(tenant: str, suite: str | None, locale: Locale) -> str:
     """Where recording starts, by language: one block per language, open on
-    a click with no script, each with three lines from its page."""
+    a click with no script, each with three lines from its page, with the
+    page's tenant and suite in place of the documentation's example, and a
+    link to the page that says the rest."""
     blocks = [f"<h2>{escape(phrase(locale, 'view.where.language'))}</h2>\n"]
-    for language, page, lines in RECORD_LINES:
+    for language, page, lines in record_lines(tenant, suite):
+        doc, anchor = LANGUAGE_DOCS[language]
         blocks.append(
             f"<details><summary>{escape(language)}</summary>\n"
             f'<pre class="snippet">{escape(chr(10).join(lines))}</pre>\n'
             + _p(phrase(locale, "view.where.lines", page=page), "note")
+            + f"<p>{_docs_link(doc, anchor)}</p>\n"
             + "</details>\n"
         )
     return "".join(blocks)
@@ -982,40 +1005,85 @@ def _shapes(found: Where, locale: Locale) -> str:
     return f"<h2>{escape(phrase(locale, 'view.where.shapes'))}</h2>\n<ul>{rows}</ul>\n"
 
 
+def _suites_found(found: Where, suites: Sequence[SuiteFound], locale: Locale) -> str:
+    """The suites the tenant's store holds, on a server started without one:
+    each by its name and what is filed under it, and the command that serves
+    it. The file that declares it is the person's, so the command names it as
+    theirs to fill in."""
+    rows = "".join(
+        "<li>"
+        + escape(
+            phrase(
+                locale,
+                "view.where.suite_found",
+                suite=item.name,
+                recordings=item.recordings,
+                runs=item.runs,
+            )
+        )
+        + "</li>"
+        for item in suites
+    )
+    command = shlex.join(["digline", "view", "--suite", NO_SUITE_ARG])
+    return (
+        f"<h2>{escape(phrase(locale, 'view.where.suites', tenant=found.tenant))}</h2>\n"
+        f"<ul>{rows}</ul>\n"
+        f'<pre class="snippet">{escape(command)}</pre>\n'
+    )
+
+
 def where_page(
     found: Where,
     *,
-    suite: str,
-    suite_arg: str,
+    suite: str | None,
+    suite_arg: str | None,
     root: Sequence[str],
     locale: Locale,
     writes: Sequence[str] | None,
+    suites: Sequence[SuiteFound] = (),
 ) -> str:
     """Where the project is: the state's sentence as the heading, two
     sentences under it, the command for the next step, and the page that
     says more. `writes` is the recorder page's: the flags `digline record on`
     carries on a server that writes, where the switch is offered as a button
-    with its command under it, and `None` on one that does not."""
+    with its command under it, and `None` on one that does not.
+
+    `suite` is `None` on a server started without `--suite`, where the page is
+    the tenant's: its first sentence speaks of no suite, and the suites the
+    store holds are listed, each to be served with its own file."""
     values = {
         "count": found.count,
-        "suite": found.suite or suite,
+        "suite": found.suite or suite or "",
         "tenant": found.tenant,
         "exit_code": found.exit_code,
         "last_import": found.last_import or phrase(locale, "view.where.never"),
     }
     heading = phrase(locale, f"view.where.{found.state}.title", **values)
-    body = [
-        f"<h1>{escape(heading)}</h1>\n",
-        _p(phrase(locale, f"view.where.{found.state}.say", **values)),
-    ]
+    said = (
+        "view.where.nothing_recorded.tenant"
+        if found.state == "nothing_recorded" and suite is None
+        else f"view.where.{found.state}.say"
+    )
+    body = [f"<h1>{escape(heading)}</h1>\n", _p(phrase(locale, said, **values))]
     if found.state == "nothing_recorded":
-        body.append(_languages(locale))
+        body.append(_languages(found.tenant, suite, locale))
     if found.state == "no_suite_yet" and found.shapes:
         body.append(_shapes(found, locale))
-    here = {
-        "to_import": recordings_address(found.tenant, suite),
-        "new_setup": setups_address(found.tenant, suite),
-    }.get(found.state)
+    if found.state == "unassigned" and found.capture is not True:
+        # The import refuses `--from _unassigned` for a suite that declares no
+        # capture source: the declaration comes first, and the command after.
+        body.append(
+            f"<p>{escape(phrase(locale, 'view.where.unassigned.declare'))} "
+            f"{_docs_link('declarative.md', 'capture')}</p>\n"
+        )
+    here = (
+        None
+        if suite is None
+        else {
+            "to_import": recordings_address(found.tenant, suite),
+            "new_setup": setups_address(found.tenant, suite),
+        }.get(found.state)
+    )
     if here is not None:
         body.append(
             f'<p><a href="{escape(here)}?locale={locale}">'
@@ -1039,9 +1107,16 @@ def where_page(
             f"<h2>{escape(phrase(locale, 'view.where.command'))}</h2>\n"
             f'<pre class="snippet">{escape(shlex.join(command))}</pre>\n'
         )
+    if suite is None and suites:
+        body.append(_suites_found(found, suites, locale))
     links = " · ".join(
         _docs_link(page, anchor) for page, anchor in WHERE_DOCS[found.state]
     )
     body.append(f"<p>{escape(phrase(locale, 'view.where.docs'))}: {links}</p>\n")
-    title = phrase(locale, "view.title.where", suite=suite)
-    return screen(title, "".join(body), locale=locale, suite=suite, here="where")
+    if suite is None:
+        title = phrase(locale, "view.title.where_tenant", tenant=found.tenant)
+        label = phrase(locale, "view.where.tenant_label", tenant=found.tenant)
+    else:
+        title = phrase(locale, "view.title.where", suite=suite)
+        label = suite
+    return screen(title, "".join(body), locale=locale, suite=label, here="where")

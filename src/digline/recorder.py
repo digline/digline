@@ -94,6 +94,7 @@ from __future__ import annotations
 import contextlib
 import itertools
 import os
+import re
 import sys
 import threading
 from collections.abc import Callable, Generator, Mapping, Sequence
@@ -167,6 +168,16 @@ _STORE = ".digline"
 _SWITCH_FILE = "recorder.toml"
 _RECORDINGS = "recordings"
 _CEILING_MARKER = "ceiling-reached.json"
+
+#: A tenant is a directory of the layout, so it is a name the store would take:
+#: `checked_name`'s rule (GHSA-j878-2v6m-m4vx), restated for the reason above
+#: and held equal to the store's by the same test.
+_NAME = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._-]*\Z")
+
+
+def _a_name(value: object) -> bool:
+    return isinstance(value, str) and _NAME.fullmatch(value) is not None
+
 
 #: The clock the interval is read on. Looked up through the module at each
 #: call, so a test can put a clock of its own here.
@@ -1701,7 +1712,9 @@ def _tenant_of(state: _State) -> str | None:
     `None` where the function gave no name; its exception propagates to the
     caller's stage."""
     tenant = state.tenant() if callable(state.tenant) else state.tenant
-    if not isinstance(tenant, str) or not tenant:  # pyright: ignore[reportUnnecessaryIsInstance]
+    # A function's answer that is not a name is no tenant: it never becomes
+    # a directory, and the call is not recorded, counted `tenant`.
+    if not _a_name(tenant):
         return None
     return tenant
 
@@ -2618,6 +2631,13 @@ def wrap(
     if not callable(tenant) and (not isinstance(tenant, str) or not tenant):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise RecorderStartError(
             "wrap() needs tenant=, a non-empty name or a function that returns one"
+        )
+    if not callable(tenant) and not _a_name(tenant):
+        # The store's sentence: a tenant is a directory, and one that is not a
+        # name would read a switch file wherever it led. (GHSA-j878-2v6m-m4vx)
+        raise RecorderStartError(
+            f"invalid tenant name: {tenant[:40]!r} "
+            "(letters, digits, dot, dash and underscore are allowed)"
         )
     tree = _find(client)
     state = _State(

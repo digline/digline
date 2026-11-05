@@ -265,6 +265,9 @@ body.wide td.said, body.wide td.state { white-space: normal; min-width: 10rem;
 body.wide table.answers td { white-space: normal; }
 body.wide table.answers td.when { white-space: nowrap; }
 table.answers code.key { overflow-wrap: anywhere; }
+/* The keys two setups differ on, side by side: a value's first line is up
+   to 60 characters, and two of them did not fit beside a key. */
+body.wide table.keys td { white-space: normal; overflow-wrap: anywhere; }
 .card { background: var(--surface); border: 1px solid var(--line);
         border-radius: var(--radius); margin: 1rem 0; }
 .chart { padding: .5rem .25rem 0; }

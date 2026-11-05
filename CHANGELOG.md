@@ -78,6 +78,21 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
+- **`digline view` starts without `--suite`**, and serves a tenant's pages:
+  *Where you are* is its `/`, and the recorder beside it. The tenant is
+  `--tenant` or the one `.digline/` holds; from the fourth state on the page
+  lists the suites the store holds, with the command that serves one.
+  `--allow-promote` is refused without a suite. With `--suite`, `/` stays the
+  runs and the menu opens with *Where you are*, as before.
+- **`digline view` reads its suite again when a file beside it changes**: a
+  `[capture]` written, or a case imported, while it runs is on the next page,
+  where it used to read as *no suite yet* and as no case until a restart.
+- ***Where you are* shows each language's lines with the page's tenant and
+  suite**, where it showed the documentation's example, `acme` and `triage`,
+  above a command that named the page's; each language links its own page.
+  Before `--from _unassigned` it says to declare `[capture]` first, for a
+  suite that declares none, which the import refuses. The keys two setups
+  differ on fit the page, as the answers table does.
 - **The recordings page fits its answers in the page**: the column that
   names an answer sat outside the box on a wide table, and the command under
   the button was cut at the box's edge. The table's cells wrap, the date
@@ -328,6 +343,13 @@ nothing. No public name is removed or renamed and no exit code changes.
   Java line on the page is run by the Java tests, and its `suite.toml` is
   loaded by digline's. `docs/record.md` no longer lists Java among the
   interceptors not yet written.
+- **A tenant is a name, whole: `acme\n` is no longer one.** The store's
+  check matched against `^…$`, where `$` also matches before a final newline,
+  so `digline view --allow-record` made a tenant directory named `acme\n` from
+  `POST /recorder/acme%0A/`. It is `checked_name` now, the one function a name
+  passes before it is a path under the store, called where a tenant arrives:
+  the view's addresses, `wrap()`, which read a switch file outside `.digline/`
+  for `tenant="../outside"`, and the Java writer, held to the same names.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

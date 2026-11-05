@@ -360,6 +360,34 @@ def test_no_suite_is_unassigned_with_the_sdk_and_the_path(
     assert written["call_site"].endswith(" /v1/chat/completions")
 
 
+def test_a_suite_app_or_episode_from_outside_stays_a_value_and_never_a_path(
+    proxy: Proxy, tmp_path: Path
+) -> None:
+    """The headers and the path prefix are values the application chose, from
+    outside the perimeter, and the class CodeQL flags is a name that becomes a
+    path. These never do: the file is filed by the proxy's tenant and its own
+    process directory and number, and each value is written as it came, inside
+    the recording. (P-1515)"""
+    an_openai(
+        f"{proxy.address}/v1",
+        **{"X-Digline-Suite": "../x", "X-Digline-App": "../../y"},
+    ).chat.completions.create(model="gpt-test", messages=QUESTION)
+    an_openai(f"{proxy.address}/suite/..%2Fz/v1").chat.completions.create(
+        model="gpt-test", messages=QUESTION
+    )
+    written = recordings(tmp_path, at_least=2)
+    assert sorted((each["suite"], each["app"]) for each in written) == [
+        ("..%2Fz", "support"),
+        ("../x", "../../y"),
+    ]
+    files = sorted(
+        str(path.relative_to(tmp_path))
+        for path in tmp_path.rglob("*")
+        if path.is_file() and not path.name.startswith(".")
+    )
+    assert all(name.startswith(".digline/acme/recordings/") for name in files), files
+
+
 # -- an episode off the wire ------------------------------------------------- #
 
 

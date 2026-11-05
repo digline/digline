@@ -36,11 +36,12 @@ import threading
 import traceback
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
+from types import ModuleType
 from typing import TYPE_CHECKING, Any, NoReturn
 
 from digline import __version__
 from digline.cli.output import emit, flush, own_stdout, say
-from digline.cli.view import serve
+from digline.cli.view import LiveSuite, serve
 from digline.core import (
     DISPOSITIONS,
     Run,
@@ -88,6 +89,7 @@ from digline.host import (
     suite_runs,
     switch_off,
     switch_on,
+    tenants_under,
     unignored,
     unignored_notes,
     utc_now_iso,
@@ -1199,17 +1201,74 @@ def cmd_view(args: argparse.Namespace) -> int:
     promotes only for the browser that opens the address it prints. There is
     no option for the key, by design — it is not a second control. (ADR 0033)
     """
+    if args.suite is None:
+        return _view_tenant(args)
     suite, loaded, store = _load(args)
+    pricing = _pricing(args, loaded)
+
+    def reload() -> tuple[Suite, ModuleType | None, str]:
+        again, found, _ = _load(args)
+        return again, found.module, _pricing(args, found)
+
     serve(
         suite,
         store,
         port=args.port,
-        pricing=_pricing(args, loaded),
+        pricing=pricing,
         allow_promote=args.allow_promote,
         allow_record=args.allow_record,
         root=args.root,
         module=loaded.module,
         suite_arg=args.suite,
+        live=LiveSuite(
+            (suite, loaded.module, pricing),
+            watched=_suite_directory(args.suite, loaded.module),
+            load=reload,
+        ),
+    )
+    return EXIT_OK
+
+
+def _suite_directory(spec: str, module: ModuleType | None) -> Path | None:
+    """The directory whose files a server watches to load the suite again:
+    the suite file's, from the path given or from the module it loaded."""
+    given = Path(spec.split(":")[0])
+    if given.is_file():
+        return given.resolve().parent
+    if module is not None and module.__file__ is not None:
+        return Path(module.__file__).resolve().parent
+    return None
+
+
+def _view_tenant(args: argparse.Namespace) -> int:
+    """`digline view` with no `--suite`: a tenant's pages, *Where you are*
+    first. The tenant is `--tenant`, or the one tenant `.digline/` holds; two
+    or none, and the command says which to name. Promotion is a suite's run,
+    so `--allow-promote` is refused here; the recorder's switch is a tenant's,
+    so `--allow-record` is not."""
+    if args.allow_promote:
+        raise UsageError(
+            "--allow-promote promotes a suite's run, and no --suite was given: "
+            "start digline view with --suite and the suite's file"
+        )
+    tenant = args.tenant
+    if tenant is None:
+        found = tenants_under(Path(args.root))
+        if len(found) != 1:
+            held = ", ".join(found) if found else "none"
+            raise UsageError(
+                f"without --suite, digline view serves one tenant's pages, and "
+                f"{Path(args.root) / '.digline'} holds {held}: name one with "
+                "--tenant, as digline record on --tenant names it"
+            )
+        tenant = found[0]
+    serve(
+        None,
+        FileResultStore(args.root),
+        port=args.port,
+        allow_record=args.allow_record,
+        root=args.root,
+        tenant=tenant,
     )
     return EXIT_OK
 
@@ -1896,14 +1955,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    def common(sub: argparse.ArgumentParser) -> None:
+    def common(sub: argparse.ArgumentParser, *, suite_required: bool = True) -> None:
         sub.add_argument(
             "--suite",
-            required=True,
+            required=suite_required,
             help="path/to/suite.py[:attribute] or package.module[:attribute]",
         )
         sub.add_argument("--root", default=".", help="directory holding .digline/")
-        sub.add_argument("--tenant", help="verify the suite's tenant; never overrides")
+        sub.add_argument(
+            "--tenant",
+            help="verify the suite's tenant; never overrides"
+            if suite_required
+            else (
+                "verify the suite's tenant; never overrides. Without --suite, "
+                "the tenant whose pages to serve"
+            ),
+        )
         sub.add_argument(
             "--env", help="verify the suite's environment; never overrides"
         )
@@ -2114,7 +2181,10 @@ def build_parser() -> argparse.ArgumentParser:
         # (0.20.0 delta-pass, F-1)
         allow_abbrev=False,
     )
-    common(view_p)
+    # `--suite` is optional here alone: without it the server serves a
+    # tenant's pages, *Where you are* first, which say the first steps before
+    # any suite exists.
+    common(view_p, suite_required=False)
     view_p.add_argument("--port", type=int, default=7373, help="bind port")
     view_p.add_argument("--target", help=TARGET_HELP)
     view_p.add_argument(
