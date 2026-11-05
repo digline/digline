@@ -1010,11 +1010,12 @@ Two of these are easy to think you can skip, and both were the same mistake:
   describes a release that does not exist. Running `ruff` and `pytest` straight
   from a system Python never touches it.
 
-**A change to the recording's format updates the Java recorder in the same
-pull request**: `RECORDING_VERSION` and the date at the head of
-`recorders/java/src/main/java/dev/digline/DiglineRecorder.java`, and the
-fixtures `recorders/fixtures/make.py` writes, which `tests/test_recorder_java.py`
-holds from the Python side and the job `recorder-java` from the Java side.
+**A change to the recording's format, or to a provider map's reading, updates
+the Java recorder in the same pull request**: `RECORDING_VERSION` and the date
+at the head of each file in `recorders/java/src/main/java/dev/digline/`, and
+the fixtures `recorders/fixtures/make.py` writes, which
+`tests/test_recorder_java.py` holds from the Python side and the job
+`recorder-java` from the Java side.
 
 ### What CI does not run
 
