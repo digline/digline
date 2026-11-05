@@ -21,8 +21,9 @@ import os
 import re
 import runpy
 import struct
+import sys
 import zlib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -41,6 +42,22 @@ FIXTURES = REPO / "recorders" / "fixtures"
 #: find them: set together by the job, so a run of the job never skips.
 RECORDINGS = "DIGLINE_JAVA_RECORDINGS"
 REQUIRED = "DIGLINE_JAVA_REQUIRED"
+
+
+#: The SDKs the wire fixtures load through the plugins' maps. Taken back out
+#: of `sys.modules` when this module ends, as `tests/test_record_proxy.py`
+#: does: a plugin's own tests assert its SDK is imported only when a call is
+#: made, and a worker that ran this module first would fail them.
+SDKS = ("openai", "anthropic", "botocore", "boto3")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
 
 
 def _expected() -> dict[str, str]:
