@@ -1,0 +1,11 @@
+{
+  "name": "digline-through-the-proxy-node",
+  "private": true,
+  "description": "Only for the CI job through-the-proxy: Node's SDKs, pointed at digline record proxy (ADR 0062 §5).",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.4.0",
+    "openai": "7.50.0"
+  }
+}

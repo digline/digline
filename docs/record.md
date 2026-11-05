@@ -286,7 +286,8 @@ The decision is
 ## Through the proxy: `digline record proxy`
 
 An application that is not in Python, or that cannot wrap its client, points
-its SDK at a proxy on its own machine, and the proxy records each call as the
+its SDK at a proxy on its own machine ([digline for Node](record-node.md) has
+the lines for Node), and the proxy records each call as the
 recorder in process does: the same switch, the same files, the same digest
 and the same counts. It listens on `127.0.0.1` and nowhere else.
 

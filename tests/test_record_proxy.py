@@ -103,9 +103,10 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
 class Upstream:
     """OpenAI and Anthropic, faked: each request kept, each reply by the
     request's `model`: `error` a 500, `sleep` too late, `slow` a stream that
-    takes its time."""
+    takes its time. `port` 0 takes a free one; `tests/proxy_upstream.py` runs
+    it as a process on a port it names, for the CI job `through-the-proxy`."""
 
-    def __init__(self) -> None:
+    def __init__(self, port: int = 0) -> None:
         self.seen: list[tuple[str, dict[str, str]]] = []
         owner = self
 
@@ -179,7 +180,7 @@ class Upstream:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()

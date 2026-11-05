@@ -636,6 +636,60 @@ jobs:
         # environment: without it the test finds digline_openai and fails.
         run: uv run --no-sync pytest tests/test_recorder_java.py -o pythonpath=. -v
 
+  through-the-proxy:
+    name: Other languages' SDKs are recorded through the proxy
+    # The lines a page per language quotes, run (ADR 0062 §5): Node's openai
+    # and @anthropic-ai/sdk, LangChain4j's OpenAI model in Java, and Python's
+    # SDKs as the control, each a single call and a stream, sent through
+    # `digline record proxy` with the base URL and X-Digline-Suite, to the fake
+    # upstream of tests/test_record_proxy.py run as a process. The one request
+    # is recorders/through-the-proxy.json, and tests/test_through_the_proxy.py
+    # holds that it gives one case and one setup digest whatever language sent
+    # it, then that `digline record import` lists it electable. The script is
+    # the job, and runs by hand the same way.
+    #
+    # On pull requests and on the queue's ref, with no filter on paths, as
+    # `recorder-java`. Not required: that is the ruleset's, and a person rules
+    # it.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: digline and its plugins, which read the calls
+        run: uv sync --locked --all-packages
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: recorders/node/package-lock.json
+
+      - name: Node's SDKs, at the versions recorders/node/package-lock.json holds
+        run: npm ci --prefix recorders/node --no-audit --no-fund
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: The calls, through the proxy
+        run: recorders/through-the-proxy.sh "$RUNNER_TEMP/through-the-proxy"
+
+      - name: What the proxy wrote, compared across the languages and imported
+        env:
+          DIGLINE_PROXY_RECORDINGS: ${{ runner.temp }}/through-the-proxy
+          # Set beside the directory, so that this run fails where the test
+          # would otherwise skip.
+          DIGLINE_PROXY_REQUIRED: "1"
+        run: uv run --no-sync pytest tests/test_through_the_proxy.py -v -s
+
   image-touched:
     name: Does this change the image?
     # The docker job below is gated on this rather than on `on: paths:`, which
