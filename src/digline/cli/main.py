@@ -1379,8 +1379,10 @@ def cmd_record(args: argparse.Namespace) -> int:
     if not args.production:
         say(
             "  development: what the file leaves out is a default; an "
-            "application that names its tenant with a function is production, "
-            "and refuses this file unless it declares sample, redact and ceiling"
+            "application that resolves its tenant per request is production "
+            "(wrap(tenant=callable) in Python, DiglineRecorder.production in "
+            "Java; the proxy's --tenant is never production), and refuses this "
+            "file unless it declares sample, redact and ceiling"
         )
     return EXIT_OK
 
@@ -1629,9 +1631,14 @@ def cmd_record_compare(args: argparse.Namespace) -> int:
 
 def _setup_value(value: SetupValue) -> str:
     """A setup's value as the view shows it: its first line, quoted, and its
-    length where that line is not the whole of it."""
-    shown = json.dumps(value.preview, ensure_ascii=False)
-    return f"{shown}… ({value.chars} characters)" if value.clipped else shown
+    length where that line is not the whole of it. A list of messages is its
+    first message's text and how many there are, never JSON with its quotes
+    escaped."""
+    shown = f'"{value.preview}"' + ("…" if value.clipped else "")
+    if value.messages is not None:
+        many = "message" if value.messages == 1 else "messages"
+        return f"{shown} ({value.messages} {many})"
+    return f"{shown} ({value.chars} characters)" if value.clipped else shown
 
 
 def cmd_record_status(args: argparse.Namespace) -> int:
@@ -2200,7 +2207,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--production",
         action="store_true",
         help=(
-            "on only: the application names its tenant with a function; refuse "
+            "on only: the application resolves its tenant per request; refuse "
             "the file unless it declares --sample, --redact and --ceiling"
         ),
     )

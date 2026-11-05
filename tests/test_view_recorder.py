@@ -88,6 +88,8 @@ from digline.wire.record_compare import (
     ComparedCase,
     ComparedSetup,
     RecordComparison,
+    SetupKey,
+    SetupValue,
 )
 
 #: The flags every command under a button carries, on a server started from
@@ -421,6 +423,29 @@ def test_two_setups_side_by_side_show_their_keys_never_a_prompt_whole(
     assert json.dumps(first) in page
     assert f"{len(LONG_PROMPT)} characters" in page
     assert LONG_PROMPT not in page and "Never promise a refund." not in page
+
+
+def test_a_list_of_messages_is_its_first_text_and_a_count_never_json(
+    root: Path,
+) -> None:
+    """A `system` the way Chat Completions carries it: each side its first
+    message's text, quoted and not escaped, and how many messages there are."""
+    found = compared(root, setups=[S1[:8], S2[:8]], show_setup=True)
+    keys = (
+        SetupKey(
+            key="system",
+            a=SetupValue(preview="Be brief.", chars=9, clipped=False, messages=1),
+            b=SetupValue(
+                preview='Say "no" kindly.', chars=80, clipped=True, messages=2
+            ),
+        ),
+    )
+    page = unescape(
+        recorder_pages.setups_page(replace(found, setup_keys=keys), locale="en")
+    )
+    assert '"Be brief."' in page and "1 message" in page
+    assert '"Say "no" kindly."…' in page and "2 messages" in page
+    assert '\\"' not in page
 
 
 def test_the_pair_is_chosen_with_a_get_and_nothing_chosen_before(

@@ -415,3 +415,42 @@ def test_a_suite_with_nothing_recorded_is_a_sentence_and_exit_0(
     out = capsys.readouterr().out
     assert "nothing recorded for suite triage in tenant 'acme'" in out
     assert "0 cases" in out
+
+
+def test_a_system_of_messages_is_shown_by_its_first_text_never_as_json(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A `system` the way Chat Completions carries it, a list of messages: each
+    side shows its first message's text, clipped at 60, and how many messages
+    there are. Before, it was the list as JSON, its quotes escaped."""
+    first = "You are the support agent of a shop that sells parcels, and nothing else."
+    one: dict[str, object] = {
+        "model": "m",
+        "system": [{"role": "system", "content": "Be brief."}],
+    }
+    two: dict[str, object] = {
+        "model": "m",
+        "system": [
+            {"role": "system", "content": [{"type": "text", "text": first}]},
+            {"role": "developer", "content": "Use the tools."},
+        ],
+    }
+    writer = RecordingWriter(FileResultStore(tmp_path))
+    writer.write(recording(REFUND, one, "refunds in 14 days", "01"))
+    writer.write(recording(REFUND, two, "refunds in 14 days", "02"))
+    suite_file(tmp_path)
+    a, b = (setup_digest_of(s)[:8] for s in (one, two))
+    assert main(run(tmp_path, "--setup", a, b, "--show-setup")) == EXIT_OK
+    out = capsys.readouterr().out
+    assert (
+        f'    system: A "Be brief." (1 message) · B "{first[:60]}"… (2 messages)'
+    ) in out
+    [line] = [line for line in out.splitlines() if line.startswith("    system:")]
+    assert '\\"' not in line and "[{" not in line
+    found = compared(tmp_path, setups=(a, b), show_setup=True)
+    [system] = [k for k in found.setup_keys if k.key == "system"]
+    assert (system.b.messages, system.b.chars, system.b.clipped) == (
+        2,
+        len(first),
+        True,
+    )

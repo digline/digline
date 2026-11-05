@@ -88,7 +88,9 @@ Neither has a default, and the CLI **verifies** them with `--tenant` / `--env`
 without ever overwriting them.
 
 Refused at construction: empty `assertions` (a run that checks nothing passes
-vacuously), empty `cases`, two `Case`s with the same `id`, and a check that
+vacuously), empty `cases` where the suite declares no `capture` (with one, the
+first `digline record import` is what writes them, and a run of it judges
+nothing and exits 2), two `Case`s with the same `id`, and a check that
 lacks a member digline reads before anything is paid for. That last one is
 `AssertionShapeError`, naming the missing members and where the class is
 written (see [Custom assertions](#custom-assertions)).
@@ -437,6 +439,14 @@ A protocol: `__call__(case: Case) -> Response`. A function is enough.
 It is **singular**: the prompt × provider matrix is a loop over several targets
 *above* `execute`, not inside it. That is what lets the same driver work on a
 single case.
+
+**A suite that calls no target may define none.** The run never calls the
+target for a reviewed answer or a calibration case, so a suite whose cases are
+all of the two kinds may leave `target` out of `suite.py`; the run, `rejudge`
+and `promote` treat it as any suite. A case the target answers needs one, and
+loading it without one is refused, naming that case
+([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§1).
 
 ### `Response`
 

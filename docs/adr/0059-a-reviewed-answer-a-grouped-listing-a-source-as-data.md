@@ -126,6 +126,19 @@ stands. It is promotion's condition 12 in [ADR 0002](0002-three-worlds-and-where
 said nothing of promotion, and the implementation of 2026-11-04 (#903) left
 it unchanged; the ruling closes that.
 
+*Noted 2026-11-05, by the maintainer's ruling; the section above is kept as
+written.* **A suite that calls no target may declare none.** The answer is
+fixed and the target is never called for a reviewed answer, nor for a
+calibration case, so a suite made of the two kinds alone, which is what the
+import writes into a suite declared for it, may leave its target out, in
+`suite.py` or as `[target]`. The run, the re-judge and the promotion treat it
+as any suite. A case the target answers needs one, and the suite is refused
+when it loads, naming that case: the sentence says why a target is needed now.
+And **a suite that declares a capture may hold no case yet**, since the first
+import is what writes them; its run judges nothing and exits 2. Measured on
+the driver: a calibration case is not called for either, so the rule names
+both kinds where the ruling named reviewed answers.
+
 **`Case.label` is the class of the input, and the import no longer writes
 it.** The suite's author writes a label where the suite has ground truth.
 ADR 0023 §5's rule stands as it is: a capture writes one only from a total

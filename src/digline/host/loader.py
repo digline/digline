@@ -52,6 +52,7 @@ from digline.host.authorship import (
 from digline.host.errors import UsageError
 from digline.host.importing import unloaded_capture
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.host.unasked import no_target
 from digline.report.render import visible
 from digline.run import CaptureSource, Suite, Target, check_target
 
@@ -668,6 +669,12 @@ def load_target(spec: str | None, loaded: Loaded, suite_spec: str) -> Target:
         return loaded.target
 
     assert loaded.module is not None  # noqa: S101 — one of the two is always set
+    if spec is None and getattr(loaded.module, TARGET_ATTR, None) is None:
+        # A suite of reviewed answers and calibration cases calls no target,
+        # and may define none; one with any other case may not. (ADR 0059 §1)
+        return no_target(
+            loaded.suite, f"{suite_spec!r} has no attribute {TARGET_ATTR!r}"
+        )
     if spec is None:
         value = _pick(loaded.module, TARGET_ATTR, suite_spec, "target")
     else:

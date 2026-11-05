@@ -145,7 +145,8 @@ shows, from the same `record_compare`: per case, the answers under each setup
 in the order they were recorded, each with its digest. `?case=ID` keeps one
 case, and two `setup` values put those two setups side by side with the keys
 they differ on, as `--setup A B --show-setup` does: each value by its first
-line, up to 60 characters, never a prompt whole. For one case a chart draws
+line, up to 60 characters, never a prompt whole, and a list of messages by its
+first message's text and how many there are. For one case a chart draws
 each answer's length over time, one colour per setup: the same answer recorded
 again is a point at the same height. It shows, and judges nothing.
 

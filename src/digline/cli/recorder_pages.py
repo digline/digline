@@ -508,14 +508,22 @@ def _keys(found: RecordComparison, locale: Locale) -> str:
                     f"{escape(phrase(locale, 'view.setups.absent', side=side))}</td>"
                 )
                 continue
-            shown = json.dumps(value.preview, ensure_ascii=False)
-            length = (
-                f'<div class="note">'
-                f"{escape(phrase(locale, 'view.setups.chars', chars=value.chars))}"
-                "</div>"
-                if value.clipped
-                else ""
-            )
+            # Quoted, never through JSON: a prompt shown with its quotes
+            # escaped reads as code. A list of messages is its first one's
+            # text, and how many there are.
+            shown = f'"{value.preview}"' + ("…" if value.clipped else "")
+            if value.messages is not None:
+                key_of_count = (
+                    "view.setups.messages.one"
+                    if value.messages == 1
+                    else "view.setups.messages.many"
+                )
+                said = phrase(locale, key_of_count, count=value.messages)
+            elif value.clipped:
+                said = phrase(locale, "view.setups.chars", chars=value.chars)
+            else:
+                said = ""
+            length = f'<div class="note">{escape(said)}</div>' if said else ""
             cells.append(f"<td><code>{escape(shown)}</code>{length}</td>")
         rows.append(f"<tr><td><code>{escape(key.key)}</code></td>{''.join(cells)}</tr>")
     heading = phrase(locale, "view.setups.keys", same=same)
