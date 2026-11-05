@@ -283,6 +283,18 @@ class _Handler(BaseHTTPRequestHandler):
             if key.lower() not in _HOP and not key.lower().startswith(_OURS)
         }
         upstream_path = target.path.rstrip("/") + rest
+        verify = getattr(self.wires[owner], "verify", None)
+        if verify is not None:
+            # Before the route signs with this machine's credentials: only a
+            # request signed with them may spend with them.
+            reason = cast(str | None, verify(self.command, self.path, headers, body))
+            if reason is not None:
+                self._refuse(
+                    403,
+                    "the request was not signed with this machine's AWS "
+                    f"credentials: {reason}",
+                )
+                return
         prepare = getattr(self.wires[owner], "prepare", None)
         if prepare is not None:
             # The route signs the request itself: what the application signed
@@ -460,6 +472,17 @@ class _Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
 
+    @staticmethod
+    def _framed(frames: Any, kind: str, data: bytes) -> list[object] | None:
+        """The route's own framing of a streamed reply, or `None`. An error
+        the stream carries is the stream's, raised as one."""
+        if frames is None:
+            return None
+        try:
+            return cast(list[object] | None, frames(kind, data))
+        except Exception as exc:  # noqa: BLE001 — whatever the route raised
+            raise _StreamError from exc
+
     def _record(
         self,
         route: str,
@@ -498,7 +521,7 @@ class _Handler(BaseHTTPRequestHandler):
             if request_of is not None:
                 request = cast(dict[str, Any], request_of(path, request))
             mapped = wire.map
-            framed = None if frames is None else frames(kind, data)
+            framed = self._framed(frames, kind, data)
             if framed is not None or "text/event-stream" in kind:
                 events = framed if framed is not None else _events(data.decode("utf-8"))
                 reading = cast(Any, mapped).reading(request)
@@ -510,6 +533,9 @@ class _Handler(BaseHTTPRequestHandler):
                 completion = None
                 reply_object = wire.reply(json.loads(data.decode("utf-8")))
             results = None if results_of is None else results_of(request)
+        except _StreamError:
+            self.recorder.missed("stream error", suite=suite, app=app, episode=episode)
+            return
         except Exception:  # noqa: BLE001 — a reply the map cannot read is its reason
             self.recorder.missed("map", suite=suite, app=app, episode=episode)
             return
@@ -526,6 +552,11 @@ class _Handler(BaseHTTPRequestHandler):
             case=_case(case),
             results=results,
         )
+
+
+class _StreamError(Exception):
+    """A streamed reply that ended in an error the provider sent inside the
+    stream, after its 200: counted `stream error`, not as a map's fault."""
 
 
 def _text(value: str) -> str:

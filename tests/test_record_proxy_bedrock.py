@@ -22,6 +22,7 @@ What is held here:
 from __future__ import annotations
 
 import binascii
+import http.client
 import json
 import sys
 import threading
@@ -43,8 +44,10 @@ from tests.test_recorder_import import argv, suite_file
 
 from digline import recorder
 from digline.cli.main import main
+from digline.host import recorder_status
 from digline.host.proxy import Proxy, start_proxy
 from digline.recorder import episode, wrap
+from digline_bedrock.recording import WIRE as BEDROCK
 
 #: The model id, with the colon the SDK percent-encodes in the path.
 MODEL = "anthropic.claude-test-v1:0"
@@ -93,15 +96,17 @@ def aws(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 # -- the fake upstream: three providers, an agent of three calls ------------- #
 
 
-def frame(kind: str, payload: object) -> bytes:
+def frame(kind: str, payload: object, *, message_type: str = "event") -> bytes:
     """One message of an AWS event stream: the prelude and its CRC, three
-    string headers, the JSON payload and the message's CRC."""
+    string headers, the JSON payload and the message's CRC. An exception
+    names its kind under `:exception-type`."""
+    named = b":event-type" if message_type == "event" else b":exception-type"
     headers = b"".join(
         bytes([len(name)]) + name + b"\x07" + len(value).to_bytes(2, "big") + value
         for name, value in (
-            (b":event-type", kind.encode()),
+            (named, kind.encode()),
             (b":content-type", b"application/json"),
-            (b":message-type", b"event"),
+            (b":message-type", message_type.encode()),
         )
     )
     body = json.dumps(payload).encode()
@@ -198,6 +203,7 @@ class Upstream:
 
     def __init__(self) -> None:
         self.seen: list[tuple[str, dict[str, str]]] = []
+        self.bodies: list[bytes] = []
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -207,12 +213,16 @@ class Upstream:
                 pass
 
             def do_POST(self) -> None:  # noqa: N802
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                raw = self.rfile.read(int(self.headers["Content-Length"]))
+                body = json.loads(raw)
                 owner.seen.append(
                     (self.path, {k.lower(): v for k, v in self.headers.items()})
                 )
+                owner.bodies.append(raw)
                 step = results_in(self.path, body)
-                if self.path.endswith("/converse-stream"):
+                if "throttle" in self.path:
+                    self._throttled()
+                elif self.path.endswith("/converse-stream"):
                     self._stream()
                 elif self.path.endswith("/converse"):
                     self._json(bedrock_reply(step))
@@ -228,6 +238,25 @@ class Upstream:
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
+
+            def _throttled(self) -> None:
+                """A stream that starts, then carries an exception: what
+                Bedrock sends when it throttles a call it had begun."""
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.amazon.eventstream")
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                start = frame("messageStart", {"role": "assistant"})
+                failed = frame(
+                    "throttlingException",
+                    {"message": "slow down"},
+                    message_type="exception",
+                )
+                for data in (start, failed):
+                    self.wfile.write(b"%x\r\n%s\r\n" % (len(data), data))
+                    self.wfile.flush()
+                self.wfile.write(b"0\r\n\r\n")
+                self.wfile.flush()
 
             def _stream(self) -> None:
                 self.send_response(200)
@@ -301,9 +330,17 @@ def proxy(tmp_path: Path, upstream: Upstream) -> Iterator[Proxy]:
     running.stop()
 
 
-def a_bedrock(endpoint: str, **headers: str) -> Any:
-    """boto3's client, with the application's own key, and `headers` added
-    before it signs: how a boto3 application sends `X-Digline-*`."""
+def a_bedrock(
+    endpoint: str,
+    *,
+    key: str = "AKIDPROXY",
+    secret: str = "proxy-secret",
+    token: str | None = None,
+    **headers: str,
+) -> Any:
+    """boto3's client, signing with this machine's key unless told another,
+    and `headers` added before it signs: how a boto3 application sends
+    `X-Digline-*`."""
     import boto3  # pyright: ignore[reportMissingTypeStubs]
     from botocore.config import Config  # pyright: ignore[reportMissingTypeStubs]
 
@@ -311,8 +348,9 @@ def a_bedrock(endpoint: str, **headers: str) -> Any:
         "bedrock-runtime",
         region_name="us-west-2",
         endpoint_url=endpoint,
-        aws_access_key_id="AKIDAPP",
-        aws_secret_access_key="app-secret",
+        aws_access_key_id=key,
+        aws_secret_access_key=secret,
+        aws_session_token=token,
         config=Config(retries={"max_attempts": 1}),
     )
 
@@ -339,11 +377,12 @@ def test_bedrock_is_signed_again_and_recorded_as_in_process(
         modelId=MODEL, messages=[{"role": "user", "content": [{"text": "Capital?"}]}]
     )
     [(path, headers)] = upstream.seen
-    # The model id as the SDK wrote it, and signed again with the proxy's own
-    # key and region: the application's signature named the proxy.
+    # The model id as the SDK wrote it, and signed again for the address it
+    # went to: the application's signature named the proxy's, and the same
+    # check the proxy made of it now holds where it arrived.
     assert path == "/model/anthropic.claude-test-v1%3A0/converse"
-    assert headers["authorization"].startswith("AWS4-HMAC-SHA256 Credential=AKIDPROXY/")
     assert "/us-west-2/bedrock/aws4_request" in headers["authorization"]
+    assert BEDROCK.verify("POST", path, headers, upstream.bodies[0]) is None
     assert not [key for key in headers if key.startswith("x-digline-")]
     assert reply["output"]["message"]["content"][0]["toolUse"]["name"] == "lookup"
     [written] = wired(tmp_path, 1)
@@ -657,12 +696,14 @@ def test_a_call_that_named_no_suite_is_imported_from_unassigned(
     assert made.endswith(" /v1/chat/completions")
 
 
-def test_a_bedrock_api_key_goes_to_bedrock_never_to_openai(
+def test_a_bedrock_api_key_is_refused_and_goes_nowhere(
     tmp_path: Path, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """boto3 sends a Bedrock API key as a bearer, which is OpenAI's claim
-    (measured with botocore 1.43.123). Bedrock's path decides, and the key
-    is signed over, not passed on."""
+    (measured with botocore 1.43.123). Bedrock's path decides, and a call not
+    signed with this machine's key is refused, never passed on."""
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
+
     running = start_proxy(
         root=tmp_path,
         tenant="acme",
@@ -680,36 +721,86 @@ def test_a_bedrock_api_key_goes_to_bedrock_never_to_openai(
         client: Any = cast(Any, boto3).client(
             "bedrock-runtime", region_name="us-west-2", endpoint_url=running.address
         )
-        client.converse(
-            modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
-        )
+        with pytest.raises(ClientError) as raised:
+            client.converse(
+                modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
+            )
     finally:
         running.stop()
-    [(path, headers)] = upstream.seen
-    assert path.startswith("/bedrock/model/")
-    assert headers["authorization"].startswith("AWS4-HMAC-SHA256 Credential=AKIDPROXY/")
-    assert "bedrock-api-key" not in json.dumps(headers)
+    assert cast(Any, raised.value).response["ResponseMetadata"]["HTTPStatusCode"] == 403
+    assert "it carries no AWS signature" in str(raised.value)
+    assert upstream.seen == []
+
+
+@pytest.mark.parametrize(
+    ("key", "secret", "said"),
+    [
+        ("AKIDOTHER", "other-secret", "it was signed with another access key"),
+        ("AKIDPROXY", "a-guessed-secret", "its signature is not the one"),
+    ],
+    ids=["another-key", "this-key-another-secret"],
+)
+def test_a_call_not_signed_with_this_machines_key_is_a_403(
+    proxy: Proxy, upstream: Upstream, key: str, secret: str, said: str
+) -> None:
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
+
+    with pytest.raises(ClientError) as raised:
+        a_bedrock(proxy.address, key=key, secret=secret).converse(
+            modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
+        )
+    assert cast(Any, raised.value).response["ResponseMetadata"]["HTTPStatusCode"] == 403
+    assert "not signed with this machine's AWS credentials" in str(raised.value)
+    assert said in str(raised.value)
+    assert upstream.seen == []
+
+
+def test_an_unsigned_call_is_a_403(proxy: Proxy, upstream: Upstream) -> None:
+    connection = http.client.HTTPConnection("127.0.0.1", proxy.port)
+    connection.request(
+        "POST",
+        "/model/anthropic.claude-test-v1%3A0/converse",
+        body=json.dumps({"messages": []}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    reply = connection.getresponse()
+    said = json.loads(reply.read())["message"]
+    connection.close()
+    assert reply.status == 403
+    assert "it carries no AWS signature" in said
+    assert upstream.seen == []
 
 
 def test_the_applications_session_token_does_not_go_on(
     proxy: Proxy, upstream: Upstream
 ) -> None:
-    """A token the application signed with is its own credentials': signed
-    over with the proxy's, it would name a key that is not the one signing."""
-    import boto3  # pyright: ignore[reportMissingTypeStubs]
-
-    session: Any = boto3
-    session.client(
-        "bedrock-runtime",
-        region_name="us-west-2",
-        endpoint_url=proxy.address,
-        aws_access_key_id="AKIDAPP",
-        aws_secret_access_key="app-secret",
-        aws_session_token="app-session-token",
-    ).converse(modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}])
+    """Signed with this machine's key and a session token: the token is the
+    application's, and the call goes on signed with the proxy's own."""
+    a_bedrock(proxy.address, token="app-session-token").converse(
+        modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
+    )
     [(_, headers)] = upstream.seen
     assert "x-amz-security-token" not in headers
     assert "app-session-token" not in json.dumps(headers)
+
+
+def test_an_exception_inside_the_stream_is_a_stream_error(
+    proxy: Proxy, tmp_path: Path
+) -> None:
+    from botocore.exceptions import EventStreamError  # pyright: ignore[reportMissingTypeStubs]
+
+    reply = a_bedrock(f"{proxy.address}/suite/triage").converse_stream(
+        modelId="anthropic.throttle-v1:0",
+        messages=[{"role": "user", "content": [{"text": "?"}]}],
+    )
+    with pytest.raises(EventStreamError):
+        list(reply["stream"])
+    proxy.stop()
+    assert wired(tmp_path, 0) == []
+    [tenant] = recorder_status(tmp_path / "wire", "acme")
+    assert {s.suite: dict(s.not_recorded) for s in tenant.suites} == {
+        "triage": {"stream error": 1}
+    }
 
 
 def test_bedrock_without_a_region_says_so_at_the_start_and_at_a_call(

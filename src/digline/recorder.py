@@ -417,7 +417,7 @@ class RecordingWire(Protocol):
     - `load()` imports the SDK, at the start: two threads importing one SDK
       for the first time at once were measured to fail half-way.
 
-    Six more a route may provide, read with `getattr`, where its provider
+    Seven more a route may provide, read with `getattr`, where its provider
     needs them:
 
     - `results(request)`: the tool results the request carries for the model
@@ -429,6 +429,10 @@ class RecordingWire(Protocol):
     - `frames(content_type, data)`: the events of a streamed reply that is
       not server-sent events, or `None` where the type is not this route's
       framing (Bedrock's event stream);
+    - `verify(method, path, headers, body)`: why the request as the
+      application sent it may not be forwarded, or `None`; a 403 that says
+      it where it is not `None` (Bedrock's: signed with this machine's AWS
+      credentials, which `prepare` then signs with);
     - `prepare(method, url, headers, body)`: the headers sent upstream, where
       the route signs a request itself (Bedrock's SigV4, with the local
       credentials); it raises `ValueError` with the reason where it cannot;

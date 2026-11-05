@@ -358,13 +358,19 @@ refusal names the package.
 address it sends it to, which is the proxy's, so the proxy signs it again,
 with SigV4 and the credentials and region boto3 finds on the proxy's machine:
 the environment first, then the profile in `~/.aws/config` and
-`~/.aws/credentials`. The application's own signature, or its Bedrock API
-key, does not go on. So a call through the proxy is made with the proxy's
-credentials, in the proxy's region, whatever the application's were, and any
-process on the machine that reaches `127.0.0.1` can make one: start the proxy
-with credentials that may call Bedrock and nothing else. Where it finds no
-region or no credentials, the start says so on the route's line, and a call
-is a 502 that says the same.
+`~/.aws/credentials`. **First it checks that the application signed the
+call with those same credentials**, as AWS checks a signature: the access key
+is the machine's, and the signature, computed again with its secret over the
+path, the query, the headers the call says it signed and the body, is the
+one the call carries, made within 15 minutes of the machine's clock. A call
+that was not is a 403, *the request was not signed with this machine's AWS
+credentials*, which says why, and goes nowhere: a process on the machine
+without its keys spends nothing with them. So an application signs with the
+same profile the proxy reads, and a Bedrock API key, which is not a
+signature, is refused. The application's signature itself does not go on.
+Credentials that may call Bedrock and nothing else are still worth giving
+the proxy. Where it finds no region or no credentials, the start says so on
+the route's line, and a call is a 502 that says the same.
 
 The address: `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, which boto3 reads (measured
 with boto3 1.43), or the SDK's endpoint option, `endpoint_url` in boto3,
@@ -379,7 +385,8 @@ client.meta.events.register(
 ```
 
 The streamed reply is an AWS event stream, passed on as it arrives and read
-at its end. **Measured against a fake Bedrock only**: boto3 against a fake
+at its end. One that carries an error after it began, as a throttled call's
+does, is counted `stream error` and not recorded. **Measured against a fake Bedrock only**: boto3 against a fake
 upstream that checks nothing but the shape, with the real SigV4 code signing.
 One real `converse` was made through the proxy, to Haiku 4.5 in
 `eu-central-1`, and Bedrock refused the key it was signed with as
@@ -481,7 +488,8 @@ more, a block per file at the least. Per suite: the single calls (with how
 many were made inside an episode), the orphans, the episodes (with how many
 were interrupted), and **what was not recorded, by reason**: `not JSON` for a
 request a recording cannot hold, `sampled out`, `ceiling`, `stream
-abandoned`, `config invalid` and the rest, and what was **recorded with
+abandoned`, `stream error` for a stream that carried an error after it began
+(through the proxy), `config invalid` and the rest, and what was **recorded with
 something noted**: `usage not reported`, `ended after its episode`. A suite
 says only what it holds: a suite of episodes whose calls name another suite
 shows no calls.

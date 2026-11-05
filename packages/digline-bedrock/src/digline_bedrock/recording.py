@@ -28,16 +28,22 @@ calls, `/model/<id>/converse` and `/model/<id>/converse-stream`, with the same
 maps (ADR 0062 §3). The application's AWS SDK signed its request for the
 proxy's address, so the proxy signs it again here, with SigV4 and the
 credentials and region botocore finds on this machine, as boto3 would: the
-environment first, then `~/.aws/config` and `~/.aws/credentials`. The model
+environment first, then `~/.aws/config` and `~/.aws/credentials`. Only after
+checking that the application signed it with those same credentials
+(`verify`): a process on this machine without them spends nothing. The model
 id the SDK passes as `modelId` travels in the path, and is put back. The
 streamed reply is an AWS event stream, decoded by botocore's own buffer.
 """
 
 from __future__ import annotations
 
+import calendar
+import hashlib
+import hmac
 import importlib
 import json
 import re
+import time
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal, cast
 from urllib.parse import unquote
@@ -158,6 +164,17 @@ _SIGNATURE = frozenset(
 
 _EVENT_STREAM = "application/vnd.amazon.eventstream"
 
+#: A SigV4 `Authorization` header: the key, the scope's date, region and
+#: service, the headers signed and the signature.
+_AUTHORIZATION = re.compile(
+    r"AWS4-HMAC-SHA256 Credential=([^/]+)/(\d{8})/([^/]+)/([^/]+)/aws4_request,"
+    r" ?SignedHeaders=([a-z0-9;-]+), ?Signature=([0-9a-f]{64})"
+)
+
+#: How far a signature's time may be from this machine's clock, as AWS
+#: allows: 15 minutes.
+_SKEW = 15 * 60
+
 #: What a tool step's status may be, as `digline.core.ToolStatus` has it.
 type _Status = Literal["success", "error", "not_reported"]
 
@@ -226,6 +243,65 @@ class BedrockWire:
             )
         else:
             self.problem = None
+
+    def verify(
+        self, method: str, path: str, headers: Mapping[str, str], body: bytes
+    ) -> str | None:
+        """Why the request was not signed with this machine's credentials, or
+        `None` where it was: the access key is this machine's, and the
+        signature, computed again with its secret over the path, the query,
+        the headers the request says it signed and the body, is the one the
+        request carries. As AWS checks it, with its 15 minutes. So a process
+        on this machine without its keys cannot spend with them.
+
+        `path` is the path the application sent, `/suite/<name>/` and all,
+        and `headers` the headers it sent, by lowercase name."""
+        found = _AUTHORIZATION.fullmatch(headers.get("authorization", ""))
+        if found is None:
+            return "it carries no AWS signature"
+        key, date, region, service, signed, given = found.groups()
+        credentials = self._session.get_credentials()
+        if credentials is None:
+            return "this machine has no AWS credentials"
+        frozen: Any = credentials.get_frozen_credentials()
+        if not hmac.compare_digest(key, str(frozen.access_key)):
+            return "it was signed with another access key"
+        stamp = headers.get("x-amz-date", "")
+        try:
+            at = calendar.timegm(time.strptime(stamp, "%Y%m%dT%H%M%SZ"))
+        except ValueError:
+            return "it carries no signing time"
+        if not stamp.startswith(date) or abs(time.time() - at) > _SKEW:
+            return "its signing time is not this machine's, within 15 minutes"
+        named = headers.get("x-amz-content-sha256")
+        if named is not None and named != hashlib.sha256(body).hexdigest():
+            return "its body is not the one it signed"
+        names = signed.split(";")
+        if "host" not in names or any(name not in headers for name in names):
+            return "a header it signed is missing"
+        auth: Any = importlib.import_module("botocore.auth")
+        sent: Any = importlib.import_module("botocore.awsrequest")
+        exact: Any = sent.HTTPHeaders()
+        for name in names:
+            exact[name] = headers[name]
+        request: Any = sent.AWSRequest(
+            method=method, url=f"http://{headers['host']}{path}", data=body
+        )
+        request.context["timestamp"] = stamp
+        check: Any = auth.SigV4Auth(frozen, service, region)
+
+        # The headers the request names as signed, exactly: botocore's own
+        # choice leaves some out, which another SDK may sign.
+        def signed_headers(request: object) -> Any:
+            return exact
+
+        check.headers_to_sign = signed_headers
+        expected = check.signature(
+            check.string_to_sign(request, check.canonical_request(request)), request
+        )
+        if not hmac.compare_digest(str(expected), given):
+            return "its signature is not the one this machine's key gives"
+        return None
 
     def prepare(
         self, method: str, url: str, headers: Mapping[str, str], body: bytes

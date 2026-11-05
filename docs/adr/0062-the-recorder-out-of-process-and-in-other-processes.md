@@ -348,6 +348,16 @@ written:*
   through the proxy, to Haiku 4.5 in `eu-central-1`, was refused by Bedrock
   with `UnrecognizedClientException` for the key it was signed with, and the
   `converse-stream` was not made.
+- **"As a gateway does" is narrowed**, by the maintainer's ruling of the same
+  day: before it signs with the machine's credentials, the proxy checks that
+  the application signed the call with those same credentials, as AWS checks
+  a signature. The access key is the machine's, and the signature, computed
+  again with its secret over the path, the query, the signed headers and the
+  body, is the one the call carries, within 15 minutes. Otherwise the call
+  is a 403 that says why and is not forwarded, so a local process without
+  the keys cannot spend with them. A Bedrock API key is therefore refused.
+  An AWS event stream that carries an error after it began is counted
+  `stream error`.
 - **The steps**, measured against fakes of the three providers, with an agent
   of three calls. A tool step is closed by the result the next call carries.
   Its status is `error` or `success` where Anthropic's `is_error` or
