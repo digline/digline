@@ -1478,13 +1478,22 @@ def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
         say("  recording:  off for this tenant: calls are forwarded, none is written")
     for route, wire in sorted(proxy.wires.items()):
         upstream = proxy.upstreams.get(route)
-        where = wire.upstream if upstream is None else f"{upstream} (--upstream)"
+        problem = getattr(wire, "problem", None)
+        if problem is not None:
+            where = f"cannot forward: {problem}"
+        elif upstream is None:
+            where = wire.upstream
+        else:
+            where = f"{upstream} (--upstream)"
         say(f"  route {route}: {where}")
     if not proxy.wires:
-        say("  no route: install digline-openai or digline-anthropic")
+        say("  no route: install digline-openai, digline-anthropic or digline-bedrock")
     say("  point the SDK here:")
     for route, wire in sorted(proxy.wires.items()):
-        say(f"    {route.upper()}_BASE_URL={proxy.address}{wire.base}")
+        # An SDK that reads its address from a variable of its own names it,
+        # Bedrock's AWS_ENDPOINT_URL_BEDROCK_RUNTIME.
+        variable = getattr(wire, "variable", None) or f"{route.upper()}_BASE_URL"
+        say(f"    {variable}={proxy.address}{wire.base}")
 
 
 def _interrupted(signum: int, frame: object) -> None:

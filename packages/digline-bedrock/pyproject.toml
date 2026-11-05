@@ -86,6 +86,12 @@ bedrock = "digline_bedrock:PROVIDER"
 "botocore.BedrockRuntime:converse" = "digline_bedrock.recording:MAP"
 "botocore.BedrockRuntime:converse_stream" = "digline_bedrock.recording:STREAM_MAP"
 
+# How `digline record proxy` reads this provider's calls off the wire: one
+# entry per route, named as `--upstream ROUTE=URL` names it, loaded when the
+# proxy starts (ADR 0062 §3). One route for both calls: the path says which.
+[project.entry-points."digline.recording_wire"]
+bedrock = "digline_bedrock.recording:WIRE"
+
 [build-system]
 requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"

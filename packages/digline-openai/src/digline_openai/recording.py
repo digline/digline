@@ -50,7 +50,7 @@ import inspect
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from digline.targets import Completion, Pricing
+from digline.targets import Completion, Pricing, ToolCall
 from digline_openai.client import completion_of
 
 __all__ = [
@@ -216,6 +216,72 @@ class OpenAIWire:
     def load(self) -> None:
         for name in ("openai._models", "openai.lib.streaming.chat"):
             importlib.import_module(name)
+
+    def results(self, request: Mapping[str, Any]) -> Sequence[ToolCall] | None:
+        """The `tool` messages after the last assistant message that asked
+        for tools, in the order it asked. Chat Completions carries no word
+        for a tool that failed, so each result's status is `not_reported`."""
+        messages = _mappings(request.get("messages"))
+        asked: list[Mapping[str, Any]] = []
+        at = -1
+        for index, message in enumerate(messages):
+            if message.get("role") == "assistant":
+                calls = _mappings(message.get("tool_calls"))
+                if calls:
+                    asked, at = calls, index
+        if at < 0:
+            return None
+        given: dict[str, Mapping[str, Any]] = {
+            str(message.get("tool_call_id")): message
+            for message in messages[at + 1 :]
+            if message.get("role") == "tool"
+        }
+        if not given:
+            return None
+        return tuple(_result(call, given.get(str(call.get("id")))) for call in asked)
+
+
+def _mappings(value: object) -> list[Mapping[str, Any]]:
+    """The objects in a JSON list, in order; nothing where it is not one."""
+    if not isinstance(value, list):
+        return []
+    items = cast(list[object], value)
+    return [
+        cast(Mapping[str, Any], item) for item in items if isinstance(item, Mapping)
+    ]
+
+
+def _result(call: Mapping[str, Any], message: Mapping[str, Any] | None) -> ToolCall:
+    functions = _mappings([call.get("function")])
+    named: Mapping[str, Any] = functions[0] if functions else {}
+    name = cast(str | None, named.get("name") or None)
+    arguments = cast(str | None, named.get("arguments"))
+    if message is None:
+        return ToolCall(
+            tool=name,
+            arguments=arguments,
+            status="not_reported",
+            result_absence="not_reported",
+        )
+    content = message.get("content")
+    if content is None or isinstance(content, str):
+        return ToolCall(
+            tool=name, arguments=arguments, status="not_reported", result=content or ""
+        )
+    parts: list[str] = []
+    for part in _mappings(content):
+        if part.get("type") != "text":
+            # An image or a file: bulk, never copied into a step.
+            return ToolCall(
+                tool=name,
+                arguments=arguments,
+                status="not_reported",
+                result_absence="not_recorded",
+            )
+        parts.append(str(part.get("text", "")))
+    return ToolCall(
+        tool=name, arguments=arguments, status="not_reported", result="".join(parts)
+    )
 
 
 WIRE = OpenAIWire()
