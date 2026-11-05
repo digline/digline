@@ -314,6 +314,14 @@ INTRODUCED: dict[str, str] = {
     # *message* is not a rendered document: `digline.wire` never saw it, and it
     # left for a client with its control bytes intact.
     "json_visible": "0.15.1",
+    # 1.1.0, the number the cut is expected to give the core release that
+    # carries them — not yet a release. pytest-digline measures as `digline
+    # run` does, inside `running()` and with `around_target`, and fails a
+    # reviewed answer's row by `contradicted`; its floor is owed at the cut, in
+    # RELEASING.md's table. (ADR 0059 §1, ADR 0060 §3)
+    "around_target": "1.1.0",
+    "contradicted": "1.1.0",
+    "running": "1.1.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true
@@ -323,7 +331,8 @@ INTRODUCED: dict[str, str] = {
 #: `digline.providers` — and it reaches for the store, the driver, the report,
 #: the wire and the host. The rule is unchanged: a dated name that no longer
 #: exists anywhere fails, because the floor would then be computed against a
-#: version claim nobody can meet.
+#: version claim nobody can meet. `digline.recorder` joined at 1.1: the
+#: providers' maps type their stream readings with its `StreamReading`.
 SURFACE = (
     "digline.core",
     "digline.targets",
@@ -332,6 +341,7 @@ SURFACE = (
     "digline.report",
     "digline.wire",
     "digline.host",
+    "digline.recorder",
 )
 
 
@@ -464,7 +474,12 @@ UNDATED: dict[tuple[str, str, str], str] = {}
 #: the release that carries it (RELEASING.md, *Before the tag: moving the
 #: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
 #: so a name the cut forgot to move fails there rather than staying here.
-UNRELEASED: dict[tuple[str, str, str], str] = {}
+UNRELEASED: dict[tuple[str, str, str], str] = {
+    # pytest-digline fails a reviewed answer's row by the run's contradictions,
+    # and never by its movement. (ADR 0059 §1)
+    ("digline.core.compare", "AssertionDelta", "reviewed"): "#903",
+    ("digline.core.reviewed", "Contradiction", "case_id"): "#903",
+}
 
 
 def plugins() -> list[Path]:
