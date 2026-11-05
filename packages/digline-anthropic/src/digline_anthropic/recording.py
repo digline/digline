@@ -6,7 +6,8 @@ and loaded only when a call is recorded.
 
 **The case is the messages.** The setup is everything else the call decides
 with: `model`, `system`, `max_tokens`, the sampling parameters, `tools` and
-`tool_choice`, `thinking`, `extra_body`. Neither is how the request travels
+`tool_choice`, `thinking`, and the keys of `extra_body`, merged at the top
+level as the SDK sends them (`as_sent`). Neither is how the request travels
 (`extra_headers`, `extra_query`, `timeout`), `stream`, or `metadata`, which
 names who the request is for: a per-request identifier in the setup would give
 every user a setup of their own, and the digest would read people as changes.
@@ -37,10 +38,13 @@ from __future__ import annotations
 import importlib
 import inspect
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from digline.targets import Completion, ToolCall
 from digline_anthropic.client import completion_of
+
+if TYPE_CHECKING:
+    from digline.recorder import StreamReading
 
 __all__ = [
     "MAP",
@@ -49,6 +53,7 @@ __all__ = [
     "WIRE",
     "AnthropicRecording",
     "AnthropicWire",
+    "as_sent",
 ]
 
 #: The keywords of `messages.create` that are neither the case nor the setup,
@@ -58,12 +63,26 @@ NOT_SETUP: frozenset[str] = frozenset(
 )
 
 
+def as_sent(request: Mapping[str, Any]) -> dict[str, Any]:
+    """The request as it travels: `extra_body`'s keys merged into the body at
+    its top level, as the SDK merges them, and `extra_body` itself gone. So a
+    call recorded in process and the same call read off the wire, by `digline
+    record proxy` or by a recorder in another language, have one setup and one
+    digest (ADR 0062 §2)."""
+    extra = request.get("extra_body")
+    sent = {key: value for key, value in request.items() if key != "extra_body"}
+    if isinstance(extra, Mapping):
+        sent.update(cast(Mapping[str, Any], extra))
+    return sent
+
+
 class AnthropicRecording:
     """The map digline's recorder loads for `anthropic.Anthropic`."""
 
     def split(
         self, request: Mapping[str, Any]
     ) -> tuple[dict[str, object], dict[str, object]]:
+        request = as_sent(request)
         case: dict[str, object] = {"messages": request.get("messages")}
         setup = {key: value for key, value in request.items() if key not in NOT_SETUP}
         return case, setup
@@ -71,7 +90,7 @@ class AnthropicRecording:
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
         return completion_of(reply)
 
-    def reading(self, request: Mapping[str, Any]) -> Any:
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
         """A reading of `messages.create(stream=True)`'s raw events."""
         return _Events()
 
@@ -107,7 +126,7 @@ class AnthropicStreamRecording(AnthropicRecording):
     def streams(self, request: Mapping[str, Any]) -> bool:
         return True
 
-    def reading(self, request: Mapping[str, Any]) -> Any:
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
         return _Final()
 
 

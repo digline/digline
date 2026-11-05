@@ -269,8 +269,9 @@ def _call_bytes() -> str:
 #: and Bedrock as boto3 hands it over, `modelId` from the path beside the body
 #: and each event as `{type: payload}`. The proxy's own reading of the Bedrock
 #: calls is held to the same files in `tests/test_recorder_java.py`. No
-#: `extra_body`: an in-process map keeps it as a key of its own and the wire
-#: merges it (RELEASING.md, *Owed to the next version*).
+#: `extra_body` case: on the wire its keys are in the body like any other, so
+#: a hook reads them as it reads the rest, and the in-process maps merge it the
+#: same way since #919 (`tests/test_recorder_extra_body.py`).
 WIRE_CALLS: dict[str, dict[str, Any]] = {
     "openai-single": {
         "route": "openai",

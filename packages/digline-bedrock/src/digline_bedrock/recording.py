@@ -44,11 +44,14 @@ import json
 import re
 import time
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 from urllib.parse import unquote
 
 from digline.targets import Completion, Pricing, ToolCall
 from digline_bedrock.client import completion_of
+
+if TYPE_CHECKING:
+    from digline.recorder import StreamReading
 
 __all__ = ["MAP", "NOT_SETUP", "STREAM_MAP", "WIRE", "BedrockRecording", "BedrockWire"]
 
@@ -83,7 +86,7 @@ class BedrockStreamRecording(BedrockRecording):
     def stream_of(self, reply: Any) -> Any:
         return reply["stream"]
 
-    def reading(self, request: Mapping[str, Any]) -> Any:
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
         return _Events(str(request.get("modelId", "")))
 
 

@@ -13,7 +13,8 @@ case that held them would change every time the prompt did. Every message
 after the first one of another role is the case.
 
 **The setup** is everything else the call decides with: `model`, the sampling
-and token parameters, `tools`, `tool_choice`, `response_format`, `extra_body`.
+and token parameters, `tools`, `tool_choice`, `response_format`, and the keys
+of `extra_body`, merged at the top level as the SDK sends them (`as_sent`).
 Neither is how the request travels (`extra_headers`, `extra_query`,
 `timeout`), streaming (`stream`, `stream_options`), or who the request is for
 (`user`, `metadata`, `safety_identifier`, `prompt_cache_key`), nor `store`.
@@ -48,10 +49,13 @@ from __future__ import annotations
 import importlib
 import inspect
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from digline.targets import Completion, Pricing, ToolCall
 from digline_openai.client import completion_of
+
+if TYPE_CHECKING:
+    from digline.recorder import StreamReading
 
 __all__ = [
     "INSTRUCTION_ROLES",
@@ -61,6 +65,7 @@ __all__ = [
     "WIRE",
     "OpenAIRecording",
     "OpenAIWire",
+    "as_sent",
 ]
 
 #: The keywords of `chat.completions.create` that are neither the case nor the
@@ -87,6 +92,19 @@ INSTRUCTION_ROLES: frozenset[str] = frozenset({"system", "developer"})
 _NO_PRICES = Pricing(per_model={})
 
 
+def as_sent(request: Mapping[str, Any]) -> dict[str, Any]:
+    """The request as it travels: `extra_body`'s keys merged into the body at
+    its top level, as the SDK merges them, and `extra_body` itself gone. So a
+    call recorded in process and the same call read off the wire, by `digline
+    record proxy` or by a recorder in another language, have one setup and one
+    digest (ADR 0062 §2)."""
+    extra = request.get("extra_body")
+    sent = {key: value for key, value in request.items() if key != "extra_body"}
+    if isinstance(extra, Mapping):
+        sent.update(cast(Mapping[str, Any], extra))
+    return sent
+
+
 def _role(message: object) -> object:
     if isinstance(message, Mapping):
         return cast(Mapping[str, object], message).get("role")
@@ -99,6 +117,7 @@ class OpenAIRecording:
     def split(
         self, request: Mapping[str, Any]
     ) -> tuple[dict[str, object], dict[str, object]]:
+        request = as_sent(request)
         messages = request.get("messages")
         listed: list[object] = (
             list(cast(Sequence[object], messages))
@@ -116,7 +135,7 @@ class OpenAIRecording:
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
         return completion_of(reply, str(request.get("model", "")), _NO_PRICES)
 
-    def reading(self, request: Mapping[str, Any]) -> Any:
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
         """A reading of `chat.completions.create(stream=True)`'s chunks."""
         return _Chunks(request)
 
@@ -154,7 +173,7 @@ class OpenAIStreamRecording(OpenAIRecording):
     def streams(self, request: Mapping[str, Any]) -> bool:
         return True
 
-    def reading(self, request: Mapping[str, Any]) -> Any:
+    def reading(self, request: Mapping[str, Any]) -> StreamReading:
         return _Final(str(request.get("model", "")))
 
 
