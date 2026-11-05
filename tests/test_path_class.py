@@ -14,7 +14,8 @@ beside the servers they need.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+import sys
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,21 @@ from digline.cli import EXIT_USAGE
 from digline.cli.main import main
 from digline.host.recording import recorder_status
 from digline.store import PathRefusedError, checked_name
+
+#: The SDK `wrap()` is given here, taken back out of `sys.modules` when this
+#: module ends, as `tests/test_record_proxy.py` does: a plugin's own tests
+#: assert its SDK is imported only when a call is made.
+SDKS = ("anthropic", "httpx2")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
+
 
 CLIMBS = ("../outside", "..", "a/b", "acme\n", "acme\r", "\nacme", "")
 
