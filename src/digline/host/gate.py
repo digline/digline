@@ -43,7 +43,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from digline.host.environment import seconds_now
-from digline.store.file_store import FileResultStore, PathRefusedError
+from digline.store.file_store import (
+    FileResultStore,
+    PathRefusedError,
+    joined_inside,
+)
 
 __all__ = [
     "GATE_DIRECTORY",
@@ -96,16 +100,10 @@ def directory_of(root: Path, tenant: str) -> Path:
     store, as the store holds every file it reads (`FileResultStore._inside`):
     a `.gate` that is a link out of `.digline/` is refused."""
     store = FileResultStore(root)
-    # The name first, as a string: normalised and held under the store before
-    # anything on disk is asked, the form CodeQL's path check reads as a guard
-    # (alerts 133-135). Then the disk: a link out of the store is refused.
-    base = os.path.normpath(store.root)
-    candidate = os.path.normpath(
-        os.path.join(store.tenant_dir(tenant), *GATE_DIRECTORY)
-    )
-    if not candidate.startswith(base + os.sep):
-        raise PathRefusedError(f"the gate's markers at {candidate} are outside {base}")
-    place = Path(candidate).resolve()
+    # The name first, as a string: joined and held under the store before
+    # anything on disk is asked, where every name of the layout becomes a
+    # path (`joined_inside`). Then the disk: a link out of the store is refused.
+    place = joined_inside(store.tenant_dir(tenant), *GATE_DIRECTORY).resolve()
     if not place.is_relative_to(store.root.resolve()):
         raise PathRefusedError(
             f"the gate's markers at {place} are outside {store.root}: a link "

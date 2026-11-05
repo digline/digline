@@ -179,6 +179,22 @@ def _a_name(value: object) -> bool:
     return isinstance(value, str) and _NAME.fullmatch(value) is not None
 
 
+def _joined_inside(root: Path, *parts: str) -> Path:
+    """`digline.store.file_store.joined_inside`, restated for the reason
+    above, in the same form: the joined path normalised, then held under the
+    normalised root and a separator, or refused. A `ValueError`, the base of
+    the store's `PathRefusedError`, which this module does not import.
+
+    Every tenant joined here passed `_a_name` or is a directory's own name
+    from a listing, so the refusal cannot be reached; what it adds is that
+    the containment is checked where the path is built."""
+    base = os.path.normpath(root)
+    candidate = os.path.normpath(os.path.join(base, *parts))
+    if not candidate.startswith(base + os.sep):
+        raise ValueError(f"{candidate} is not inside {base}")
+    return Path(candidate)
+
+
 #: The clock the interval is read on. Looked up through the module at each
 #: call, so a test can put a clock of its own here.
 _clock: Callable[[], float] = monotonic
@@ -1763,7 +1779,7 @@ def _mark_ceiling(root: Path, tenant: str, ceiling: int, size: int) -> None:
     application hears of."""
     import json
 
-    directory = root / _STORE / tenant / _RECORDINGS
+    directory = _joined_inside(root, _STORE, tenant, _RECORDINGS)
     marker = directory / _CEILING_MARKER
     try:
         directory.mkdir(parents=True, exist_ok=True)
@@ -1782,7 +1798,7 @@ def _recordings_size(root: Path, tenant: str) -> int:
     recordings and are not counted."""
     total = 0
     try:
-        with os.scandir(root / _STORE / tenant / _RECORDINGS) as folders:
+        with os.scandir(_joined_inside(root, _STORE, tenant, _RECORDINGS)) as folders:
             for folder in folders:
                 if not folder.is_dir(follow_symlinks=False):
                     continue
@@ -1802,7 +1818,8 @@ def _switch_files(state: _State) -> dict[str, Path]:
     development, every tenant's in production, found by listing `.digline/`."""
     store = state.root / _STORE
     if not state.production:
-        return {cast(str, state.tenant): store / cast(str, state.tenant) / _SWITCH_FILE}
+        tenant = cast(str, state.tenant)
+        return {tenant: _joined_inside(store, tenant, _SWITCH_FILE)}
     found: dict[str, Path] = {}
     try:
         with os.scandir(store) as entries:
@@ -1933,7 +1950,9 @@ def _measure(state: _State) -> None:
             if resumed:
                 state.stopped.discard(tenant)
         if resumed:
-            marker = state.root / _STORE / tenant / _RECORDINGS / _CEILING_MARKER
+            marker = _joined_inside(
+                state.root, _STORE, tenant, _RECORDINGS, _CEILING_MARKER
+            )
             with contextlib.suppress(OSError):
                 marker.unlink()
 
