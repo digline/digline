@@ -20,7 +20,6 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-import pytest
 from tests.test_view_policy import WANTED, inline_in
 
 from digline.cli import EXIT_USAGE
@@ -267,9 +266,34 @@ def test_without_a_suite_or_a_tenant_it_says_which_to_name(tmp_path: Path) -> No
     assert "holds dev, other" in done.stderr
 
 
-@pytest.mark.parametrize("flag", ["--allow-promote"])
-def test_without_a_suite_there_is_nothing_to_promote(tmp_path: Path, flag: str) -> None:
+def test_without_a_suite_there_is_nothing_to_promote(tmp_path: Path) -> None:
+    """`--allow-promote` promotes a suite's run, so without `--suite` it is
+    refused before anything is served, as `--host` is.
+
+    The first line of standard output is read rather than waited for: a server
+    that started prints its address there and keeps running, and a test that
+    only waited would fail on a timeout that says nothing about what it saw.
+    Refused, the process ends, the line is empty, and the refusal is the first
+    line of standard error."""
     record(tmp_path, "CV: Python")
-    done = refused(tmp_path, flag)
-    assert done.returncode == EXIT_USAGE
-    assert "--allow-promote promotes a suite's run" in done.stderr
+    process = subprocess.Popen(
+        [sys.executable, "-m", "digline.cli", "view", "--port", "0", "--allow-promote"],
+        cwd=tmp_path,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None and process.stderr is not None
+        first = process.stdout.readline()
+        assert first == "", (
+            f"a server started with --allow-promote and no suite: {first!r}"
+        )
+        err = process.stderr.read()
+        assert process.wait(timeout=30) == EXIT_USAGE
+    finally:
+        process.kill()
+        process.wait(timeout=10)
+    assert err.splitlines()[0].startswith(
+        "digline: --allow-promote promotes a suite's run, and no --suite was given"
+    ), err
