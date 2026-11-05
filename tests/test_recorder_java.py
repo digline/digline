@@ -15,6 +15,7 @@ The last test reads what the Java recorder wrote in the CI job
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import os
@@ -130,12 +131,19 @@ def test_bedrock_reads_alike_through_the_proxy_and_as_boto3_hands_it_over() -> N
     for name in names:
         call = calls[name]
         request = WIRE.request_of(call["path"], call["request"])
-        mapped: Any = WIRE.map
+        mapped: Any = WIRE.map_for(call["path"])
         if "events" in call:
             frames = WIRE.frames(
                 "application/vnd.amazon.eventstream", _event_stream(call["events"])
             )
-            assert frames == call["events"]
+            # InvokeModel's chunks come out decoded, as boto3 hands them over;
+            # Converse's events as they went in.
+            assert frames == [
+                {"chunk": {"bytes": base64.b64decode(event["chunk"]["bytes"])}}
+                if "chunk" in event
+                else event
+                for event in call["events"]
+            ]
             reading = mapped.reading(request)
             for event in frames or ():
                 reading.add(WIRE.event(event))
@@ -282,3 +290,47 @@ def test_what_the_java_recorder_wrote_is_imported_by_digline_alone(
         "not counted: 1 process keeps recordings and no counts, so what was not "
         "recorded there is not known"
     ) in out
+
+
+#: Where the hooks and the writer are, as the page tells a reader to copy them.
+SOURCES = REPO / "recorders" / "java" / "src" / "main" / "java" / "dev" / "digline"
+
+
+def _code(source: str) -> str:
+    """Java with its comments and its string literals taken out: a class named
+    in a sentence or a string is not one the file needs to compile."""
+    source = re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+    source = re.sub(r"//[^\n]*", "", source)
+    return re.sub(r'"(?:\\.|[^"\\])*"', '""', source)
+
+
+def test_each_ports_files_are_the_files_it_needs_and_nothing_else() -> None:
+    """`docs/record-java.md` lists the files each port copies (P-1543). Each
+    row's files exist, and together they name no class of digline's that the
+    row does not list, so a project that copies a row compiles with that
+    row's SDK and nothing else of digline's. And every file the directory
+    holds is in some row."""
+    page = PAGE.read_text("utf-8")
+    section = page.split("## With an official SDK: the files to copy", 1)[1]
+    rows = [
+        line
+        for line in section.splitlines()
+        if line.startswith("| `") and ".java`" in line
+    ]
+    assert len(rows) == 3, rows
+    listed: set[str] = set()
+    for row in rows:
+        cells = [cell.strip() for cell in row.strip("|").split("|")]
+        files = re.findall(r"`(Digline\w+)\.java`", cells[1])
+        assert files and files[0] == "DiglineRecorder", row
+        listed.update(files)
+        named: set[str] = set()
+        for name in files:
+            path = SOURCES / f"{name}.java"
+            assert path.is_file(), path
+            named.update(
+                re.findall(r"\b(Digline[A-Z]\w*)\b", _code(path.read_text("utf-8")))
+            )
+        assert named <= set(files), (row, sorted(named - set(files)))
+    present = {path.stem for path in SOURCES.glob("Digline*.java")}
+    assert present == listed, sorted(present ^ listed)

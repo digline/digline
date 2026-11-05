@@ -13,6 +13,7 @@ the Java tests read the same files and hold `DiglineRecorder.java` to them.
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import random
@@ -20,7 +21,7 @@ import struct
 import tempfile
 from decimal import ROUND_HALF_EVEN, Context, Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from digline.core import Usage
 from digline.core.recording import Recording, float_text, input_of, setup_digest_of
@@ -272,6 +273,13 @@ def _call_bytes() -> str:
 #: `extra_body` case: on the wire its keys are in the body like any other, so
 #: a hook reads them as it reads the rest, and the in-process maps merge it the
 #: same way since #919 (`tests/test_recorder_extra_body.py`).
+def _chunk(event: dict[str, Any]) -> dict[str, Any]:
+    """A Messages event as InvokeModelWithResponseStream carries it: its JSON
+    in base64, under `chunk.bytes`."""
+    data = json.dumps(event, separators=(",", ":")).encode("utf-8")
+    return {"chunk": {"bytes": base64.b64encode(data).decode("ascii")}}
+
+
 WIRE_CALLS: dict[str, dict[str, Any]] = {
     "openai-single": {
         "route": "openai",
@@ -676,6 +684,111 @@ WIRE_CALLS: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    # InvokeModel with an Anthropic model: the body is Anthropic's Messages,
+    # read with the map a direct Messages call is read with (P-1541, P-1543).
+    # `metadata` is in the body and out of the setup, as Anthropic's map has it.
+    "bedrock-invoke": {
+        "route": "bedrock",
+        "path": "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/invoke",
+        "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
+        "request": {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 256,
+            "system": "Answer in one line.",
+            "messages": [{"role": "user", "content": "Où est la commande A1 ?"}],
+            "metadata": {"user_id": "customer-42"},
+        },
+        "reply": {
+            "id": "msg_bedrock_1",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-3-5-haiku-20241022",
+            "content": [
+                {"type": "text", "text": "Je regarde."},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "lookup",
+                    "input": {"order": "A1"},
+                },
+            ],
+            "stop_reason": "tool_use",
+            "stop_sequence": None,
+            "usage": {"input_tokens": 30, "output_tokens": 12},
+        },
+    },
+    # Its stream: each event a `chunk` whose `bytes` carry a Messages event in
+    # base64, as Bedrock sends it and the proxy and the Java hook read it.
+    "bedrock-invoke-stream": {
+        "route": "bedrock",
+        "path": (
+            "/model/us.anthropic.claude-3-5-haiku-20241022-v1%3A0"
+            "/invoke-with-response-stream"
+        ),
+        "model_id": "us.anthropic.claude-3-5-haiku-20241022-v1:0",
+        "request": {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 256,
+            "messages": [{"role": "user", "content": "Where is A1?"}],
+        },
+        "events": [
+            _chunk(event)
+            for event in cast(
+                "tuple[dict[str, Any], ...]",
+                (
+                    {
+                        "type": "message_start",
+                        "message": {
+                            "id": "msg_bedrock_2",
+                            "type": "message",
+                            "role": "assistant",
+                            "model": "claude-3-5-haiku-20241022",
+                            "content": [],
+                            "stop_reason": None,
+                            "stop_sequence": None,
+                            "usage": {"input_tokens": 12, "output_tokens": 1},
+                        },
+                    },
+                    {
+                        "type": "content_block_start",
+                        "index": 0,
+                        "content_block": {"type": "text", "text": ""},
+                    },
+                    {
+                        "type": "content_block_delta",
+                        "index": 0,
+                        "delta": {"type": "text_delta", "text": "Looking it up."},
+                    },
+                    {"type": "content_block_stop", "index": 0},
+                    {
+                        "type": "content_block_start",
+                        "index": 1,
+                        "content_block": {
+                            "type": "tool_use",
+                            "id": "toolu_2",
+                            "name": "lookup",
+                            "input": {},
+                        },
+                    },
+                    {
+                        "type": "content_block_delta",
+                        "index": 1,
+                        "delta": {
+                            "type": "input_json_delta",
+                            "partial_json": '{"order": "A1"}',
+                        },
+                    },
+                    {"type": "content_block_stop", "index": 1},
+                    {
+                        "type": "message_delta",
+                        "delta": {"stop_reason": "tool_use", "stop_sequence": None},
+                        "usage": {"output_tokens": 18},
+                    },
+                    {"type": "message_stop"},
+                ),
+            )
+        ],
+    },
     "openai-refusal": {
         "route": "openai",
         "path": "/v1/chat/completions",
@@ -818,6 +931,18 @@ def _wire_completion(call: dict[str, Any]) -> tuple[dict[str, Any], Any, Any]:
     """The request as the provider's map reads it, the map, and the
     completion it reads from the reply or the events."""
     route = call["route"]
+    if route == "bedrock" and "/invoke" in call["path"]:
+        from digline_bedrock.recording import INVOKE_MAP, INVOKE_STREAM_MAP
+
+        request = {"modelId": call["model_id"], "body": call["request"]}
+        if "events" in call:
+            reading = INVOKE_STREAM_MAP.reading(request)
+            for event in call["events"]:
+                # As boto3 hands a chunk over: its bytes decoded.
+                raw = base64.b64decode(event["chunk"]["bytes"])
+                reading.add({"chunk": {"bytes": raw}})
+            return request, INVOKE_STREAM_MAP, reading.completion(None)
+        return request, INVOKE_MAP, INVOKE_MAP.completion(call["reply"], request)
     if route == "bedrock":
         from digline_bedrock.recording import MAP as BEDROCK
         from digline_bedrock.recording import STREAM_MAP as BEDROCK_STREAM

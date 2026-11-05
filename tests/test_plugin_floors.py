@@ -80,6 +80,9 @@ INTRODUCED: dict[str, str] = {
     # type their stream readings with it, imported for the type checker
     # alone; their floors are owed at the cut, in RELEASING.md's table.
     "StreamReading": "1.1.0",
+    # A call a recording map declines by a rule of its own, counted by its
+    # reason: digline-bedrock's InvokeModel of another family (P-1543).
+    "Refusal": "1.1.0",
     # 0.35.0, the number the cut is expected to give the core release that
     # carries #548 — not yet a release. digline-mcp's `--names project` loads
     # its table with `load_name_table`, holds one answer to one table with
@@ -484,6 +487,11 @@ UNRELEASED: dict[tuple[str, str, str], str] = {
     # and never by its movement. (ADR 0059 §1)
     ("digline.core.compare", "AssertionDelta", "reviewed"): "#903",
     ("digline.core.reviewed", "Contradiction", "case_id"): "#903",
+    # digline-bedrock hands each InvokeModel stream chunk to the Messages
+    # reading `digline-anthropic` gives it, typed as the core's StreamReading.
+    # (P-1543)
+    ("digline.recorder", "StreamReading", "add"): "P-1543",
+    ("digline.recorder", "StreamReading", "completion"): "P-1543",
 }
 
 
