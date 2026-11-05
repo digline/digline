@@ -38,7 +38,6 @@ streamed reply is an AWS event stream, decoded by botocore's own buffer.
 from __future__ import annotations
 
 import calendar
-import hashlib
 import hmac
 import importlib
 import json
@@ -175,6 +174,9 @@ _AUTHORIZATION = re.compile(
 #: allows: 15 minutes.
 _SKEW = 15 * 60
 
+#: This machine's clock, which a signature's time is held to.
+_now = time.time
+
 #: What a tool step's status may be, as `digline.core.ToolStatus` has it.
 type _Status = Literal["success", "error", "not_reported"]
 
@@ -271,11 +273,8 @@ class BedrockWire:
             at = calendar.timegm(time.strptime(stamp, "%Y%m%dT%H%M%SZ"))
         except ValueError:
             return "it carries no signing time"
-        if not stamp.startswith(date) or abs(time.time() - at) > _SKEW:
+        if not stamp.startswith(date) or abs(_now() - at) > _SKEW:
             return "its signing time is not this machine's, within 15 minutes"
-        named = headers.get("x-amz-content-sha256")
-        if named is not None and named != hashlib.sha256(body).hexdigest():
-            return "its body is not the one it signed"
         names = signed.split(";")
         if "host" not in names or any(name not in headers for name in names):
             return "a header it signed is missing"

@@ -755,6 +755,26 @@ def test_a_call_not_signed_with_this_machines_key_is_a_403(
     assert upstream.seen == []
 
 
+def test_a_signature_older_than_15_minutes_is_a_403(
+    proxy: Proxy, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The proxy's clock 16 minutes on from the signature's, as AWS allows
+    15: a signature kept and sent again later does not spend."""
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
+
+    import digline_bedrock.recording as wire
+
+    monkeypatch.setattr(wire, "_now", lambda: time.time() + 16 * 60)
+    with pytest.raises(ClientError) as raised:
+        a_bedrock(proxy.address).converse(
+            modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
+        )
+    assert "its signing time is not this machine's, within 15 minutes" in str(
+        raised.value
+    )
+    assert upstream.seen == []
+
+
 def test_an_unsigned_call_is_a_403(proxy: Proxy, upstream: Upstream) -> None:
     connection = http.client.HTTPConnection("127.0.0.1", proxy.port)
     connection.request(
