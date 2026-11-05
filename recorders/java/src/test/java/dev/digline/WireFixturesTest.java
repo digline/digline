@@ -83,6 +83,27 @@ class WireFixturesTest {
     }
 
     @Test
+    void anExceptionInTheStreamIsAStreamError() {
+        byte[] frames = FakeProvider.eventStream(List.of(Map.of("messageStart", Map.of("role", "assistant"))));
+        // The same frame, said an exception: its message type changed, its checksums made again.
+        String text = new String(frames, java.nio.charset.StandardCharsets.ISO_8859_1)
+                .replace("\u0005event", "\u0009exception");
+        byte[] header = text.getBytes(java.nio.charset.StandardCharsets.ISO_8859_1);
+        java.nio.ByteBuffer frame = java.nio.ByteBuffer.wrap(header);
+        int total = header.length;
+        frame.putInt(0, total);
+        frame.putInt(4, frame.getInt(4) + 4);
+        java.util.zip.CRC32 prelude = new java.util.zip.CRC32();
+        prelude.update(header, 0, 8);
+        frame.putInt(8, (int) prelude.getValue());
+        java.util.zip.CRC32 message = new java.util.zip.CRC32();
+        message.update(header, 0, total - 4);
+        frame.putInt(total - 4, (int) message.getValue());
+        org.junit.jupiter.api.Assertions.assertThrows(DiglineAws.StreamError.class,
+                () -> DiglineAws.frames(header));
+    }
+
+    @Test
     void bedrockTakesTheModelFromThePath() {
         assertEquals("anthropic.claude-3-5-haiku-20241022-v1:0", DiglineAws.modelIdOf(
                 "/model/anthropic.claude-3-5-haiku-20241022-v1%3A0/converse-stream"));

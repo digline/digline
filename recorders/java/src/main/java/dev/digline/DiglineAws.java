@@ -114,9 +114,24 @@ public final class DiglineAws implements ExecutionInterceptor {
                     recorder.record(call(request, DiglineOkHttp.asMap(DiglineRecorder.Json.parse(
                             new String(kept, StandardCharsets.UTF_8))), elapsed), at);
                 }
+            } catch (StreamError failed) {
+                recorder.miss("stream error", at);
             } catch (RuntimeException unread) {
                 recorder.miss("map", at);
             }
+        }
+    }
+
+    /**
+     * A stream that ended in an error Bedrock sent inside it, after its 200:
+     * counted {@code stream error}, as the proxy counts it, not as a reading
+     * that failed.
+     */
+    static final class StreamError extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        StreamError() {
+            super("the stream carried an exception");
         }
     }
 
@@ -336,7 +351,7 @@ public final class DiglineAws implements ExecutionInterceptor {
                 throw new IllegalArgumentException("an event's message does not check");
             }
             if (!"event".equals(headers.get(":message-type"))) {
-                throw new IllegalArgumentException("the stream carried an exception");
+                throw new StreamError();
             }
             Map<String, Object> event = new LinkedHashMap<>();
             event.put(headers.get(":event-type"), payloadLength == 0 ? new LinkedHashMap<>()

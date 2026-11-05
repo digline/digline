@@ -262,12 +262,13 @@ def _call_bytes() -> str:
 #: The wire's calls, one per provider and shape, as the HTTP carries them:
 #: the request's JSON body and the reply's, or the reply's events in order. A
 #: hook reads these off its client's HTTP, and the file it writes is held to
-#: the one each provider's own map writes from the same bytes, read as
-#: `digline record proxy` reads them (`digline.recording_wire`) and, for
-#: Bedrock, which has no wire entry on this tree, as boto3 hands them over:
-#: `modelId` from the path, beside the body, and each event as `{type:
-#: payload}`. No `extra_body`: an in-process map keeps it as a key of its own
-#: and the wire merges it (RELEASING.md, *Owed to the next version*).
+#: the one each provider's own map writes from the same bytes: read as
+#: `digline record proxy` reads OpenAI and Anthropic (`digline.recording_wire`),
+#: and Bedrock as boto3 hands it over, `modelId` from the path beside the body
+#: and each event as `{type: payload}`. The proxy's own reading of the Bedrock
+#: calls is held to the same files in `tests/test_recorder_java.py`. No
+#: `extra_body`: an in-process map keeps it as a key of its own and the wire
+#: merges it (RELEASING.md, *Owed to the next version*).
 WIRE_CALLS: dict[str, dict[str, Any]] = {
     "openai-single": {
         "route": "openai",

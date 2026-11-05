@@ -16,12 +16,15 @@ The last test reads what the Java recorder wrote in the CI job
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 import re
 import runpy
+import struct
+import zlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 
@@ -68,6 +71,69 @@ def test_the_digest_measured_across_the_two_languages_is_fixed() -> None:
         setup_digest_of({"max_tokens": 64, "model": "claude-haiku-4-5"})
         == "81869b20f0d8875a"
     )
+
+
+def _header(name: str, value: str) -> bytes:
+    key, text = name.encode(), value.encode()
+    return bytes([len(key)]) + key + b"\x07" + struct.pack(">H", len(text)) + text
+
+
+def _event_stream(events: list[dict[str, object]]) -> bytes:
+    """The events as an AWS event stream, the frames Bedrock's ConverseStream
+    sends: the same bytes `FakeProvider.eventStream` writes for the Java
+    tests."""
+    out = bytearray()
+    for event in events:
+        ((kind, payload),) = event.items()
+        body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+        headers = (
+            _header(":event-type", kind)
+            + _header(":content-type", "application/json")
+            + _header(":message-type", "event")
+        )
+        prelude = struct.pack(">II", 16 + len(headers) + len(body), len(headers))
+        message = prelude + struct.pack(">I", zlib.crc32(prelude)) + headers + body
+        out += message + struct.pack(">I", zlib.crc32(message))
+    return bytes(out)
+
+
+def test_bedrock_reads_alike_through_the_proxy_and_as_boto3_hands_it_over() -> None:
+    """The third witness (P-1506): each Bedrock wire call, read as
+    `digline record proxy` reads it, with the model's id from the path and a
+    stream decoded from its frames by botocore, writes the file the fixtures
+    hold, which `make.py` makes from the call as boto3 hands it over and the
+    Java hook is held to."""
+    from digline_bedrock.recording import WIRE
+
+    made = runpy.run_path(str(FIXTURES / "make.py"))
+    calls = cast(dict[str, dict[str, Any]], made["WIRE_CALLS"])
+    written = cast(Callable[..., str], made["_written"])
+    names = [name for name, call in calls.items() if call["route"] == "bedrock"]
+    assert len(names) > 1
+    for name in names:
+        call = calls[name]
+        request = WIRE.request_of(call["path"], call["request"])
+        mapped: Any = WIRE.map
+        if "events" in call:
+            frames = WIRE.frames(
+                "application/vnd.amazon.eventstream", _event_stream(call["events"])
+            )
+            assert frames == call["events"]
+            reading = mapped.reading(request)
+            for event in frames or ():
+                reading.add(WIRE.event(event))
+            completion = reading.completion(None)
+        else:
+            completion = mapped.completion(WIRE.reply(call["reply"]), request)
+        case, setup = mapped.split(request)
+        text = written(
+            case=case,
+            setup=setup,
+            completion=completion,
+            latency_ms=made["WIRE_LATENCY_MS"],
+        )
+        expected = (FIXTURES / "wire" / f"{name}.expected.json").read_text("utf-8")
+        assert text == expected, name
 
 
 PAGE = REPO / "docs" / "record-java.md"
