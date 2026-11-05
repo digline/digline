@@ -1046,6 +1046,47 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} not judged",
         "view.chip.older_config": "older suite",
+        "view.chip.crossing": "artifact held",
+        "view.promote.crossing": (
+            "A file this suite declares may not leave the perimeter, and a "
+            "baseline carries every artifact's text into baselines/, which is "
+            "versioned. Change the suite before promoting."
+        ),
+        "view.chip.nothing_judged": "nothing judged",
+        "view.promote.nothing_judged": (
+            "This run judged none of the cases its suite measures: it measured "
+            "nothing, so it cannot become a baseline."
+        ),
+        "view.chip.unmeasured": "not measured",
+        "view.promote.unmeasured": (
+            "What this run measured cannot be stated: a check does not reconcile "
+            "with its suite, or a run-level check could not be computed. An error "
+            "is not a reference."
+        ),
+        "view.chip.uncalibrated": "scale lost",
+        "view.promote.uncalibrated": (
+            "A calibration case fell outside its declared band, so the judge lost "
+            "its scale in this run and it cannot become a baseline. Promote a run "
+            "whose calibration held."
+        ),
+        "view.chip.contradicted": "contradicts a person",
+        "view.promote.contradicted": (
+            "The judge contradicted a person's yes or no on a reviewed answer, "
+            "and the person's answer is the expected verdict, so this run cannot "
+            "become a baseline. Promote a run whose judge agreed with every person."
+        ),
+        "view.chip.pinned": "pin moved",
+        "view.promote.pinned": (
+            "A file declared not to change moved, or lost its path, since the "
+            "baseline. This page carries no authorisation: compare the run, and "
+            "if the change was meant, promote it from the command line, naming "
+            "each path with --accepting-pin."
+        ),
+        "view.chip.refused": "refused",
+        "view.promote.unnamed": (
+            "The store would refuse to promote this run, for a reason this page "
+            "has no marker for yet: digline promote names it."
+        ),
         "view.chip.replayed": "replay",
         "view.promote.replayed": (
             "This run judged again the recorded answers of {run_key}, and never "
@@ -2596,6 +2637,49 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.chip.errored": "{count} non giudicati",
         "view.chip.older_config": "suite precedente",
+        "view.chip.crossing": "artefatto trattenuto",
+        "view.promote.crossing": (
+            "Un file che questa suite dichiara non può uscire dal perimetro, e un "
+            "riferimento porta il testo di ogni artefatto in baselines/, che è "
+            "versionata. Cambia la suite prima di promuovere."
+        ),
+        "view.chip.nothing_judged": "nulla giudicato",
+        "view.promote.nothing_judged": (
+            "Questo run non ha giudicato nessuno dei casi che la sua suite misura: "
+            "non ha misurato niente, quindi non può diventare un riferimento."
+        ),
+        "view.chip.unmeasured": "non misurato",
+        "view.promote.unmeasured": (
+            "Non si può dire che cosa abbia misurato questo run: un controllo non "
+            "si riconcilia con la sua suite, o un controllo sull'intero run non si "
+            "è potuto calcolare. Un errore non è un riferimento."
+        ),
+        "view.chip.uncalibrated": "scala persa",
+        "view.promote.uncalibrated": (
+            "Un caso di calibrazione è uscito dalla sua banda dichiarata: in questo "
+            "run il giudice ha perso la scala, quindi non può diventare un "
+            "riferimento. Promuovi un run in cui la calibrazione ha tenuto."
+        ),
+        "view.chip.contradicted": "contraddice una persona",
+        "view.promote.contradicted": (
+            "Il giudice ha contraddetto il sì o il no di una persona su una "
+            "risposta rivista, e la risposta della persona è il verdetto atteso, "
+            "quindi questo run non può diventare un riferimento. Promuovi un run "
+            "il cui giudice ha dato ragione a ogni persona."
+        ),
+        "view.chip.pinned": "pin spostato",
+        "view.promote.pinned": (
+            "Un file dichiarato immutabile si è spostato, o ha perso il suo "
+            "percorso, rispetto al riferimento. Questa pagina non porta "
+            "autorizzazioni: confronta il run e, se il cambiamento era voluto, "
+            "promuovilo dalla riga di comando nominando ogni percorso con "
+            "--accepting-pin."
+        ),
+        "view.chip.refused": "rifiutato",
+        "view.promote.unnamed": (
+            "Lo store rifiuterebbe di promuovere questo run, per un motivo per cui "
+            "questa pagina non ha ancora un marcatore: digline promote lo nomina."
+        ),
         "view.chip.replayed": "replay",
         "view.promote.replayed": (
             "Questo run ha giudicato di nuovo le risposte registrate di "

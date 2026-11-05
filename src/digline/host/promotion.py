@@ -21,15 +21,62 @@ from collections.abc import Collection
 
 from digline.core import Run
 from digline.core.compare import asked_samples
+from digline.core.declared import Declared
 from digline.host.errors import UsageError
 from digline.host.loader import TARGET_ATTR, Loaded, load_target
 from digline.host.resolve import LATEST
 from digline.host.resolve import replacing as expected_baseline_of
 from digline.report.text import phrase
 from digline.run import Suite, price_digest_of
-from digline.store import ResultStore, RunRef
+from digline.store import (
+    PromotionRefusal,
+    ResultStore,
+    RunRef,
+    UnacceptedPinsError,
+    refusal_for_unaccepted_pins,
+    refusals_for,
+)
 
-__all__ = ["pricing_for", "promote", "promote_priced", "promotion_notes"]
+__all__ = [
+    "pricing_for",
+    "promote",
+    "promote_priced",
+    "promotion_notes",
+    "promotion_refusal",
+]
+
+
+def promotion_refusal(
+    run: Run,
+    baseline: Run | None,
+    config_hash: str,
+    *,
+    declared: Declared | None,
+    accepting: Collection[str] = frozenset(),
+) -> PromotionRefusal | UnacceptedPinsError | None:
+    """The refusal `promote_baseline` would raise first for `run`, asked
+    before anybody promotes it, or `None` where it would raise none of these.
+
+    **The store's own functions, in the store's order**, so a page or a line
+    that asks *is it promotable?* asks the question the promotion asks rather
+    than a list copied by hand: the document's conditions (`refusals_for`),
+    then condition 11 against `baseline` with the paths `accepting` names.
+    A form sends none, so a page passes nothing.
+
+    **Not condition 8.** Whether the baseline moved since a person compared
+    against it is a fact about the instant of the write, and `baseline` is
+    the one the caller holds now: asked here it would be the baseline
+    compared with itself.
+
+    `config_hash` is the configuration in force, as `promote` computes it,
+    and `baseline` the run the suite's baseline was promoted from, or `None`
+    before the first promotion, where no pin cause can hold. (ADR 0002 §8,
+    ADR 0053)
+    """
+    refusals = refusals_for(run, config_hash, declared=declared)
+    if refusals:
+        return refusals[0]
+    return refusal_for_unaccepted_pins(run, baseline, accepting, declared=declared)
 
 
 def promotion_notes(run: Run) -> tuple[str, ...]:

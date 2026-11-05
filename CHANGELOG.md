@@ -67,9 +67,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   and when it was promoted, beside *The list of runs could not be drawn: …*
   (friction 59). A refused promotion is a `400` with the refusal, where it
   was a `200`; nothing was written, so it is never the `303`.
-- **The runs page draws no *Make baseline* on a replayed run**, which the
-  store refuses: a `replay` marker stands there, and says why when hovered.
-  The run stays comparable.
+- **The runs page draws *Make baseline* only where the store would promote**,
+  and asks it with the store's own functions rather than a list of its own:
+  `digline.host.promotion_refusal` gives the refusal a promotion would raise
+  first, the document's conditions and then the pins, and the page draws its
+  marker, which says why when hovered. The conditions it ignored now have
+  one: a replayed run, a judge that contradicted a person (#910), a lost
+  scale, a pin that moved, an artifact that may not leave the perimeter and
+  a run that does not reconcile; a run that judged nothing says that rather
+  than how many cases errored. Condition 8, the baseline
+  moved since the page was drawn, stays the write's. A run so marked stays
+  comparable.
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input

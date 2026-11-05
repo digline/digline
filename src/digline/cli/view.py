@@ -92,6 +92,7 @@ from digline.host import (
     imported_since,
     left_out_parts,
     promote_priced,
+    promotion_refusal,
     record_compare,
     recorder_status,
     suite_runs,
@@ -724,13 +725,31 @@ class ViewHandler(BaseHTTPRequestHandler):
         """
         try:
             listed = self._runs()
+            config_hash = self.suite.config_hash(pricing=self.pricing)
+            declared = self.suite.declared()
+            # The baseline's own run, for the pins: the same document the
+            # baseline was promoted from, but for the time it was signed.
+            baseline = dict(listed.runs).get(listed.baseline_key or "")
+            # Asked of the store's functions once per row, in the store's
+            # order: the page draws the answer and decides nothing.
+            refused = {
+                key: type(refusal).__name__
+                for key, run in listed.runs
+                if (
+                    refusal := promotion_refusal(
+                        run, baseline, config_hash, declared=declared
+                    )
+                )
+                is not None
+            }
             document = pages.runs_page(
                 listed.runs,
                 baseline_key=listed.baseline_key,
-                config_hash=self.suite.config_hash(pricing=self.pricing),
+                config_hash=config_hash,
                 locale=locale,
                 suite=self.suite.name,
                 allow_promote=self.allow_promote,
+                refused=refused,
                 ignored=left_out_parts(listed, locale=locale),
             )
         except Exception as exc:  # noqa: BLE001 — the baseline must arrive whatever the list does

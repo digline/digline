@@ -37,7 +37,14 @@ from html import unescape
 from pathlib import Path
 
 import pytest
-from tests._helpers import baseline_in, cli, hand_over, run_key, write_suite
+from tests._helpers import (
+    baseline_in,
+    cli,
+    hand_over,
+    run_key,
+    runs_page_as_served,
+    write_suite,
+)
 
 from digline.core import (
     Artifact,
@@ -52,6 +59,7 @@ from digline.core import (
     compare,
     key_of,
 )
+from digline.core.reviewed import Reviewed
 from digline.report import (
     SHEET,
     LeftOutPart,
@@ -69,6 +77,7 @@ from digline.report import (
 )
 from digline.report import escape as report_escape
 from digline.report.pages import SHEET_ADDRESS
+from digline.report.text import LOCALES, phrase
 from digline.store import FileResultStore
 
 #: The sheet as the report carries it, and as a served page links to it.
@@ -139,7 +148,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
     """The reason the screen exists. Choosing which run to promote means reading
     precision down a column and taking the median; with key, date and commit
     alone the choice cannot be made, and the first green run gets frozen."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -152,7 +161,7 @@ def test_the_run_list_carries_the_aggregates() -> None:
 
 
 def test_the_baseline_is_marked() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -164,7 +173,7 @@ def test_the_baseline_is_marked() -> None:
 
 
 def test_the_newest_run_is_first() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key=None,
         config_hash="cfg",
@@ -179,7 +188,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
     """Comparing against the baseline is the release question; comparing run 1
     with run 3 of a calibration is the noise question, and that is the one that
     says what tolerance to set."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -192,7 +201,7 @@ def test_both_runs_can_be_chosen_not_only_the_reference() -> None:
 
 
 def test_what_the_scan_ignored_is_said_on_the_page() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -209,7 +218,7 @@ def test_what_the_scan_ignored_is_said_on_the_page() -> None:
 
 
 def page_with(parts: tuple[LeftOutPart, ...], locale: Locale = "en") -> str:
-    return runs_page(
+    return runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -257,7 +266,7 @@ def test_the_files_a_part_names_are_one_line_each() -> None:
 def test_one_line_is_still_shown_as_one_line() -> None:
     """`left_out` returns a string, and a caller that passes it keeps
     working: the page shows it as it is, with no frame. (#440)"""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
@@ -272,7 +281,7 @@ def test_one_line_is_still_shown_as_one_line() -> None:
 
 
 def test_an_empty_store_says_so_instead_of_an_empty_table() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [],
         baseline_key=None,
         config_hash="cfg",
@@ -1748,6 +1757,21 @@ ERRORED = Run(
                 ),
             ),
         ),
+        # A case judged beside it, so the store's first refusal is the errored
+        # case (condition 3) and not a run that judged nothing (condition 10),
+        # which it asks first.
+        CaseResult(
+            case_id="b",
+            verdicts=(
+                Verdict(
+                    score=Score(name=AGREES, score=1.0),
+                    threshold=0.5,
+                    status="pass",
+                    reason="judged",
+                    assertion_id="id-agrees",
+                ),
+            ),
+        ),
     ),
 )
 
@@ -1762,7 +1786,7 @@ def runs_html(
     rows = [("key-a", RUN_A), ("key-b", RUN_B)]
     if extra is not None:
         rows.append(("key-e", extra))
-    return runs_page(
+    return runs_page_as_served(
         rows,
         baseline_key="key-a",
         config_hash=config_hash,
@@ -1849,6 +1873,32 @@ def test_a_run_with_errors_offers_no_promotion_and_says_why() -> None:
     assert "/compare?run=key-e" in cell
 
 
+def test_a_run_that_judged_nothing_says_so_and_not_how_many_errored() -> None:
+    """Every case errored: the store refuses it for having measured nothing
+    (condition 10), which it asks before the errors (condition 3), and the
+    marker is that refusal's. Drawn by hand, this row said *1 not judged*,
+    which is the refusal the store would not have given."""
+    first = ERRORED.results[0]
+    nothing = replace(ERRORED, results=(first,))
+    cell = act_cell(runs_html(extra=nothing), "key-e")
+    assert "<button" not in cell
+    assert ">nothing judged</span>" in cell, cell
+    assert "not judged</span>" not in cell.replace(">nothing judged</span>", "")
+    assert "/compare?run=key-e" in cell
+
+
+def test_a_run_whose_run_level_check_errored_says_it_was_not_measured() -> None:
+    """`ErroredRunError` with no case to count: a run-level check that could
+    not be computed. The store refuses it under condition 3 all the same, and
+    the marker says what is missing rather than *0 not judged*."""
+    [figure] = RUN_B.aggregate
+    errored = replace(figure, status="error", score=replace(figure.score, score=None))
+    cell = act_cell(runs_html(extra=replace(RUN_B, aggregate=(errored,))), "key-e")
+    assert "<button" not in cell
+    assert ">not measured</span>" in cell, cell
+    assert "0 not judged" not in cell
+
+
 def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> None:
     """The refusal `promote_baseline` would give, given before the click. The
     row stays — those numbers were measured — attenuated, because they were
@@ -1866,7 +1916,7 @@ def test_a_run_of_another_configuration_is_comparable_but_not_promotable() -> No
 def test_a_replayed_run_is_comparable_but_not_promotable() -> None:
     """`promote_baseline` refuses a run judged again from recorded answers,
     and the page says so before the click, where the button would be."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
         baseline_key="key-a",
         config_hash="cfg",
@@ -1885,7 +1935,7 @@ def test_a_replayed_run_is_comparable_but_not_promotable() -> None:
 def test_a_replayed_run_says_why_in_italian_too() -> None:
     """The marker's reason in the other locale: the chip is the same word,
     and the sentence behind it is the Italian table's."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", replace(RUN_B, rejudged_from="key-a"))],
         baseline_key="key-a",
         config_hash="cfg",
@@ -1897,6 +1947,88 @@ def test_a_replayed_run_says_why_in_italian_too() -> None:
     assert ">replay</span>" in cell
     assert "giudicato di nuovo le risposte registrate di key-a" in cell
     assert "<button" not in cell
+
+
+def _contradicted(run: Run) -> Run:
+    """`run`, with a person's no on its first case, whose judge passed it."""
+    first, *rest = run.results
+    [verdict] = first.verdicts
+    assert verdict.status == "pass" and verdict.assertion_id is not None
+    said = Reviewed(
+        check=verdict.score.name, assertion_id=verdict.assertion_id, good=False
+    )
+    return replace(run, results=(replace(first, reviewed=said), *rest))
+
+
+def test_a_run_the_judge_contradicted_a_person_in_is_not_promotable() -> None:
+    """Condition 12 (#910), asked of the store's own function: the marker
+    stands where the button would be, says why in both locales, and the run
+    stays comparable. The same run without the person's no is the control."""
+    contradicted = _contradicted(RUN_B)
+    said_in: tuple[tuple[Locale, str, str], ...] = (
+        ("en", "contradicts a person", "The judge contradicted a person"),
+        ("it", "contraddice una persona", "Il giudice ha contraddetto il sì o il no"),
+    )
+    for locale, chip, why in said_in:
+        html = runs_page_as_served(
+            [("key-a", RUN_A), ("key-b", contradicted)],
+            baseline_key="key-a",
+            config_hash="cfg",
+            locale=locale,
+            suite="brief",
+            allow_promote=True,
+        )
+        cell = act_cell(html, "key-b")
+        assert "<button" not in cell, locale
+        assert f">{chip}</span>" in cell, cell
+        assert why in cell, cell
+        assert "/compare?run=key-b" in cell
+    control = runs_page_as_served(
+        [("key-a", RUN_A), ("key-b", RUN_B)],
+        baseline_key="key-a",
+        config_hash="cfg",
+        locale="en",
+        suite="brief",
+        allow_promote=True,
+    )
+    assert "<button" in act_cell(control, "key-b")
+
+
+def test_every_refusal_the_store_can_raise_before_the_write_has_a_marker() -> None:
+    """The page's table, held equal to the types `promotion_refusal` can
+    return: a refusal the store adds fails here until it is given its words,
+    and is drawn meanwhile under the generic marker (the next test)."""
+    from typing import get_args
+
+    from digline.report.pages import REFUSAL_CHIPS
+    from digline.store import PromotionRefusal, UnacceptedPinsError
+
+    returned = {kind.__name__ for kind in get_args(PromotionRefusal.__value__)}
+    assert set(REFUSAL_CHIPS) == returned | {UnacceptedPinsError.__name__}
+    for locale in LOCALES:
+        for chip, why in REFUSAL_CHIPS.values():
+            assert phrase(locale, chip, count=1, run_key="k")
+            assert phrase(locale, why, count=1, run_key="k")
+
+
+def test_a_refusal_the_page_has_no_words_for_is_still_drawn_as_one() -> None:
+    """A type the table does not hold yet still takes the button away: the
+    store said no, and the page says that much in both locales."""
+    chips: tuple[tuple[Locale, str], ...] = (("en", "refused"), ("it", "rifiutato"))
+    for locale, chip in chips:
+        html = runs_page(
+            [("key-a", RUN_A), ("key-b", RUN_B)],
+            baseline_key="key-a",
+            config_hash="cfg",
+            locale=locale,
+            suite="brief",
+            allow_promote=True,
+            refused={"key-b": "AFutureRefusalError"},
+        )
+        cell = act_cell(html, "key-b")
+        assert "<button" not in cell
+        assert f">{chip}</span>" in cell, cell
+        assert "digline promote" in cell
 
 
 def test_the_baseline_keeps_its_own_marker_under_a_changed_configuration() -> None:
@@ -1913,7 +2045,7 @@ def test_before_there_is_a_baseline_every_row_opens_its_run() -> None:
     aggregates only: without a link to the run, a promotion was made by
     somebody who had not seen one case. The link says *Open*, not *Compare* —
     there is nothing yet to compare with, and the page behind it says so."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A), ("key-b", RUN_B)],
         baseline_key=None,
         config_hash="cfg",
@@ -1951,7 +2083,7 @@ def test_a_missing_commit_says_which_kind_of_missing() -> None:
     object.__setattr__(
         dirty, "git_commit", "3feea0e576470b6e4b5ae9f0f06bcc9df7836627-dirty"
     )
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-d", dirty)],
         baseline_key=None,
         config_hash="cfg",
@@ -1984,7 +2116,7 @@ def test_runs_in_the_same_minute_are_still_told_apart() -> None:
     for. Caught by looking at the screenshot, not by thinking about it."""
     a = make_run("2026-08-26T12:40:33.032281+00:00", scores={"a": 1.0}, precision=0.5)
     b = make_run("2026-08-26T12:40:33.472519+00:00", scores={"a": 0.0}, precision=0.6)
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", a), ("key-b", b)],
         baseline_key=None,
         config_hash="cfg",
@@ -2002,7 +2134,7 @@ def test_the_whole_column_moves_to_seconds_not_only_the_pair() -> None:
     a = make_run("2026-08-26T12:40:33.032281+00:00", scores={"a": 1.0}, precision=0.5)
     b = make_run("2026-08-26T12:40:33.472519+00:00", scores={"a": 0.0}, precision=0.6)
     far = make_run("2026-08-24T09:00:00.000000+00:00", scores={"a": 1.0}, precision=0.5)
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", a), ("key-b", b), ("key-f", far)],
         baseline_key=None,
         config_hash="cfg",
@@ -2110,7 +2242,7 @@ def test_the_free_comparison_is_below_the_table_and_drops_the_baseline() -> None
 
 
 def test_with_a_single_run_there_is_nothing_to_compare_it_with() -> None:
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key="key-a",
         config_hash="cfg",
@@ -2170,7 +2302,7 @@ def with_prompt(sha: str) -> Run:
 def test_the_run_carries_the_digest_of_what_was_under_test() -> None:
     """A label beside the moment, not a column: it is read to group runs, and
     the table is already wide."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-p", with_prompt("a" * 64))],
         baseline_key=None,
         config_hash="cfg",
@@ -2190,7 +2322,7 @@ def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
     same_a = ("key-a", with_prompt("a" * 64))
     same_b = ("key-b", with_prompt("a" * 64))
     other = ("key-c", with_prompt("b" * 64))
-    html = runs_page(
+    html = runs_page_as_served(
         [same_a, same_b, other],
         baseline_key=None,
         config_hash="cfg",
@@ -2206,7 +2338,7 @@ def test_two_prompts_get_two_stamps_and_one_prompt_gets_one() -> None:
 def test_a_suite_with_no_artifacts_shows_no_label() -> None:
     """Most suites declare none, and a label that is always there is a label
     nobody reads."""
-    html = runs_page(
+    html = runs_page_as_served(
         [("key-a", RUN_A)],
         baseline_key=None,
         config_hash="cfg",
