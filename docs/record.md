@@ -464,7 +464,9 @@ so a change takes effect without a restart. An episode is sampled once: its
 calls are in or out with it. At the ceiling the recorder stops recording for
 that tenant and says so in the status; it never rotates or deletes.
 
-**In production** (`tenant=` is a function), a file that switches a tenant on
+**In production**, for an application that resolves its tenant per request
+(`wrap(tenant=callable)` in Python, `DiglineRecorder.production` in Java; the
+proxy's `--tenant` is never production), a file that switches a tenant on
 must declare `redact`, `sample` and `ceiling`, and the tenant's directory must
 be writable. Otherwise the client is refused when it is wrapped, and the
 refusal names each missing declaration. `DIGLINE_RECORD=1` is refused there:
@@ -655,7 +657,9 @@ writes nothing, and does not move the import's `examined_through`.
   and shows each case's answers under one beside its answers under the other.
 - `--show-setup`, only with `--setup`, adds the keys the two setups differ
   on. Each value is shown by its first line, up to 60 characters, and its
-  length, so a prompt is never printed whole.
+  length, so a prompt is never printed whole. A list of messages, a `system`
+  the way Chat Completions carries it, is shown by its first message's text
+  and how many messages there are, never as JSON.
 - `--json` is the same structure for a program. It carries digests, never the
   recorded text (fixed decision 9): the cases by their ids, the setups and
   the answers by their digests, the dates, the counts, and for `--show-setup`

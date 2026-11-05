@@ -602,8 +602,13 @@ class Suite:
                 f"suite {self.name!r} declares no assertions: a run that checks "
                 "nothing passes vacuously, which is what fixed decision 3 forbids"
             )
-        if not self.cases:
-            raise RefusedError(f"suite {self.name!r} declares no cases")
+        if not self.cases and self.capture is None:
+            # With `capture` there may be none yet: the first `digline record
+            # import` is what writes them. Without it nothing ever will.
+            raise RefusedError(
+                f"suite {self.name!r} declares no cases, and no capture to "
+                "import them into"
+            )
         # Before anything below reads a member of them, and before anything is
         # paid for. (#420)
         for assertion in self.assertions:

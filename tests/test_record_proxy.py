@@ -24,6 +24,7 @@ What is held here:
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import http.client
 import json
@@ -35,7 +36,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -634,6 +635,37 @@ LAUNCH = (
 )
 
 
+#: Every process this module starts, held to have ended when the module
+#: does: a proxy left running is a port taken and a process nobody stops.
+STARTED: list[subprocess.Popen[str]] = []
+
+
+@contextlib.contextmanager
+def stopped_after(
+    started: subprocess.Popen[str],
+) -> Generator[subprocess.Popen[str]]:
+    """The process, ended when the block ends, however it ends: SIGTERM, which
+    the proxy stops on, then SIGKILL if it has not ended within 10 seconds."""
+    STARTED.append(started)
+    try:
+        yield started
+    finally:
+        if started.poll() is None:
+            started.terminate()
+            try:
+                started.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                started.kill()
+                started.wait()
+
+
+@pytest.fixture(autouse=True, scope="module")
+def no_process_outlives_this_module() -> Iterator[None]:
+    yield
+    alive = [started.args for started in STARTED if started.poll() is None]
+    assert alive == [], alive
+
+
 class Lines:
     """What a process prints, read by a thread of its own, since a read that
     blocks cannot be given a deadline: each line awaited 10 seconds at most,
@@ -705,16 +737,12 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
         env=environment,
     )
     said = Lines(started)
-    try:
+    with stopped_after(started):
         lines = said.first(11)
         started.send_signal(stop)
         # A proxy that does not stop is a red in seconds, never a job held
         # until the runner gives up.
         started.wait(timeout=10)
-    finally:
-        if started.poll() is None:
-            started.kill()
-            started.wait()
     after = said.rest()
     assert lines[0].startswith("digline record proxy: listening on http://127.0.0.1:")
     address = lines[0].rsplit(" ", 1)[1]
@@ -735,6 +763,29 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
         "digline record proxy: stopped; open episodes and the counts are written"
     ]
     assert started.returncode == 0
+
+
+def test_a_process_that_ignores_sigterm_still_ends_when_its_test_fails() -> None:
+    """The way out a failing test takes: the block raises, and a process that
+    ignores SIGTERM is killed rather than left behind."""
+    started = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+            "print('ready', flush=True); time.sleep(30)",
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    assert started.stdout is not None
+    began = time.monotonic()
+    with pytest.raises(RuntimeError), stopped_after(started):
+        assert started.stdout.readline() == "ready\n"
+        raise RuntimeError("the test failed here")
+    assert started.poll() is not None
+    # Killed after the 10 seconds SIGTERM is given, not left to end itself.
+    assert time.monotonic() - began < 20
 
 
 @pytest.mark.parametrize(
