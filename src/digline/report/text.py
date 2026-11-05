@@ -195,12 +195,25 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # contradiction exits 1 from report, explain and compare, and the
         # person who ran the command should not learn it there first.
         # (ADR 0059 §1)
+        # The halves of `contradicted_said`, which joins them: who contradicted
+        # a person, the judge or a check on the steps, named with its case.
+        # Lower case and with no full stop; the caller closes the line.
+        # (ADR 0059 §1, amended 2026-11-05)
         "fact.contradicted.one": (
-            "the judge contradicted a person on 1 reviewed answer."
+            "the judge contradicted a person on 1 reviewed answer"
         ),
         "fact.contradicted.many": (
-            "the judge contradicted a person on {count} reviewed answers."
+            "the judge contradicted a person on {count} reviewed answers"
         ),
+        "fact.contradicted.steps.one": (
+            "a check on the steps contradicted a person on {answers}: {checks}"
+        ),
+        "fact.contradicted.steps.many": (
+            "checks on the steps contradicted a person on {answers}: {checks}"
+        ),
+        "fact.contradicted.answers.one": "1 reviewed answer",
+        "fact.contradicted.answers.many": "{count} reviewed answers",
+        "fact.contradicted.step_check": "{check}, on case {case}",
         "fact.unjudged.none": "Every case could be judged.",
         "fact.unjudged.one": "1 case could not be judged.",
         # The same count with the denominator it is a count of, and the form
@@ -1424,14 +1437,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.side.above": "above",
         "explain.side.below": "below",
         "explain.tally.reviewed.one": (
-            "The judge contradicted a person on 1 reviewed answer, and the case "
-            "fails: {cases}. It is counted in no aggregate, and the target was "
-            "not asked for it."
+            "{said}, and the case fails: {cases}. It is counted in no "
+            "aggregate, and the target was not asked for it."
         ),
         "explain.tally.reviewed.many": (
-            "The judge contradicted a person on {count} reviewed answers, and "
-            "each fails: {cases}. They are counted in no aggregate, and the "
-            "target was not asked for them."
+            "{said}, and each fails: {cases}. They are counted in no "
+            "aggregate, and the target was not asked for them."
         ),
         "explain.tally.reviewed.passed_no": (
             "{case} for {check}, passed where the person said no"
@@ -1638,6 +1649,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.check.contradicted.yes": (
             "{where} failed at {now}, and a person said yes to the answer: the "
             "judge contradicts the person, and the case fails."
+        ),
+        "explain.check.contradicted.steps": (
+            "{where} failed at {now}, and a person said yes to the turn: its "
+            "steps contradict the person, and the case fails."
         ),
         "explain.check.suspended": (
             "The case {case} was set aside, so nothing was measured on it. The "
@@ -1962,11 +1977,21 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} controlli non hanno potuto essere eseguiti."
         ),
         "fact.contradicted.one": (
-            "il giudice ha contraddetto una persona su 1 risposta rivista."
+            "il giudice ha contraddetto una persona su 1 risposta rivista"
         ),
         "fact.contradicted.many": (
-            "il giudice ha contraddetto una persona su {count} risposte riviste."
+            "il giudice ha contraddetto una persona su {count} risposte riviste"
         ),
+        "fact.contradicted.steps.one": (
+            "un controllo sui passi ha contraddetto una persona su {answers}: {checks}"
+        ),
+        "fact.contradicted.steps.many": (
+            "dei controlli sui passi hanno contraddetto una persona su "
+            "{answers}: {checks}"
+        ),
+        "fact.contradicted.answers.one": "1 risposta rivista",
+        "fact.contradicted.answers.many": "{count} risposte riviste",
+        "fact.contradicted.step_check": "{check}, sul caso {case}",
         "fact.unjudged.none": "Tutti i casi sono stati giudicati.",
         "fact.unjudged.one": "1 caso non è stato possibile giudicarlo.",
         # A label and a colon rather than "{judged} casi giudicati": the
@@ -3122,14 +3147,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.side.above": "sopra",
         "explain.side.below": "sotto",
         "explain.tally.reviewed.one": (
-            "Il giudice ha contraddetto una persona su 1 risposta rivista, e il "
-            "caso fallisce: {cases}. Non entra in nessun aggregato, e al sistema "
-            "sotto esame non è stato chiesto nulla per essa."
+            "{said}, e il caso fallisce: {cases}. Non entra in nessun "
+            "aggregato, e al sistema sotto esame non è stato chiesto nulla per "
+            "essa."
         ),
         "explain.tally.reviewed.many": (
-            "Il giudice ha contraddetto una persona su {count} risposte riviste, "
-            "e ciascuna fallisce: {cases}. Non entrano in nessun aggregato, e al "
-            "sistema sotto esame non è stato chiesto nulla per esse."
+            "{said}, e ciascuna fallisce: {cases}. Non entrano in nessun "
+            "aggregato, e al sistema sotto esame non è stato chiesto nulla per "
+            "esse."
         ),
         "explain.tally.reviewed.passed_no": (
             "{case} per {check}, promossa dove la persona ha detto no"
@@ -3324,6 +3349,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.check.contradicted.yes": (
             "{where} è bocciato a {now}, e una persona ha detto sì alla "
             "risposta: il giudice contraddice la persona, e il caso fallisce."
+        ),
+        "explain.check.contradicted.steps": (
+            "{where} è bocciato a {now}, e una persona ha detto sì al turno: i "
+            "suoi passi contraddicono la persona, e il caso fallisce."
         ),
         "explain.check.suspended": (
             "Il caso {case} è stato messo da parte, quindi su di esso non è "

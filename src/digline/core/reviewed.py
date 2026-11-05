@@ -82,12 +82,19 @@ class Contradiction:
 
     `score` is the judge's, the folded mean the verdict was judged on, and
     `None` where the check reported none.
+
+    `on_the_steps` says who contradicted: the judge, through the check the
+    answer was reviewed for, or a check on the steps beside it, which only an
+    episode's answer is asked (ADR 0059 §1, amended 2026-11-05).
+    `assertion_id` is that check's, so a reader finds its verdict.
     """
 
     case_id: str
     check: str
     good: bool
     score: float | None
+    assertion_id: str = ""
+    on_the_steps: bool = False
 
     @property
     def direction(self) -> Against:
@@ -130,17 +137,19 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
                 # binds it, and only a red one contradicts it.
                 if not reviewed.good or verdict.status == "pass":
                     continue
-                check = verdict.score.name
+                check, on_the_steps = verdict.score.name, True
             elif (verdict.status == "pass") == reviewed.good:
                 continue
             else:
-                check = reviewed.check
+                check, on_the_steps = reviewed.check, False
             found.append(
                 Contradiction(
                     case_id=case.case_id,
                     check=check,
                     good=reviewed.good,
                     score=verdict.score.score,
+                    assertion_id=verdict.assertion_id,
+                    on_the_steps=on_the_steps,
                 )
             )
     return tuple(found)

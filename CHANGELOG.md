@@ -376,7 +376,10 @@ nothing. No public name is removed or renamed and no exit code changes.
   six checks on a trajectory run on the case beside the named check, and on a
   yes a red one is a contradiction, exit `1` and refused by `promote` like the
   named check's. An answer without steps is asked its check alone, as before
-  (ADR 0059 §1, amended 2026-11-05).
+  (ADR 0059 §1, amended 2026-11-05). `run` and `explain` say who contradicted,
+  in one sentence: the judge, or *a check on the steps … : before, on case
+  T3*, or both; and explain's list of what it found has every contradiction,
+  the judge's and the steps', where it had only the judge's.
 - **`digline run` names `explain`, never `promote`, after a run whose own exit
   is not 0**, and says why on a contradiction: *reads this run back; the judge
   contradicted a person*. Measured: every cause of a lone run's 1 or 2 was

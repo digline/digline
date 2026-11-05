@@ -100,6 +100,7 @@ from digline.report import (
     against_line,
     artifact_lines,
     config_lines,
+    contradicted_said,
     errored_verdicts,
     explain_text,
     headline,
@@ -425,13 +426,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         # exits 0, and report, explain and compare exit 1 on it, so the person
         # who ran the command hears it here first. The `next:` line below then
         # names explain, because promote refuses such a run. (ADR 0059 §1)
-        against = len(contradicted(measured.run))
+        against = contradicted(measured.run)
         if against:
-            key = "one" if against == 1 else "many"
-            say(
-                f"digline: {phrase('en', f'fact.contradicted.{key}', count=against)}",
-                err=True,
-            )
+            # Who contradicted, the judge or a check on the steps, in the
+            # sentence `explain` opens with. (ADR 0059 §1, amended 2026-11-05)
+            say(f"digline: {contradicted_said(against, 'en')}.", err=True)
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)

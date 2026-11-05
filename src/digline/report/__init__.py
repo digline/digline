@@ -10,6 +10,7 @@ from digline.report.explain import (
     Fact,
     SettingFact,
     TallyFact,
+    contradicted_said,
     explain_text,
     facts,
 )
@@ -126,6 +127,7 @@ __all__ = [
     "render_run_html",
     "errored_verdicts",
     "explain",
+    "contradicted_said",
     "explain_text",
     "facts",
     "run_page",
