@@ -1,0 +1,103 @@
+{
+  "app": "support",
+  "case": {
+    "messages": [
+      {
+        "content": "Où est mon remboursement ? 100 €, \"vite\"\n😀   ",
+        "role": "user"
+      }
+    ]
+  },
+  "recorded_at": "2026-11-05T08:00:00.123456+00:00",
+  "recording_version": 1,
+  "response": {
+    "finish": "tool_use",
+    "input": "[{\"content\":\"Où est mon remboursement ? 100 €, \\\"vite\\\"\\n😀   \",\"role\":\"user\"}]",
+    "kind": "text",
+    "latency_ms": 812.345679,
+    "output": "Il a été envoyé lundi.",
+    "steps": [
+      {
+        "actor": "model",
+        "finish": "tool_use",
+        "index": 0
+      },
+      {
+        "actor": "tool",
+        "arguments": "{\"n\":2,\"order\":\"A1\",\"weight\":0.123457}",
+        "index": 1,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      },
+      {
+        "actor": "tool",
+        "arguments": "not json",
+        "index": 2,
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tool_calls": [
+      {
+        "arguments": "{\"n\":2,\"order\":\"A1\",\"weight\":0.123457}",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool": "lookup"
+      },
+      {
+        "arguments": "not json",
+        "result_absence": "not_reported",
+        "status": "not_reported",
+        "tool_absence": "not_reported"
+      }
+    ],
+    "tools": [
+      "lookup",
+      null
+    ],
+    "usage": {
+      "cache_read_tokens": 3,
+      "input_tokens": 14,
+      "output_tokens": 7,
+      "thinking_tokens": 0
+    }
+  },
+  "setup": {
+    "Zeta": 1,
+    "delete": "",
+    "frequency_penalty": 1e-05,
+    "logit_scale": 1e+16,
+    "logprobs": false,
+    "model": "gpt-4o-mini",
+    "presence_penalty": -0.0,
+    "response_format": null,
+    "seed": 12345678901234567890,
+    "stop": [
+      "\n\n",
+      "Fin."
+    ],
+    "system": [
+      {
+        "content": "Réponds en français, brièvement. 😀",
+        "role": "system"
+      }
+    ],
+    "temperature": 0.7,
+    "tools": [
+      {
+        "function": {
+          "name": "lookup",
+          "parameters": {}
+        },
+        "type": "function"
+      }
+    ],
+    "top_p": 1.0,
+    "ä": 2
+  },
+  "setup_digest": "f044f48f9cb3e3c5",
+  "source_tenant": "acme",
+  "suite": "refunds"
+}

@@ -582,6 +582,60 @@ jobs:
           uv run tools/check-glyphs.py --selftest
           uv run tools/check-glyphs.py site
 
+  recorder-java:
+    name: The Java recorder writes what digline reads
+    # The Java recorder's contract, held where it is written (ADR 0062 §4).
+    # `recorders/java/` holds the files an application copies, and a Maven
+    # project that exists only to test them. Two halves:
+    #
+    # - the Java tests hold `DiglineRecorder.java` to the fixtures digline's
+    #   own Python makes, in `recorders/fixtures/` (a setup's digest, a
+    #   float's text, a switch's sentences, one recorded call byte for byte),
+    #   and write a tenant's recordings into a directory of the runner's;
+    # - `tests/test_recorder_java.py` then imports those files with digline
+    #   alone, no plugin installed, and reads `record status` say *not
+    #   counted*, since a writer outside Python keeps no counts file.
+    #
+    # On every pull request and on the queue's ref, with no filter on paths,
+    # so that it reports wherever it might one day be required. It is not
+    # required today: that is a setting of the repository's ruleset, and a
+    # person rules it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: The Java tests, writing the recordings the import reads
+        run: >-
+          mvn -B -f recorders/java/pom.xml test
+          -Ddigline.importRoot="$RUNNER_TEMP/java-recordings"
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: digline alone
+        # No --all-packages: the root project and its dev group, and none of
+        # the plugins under packages/. The test asserts they are absent.
+        run: uv sync --locked
+
+      - name: digline imports what Java wrote
+        env:
+          DIGLINE_JAVA_RECORDINGS: ${{ runner.temp }}/java-recordings
+          # Set beside the directory, so that this run fails where the test
+          # would otherwise skip.
+          DIGLINE_JAVA_REQUIRED: "1"
+        # `-o pythonpath=.`: the project's own pytest configuration puts every
+        # plugin's `src` on the path, which would make digline alone a claim
+        # this run does not hold. Measured both ways in a digline-alone
+        # environment: without it the test finds digline_openai and fails.
+        run: uv run --no-sync pytest tests/test_recorder_java.py -o pythonpath=. -v
+
   image-touched:
     name: Does this change the image?
     # The docker job below is gated on this rather than on `on: paths:`, which
