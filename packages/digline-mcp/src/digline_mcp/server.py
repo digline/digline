@@ -539,6 +539,9 @@ def build_server(
             # written for. (decision 2)
             modules_unchecked=open_.loaded.modules_unchecked,
             accepting_baseline_schema=accepting_baseline_schema,
+            # The marker goes where the store is: the tenant's directory an
+            # application recording itself reads. (ADR 0058, 2026-11-05)
+            marker_root=perimeter,
         )
         # In this server's log, which the person who started it reads, and not
         # in the answer: whether a directory is committed is the operator's

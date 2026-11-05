@@ -13,6 +13,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -24,6 +25,7 @@ __all__ = [
     "ProcessState",
     "git_commit",
     "process_state",
+    "seconds_now",
     "this_process",
     "unignored",
     "unignored_notes",
@@ -46,6 +48,12 @@ def utc_now_iso() -> str:
     coincidence rather than a normal one.
     """
     return datetime.now(UTC).isoformat()
+
+
+def seconds_now() -> float:
+    """The clock as the filesystem writes it, seconds since the epoch: what a
+    file's `st_mtime` is compared with, for the gate's marker (`host.gate`)."""
+    return time.time()
 
 
 def _git(root: Path, *args: str) -> str | None:

@@ -11,8 +11,9 @@ the layer both front ends already sit on (ADR 0011 §7, ADR 0017 §11).
 from __future__ import annotations
 
 from collections.abc import Callable, Generator, Mapping, Sequence
-from contextlib import AbstractContextManager, contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Protocol
 
 from digline import __version__
@@ -24,8 +25,9 @@ from digline.core import (
     Run,
     SystemConfig,
 )
-from digline.core.run import SCHEMA_VERSION
+from digline.core.run import SCHEMA_VERSION, key_of
 from digline.host.environment import this_process
+from digline.host.gate import marking
 from digline.recorder import collecting, running
 from digline.run import (
     CallPlan,
@@ -419,6 +421,7 @@ def measure(
     modules_unchecked: Sequence[str] | None = None,
     mapper: Mapper = default_mapper,
     accepting_baseline_schema: int | None = None,
+    marker_root: Path | None,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
 
@@ -429,6 +432,12 @@ def measure(
     First, before anything is called: a baseline at a schema this digline
     cannot read is refused unless `accepting_baseline_schema` names it — see
     `refuse_unreadable_baseline`. (#621)
+
+    `marker_root` is the project whose `.digline/<suite.tenant>/` holds the
+    gate's marker while the run is in progress (`host.gate`), so that an
+    application recording itself in another process marks the run's calls as
+    the gate's. Required, and `None` only where the caller says no
+    application can be recording: a test's stub target.
     """
     baseline_found = refuse_unreadable_baseline(
         store, suite, accepting_schema=accepting_baseline_schema
@@ -440,7 +449,18 @@ def measure(
     # Inside `running()`: the recorder, on or off, writes nothing of a run's
     # calls, the target's or a judge's, which are the gate's and not the
     # application's traffic.
-    with running():
+    marker = (
+        nullcontext()
+        if marker_root is None
+        else marking(
+            marker_root,
+            suite.tenant,
+            run_id=key_of(prepared.created_at, prepared.header.config_hash),
+            started_at=prepared.header.started_at,
+            suite=suite.name,
+        )
+    )
+    with marker, running():
         run = execute(
             suite,
             target,

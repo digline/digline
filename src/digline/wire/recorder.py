@@ -51,6 +51,9 @@ class SuiteRecordings:
     noted: Mapping[str, int] = field(default_factory=dict[str, int])
     imported: bool | None = None
     since_last_import: int | None = None
+    #: Recordings of the gate's own calls, made while a `digline run` was in
+    #: progress (`origin: "gate"`), counted here and in none of the above.
+    from_gate: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +91,10 @@ class TenantRecorder:
     size: int
     stopped_at_ceiling: bool
     uncounted: int = 0
+    #: The markers a run left and did not remove, older than the gate's
+    #: staleness, which no writer reads: the run's key, `None` where the
+    #: marker could not be read (`host.gate`).
+    stale_gate_markers: tuple[str | None, ...] = ()
 
 
 def recorder_status_json(tenants: Sequence[TenantRecorder]) -> dict[str, object]:
@@ -121,6 +128,7 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
             "stopped_at_ceiling": tenant.stopped_at_ceiling,
             "unreadable": tenant.unreadable,
             "uncounted": tenant.uncounted,
+            "stale_gate_markers": list(tenant.stale_gate_markers),
             "suites": [
                 {
                     "suite": suite.suite,
@@ -133,6 +141,7 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "noted": dict(suite.noted),
                     "imported": suite.imported,
                     "since_last_import": suite.since_last_import,
+                    "from_gate": suite.from_gate,
                 }
                 for suite in tenant.suites
             ],

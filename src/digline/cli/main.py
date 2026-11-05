@@ -95,6 +95,7 @@ from digline.host import (
     utc_now_iso,
     written_lines,
 )
+from digline.host.gate import STALE_SECONDS
 from digline.report import (
     against_line,
     artifact_lines,
@@ -375,6 +376,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         pinned=pinned,
         modules_unchecked=loaded.modules_unchecked,
         accepting_baseline_schema=args.accepting_baseline_schema,
+        marker_root=Path(args.root),
     )
     _say_accepted_schema(args.accepting_baseline_schema)
 
@@ -1788,6 +1790,24 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             if suite.noted:
                 said = ", ".join(f"{what} {n}" for what, n in suite.noted.items())
                 say(f"    recorded, and noted: {said}")
+            if suite.from_gate:
+                # The run's own calls, recorded by an application in another
+                # process while a `digline run` was in progress: never listed,
+                # imported or compared, and never deleted. (ADR 0058, 2026-11-05)
+                say(
+                    f"    {suite.from_gate} from gate runs, kept apart: not "
+                    "listed, imported or compared"
+                )
+        if tenant.stale_gate_markers:
+            runs = ", ".join(
+                "unreadable" if run_id is None else run_id
+                for run_id in tenant.stale_gate_markers
+            )
+            say(
+                f"  gate markers: {len(tenant.stale_gate_markers)} left by a run "
+                f"that did not remove it, older than {int(STALE_SECONDS) // 60} "
+                f"minutes and ignored: {runs}"
+            )
         if tenant.uncounted:
             who = (
                 "1 process keeps"

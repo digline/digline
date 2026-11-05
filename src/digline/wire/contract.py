@@ -1442,6 +1442,11 @@ _RECORD_COMPARE = "ADR 0058; digline record compare, piece D4 of 1.1"
 #: not asked about the suite.
 _RECORD_STATUS = "ADR 0058 §10; digline record status, emitted since 1.1's piece 2"
 
+#: A call the gate made, recorded by an application in another process while
+#: a `digline run` was in progress, is the gate's and not traffic (ADR 0058,
+#: as amended 2026-11-05).
+_GATE = "ADR 0058, 2026-11-05; the gate is not traffic"
+
 #: A reviewed answer that runs (ADR 0059 §1): the two directions a judge can
 #: contradict a person in, counted on the headline, which `exit_code` reads;
 #: the flag on a delta, which `counts` leaves out; and the check and the
@@ -1620,6 +1625,17 @@ _ADDED: tuple[_AddedKey, ...] = (
         "uncounted",
         _INT,
         "ADR 0062 §2; the counts file is not part of the recording's contract",
+    ),
+    # The recordings a `digline run` made of itself, through an application
+    # that records in another process, kept apart from every other count;
+    # and the markers a run left behind that no writer reads any more, by
+    # the run's key, `null` where the marker could not be read.
+    _AddedKey("record_status.suite", "from_gate", _INT, _GATE),
+    _AddedKey(
+        "record_status.recordings",
+        "stale_gate_markers",
+        _k(_arr("string", "null")),
+        _GATE,
     ),
 )
 

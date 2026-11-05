@@ -550,7 +550,7 @@ def test_a_0_14_1_resume_drops_the_stamp_and_writes_what_it_writes_anyway(
         declared, dying, now=CREATED, git_commit="deadbeef", artifacts={}
     )
     with pytest.raises(SystemExit):
-        measure(declared, dying, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(declared, dying, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     key = journal_key(prepared.header)
     (here,) = store.pending("acme", "qa")
     assert here.key == key and not here.refusal

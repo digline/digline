@@ -350,6 +350,25 @@ nothing. No public name is removed or renamed and no exit code changes.
   passes before it is a path under the store, called where a tenant arrives:
   the view's addresses, `wrap()`, which read a switch file outside `.digline/`
   for `tenant="../outside"`, and the Java writer, held to the same names.
+- **The gate no longer records itself as traffic.** A `digline run` whose
+  `[target] http` is an application that records its calls in another
+  process, behind `digline record proxy` or through the Java recorder, filed
+  the run's own calls, and its `HEAD` before the first case, as the
+  application's. While a run is in progress it now keeps a marker in
+  `.digline/<tenant>/runs/.gate/`, and every writer still records a call made
+  then and marks it `origin: "gate"` with the run's key in `run_id`. Lists,
+  the import, `where` and `compare` leave those recordings out, and *since the
+  last import* does not count them; `digline record status` counts them as
+  *from gate runs*, and names a marker a killed run left behind. Two optional
+  keys, so `recording_version` stays 1. `docs/declarative.md` now says what
+  only `docs/api.md` said: the `HEAD`, and that an application answers it
+  without calling the model (ADR 0058 §4, ADR 0062 §2, amended 2026-11-05).
+- **Three more patterns are anchored whole**: a window's date, an endpoint's
+  host and a journal leg's name matched with `^…$`, where `$` also matches
+  before a final newline. They are `\A…\Z` with `fullmatch` now. Measured:
+  only the journal leg was reachable, a file named `<key>.1\n.jsonl` read as
+  a leg of `<key>`; `urlsplit` drops a newline before the host is matched,
+  and `strptime` already refused a date with one.
 - **The Claude Code plugin's hook asks before an import that writes and
   before `digline record on`**: `digline record import` with `--good` or
   `--bad`, and `record on`, which decides what of an application's calls is

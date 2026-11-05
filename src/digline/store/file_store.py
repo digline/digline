@@ -1308,7 +1308,7 @@ class FileResultStore:
         grouped: dict[str, list[tuple[int, Path]]] = {}
         foreign: list[Pending] = []
         for path in _listed(directory, "*.jsonl"):
-            match = _LEG_RE.match(path.stem)
+            match = _LEG_RE.fullmatch(path.stem)
             if match is None:
                 # Named, never deleted: this directory is digline's, but a file
                 # in it holds somebody's paid work until proven otherwise.
@@ -1340,7 +1340,7 @@ class FileResultStore:
     def _legs(self, directory: Path, key: str) -> list[tuple[int, Path]]:
         legs: list[tuple[int, Path]] = []
         for path in _listed(directory, f"{glob.escape(key)}.*.jsonl"):
-            match = _LEG_RE.match(path.stem)
+            match = _LEG_RE.fullmatch(path.stem)
             if match is not None and match["key"] == key:
                 legs.append((int(match["leg"]), path))
         return sorted(legs)
@@ -1746,7 +1746,7 @@ def _entry_from_dict(raw: Mapping[str, object]) -> RegisterEntry:
 #: renders it. (ADR 0017 §2)
 PENDING_DIRNAME = ".pending"
 
-_LEG_RE = re.compile(r"^(?P<key>.+)\.(?P<leg>[0-9]+)$")
+_LEG_RE = re.compile(r"\A(?P<key>.+)\.(?P<leg>[0-9]+)\Z")
 
 
 def journal_key(header: JournalHeader) -> str:

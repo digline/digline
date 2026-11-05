@@ -135,6 +135,12 @@ public final class DiglineRecorder {
     private static final String SWITCH_FILE = "recorder.toml";
     private static final String RECORDINGS = "recordings";
     private static final String CEILING_MARKER = "ceiling-reached.json";
+    /** Where a {@code digline run} in progress leaves its marker, under the tenant. */
+    static final String[] GATE_DIRECTORY = {"runs", ".gate"};
+    /** How long a marker is live without being touched, as {@code digline.host.gate} holds it. */
+    static final double STALE_SECONDS = 120.0;
+    /** The one value {@code origin} takes. */
+    static final String GATE_ORIGIN = "gate";
     private static final int CLOSED_KEPT = 10_000;
 
     /** Raised when a recorder cannot start: never by a call. */
@@ -571,6 +577,7 @@ public final class DiglineRecorder {
             if (late || (inside == null && !OPEN.isEmpty())) {
                 document.put("orphan", true);
             }
+            markGate(document, tenantNow);
             stage = "writer";
             write(tenantNow, document);
         } catch (IOException | RuntimeException failed) {
@@ -668,6 +675,93 @@ public final class DiglineRecorder {
         document.put("response", response);
         document.put("recorded_at", recordedAt);
         return document;
+    }
+
+    /**
+     * The gate's mark on a recording written now: {@code origin} and the run's
+     * key where a {@code digline run} is in progress in this tenant, nothing
+     * where none is. (ADR 0058, as amended 2026-11-05)
+     */
+    private void markGate(Map<String, Object> document, String tenantNow) {
+        String[] gate = gate(root, tenantNow, System.currentTimeMillis());
+        if (gate != null) {
+            document.put("origin", gate[0]);
+            if (gate[1] != null) {
+                document.put("run_id", gate[1]);
+            }
+        }
+    }
+
+    /**
+     * What {@code digline.host.gate} reads: the markers in
+     * {@code .digline/<tenant>/runs/.gate/}, a file whose name starts with a dot
+     * or does not end in {@code .json} left out, live where it was touched in
+     * the last {@link #STALE_SECONDS}. {@code null} where none is live; else
+     * {@code GATE_ORIGIN} and the run's key, the key {@code null} where more
+     * than one is live or the one live marker cannot be read. A listing that
+     * fails is none: the application's call never fails because of this.
+     */
+    static String[] gate(Path root, String tenant, long nowMillis) {
+        Path place = root.resolve(STORE).resolve(tenant);
+        for (String part : GATE_DIRECTORY) {
+            place = place.resolve(part);
+        }
+        List<String> live = new ArrayList<>();
+        try {
+            // Held inside the store, as digline holds it: a .gate that is a
+            // link out of .digline/, or a marker that links out of .gate, is
+            // not read.
+            Path real = place.toRealPath();
+            if (!real.startsWith(root.resolve(STORE).toRealPath())) {
+                return null;
+            }
+            place = real;
+        } catch (IOException | RuntimeException none) {
+            return null;
+        }
+        try (DirectoryStream<Path> entries = Files.newDirectoryStream(place)) {
+            for (Path entry : entries) {
+                String name = entry.getFileName().toString();
+                if (name.startsWith(".") || !name.endsWith(".json")) {
+                    continue;
+                }
+                try {
+                    if (!entry.toRealPath().startsWith(place)) {
+                        continue;
+                    }
+                } catch (IOException gone) {
+                    continue;
+                }
+                double age;
+                try {
+                    age = (nowMillis - Files.getLastModifiedTime(entry).toMillis()) / 1000.0;
+                } catch (IOException gone) {
+                    continue;
+                }
+                if (age <= STALE_SECONDS) {
+                    live.add(runIdOf(entry));
+                }
+            }
+        } catch (IOException | RuntimeException none) {
+            return null;
+        }
+        if (live.isEmpty()) {
+            return null;
+        }
+        return new String[] {GATE_ORIGIN, live.size() == 1 ? live.get(0) : null};
+    }
+
+    private static String runIdOf(Path marker) {
+        try {
+            Object document = Json.parse(Files.readString(marker, StandardCharsets.UTF_8));
+            if (document instanceof Map<?, ?> fields
+                    && fields.get("run_id") instanceof String runId && !runId.isEmpty()) {
+                return runId;
+            }
+        } catch (IOException | RuntimeException unreadable) {
+            // A live marker that cannot be read is a run in progress all the same.
+        }
+        return null;
     }
 
     /** A compartment as JSON carries it: checked, and copied, so what is written was checked. */
@@ -995,6 +1089,7 @@ public final class DiglineRecorder {
             stage = "not JSON";
             Map<String, Object> document = document(tenantNow, app, episode.suite, caseCompartment,
                     setup, digest, response, now());
+            markGate(document, tenantNow);
             document.put("id", episode.id);
             if (episode.parent != null) {
                 document.put("episode", episode.parent);

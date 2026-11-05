@@ -559,7 +559,7 @@ def killed(root: Path, declared: Suite) -> tuple[FileResultStore, str]:
         declared, target, now=CREATED, git_commit="deadbeef", artifacts={}
     )
     with pytest.raises(SystemExit):
-        measure(declared, target, store=store, prepared=prepared)  # pyright: ignore[reportArgumentType]
+        measure(declared, target, store=store, prepared=prepared, marker_root=None)  # pyright: ignore[reportArgumentType]
     return store, journal_key(prepared.header)
 
 
@@ -596,7 +596,9 @@ def test_a_resumed_run_bills_every_leg(tmp_path: Path) -> None:
         artifacts={},
         resume=store.pending("acme", "qa")[0],
     )
-    resumed = measure(declared, Counting(), store=store, prepared=prepared).run  # pyright: ignore[reportArgumentType]
+    resumed = measure(
+        declared, Counting(), store=store, prepared=prepared, marker_root=None
+    ).run  # pyright: ignore[reportArgumentType]
 
     assert resumed.usage is not None
     assert resumed.usage.target.calls == 4, "two legs, four calls"

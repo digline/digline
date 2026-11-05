@@ -30,7 +30,7 @@ from digline.core.run import CONTRACT_FIELDS
 #: the `[`, `]`, `:` and `%` an IPv6 literal with a zone id needs. Deliberately
 #: a shape test and not a resolver — the question is "is this a host at all",
 #: which a string with a space in it answers on its own.
-_HOST = re.compile(r"^[A-Za-z0-9._\-\[\]:%]+$")
+_HOST = re.compile(r"\A[A-Za-z0-9._\-\[\]:%]+\Z")
 
 __all__ = [
     "CONTRACT_FIELDS",
@@ -75,7 +75,7 @@ def endpoint_host(base_url: str | None) -> str | None:
         # common one. There is no host to report, and reporting the string
         # instead is the mistake this whole function exists to refuse.
         return None
-    if not hostname or not _HOST.match(hostname):
+    if not hostname or not _HOST.fullmatch(hostname):
         # `urlsplit` is happy to call anything before the first `/` a host, so
         # `endpoint_host("not a url at all sk-SECRET")` used to answer with the
         # whole lowercased string — a "host" containing a space, recorded in
