@@ -247,6 +247,15 @@ nothing. No public name is removed or renamed and no exit code changes.
   Each plugin reads its route through a new entry point,
   `digline.recording_wire`. An episode whose case nobody gave says
   `case_from_first_call`, and the import shows it (ADR 0062 §3).
+- **`docs/record-node.md`, digline for Node**: the three lines a Node
+  application needs to be recorded through `digline record proxy`, the base
+  URL, `X-Digline-Suite` and `X-Digline-Episode`, each a line the new CI job
+  `through-the-proxy` runs. That job sends one request from Node's `openai`
+  and `@anthropic-ai/sdk`, from LangChain4j's OpenAI model in Java and from
+  Python's SDKs, single and streamed, through the proxy to a fake provider,
+  and holds that it is recorded with one case and one setup digest whatever
+  language sent it, and that `digline record import` lists it electable. It
+  is not a required check (ADR 0062 §5).
 - **`digline record proxy` records Bedrock's `converse` and
   `converse-stream`**, with `digline-bedrock` installed. The AWS SDK's
   request is checked to be signed with the credentials boto3 finds on the
