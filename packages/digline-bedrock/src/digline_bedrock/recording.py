@@ -44,7 +44,7 @@ import json
 import re
 import time
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 from urllib.parse import unquote
 
 from digline.targets import Completion, Pricing, ToolCall
@@ -187,6 +187,12 @@ _STATUS: Mapping[str, _Status] = {
 }
 
 
+class _Signing(Protocol):
+    """What `verify` sets on botocore's request: the time it is signed at."""
+
+    context: dict[str, object]
+
+
 class BedrockWire:
     """Converse and ConverseStream off the wire, for `digline record proxy`.
 
@@ -261,7 +267,9 @@ class BedrockWire:
         found = _AUTHORIZATION.fullmatch(headers.get("authorization", ""))
         if found is None:
             return "it carries no AWS signature"
-        key, date, region, service, signed, given = found.groups()
+        key, date, region, service, signed, given = cast(
+            tuple[str, str, str, str, str, str], found.groups()
+        )
         credentials = self._session.get_credentials()
         if credentials is None:
             return "this machine has no AWS credentials"
@@ -283,7 +291,7 @@ class BedrockWire:
         exact: Any = sent.HTTPHeaders()
         for name in names:
             exact[name] = headers[name]
-        request: Any = sent.AWSRequest(
+        request: _Signing = sent.AWSRequest(
             method=method, url=f"http://{headers['host']}{path}", data=body
         )
         request.context["timestamp"] = stamp

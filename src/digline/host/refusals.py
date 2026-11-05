@@ -146,4 +146,9 @@ NOT_REFUSALS: Mapping[str, str] = {
         "private to the register reader, which re-raises it as "
         "RegisterRefusedError naming the line"
     ),
+    "digline.host.proxy._StreamError": (
+        "private to the proxy, raised and caught inside the handler of one "
+        "call, which counts it `stream error`: the application already has "
+        "the provider's own error, in the stream it was passed"
+    ),
 }
