@@ -1,6 +1,6 @@
 """Who contradicted a person: the judge, or a check on the steps. (P-1537)
 
-The case C met after #935: a yes on an episode whose steps violate `Before`,
+The case a user pass met after #935: a yes on an episode whose steps violate `Before`,
 and a judge that also says yes. `run` and `explain` said *the judge
 contradicted a person*, which it had not, and explain's list of what it found
 left the contradiction out, because it read only the named check's verdict.
@@ -37,7 +37,7 @@ def call(tool: str) -> RecordedToolCall:
 
 
 def refund_without_lookup() -> tuple[RecordedStep, ...]:
-    """C's turn: the refund, and no lookup before it."""
+    """The reported turn: the refund, and no lookup before it."""
     return (
         RecordedStep(index=0, actor="model", finish="tool_use"),
         RecordedStep(index=1, actor="tool", call=call("issue_refund")),
@@ -85,7 +85,7 @@ def ran(judge_says: str) -> Run:
     return execute(suite(judge_says), target, created_at=CREATED)
 
 
-def test_cs_case_names_the_check_on_the_steps_not_the_judge() -> None:
+def test_the_reported_case_names_the_check_on_the_steps_not_the_judge() -> None:
     found = contradicted(ran("yes"))
     assert contradicted_said(found, "en") == (
         "a check on the steps contradicted a person on 1 reviewed answer: "
@@ -243,10 +243,10 @@ def test_two_checks_on_one_answer_are_one_answer() -> None:
     )
 
 
-def test_cs_minimal_case_with_the_judge_repeated() -> None:
-    """C's minimal case as given, a judge wrapped in `Repeated` that always
+def test_the_minimal_case_with_the_judge_repeated() -> None:
+    """The minimal case as reported, a judge wrapped in `Repeated` that always
     says 1.0 beside `Before`, and a yes on a turn that refunds without a
-    lookup. C wrote `samples=1` for `Repeated`, which is refused at
+    lookup. The report gave `samples=1` for `Repeated`, which is refused at
     declaration ("repeating once is the assertion itself"); 2 is the least it
     takes. Measured before the fix: `contradicted` gave `(T3, before,
     failed_yes)`, the line said the judge, and explain listed nothing."""
