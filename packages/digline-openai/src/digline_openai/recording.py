@@ -133,8 +133,7 @@ class OpenAIRecording:
         return {"messages": listed[lead:]}, setup
 
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
-        model = as_sent(request).get("model", "")
-        return completion_of(reply, str(model), _NO_PRICES)
+        return completion_of(reply, str(request.get("model", "")), _NO_PRICES)
 
     def reading(self, request: Mapping[str, Any]) -> StreamReading:
         """A reading of `chat.completions.create(stream=True)`'s chunks."""
