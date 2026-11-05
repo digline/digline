@@ -34,6 +34,7 @@ from digline.wire.log import log_json
 from digline.wire.record_compare import (
     RecordComparison,
     SetupValue,
+    episode_shape,
     record_compare_json,
 )
 from digline.wire.recorder import (
@@ -69,6 +70,7 @@ __all__ = [
     "fact_json",
     "interval_json",
     "log_json",
+    "episode_shape",
     "record_compare_json",
     "recorder_status_json",
     "refusal_text",

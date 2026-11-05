@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from typing import cast
@@ -45,6 +46,7 @@ from digline.run.suite import Suite
 from digline.store.file_store import FileResultStore
 from digline.wire.record_compare import (
     SHORT,
+    ChildSetup,
     ComparedAnswer,
     ComparedCase,
     ComparedSetup,
@@ -123,11 +125,16 @@ def record_compare(
             continue
         kept.append(recording)
 
+    # Every setup the tenant's recordings carry, by digest: an episode's
+    # children may have named another suite, or none.
+    index = {r.setup_digest: r.setup for r in everything}
     setup_keys: tuple[SetupKey, ...] | None = None
     same_keys: int | None = None
     if show_setup and pair is not None:
         setup_keys, same_keys = _differ(
-            _setup_of(split.eligible, pair[0]), _setup_of(split.eligible, pair[1])
+            _setup_of(split.eligible, pair[0]),
+            _setup_of(split.eligible, pair[1]),
+            index,
         )
 
     return RecordComparison(
@@ -139,7 +146,7 @@ def record_compare(
         pair=pair,
         setup_keys=setup_keys,
         same_keys=same_keys,
-        cases=_cases(kept, pair),
+        cases=_cases(kept, pair, index),
         recordings=len(split.recordings),
         orphans=split.orphans,
         detached=split.detached,
@@ -219,7 +226,9 @@ def _pair(given: Sequence[str], known: Sequence[str]) -> tuple[str, str]:
 
 
 def _cases(
-    recordings: Sequence[Recording], pair: tuple[str, str] | None
+    recordings: Sequence[Recording],
+    pair: tuple[str, str] | None,
+    index: Mapping[str, Mapping[str, object]],
 ) -> tuple[ComparedCase, ...]:
     """The recordings, already in the view's order, by case and by setup. With
     a pair, every case shows both setups, the one with nothing recorded
@@ -241,12 +250,65 @@ def _cases(
                 vars=first.case,
                 kind="episode" if first.is_episode else "call",
                 setups=tuple(
-                    ComparedSetup(setup=setup, answers=_runs(answers))
+                    ComparedSetup(
+                        setup=setup,
+                        answers=_runs(answers),
+                        calls=_calls(answers),
+                        models=_models(index.get(setup, {}), index)
+                        if first.is_episode
+                        else (),
+                    )
                     for setup, answers in by_setup.items()
                 ),
             )
         )
     return tuple(cases)
+
+
+def _calls(recordings: Sequence[Recording]) -> tuple[int, ...]:
+    """How many model calls each episode made, each number once, in the order
+    first met: its steps' model steps. Nothing for a single call, or for an
+    episode whose steps were not recorded."""
+    found: list[int] = []
+    for recording in recordings:
+        steps = recording.response.steps
+        if not recording.is_episode or steps is None:
+            continue
+        count = sum(1 for step in steps if step.actor == "model")
+        if count not in found:
+            found.append(count)
+    return tuple(found)
+
+
+def _children(value: object) -> list[str] | None:
+    """`child_setups` as a list of digests, or `None` where it is not one."""
+    if not isinstance(value, list):
+        return None
+    items = cast(list[object], value)
+    if not all(isinstance(item, str) for item in items):
+        return None
+    return cast(list[str], items)
+
+
+def _model_of(setup: Mapping[str, object] | None) -> str | None:
+    """The model a call's setup names: `model`, or Bedrock's `modelId`."""
+    if setup is None:
+        return None
+    model = setup.get("model", setup.get("modelId"))
+    return model if isinstance(model, str) else None
+
+
+def _models(
+    setup: Mapping[str, object], index: Mapping[str, Mapping[str, object]]
+) -> tuple[str, ...]:
+    """The models an episode's setup touched: each child setup's model, each
+    once, in the order of the setup's own list."""
+    found: list[str] = []
+    for digest in _children(setup.get("child_setups")) or []:
+        model = _model_of(index.get(digest))
+        if model is not None and model not in found:
+            found.append(model)
+    return tuple(found)
 
 
 def _digest(text: str) -> str:
@@ -284,6 +346,24 @@ def _runs(recordings: Sequence[Recording]) -> tuple[ComparedAnswer, ...]:
 def _setup_of(recordings: Sequence[Recording], digest: str) -> Mapping[str, object]:
     """The setup a digest names, read from the first recording made under it."""
     return next(r.setup for r in recordings if r.setup_digest == digest)
+
+
+def _resolved(
+    key: str, value: object, index: Mapping[str, Mapping[str, object]]
+) -> SetupValue:
+    """A value as `_value` shows it, and an episode's `child_setups` resolved:
+    each child setup by its digest and the model it names."""
+    shown = _value(value)
+    children = _children(value) if key == "child_setups" else None
+    if not children:
+        return shown
+    return replace(
+        shown,
+        children=tuple(
+            ChildSetup(digest=digest[:SHORT], model=_model_of(index.get(digest)))
+            for digest in children
+        ),
+    )
 
 
 def _value(value: object) -> SetupValue:
@@ -341,7 +421,9 @@ def _text_of(message: Mapping[str, object]) -> str:
 
 
 def _differ(
-    a: Mapping[str, object], b: Mapping[str, object]
+    a: Mapping[str, object],
+    b: Mapping[str, object],
+    index: Mapping[str, Mapping[str, object]],
 ) -> tuple[tuple[SetupKey, ...], int]:
     """The keys two setups do not share or hold different values under, in
     the order of the keys' names, and how many they share equal. Keys of the
@@ -355,8 +437,8 @@ def _differ(
         differ.append(
             SetupKey(
                 key=key,
-                a=_value(a[key]) if key in a else None,
-                b=_value(b[key]) if key in b else None,
+                a=_resolved(key, a[key], index) if key in a else None,
+                b=_resolved(key, b[key], index) if key in b else None,
             )
         )
     return tuple(differ), same

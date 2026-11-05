@@ -58,7 +58,12 @@ from digline.report.pages import (
     screen,
     setups_address,
 )
-from digline.wire.record_compare import SHORT, ComparedCase, RecordComparison
+from digline.wire.record_compare import (
+    SHORT,
+    ComparedCase,
+    ComparedSetup,
+    RecordComparison,
+)
 from digline.wire.recorder import TenantRecorder
 
 __all__ = [
@@ -510,6 +515,17 @@ def _keys(found: RecordComparison, locale: Locale) -> str:
                     f"{escape(phrase(locale, 'view.setups.absent', side=side))}</td>"
                 )
                 continue
+            if value.children:
+                # An episode's child setups, one per line: a digest and the
+                # model it names.
+                unrecorded = phrase(locale, "view.setups.unrecorded")
+                lines = "".join(
+                    f"<div><code>{escape(child.digest)}</code> · "
+                    f"{escape(child.model or unrecorded)}</div>"
+                    for child in value.children
+                )
+                cells.append(f"<td>{lines}</td>")
+                continue
             # In quotes, never through JSON: a prompt shown with its quotes
             # escaped reads as code. A list of messages is its first one's
             # text, and how many there are.
@@ -560,6 +576,9 @@ def _case(
         if found.pair is not None:
             side = "A " if setup.setup == found.pair[0] else "B "
         tag = f"{escape(side)}{_tag(setup.setup, order, locale)}"
+        if case.kind == "episode" and (setup.calls or setup.models):
+            # The shape of the episode's steps beside its setup's name.
+            tag += f'<div class="note">{escape(_shape(setup, locale))}</div>'
         if not setup.answers:
             rows.append(
                 f'<tr><td></td><td>{tag}</td><td colspan="3" class="absent">'
@@ -589,6 +608,14 @@ def _case(
         f"<table><thead><tr>{columns}</tr></thead><tbody>{''.join(rows)}</tbody>"
         "</table>\n"
     )
+
+
+def _shape(setup: ComparedSetup, locale: Locale) -> str:
+    """`episode_shape`, in the page's language."""
+    unrecorded = phrase(locale, "view.setups.unrecorded")
+    calls = " / ".join(str(n) for n in setup.calls) or unrecorded
+    models = ", ".join(setup.models) or unrecorded
+    return phrase(locale, "view.setups.episode", calls=calls, models=models)
 
 
 def _seconds(recorded_at: str | None) -> float | None:

@@ -85,6 +85,7 @@ from digline.report.text import LOCALES
 from digline.run import Suite
 from digline.store.file_store import FileResultStore, RecordingWriter
 from digline.wire.record_compare import (
+    ChildSetup,
     ComparedAnswer,
     ComparedCase,
     ComparedSetup,
@@ -459,6 +460,62 @@ def test_a_list_of_messages_is_its_first_text_and_a_count_never_json(
     assert '"Be brief."' in page and "1 message" in page
     assert '"Say "no" kindly."…' in page and "2 messages" in page
     assert '\\"' not in page
+
+
+@pytest.mark.parametrize(
+    ("locale", "shape", "unrecorded"),
+    [
+        (
+            "en",
+            "model calls per episode: 2 · models: claude-haiku, claude-sonnet",
+            "not recorded",
+        ),
+        (
+            "it",
+            "chiamate al modello per episodio: 2 · "
+            "modelli: claude-haiku, claude-sonnet",
+            "non registrati",
+        ),
+    ],
+)
+def test_an_episode_shows_its_calls_and_models_and_its_children_one_per_line(
+    root: Path, locale: Locale, shape: str, unrecorded: str
+) -> None:
+    """Across setups, an episode's setup carries the shape of its steps beside
+    its name, and its `child_setups` are one per line, each with its model."""
+    found = compared(root, setups=[S1[:8], S2[:8]], show_setup=True)
+    episode = ComparedCase(
+        id="cap-episode",
+        vars={},
+        kind="episode",
+        setups=(
+            ComparedSetup(
+                setup=S1,
+                answers=(),
+                calls=(2,),
+                models=("claude-haiku", "claude-sonnet"),
+            ),
+        ),
+    )
+    keys = (
+        SetupKey(
+            key="child_setups",
+            a=None,
+            b=replace(
+                SetupValue(preview="", chars=0, clipped=False),
+                children=(
+                    ChildSetup(digest="aaaaaaaa", model="claude-haiku"),
+                    ChildSetup(digest="bbbbbbbb", model=None),
+                ),
+            ),
+        ),
+    )
+    page = recorder_pages.setups_page(
+        replace(found, cases=(episode,), setup_keys=keys), locale=locale
+    )
+    assert shape in unescape(page)
+    assert "<div><code>aaaaaaaa</code> · claude-haiku</div>" in page
+    assert f"<div><code>bbbbbbbb</code> · {unrecorded}</div>" in page
 
 
 def test_the_pair_is_chosen_with_a_get_and_nothing_chosen_before(
