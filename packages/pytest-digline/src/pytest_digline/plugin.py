@@ -426,6 +426,11 @@ class _Opened:
     #: then an older run held against a newer reference, and a red there is
     #: not a regression. (#433)
     note: str = ""
+    #: The reviewed answers of the run the judge contradicted a person about,
+    #: by case: each one's row fails, and no other reviewed row does, whatever
+    #: its score did against the reference. Read off the run alone, by the
+    #: core's own function. (ADR 0059 §1)
+    contradicted: frozenset[str] = frozenset()
 
 
 def _open(
@@ -502,7 +507,7 @@ def _opened(
     run_first: bool,
     callers: frozenset[str] = frozenset(),
 ) -> _Opened:
-    from digline.core import compare
+    from digline.core import compare, contradicted
     from digline.host import (
         load_suite,
         need_baseline,
@@ -542,6 +547,7 @@ def _opened(
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
         note=resolved.note,
+        contradicted=frozenset(c.case_id for c in contradicted(run)),
     )
 
 
@@ -566,6 +572,7 @@ def _measure(
     function of them rather than of when it happened to look.
     """
     from digline.host import (
+        around_target,
         git_commit,
         load_target,
         read_artifacts,
@@ -574,6 +581,7 @@ def _measure(
         unignored_notes,
         utc_now_iso,
     )
+    from digline.recorder import running
     from digline.report import visible
     from digline.run import execute, planned_calls, suite_notes
 
@@ -594,23 +602,32 @@ def _measure(
     commit = git_commit(root)
     created_at = utc_now_iso()
     artifacts = read_artifacts(suite, target, path.parent, root=root)
-    run = execute(
-        suite,
-        target,
-        created_at=created_at,
-        git_commit=commit,
-        artifacts=artifacts,
-        # Read here as the CLI reads them: `execute` refuses a suite that pins
-        # while being handed no pin set, so a front end that skipped this would
-        # be refused rather than silently recording no control. (ADR 0029 §4)
-        pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
-        # A test module importing the application the suite imports is the
-        # normal arrangement here, and the run says so. (ADR 0052, decision 2)
-        # The test modules themselves are the caller and are left out (#623).
-        modules_unchecked=tuple(
-            n for n in loaded.modules_unchecked if n not in callers
-        ),
-    )
+    # As `digline run` measures (`digline.host.measure`): inside `running()`,
+    # so that with the recorder on none of the target's or the judges' calls
+    # is written as the application's traffic, and with `around_target`, so the
+    # calls the target makes through a wrapped client are read into its
+    # response. (ADR 0060 §3)
+    with running():
+        run = execute(
+            suite,
+            target,
+            created_at=created_at,
+            git_commit=commit,
+            artifacts=artifacts,
+            # Read here as the CLI reads them: `execute` refuses a suite that
+            # pins while being handed no pin set, so a front end that skipped
+            # this would be refused rather than silently recording no control.
+            # (ADR 0029 §4)
+            pinned=read_pinned(suite, path.parent, root=root, artifacts=artifacts),
+            # A test module importing the application the suite imports is the
+            # normal arrangement here, and the run says so. (ADR 0052,
+            # decision 2) The test modules themselves are the caller and are
+            # left out (#623).
+            modules_unchecked=tuple(
+                n for n in loaded.modules_unchecked if n not in callers
+            ),
+            around_target=around_target(target),
+        )
     store.write_run(run)
     # After the write, as `digline run` asks it, so a fresh repository's first
     # run has written the generated rules: whoever runs the suite only from
@@ -727,7 +744,7 @@ class Check(pytest.Item):
         precedence per row: a check that both regressed and errored is reported
         as the regression, because that is the louder fact.
         """
-        if _failing(self.delta):
+        if _failing(self.delta, self.opened):
             return
         if self.delta.outcome == "missing":
             # Judged in the baseline, absent from this run: nothing judged it
@@ -758,7 +775,7 @@ class Check(pytest.Item):
         )
 
     def runtest(self) -> None:
-        if _failing(self.delta):
+        if _failing(self.delta, self.opened):
             raise GotWorse(self)
 
     def reportinfo(self) -> tuple[Path, int | None, str]:
@@ -857,7 +874,7 @@ class CouldNotJudge(DiglineOutcome):
     """A check the suite could not judge. Neither green nor a regression."""
 
 
-def _failing(delta: AssertionDelta) -> bool:
+def _failing(delta: AssertionDelta, opened: _Opened) -> bool:
     """Whether this row is the one that fails the report.
 
     A regression, **or a canary that moved** — including one whose `Outcome` is
@@ -870,6 +887,13 @@ def _failing(delta: AssertionDelta) -> bool:
     as one predicate so the two cannot drift: a front end that decided this for
     itself would be a second answer to what fails a release. (ADR 0016 §5, §8)
     """
+    if delta.reviewed:
+        # A reviewed answer's gate is the person's verdict, read off the run
+        # alone: its row fails where the judge contradicted the person, and
+        # never on a movement against the reference, which for a no that the
+        # judge agreed with is a judge agreeing harder. `exit_code()` reads
+        # the same contradictions off the headline. (ADR 0059 §1)
+        return delta.case_id in opened.contradicted
     if delta.calibration:
         # Its only gate is its band, which `setup()` reads. A calibration case
         # that moved inside its band is not a check of the system that got
