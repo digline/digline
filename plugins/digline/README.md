@@ -12,6 +12,11 @@ This plugin is how it reaches you. It ships:
 - **the `operating-digline` skill** — the judgement layer, loaded when the
   agent is about to run a suite, read a comparison, or decide which run should
   become the baseline;
+- **the `proposing-a-suite` skill** — digline's method for proposing a first
+  suite to a person who has none: read what was recorded and reviewed, choose
+  the checks, write the suite with a case it fails on, run it once, and hand
+  it over as a proposal, never marking, promoting or importing
+  ([`docs/proposing-a-suite.md`](../../docs/proposing-a-suite.md));
 - **the digline MCP server**, started on your project — it measures, reads and
   explains, and **cannot promote a baseline, because approval is a person's
   commit**. `promote` is not disabled there; it is absent, and there is no tool
