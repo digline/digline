@@ -39,10 +39,9 @@ import importlib
 import json
 import re
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any, Literal, cast
 from urllib.parse import unquote
 
-from digline.core import ToolStatus
 from digline.targets import Completion, Pricing, ToolCall
 from digline_bedrock.client import completion_of
 
@@ -159,8 +158,14 @@ _SIGNATURE = frozenset(
 
 _EVENT_STREAM = "application/vnd.amazon.eventstream"
 
+#: What a tool step's status may be, as `digline.core.ToolStatus` has it.
+type _Status = Literal["success", "error", "not_reported"]
+
 #: A `toolResult`'s `status`, where it says one.
-_STATUS: Mapping[str, ToolStatus] = {"error": "error", "success": "success"}
+_STATUS: Mapping[str, _Status] = {
+    "error": "error",
+    "success": "success",
+}
 
 
 class BedrockWire:
@@ -238,7 +243,8 @@ class BedrockWire:
         auth.SigV4Auth(
             credentials.get_frozen_credentials(), "bedrock", self._region
         ).add_auth(request)
-        return {str(key): str(value) for key, value in request.headers.items()}
+        signed = cast(Mapping[str, object], request.headers)
+        return {str(key): str(value) for key, value in signed.items()}
 
     def request_of(self, path: str, request: Mapping[str, Any]) -> dict[str, Any]:
         """The request as boto3's `converse` takes it: `modelId` from the
@@ -318,7 +324,7 @@ def _result(use: Mapping[str, Any], result: Mapping[str, Any] | None) -> ToolCal
             status="not_reported",
             result_absence="not_reported",
         )
-    status = _STATUS.get(str(result.get("status")), "not_reported")
+    status: _Status = _STATUS.get(str(result.get("status")), "not_reported")
     parts: list[str] = []
     for block in _mappings(result.get("content")):
         if isinstance(block.get("text"), str):

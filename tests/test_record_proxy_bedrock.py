@@ -23,16 +23,18 @@ from __future__ import annotations
 
 import binascii
 import json
+import sys
 import threading
 import time
 from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from tests.test_record_proxy import (
     QUESTION,
+    SDKS,
     an_anthropic,
     an_openai,
     recordings,
@@ -52,6 +54,17 @@ RESULTS = {"lookup": "shipped", "refund": "refused: past the window"}
 FAILS = "refund"
 
 CASE = {"order": "A1"}
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    """OpenAI's and Anthropic's SDKs, imported here, gone after: the plugins'
+    own tests hold that nothing imports them before a call."""
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
 
 
 @pytest.fixture(autouse=True)
@@ -291,10 +304,10 @@ def proxy(tmp_path: Path, upstream: Upstream) -> Iterator[Proxy]:
 def a_bedrock(endpoint: str, **headers: str) -> Any:
     """boto3's client, with the application's own key, and `headers` added
     before it signs: how a boto3 application sends `X-Digline-*`."""
-    import boto3
-    from botocore.config import Config
+    import boto3  # pyright: ignore[reportMissingTypeStubs]
+    from botocore.config import Config  # pyright: ignore[reportMissingTypeStubs]
 
-    client = boto3.client(
+    client: Any = cast(Any, boto3).client(
         "bedrock-runtime",
         region_name="us-west-2",
         endpoint_url=endpoint,
@@ -372,7 +385,7 @@ def test_bedrock_streamed_is_read_from_its_event_stream(
 def test_bedrock_without_credentials_says_so_and_forwards_nothing(
     tmp_path: Path, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from botocore.exceptions import ClientError
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
 
     monkeypatch.delenv("AWS_ACCESS_KEY_ID")
     monkeypatch.delenv("AWS_SECRET_ACCESS_KEY")
@@ -391,7 +404,7 @@ def test_bedrock_without_credentials_says_so_and_forwards_nothing(
             )
     finally:
         running.stop()
-    assert raised.value.response["ResponseMetadata"]["HTTPStatusCode"] == 502
+    assert cast(Any, raised.value).response["ResponseMetadata"]["HTTPStatusCode"] == 502
     assert "no AWS credentials" in str(raised.value)
     assert upstream.seen == []
 
@@ -506,7 +519,9 @@ EPISODE = {"X-Digline-Episode": "agent-1", "X-Digline-Suite": "agent"}
 #: the one that failed.
 PROVIDERS: dict[
     str,
-    tuple[Callable[..., None], Callable[..., Any], Callable[..., Any], tuple[str, str]],
+    tuple[
+        Callable[..., None], Callable[[str], Any], Callable[[str], Any], tuple[str, str]
+    ],
 ] = {
     "openai": (
         openai_agent,
@@ -659,10 +674,10 @@ def test_a_bedrock_api_key_goes_to_bedrock_never_to_openai(
         ],
     )
     try:
-        import boto3
+        import boto3  # pyright: ignore[reportMissingTypeStubs]
 
         monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "bedrock-api-key")
-        client = boto3.client(
+        client: Any = cast(Any, boto3).client(
             "bedrock-runtime", region_name="us-west-2", endpoint_url=running.address
         )
         client.converse(
@@ -674,3 +689,50 @@ def test_a_bedrock_api_key_goes_to_bedrock_never_to_openai(
     assert path.startswith("/bedrock/model/")
     assert headers["authorization"].startswith("AWS4-HMAC-SHA256 Credential=AKIDPROXY/")
     assert "bedrock-api-key" not in json.dumps(headers)
+
+
+def test_the_applications_session_token_does_not_go_on(
+    proxy: Proxy, upstream: Upstream
+) -> None:
+    """A token the application signed with is its own credentials': signed
+    over with the proxy's, it would name a key that is not the one signing."""
+    import boto3  # pyright: ignore[reportMissingTypeStubs]
+
+    session: Any = boto3
+    session.client(
+        "bedrock-runtime",
+        region_name="us-west-2",
+        endpoint_url=proxy.address,
+        aws_access_key_id="AKIDAPP",
+        aws_secret_access_key="app-secret",
+        aws_session_token="app-session-token",
+    ).converse(modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}])
+    [(_, headers)] = upstream.seen
+    assert "x-amz-security-token" not in headers
+    assert "app-session-token" not in json.dumps(headers)
+
+
+def test_bedrock_without_a_region_says_so_at_the_start_and_at_a_call(
+    tmp_path: Path, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
+
+    monkeypatch.delenv("AWS_REGION")
+    monkeypatch.delenv("AWS_DEFAULT_REGION")
+    running = start_proxy(
+        root=tmp_path,
+        tenant="acme",
+        app="support",
+        port=0,
+        upstream=[f"bedrock={upstream.address}"],
+    )
+    try:
+        assert "no AWS region" in str(getattr(running.wires["bedrock"], "problem", ""))
+        with pytest.raises(ClientError) as raised:
+            a_bedrock(running.address).converse(
+                modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
+            )
+    finally:
+        running.stop()
+    assert "the route bedrock cannot forward: no AWS region" in str(raised.value)
+    assert upstream.seen == []
