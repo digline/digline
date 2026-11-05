@@ -78,7 +78,8 @@ nothing. No public name is removed or renamed and no exit code changes.
   than how many cases errored. Condition 8, the baseline
   moved since the page was drawn, stays the write's. A run so marked stays
   comparable.
-- **A second skill in the Claude Code plugin, `proposing-a-suite`**, and the
+- **A second skill in the Claude Code plugin, `proposing-a-suite`**, copied
+  byte for byte to `.claude/skills/`, where skills.sh reads it, and the
   same procedure in `AGENTS.md` for any other agent: how an agent proposes a
   first suite by digline's method. It reads what was recorded and reviewed
   (`digline record status`, the grouped listing of `digline record import`,

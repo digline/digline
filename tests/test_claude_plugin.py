@@ -100,7 +100,22 @@ def test_the_description_names_the_absence_and_the_interruption() -> None:
         assert "`digline register`" in description
 
 
-def test_the_skill_is_the_same_file_as_the_repository_skill() -> None:
+#: Every skill the plugin ships, by directory, read off the tree.
+SKILLS = sorted(path.name for path in (PLUGIN / "skills").iterdir() if path.is_dir())
+
+
+def test_the_plugin_and_the_repository_carry_the_same_skills() -> None:
+    """A skill added to one place and not the other reaches only half of the
+    users; read both directories rather than a list written here."""
+    ours = sorted(
+        path.name for path in (ROOT / ".claude" / "skills").iterdir() if path.is_dir()
+    )
+    assert ours == SKILLS
+    assert {"operating-digline", "proposing-a-suite"} <= set(SKILLS)
+
+
+@pytest.mark.parametrize("skill", SKILLS)
+def test_the_skill_is_the_same_file_as_the_repository_skill(skill: str) -> None:
     """Two copies, byte for byte. `test_agents.py` holds one of them against
     `AGENTS.md`; this holds the other against it, so the plugin cannot ship a
     playbook one rule short.
@@ -109,9 +124,10 @@ def test_the_skill_is_the_same_file_as_the_repository_skill() -> None:
     digline/digline` reads `.claude/skills/operating-digline/SKILL.md` from
     `main`, not the plugin's, as the `skillPath` of its `skills-lock.json`
     records. Moving or deleting `.claude/skills/` changes what those users
-    receive, which nothing in the path suggests."""
-    ours = ROOT / ".claude" / "skills" / "operating-digline" / "SKILL.md"
-    shipped = PLUGIN / "skills" / "operating-digline" / "SKILL.md"
+    receive, which nothing in the path suggests. Each skill the plugin ships
+    is held the same way, `proposing-a-suite` since it joined."""
+    ours = ROOT / ".claude" / "skills" / skill / "SKILL.md"
+    shipped = PLUGIN / "skills" / skill / "SKILL.md"
     assert shipped.read_bytes() == ours.read_bytes(), (
         f"{shipped.relative_to(ROOT)} differs from {ours.relative_to(ROOT)}. "
         "Edit one, copy it over the other."
