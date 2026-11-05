@@ -277,3 +277,6 @@ judge, and here it asks twice, so each verdict's `agreement`, `spread` and
 - [`digline record`](record.md), which writes reviewed answers from what your
   application answered.
 - [`digline explain`](explain.md), the reading this page quotes.
+- [Letting an agent propose a suite](proposing-a-suite.md), where a coding
+  agent proposes the suite, its calibration case and its counterexample, and
+  you decide.
