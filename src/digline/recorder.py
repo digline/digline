@@ -92,10 +92,11 @@ says how long and never what time it is.
 from __future__ import annotations
 
 import contextlib
+import itertools
 import os
 import sys
 import threading
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Mapping, Sequence
 from contextvars import ContextVar, Token
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -116,7 +117,7 @@ if TYPE_CHECKING:
     from digline.core.run import RecordedToolCall
     from digline.run.driver import Response
     from digline.store.file_store import RecordingWriter
-    from digline.targets import Completion
+    from digline.targets import Completion, ToolCall
 
 __all__ = [
     "DEFAULT_CEILING",
@@ -415,6 +416,29 @@ class RecordingWire(Protocol):
       the SDK's types, which `map` then reads as it reads an SDK's reply;
     - `load()` imports the SDK, at the start: two threads importing one SDK
       for the first time at once were measured to fail half-way.
+
+    Seven more a route may provide, read with `getattr`, where its provider
+    needs them:
+
+    - `results(request)`: the tool results the request carries for the model
+      turn before it, as `ToolCall`s in the order of that turn's calls, or
+      `None` where it carries none. In an episode they close the tool steps
+      of the call before (`WireRecorder`);
+    - `request_of(path, request)`: the request as the SDK's own call names
+      it, where the path carries part of it (Bedrock's model id);
+    - `frames(content_type, data)`: the events of a streamed reply that is
+      not server-sent events, or `None` where the type is not this route's
+      framing (Bedrock's event stream);
+    - `verify(method, path, headers, body)`: why the request as the
+      application sent it may not be forwarded, or `None`; a 403 that says
+      it where it is not `None` (Bedrock's: signed with this machine's AWS
+      credentials, which `prepare` then signs with);
+    - `prepare(method, url, headers, body)`: the headers sent upstream, where
+      the route signs a request itself (Bedrock's SigV4, with the local
+      credentials); it raises `ValueError` with the reason where it cannot;
+    - `problem`: why the route cannot forward, said at the start and in the
+      502 at a call, or `None`; and `variable`, the environment variable
+      the SDK reads its address from, where it is not `<ROUTE>_BASE_URL`.
     """
 
     @property
@@ -2684,6 +2708,7 @@ class _WireEpisode:
     `X-Digline-Episode`, until none came for the idle interval."""
 
     __slots__ = (
+        "carried",
         "case",
         "collector",
         "first",
@@ -2715,6 +2740,10 @@ class _WireEpisode:
         self.from_first_call = from_first_call
         self.site = site
         self.collector = _Collector(sampled_out=not drawn)
+        #: Each call, in the order it ended: what it added to the episode,
+        #: `None` where it was not recorded, and the tool results its request
+        #: carried for the call before, `None` where it carried none.
+        self.carried: list[tuple[_Seen | None, Sequence[ToolCall] | None]] = []
         self.first = started
         self.last = _clock()
         self.last_end = started
@@ -2828,9 +2857,12 @@ class WireRecorder:
         site: str | None,
         episode: str | None,
         case: Mapping[str, object] | None,
+        results: Sequence[ToolCall] | None = None,
     ) -> None:
         """One call that ended with a reply: recorded, or said why not, and
-        counted. A streamed one arrives with its `completion` already read."""
+        counted. A streamed one arrives with its `completion` already read.
+        `results` are the tool results its request carried for the call
+        before it, which close that call's tool steps in its episode."""
         try:
             state = self._state(app)
             if not state.any_on:
@@ -2869,6 +2901,8 @@ class WireRecorder:
                     drawn=not found.collector.sampled_out,
                 )
                 found.collector.add(seen)
+                with self._lock:
+                    found.carried.append((seen, results))
                 found.last_end = perf_counter()
             state.count(reason)
             _tally(state, _LAST.tenant, suite, reason, tuple(_LAST.notes))
@@ -2892,6 +2926,8 @@ class WireRecorder:
                     found = self._episodes.get(episode)
                 if found is not None:
                     found.collector.add(None)
+                    with self._lock:
+                        found.carried.append((None, None))
             state.count(reason)
             _tally(state, self.tenant, suite, reason)
         except Exception:  # noqa: BLE001 — the rule of this module
@@ -2967,6 +3003,7 @@ class WireRecorder:
                 state.count("sampled out")
                 _tally(state, self.tenant, found.suite, "sampled out")
                 return
+            _close_tool_steps(found.carried)
             written = Episode(state, found.suite, found.case, None, found.site)
             written.id = found.id
             written._collector = found.collector  # pyright: ignore[reportPrivateUsage]
@@ -2982,3 +3019,39 @@ class WireRecorder:
             _tally(state, _LAST.tenant, found.suite, reason)
         except Exception:  # noqa: BLE001 — the rule of this module
             return
+
+
+def _close_tool_steps(
+    carried: Sequence[tuple[_Seen | None, Sequence[ToolCall] | None]],
+) -> None:
+    """The tool steps of each call, closed by the results the next call's
+    request carried: what the wire sees that a call in process does not. A
+    call in process ends where the tool starts, so its tool steps say
+    `not_reported`; off the wire, the application's next call sends the
+    tool's result back to the model, and that is the step's result.
+    (ADR 0062 §3)
+
+    Only where the next call is the very next one the episode saw, both
+    recorded, and the results name the same tools in the same order as the
+    calls the step before asked for: a result is never put on a step it may
+    not be the answer to. What the tool said of itself is its status where
+    the provider carries one (`error`, `success`), and `not_reported` where it
+    does not. The steps' places, tools and arguments do not move."""
+    import dataclasses
+
+    for (before, _), (after, results) in itertools.pairwise(carried):
+        if before is None or after is None or results is None or not before.calls:
+            continue
+        if tuple(call.tool for call in before.calls) != tuple(
+            result.tool for result in results
+        ):
+            continue
+        before.calls = tuple(
+            dataclasses.replace(
+                call,
+                result=result.result,
+                status=result.status,
+                result_absence=result.result_absence,
+            )
+            for call, result in zip(before.calls, results, strict=True)
+        )

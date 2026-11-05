@@ -685,6 +685,17 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
     }
     if on:
         environment[recorder.ENVIRONMENT_VARIABLE] = "1"
+    # Bedrock's route reads the region and credentials boto3 finds: here a
+    # region and a key of nobody's, and no file of this machine's.
+    environment.pop("AWS_PROFILE", None)
+    environment.update(
+        AWS_REGION="us-west-2",
+        AWS_DEFAULT_REGION="us-west-2",
+        AWS_ACCESS_KEY_ID="AKIDEXAMPLE",
+        AWS_SECRET_ACCESS_KEY="not-a-secret",
+        AWS_CONFIG_FILE=str(tmp_path / "no-config"),
+        AWS_SHARED_CREDENTIALS_FILE=str(tmp_path / "no-credentials"),
+    )
     started = subprocess.Popen(
         [sys.executable, "-u", "-c", LAUNCH, "--root", str(tmp_path)],
         stdout=subprocess.PIPE,
@@ -694,7 +705,7 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
     )
     said = Lines(started)
     try:
-        lines = said.first(9)
+        lines = said.first(11)
         started.send_signal(stop)
         # A proxy that does not stop is a red in seconds, never a job held
         # until the runner gives up.
@@ -717,6 +728,8 @@ def test_the_command_says_where_it_listens_and_how_to_point_an_sdk(
         )
     assert f"    ANTHROPIC_BASE_URL={address}" in lines
     assert f"    OPENAI_BASE_URL={address}/v1" in lines
+    assert "  route bedrock: https://bedrock-runtime.us-west-2.amazonaws.com" in lines
+    assert f"    AWS_ENDPOINT_URL_BEDROCK_RUNTIME={address}" in lines
     assert after == [
         "digline record proxy: stopped; open episodes and the counts are written"
     ]
