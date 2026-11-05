@@ -249,10 +249,12 @@ def test_what_the_java_recorder_wrote_is_imported_by_digline_alone(
     for text in ("It was sent on Monday.", "Dans votre espace client."):
         assert answers[text].electable, answers[text].refusal
         assert answers[text].input is not None
-    # The episode came first, under another setup: listed, and not electable.
+    # The episode is the only one of its form, so its setup is the episodes'
+    # in force, and it is electable: a single call recorded after it does not
+    # put it under an earlier setup, nor it them (ADR 0059 §3, per form).
     episode = answers["A1 left the warehouse on Monday."]
-    assert episode.refusal is not None
-    assert episode.refusal.startswith("recorded only under earlier setups")
+    assert episode.electable, episode.refusal
+    assert episode.in_force == episode.setups[0]
     assert episode.attached == 1
 
     assert (
