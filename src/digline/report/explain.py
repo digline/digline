@@ -73,6 +73,7 @@ __all__ = [
     "SettingKind",
     "TallyFact",
     "TallyKind",
+    "contradicted_said",
     "explain_text",
     "facts",
 ]
@@ -257,6 +258,11 @@ class CheckFact:
     #: Only on `contradicted`: what the person said, `True` for a yes and
     #: `False` for a no. The judge's verdict was the other. (ADR 0059 §1)
     good: bool | None = None
+    #: Only on `contradicted`: a check on the steps contradicted the person,
+    #: not the judge. Off the wire, like `counted`: it is the sentence's
+    #: input, and the check's name is on the fact. (ADR 0059 §1, amended
+    #: 2026-11-05)
+    on_the_steps: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -588,32 +594,78 @@ def _rule_fact(delta: SuiteDelta) -> SettingFact:
 
 
 def _contradictions(run: Run) -> list[Fact]:
-    """Each reviewed answer the judge contradicted a person about, as a check:
-    first among what the run found, because the case fails and the person's
-    verdict is the expected one. Read off the run, so a reading alone and one
-    against a reference say the same. (ADR 0059 §1)"""
-    found = {(c.case_id, c.check): c for c in contradicted(run)}
+    """Each check that contradicted a person about a reviewed answer, as a
+    check: first among what the run found, because the case fails and the
+    person's verdict is the expected one. The judge's, and since an episode's
+    answer is asked its trajectory checks, each of those that went red on a
+    yes, in `contradicted`'s order. Read off the run, so a reading alone and
+    one against a reference say the same. (ADR 0059 §1, amended 2026-11-05)"""
+    verdicts = {
+        (case.case_id, verdict.assertion_id): verdict
+        for case in run.results
+        for verdict in case.verdicts
+    }
     out: list[Fact] = []
-    for case in run.results:
-        reviewed = case.reviewed
-        if reviewed is None or (case.case_id, reviewed.check) not in found:
-            continue
-        for verdict in case.verdicts:
-            if verdict.assertion_id != reviewed.assertion_id:
-                continue
-            out.append(
-                CheckFact(
-                    "contradicted",
-                    "case",
-                    case.case_id,
-                    verdict.score.name,
-                    verdict.assertion_id,
-                    after=verdict.score.score,
-                    threshold=verdict.threshold,
-                    good=reviewed.good,
-                )
+    for found in contradicted(run):
+        verdict = verdicts[(found.case_id, found.assertion_id)]
+        out.append(
+            CheckFact(
+                "contradicted",
+                "case",
+                found.case_id,
+                verdict.score.name,
+                verdict.assertion_id,
+                after=verdict.score.score,
+                threshold=verdict.threshold,
+                good=found.good,
+                on_the_steps=found.on_the_steps,
             )
+        )
     return out
+
+
+def contradicted_said(found: Sequence[Contradiction], locale: Locale) -> str:
+    """Who contradicted a person, and on how many reviewed answers: the judge,
+    through the check an answer was reviewed for, or a check on the steps
+    beside it, named with its case; both where both did. Lower case and with
+    no full stop, so a caller opens and closes it as its line needs.
+
+    The one sentence `digline run` says beside the bill and `explain` at the
+    top of what it found, so the two cannot name the same run's contradictions
+    two ways. (ADR 0059 §1, amended 2026-11-05)"""
+    judge = [c for c in found if not c.on_the_steps]
+    steps = [c for c in found if c.on_the_steps]
+    parts: list[str] = []
+    if judge:
+        answers = len({c.case_id for c in judge})
+        parts.append(
+            phrase(locale, f"fact.contradicted.{_many(answers)}", count=answers)
+        )
+    if steps:
+        answers = len({c.case_id for c in steps})
+        parts.append(
+            phrase(
+                locale,
+                f"fact.contradicted.steps.{_many(len(steps))}",
+                answers=phrase(
+                    locale, f"fact.contradicted.answers.{_many(answers)}", count=answers
+                ),
+                checks="; ".join(
+                    phrase(
+                        locale,
+                        "fact.contradicted.step_check",
+                        check=c.check,
+                        case=c.case_id,
+                    )
+                    for c in steps
+                ),
+            )
+        )
+    return "; ".join(parts)
+
+
+def _many(count: int) -> str:
+    return "one" if count == 1 else "many"
 
 
 def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:
@@ -957,10 +1009,12 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
                 cases="; ".join(_band_left(item, locale) for item in fact.bands),
             )
         case "reviewed":
+            said = contradicted_said(fact.contradictions, locale)
             return phrase(
                 locale,
                 f"explain.tally.reviewed.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
+                said=said[:1].upper() + said[1:],
                 cases="; ".join(
                     phrase(
                         locale,
@@ -1270,7 +1324,7 @@ def _check_said(fact: CheckFact, locale: Locale, *, compared: bool) -> str:
         case "suspended":
             return phrase(locale, "explain.check.suspended", case=fact.case_id)
         case "contradicted":
-            said = "yes" if fact.good else "no"
+            said = "steps" if fact.on_the_steps else "yes" if fact.good else "no"
             return phrase(
                 locale, f"explain.check.contradicted.{said}", where=where, now=now
             )
