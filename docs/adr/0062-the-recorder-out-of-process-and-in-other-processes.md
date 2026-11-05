@@ -329,6 +329,43 @@ written.* What the code adds, by the maintainer's ruling of the same day:
 - **A stream the application closes before its end** is *stream abandoned*,
   counted and not recorded, as in process.
 
+*Noted 2026-11-05, with Bedrock's code and the steps, the text above kept as
+written:*
+
+- **The path before the headers.** A path a plugin reads goes to that
+  plugin's provider, and the headers choose only for a path no plugin reads.
+  The note above put the headers first. Measured with botocore 1.43.123:
+  boto3 sends a Bedrock API key as `Authorization: Bearer`, with no
+  `anthropic-version`. That is OpenAI's claim, so in the order above the call
+  would have gone to OpenAI, with the key.
+- **Bedrock** is signed again as the section says, with SigV4 and the
+  credentials and region botocore resolves on the proxy's machine. The model
+  id is taken back from the path, so the setup digest is the one the same
+  call gets in process. `converse-stream` is read from its AWS event stream
+  with botocore's own decoder. The start prints
+  `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, which boto3 1.43 reads, measured.
+  **Measured against a fake Bedrock only.** The one real `converse` made
+  through the proxy, to Haiku 4.5 in `eu-central-1`, was refused by Bedrock
+  with `UnrecognizedClientException` for the key it was signed with, and the
+  `converse-stream` was not made.
+- **"As a gateway does" is narrowed**, by the maintainer's ruling of the same
+  day: before it signs with the machine's credentials, the proxy checks that
+  the application signed the call with those same credentials, as AWS checks
+  a signature. The access key is the machine's, and the signature, computed
+  again with its secret over the path, the query, the signed headers and the
+  body, is the one the call carries, within 15 minutes. Otherwise the call
+  is a 403 that says why and is not forwarded, so a local process without
+  the keys cannot spend with them. A Bedrock API key is therefore refused.
+  An AWS event stream that carries an error after it began is counted
+  `stream error`.
+- **The steps**, measured against fakes of the three providers, with an agent
+  of three calls. A tool step is closed by the result the next call carries.
+  Its status is `error` or `success` where Anthropic's `is_error` or
+  Bedrock's `status` says one, and `not_reported` otherwise, always on
+  OpenAI. The places, tools and arguments are those the same agent gets in
+  process. A result goes on a step only where it names the same tools in the
+  same order.
+
 ### 4. The interceptor, per language — *decided here*, Java in 1.1
 
 **A writer and a hook, each a file copied into the project.** Not a library

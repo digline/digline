@@ -299,21 +299,27 @@ digline record proxy: listening on http://127.0.0.1:8787
   writes to:  /home/you/app/.digline/acme/recordings
   recording:  on, from DIGLINE_RECORD=1: sample 1, ceiling 104857600 bytes, interval 5 s
   route anthropic: https://api.anthropic.com
+  route bedrock: https://bedrock-runtime.eu-central-1.amazonaws.com
   route openai: https://api.openai.com/v1
   point the SDK here:
     ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+    AWS_ENDPOINT_URL_BEDROCK_RUNTIME=http://127.0.0.1:8787
     OPENAI_BASE_URL=http://127.0.0.1:8787/v1
 ```
 
 In any language, three things:
 
-1. **The base URL**: the SDK's own variable, as the last two lines say, or its
+1. **The base URL**: the SDK's own variable, as the last lines say, or its
    base URL option. The key stays the application's own, and travels in its
-   own headers: the proxy never reads, logs or writes it.
+   own headers: the proxy never reads, logs or writes it. Bedrock's is the
+   exception, below.
 2. **The suite**: a header, `X-Digline-Suite: refunds`, or, where the SDK can
    set a base URL and no header, a path, `http://127.0.0.1:8787/suite/refunds/v1`.
    Neither reaches the provider. A call that names no suite is recorded under
    `_unassigned`, with the SDK's `User-Agent` and the path as its call site.
+   `digline record import --from _unassigned` lists those calls as a suite's,
+   and shows that call site on its `made at:` line, where a call in process
+   names its function.
 3. **The episode**, where a turn makes several calls: the same
    `X-Digline-Episode` value on each, any value the application chooses. Once
    no call has carried it for 30 seconds (`--episode-idle`), or when the proxy
@@ -327,7 +333,9 @@ In any language, three things:
 says otherwise.
 
 **Which provider.** The path says which plugin reads a call:
-`/chat/completions` is OpenAI's, `/v1/messages` Anthropic's. Where it goes is
+`/chat/completions` is OpenAI's, `/v1/messages` Anthropic's,
+`/model/<id>/converse` and `/model/<id>/converse-stream` Bedrock's. Such a
+call goes to that provider, whatever its headers say, or to
 `--upstream ROUTE=URL` for that route, for a gateway or a compatible
 endpoint, once per route:
 
@@ -335,13 +343,66 @@ endpoint, once per route:
 $ digline record proxy --tenant acme --upstream openai=https://generativelanguage.googleapis.com/v1beta/openai
 ```
 
-Without it, a call goes to the provider whose SDK its headers show:
-`anthropic-version` is Anthropic's, a bearer key without it OpenAI's. An endpoint that answers in OpenAI's shape, such as Gemini's
-OpenAI-compatible one, is read by OpenAI's plugin. That was measured with a
-fake endpoint at another path whose replies have fewer fields than OpenAI's;
-Gemini itself was not called, so what it sends was not read. A
-call over a path no plugin reads is forwarded and not recorded. A provider
-whose plugin is not installed is refused, and the refusal names the package.
+A call over a path no plugin reads goes to the provider whose SDK its
+headers show, `anthropic-version` Anthropic's, an AWS signature Bedrock's, a
+bearer key without them OpenAI's, and is forwarded and not recorded. The path
+comes first because the headers can mislead: boto3 sends a Bedrock API key as
+a bearer, as OpenAI's SDK sends its key. An endpoint that answers in OpenAI's
+shape, such as Gemini's OpenAI-compatible one, is read by OpenAI's plugin.
+That was measured with a fake endpoint at another path whose replies have
+fewer fields than OpenAI's; Gemini itself was not called, so what it sends was
+not read. A provider whose plugin is not installed is refused, and the
+refusal names the package.
+
+**Bedrock** needs `digline-bedrock`. An AWS SDK signs its request for the
+address it sends it to, which is the proxy's, so the proxy signs it again,
+with SigV4 and the credentials and region boto3 finds on the proxy's machine:
+the environment first, then the profile in `~/.aws/config` and
+`~/.aws/credentials`. **First it checks that the application signed the
+call with those same credentials**, as AWS checks a signature: the access key
+is the machine's, and the signature, computed again with its secret over the
+path, the query, the headers the call says it signed and the body, is the
+one the call carries, made within 15 minutes of the machine's clock. A call
+that was not is a 403, *the request was not signed with this machine's AWS
+credentials*, which says why, and goes nowhere: a process on the machine
+without its keys spends nothing with them. So an application signs with the
+same profile the proxy reads, and a Bedrock API key, which is not a
+signature, is refused. The application's signature itself does not go on.
+Credentials that may call Bedrock and nothing else are still worth giving
+the proxy. Where it finds no region or no credentials, the start says so on
+the route's line, and a call is a 502 that says the same.
+
+The address: `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, which boto3 reads (measured
+with boto3 1.43), or the SDK's endpoint option, `endpoint_url` in boto3,
+`endpointOverride` in the AWS SDK for Java. Whether another AWS SDK reads the
+variable was not measured. boto3 adds a header before it signs:
+
+```python
+client.meta.events.register(
+    "before-sign.bedrock-runtime.*",
+    lambda request, **_: request.headers.update({"X-Digline-Episode": turn_id}),
+)
+```
+
+The streamed reply is an AWS event stream, passed on as it arrives and read
+at its end. One that carries an error after it began, as a throttled call's
+does, is counted `stream error` and not recorded. **Measured against a fake Bedrock only**: boto3 against a fake
+upstream that checks nothing but the shape, with the real SigV4 code signing.
+One real `converse` was made through the proxy, to Haiku 4.5 in
+`eu-central-1`, and Bedrock refused the key it was signed with as
+unrecognised. So no call to Bedrock itself has been recorded yet.
+
+**An agent's steps, off the wire.** In an episode, each call is a model step,
+and each tool it asks for a tool step, as in process. What the wire adds is
+the tool's result: the application's next call sends it back to the model, a
+`tool` message on OpenAI, a `tool_result` block on Anthropic, a `toolResult`
+block on Bedrock, and that closes the step before. Its status is the
+provider's word, `error` or `success` where Anthropic's `is_error` or
+Bedrock's `status` says one, and `not_reported` where it does not, always on
+OpenAI. In process the same step says `not_reported`, because the call ends
+where the tool starts; the places, the tools and the arguments are the same.
+A result is put on a step only where the next call carries results for the
+same tools, in the same order: never on one it may not answer.
 
 **What passes on as it came.** The reply, its body and its headers, but those
 a connection owns. A stream is passed on as it arrives and recorded at its
@@ -350,8 +411,10 @@ recorded, as in process. A reply that is not a 200 is passed on and not
 recorded. An upstream that does not answer within 600 seconds is a 504 that
 says so.
 
-**What it does not see**: a call the application does not point at it, and
-the application's own code between two calls.
+**What it does not see**: a call the application does not point at it, the
+application's own code between two calls, and a tool the application runs
+without sending its result back to the model: the last call's tool steps, and
+any whose result never reaches the model, stay `not_reported`.
 
 The proxy is a Python process like any that wraps a client: `digline record
 status` counts it, and Ctrl-C or SIGTERM stops it after writing its open
@@ -425,7 +488,8 @@ more, a block per file at the least. Per suite: the single calls (with how
 many were made inside an episode), the orphans, the episodes (with how many
 were interrupted), and **what was not recorded, by reason**: `not JSON` for a
 request a recording cannot hold, `sampled out`, `ceiling`, `stream
-abandoned`, `config invalid` and the rest, and what was **recorded with
+abandoned`, `stream error` for a stream that carried an error after it began
+(through the proxy), `config invalid` and the rest, and what was **recorded with
 something noted**: `usage not reported`, `ended after its episode`. A suite
 says only what it holds: a suite of episodes whose calls name another suite
 shows no calls.
@@ -611,6 +675,6 @@ command that does the same thing. See [`--allow-record`](view.md#-allow-record).
 
 ## Not yet
 
-- Bedrock through the proxy, and an agent's steps rebuilt from the
-  conversation.
+- A call to Bedrock itself recorded through the proxy: the one made was
+  refused for its key.
 - An interceptor in the application's own language, Java first.

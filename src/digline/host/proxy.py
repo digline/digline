@@ -9,12 +9,18 @@ the same switch, the same writer, the same digest and the same counts
 
 **Which map reads a call is its route**, the path, as each plugin's entry in
 `digline.recording_wire` says (`/chat/completions` is OpenAI's, `/v1/messages`
-Anthropic's). **Where it goes** is `--upstream ROUTE=URL` where that names the
-route; otherwise the provider whose SDK the request's headers show
-(`anthropic-version` or `x-api-key` Anthropic's, a bearer key without them
-OpenAI's: both SDKs send their key as a bearer), at that provider's own
-address; otherwise the route's. A call over a path no plugin
-reads is forwarded the same way and not recorded.
+Anthropic's, `/model/<id>/converse` and `/model/<id>/converse-stream`
+Bedrock's). **Where it goes** is `--upstream ROUTE=URL` where that names the
+route; otherwise the route's own provider. A call over a path no plugin reads
+goes to the provider whose SDK the request's headers show (`anthropic-version`
+or `x-api-key` Anthropic's, an AWS signature Bedrock's, a bearer key without
+them OpenAI's: both OpenAI's and Anthropic's SDKs send their key as a bearer),
+and is not recorded.
+
+**Bedrock's calls are signed again**, by its plugin, with the credentials
+and the region boto3 finds on this machine: what the application signed
+named the proxy's address (`prepare`). Its streamed reply is an AWS event
+stream, which the plugin reads (`frames`).
 
 **The suite, the app and the episode** come from `X-Digline-Suite`,
 `X-Digline-App` and `X-Digline-Episode`, or the suite from a `/suite/<name>/`
@@ -264,6 +270,10 @@ class _Handler(BaseHTTPRequestHandler):
             )
             return
         url, owner = where
+        problem = cast(str | None, getattr(self.wires[owner], "problem", None))
+        if problem is not None:
+            self._refuse(502, f"the route {owner} cannot forward: {problem}")
+            return
         target = urlsplit(url)
         own = self.wires[owner].base
         rest = path[len(own) :] if own and path.startswith(own) else path
@@ -272,6 +282,36 @@ class _Handler(BaseHTTPRequestHandler):
             for key, value in self.headers.items()
             if key.lower() not in _HOP and not key.lower().startswith(_OURS)
         }
+        upstream_path = target.path.rstrip("/") + rest
+        verify = getattr(self.wires[owner], "verify", None)
+        if verify is not None:
+            # Before the route signs with this machine's credentials: only a
+            # request signed with them may spend with them.
+            reason = cast(str | None, verify(self.command, self.path, headers, body))
+            if reason is not None:
+                self._refuse(
+                    403,
+                    "the request was not signed with this machine's AWS "
+                    f"credentials: {reason}",
+                )
+                return
+        prepare = getattr(self.wires[owner], "prepare", None)
+        if prepare is not None:
+            # The route signs the request itself: what the application signed
+            # named the proxy's address, and the provider checks its own.
+            try:
+                sent = cast(
+                    dict[str, str],
+                    prepare(
+                        self.command,
+                        f"{target.scheme}://{target.netloc}{upstream_path}",
+                        sent,
+                        body,
+                    ),
+                )
+            except ValueError as exc:
+                self._refuse(502, f"the route {owner} cannot sign the call: {exc}")
+                return
         suite = ours.get(_OURS + "suite") or None
         app = ours.get(_OURS + "app") or None
         episode = ours.get(_OURS + "episode") or None
@@ -286,10 +326,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             try:
                 connection.request(
-                    self.command,
-                    target.path.rstrip("/") + rest,
-                    body=body or None,
-                    headers=sent,
+                    self.command, upstream_path, body=body or None, headers=sent
                 )
                 reply = connection.getresponse()
             except TimeoutError:
@@ -355,16 +392,18 @@ class _Handler(BaseHTTPRequestHandler):
         self, route: str | None, headers: Mapping[str, str]
     ) -> tuple[str, str] | None:
         """Where the call goes, and whose route's base the path is read
-        against: `--upstream` for the route; else the provider whose SDK the
-        headers show, which no two plugins claim alike; else the route's own
-        provider."""
-        if route is not None and route in self.upstreams:
-            return self.upstreams[route], route
+        against: `--upstream` for the route; else the route's own provider;
+        and for a path no plugin reads, the provider whose SDK the headers
+        show, which no two plugins claim alike.
+
+        A path a plugin reads is that provider's whatever the headers say: a
+        Bedrock API key travels as a bearer, which OpenAI's claim would
+        otherwise send, with the key, to OpenAI."""
+        if route is not None:
+            return self.upstreams.get(route, self.wires[route].upstream), route
         for name, wire in self.wires.items():
             if wire.claims(headers):
                 return self.upstreams.get(name, wire.upstream), name
-        if route is not None:
-            return self.wires[route].upstream, route
         return None
 
     def _body(self) -> bytes:
@@ -410,19 +449,21 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _refuse(self, status: int, message: str) -> None:
         """digline's own answer, where the upstream gave none: JSON in the
-        shape both SDKs read an error from, so the application's exception
-        says what happened."""
+        shape the SDKs read an error from, so the application's exception
+        says what happened. OpenAI's and Anthropic's read `error.message`;
+        the AWS SDKs read a `message` at the top and the error's name from
+        `x-amzn-ErrorType`."""
+        said = f"digline record proxy: {message}"
         data = json.dumps(
             {
                 "type": "error",
-                "error": {
-                    "type": "digline_record_proxy",
-                    "message": f"digline record proxy: {message}",
-                },
+                "error": {"type": "digline_record_proxy", "message": said},
+                "message": said,
             }
         ).encode("utf-8")
         try:
             self.send_response(status)
+            self.send_header("x-amzn-ErrorType", "DiglineRecordProxy")
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(data)))
             self.end_headers()
@@ -430,6 +471,17 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             self.close_connection = True
+
+    @staticmethod
+    def _framed(frames: Any, kind: str, data: bytes) -> list[object] | None:
+        """The route's own framing of a streamed reply, or `None`. An error
+        the stream carries is the stream's, raised as one."""
+        if frames is None:
+            return None
+        try:
+            return cast(list[object] | None, frames(kind, data))
+        except Exception as exc:  # noqa: BLE001 — whatever the route raised
+            raise _StreamError from exc
 
     def _record(
         self,
@@ -454,25 +506,36 @@ class _Handler(BaseHTTPRequestHandler):
             self.recorder.missed("not JSON", suite=suite, app=app, episode=episode)
             return
         try:
-            text = _decoded(kept, reply.getheader("Content-Encoding"))
+            data = _decoded(kept, reply.getheader("Content-Encoding"))
         except ValueError:
             self.recorder.missed(
                 "content encoding", suite=suite, app=app, episode=episode
             )
             return
         request = cast(dict[str, Any], parsed)
-        streamed = "text/event-stream" in (reply.getheader("Content-Type") or "")
+        kind = reply.getheader("Content-Type") or ""
+        frames = getattr(wire, "frames", None)
+        request_of = getattr(wire, "request_of", None)
+        results_of = getattr(wire, "results", None)
         try:
+            if request_of is not None:
+                request = cast(dict[str, Any], request_of(path, request))
             mapped = wire.map
-            if streamed:
+            framed = self._framed(frames, kind, data)
+            if framed is not None or "text/event-stream" in kind:
+                events = framed if framed is not None else _events(data.decode("utf-8"))
                 reading = cast(Any, mapped).reading(request)
-                for event in _events(text):
+                for event in cast(Iterator[object], events):
                     reading.add(wire.event(event))
                 completion = reading.completion(None)
                 reply_object = None
             else:
                 completion = None
-                reply_object = wire.reply(json.loads(text))
+                reply_object = wire.reply(json.loads(data.decode("utf-8")))
+            results = None if results_of is None else results_of(request)
+        except _StreamError:
+            self.recorder.missed("stream error", suite=suite, app=app, episode=episode)
+            return
         except Exception:  # noqa: BLE001 — a reply the map cannot read is its reason
             self.recorder.missed("map", suite=suite, app=app, episode=episode)
             return
@@ -487,7 +550,13 @@ class _Handler(BaseHTTPRequestHandler):
             site=None if suite is not None else f"{agent or 'no User-Agent'} {path}",
             episode=episode,
             case=_case(case),
+            results=results,
         )
+
+
+class _StreamError(Exception):
+    """A streamed reply that ended in an error the provider sent inside the
+    stream, after its 200: counted `stream error`, not as a map's fault."""
 
 
 def _text(value: str) -> str:
@@ -513,18 +582,16 @@ def _case(value: str | None) -> Mapping[str, object] | None:
     return {"text": value}
 
 
-def _decoded(data: bytes, encoding: str | None) -> str:
-    """The reply's text, for reading it: what was passed on is unchanged."""
+def _decoded(data: bytes, encoding: str | None) -> bytes:
+    """The reply's bytes, for reading it: what was passed on is unchanged."""
     kind = (encoding or "identity").strip().lower()
     if kind == "identity":
-        raw = data
-    elif kind == "gzip":
-        raw = gzip.decompress(data)
-    elif kind == "deflate":
-        raw = zlib.decompress(data)
-    else:
-        raise ValueError(kind)
-    return raw.decode("utf-8")
+        return data
+    if kind == "gzip":
+        return gzip.decompress(data)
+    if kind == "deflate":
+        return zlib.decompress(data)
+    raise ValueError(kind)
 
 
 def _events(text: str) -> Iterator[object]:
