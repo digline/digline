@@ -161,6 +161,26 @@ def _lines(block: str) -> list[str]:
     return [line.strip() for line in block.strip("\n").splitlines()]
 
 
+def test_the_pages_gate_is_a_suite_digline_loads(tmp_path: Path) -> None:
+    """The `suite.toml` on `docs/record-java.md`, as written, beside a case of
+    its own and an empty captured file: digline loads it, with its `http`
+    target, its judge by coordinates and its capture source."""
+    from digline.core.assertions import LlmRubric
+    from digline.targets.http import HttpTarget
+
+    (block,) = re.findall(r"```toml\n(.*?)```", PAGE.read_text(encoding="utf-8"), re.S)
+    (tmp_path / "suite.toml").write_text(block, encoding="utf-8")
+    case = {"id": "mine", "vars": {"messages": [{"role": "user", "content": "A1?"}]}}
+    (tmp_path / "cases.json").write_text(json.dumps([case]), encoding="utf-8")
+    (tmp_path / "captured.json").write_text("[]", encoding="utf-8")
+    suite, loaded = load_suite(str(tmp_path / "suite.toml"), root=tmp_path)
+    assert isinstance(loaded.target, HttpTarget)
+    assert suite.capture is not None
+    assert suite.capture.check == "llm_rubric"
+    assert [type(check) for check in suite.assertions] == [LlmRubric]
+    assert [case.id for case in suite.cases] == ["mine"]
+
+
 def test_every_java_block_on_the_page_is_one_the_java_tests_run() -> None:
     """A line goes on `docs/record-java.md` only once it was run (ADR 0062
     §5): each of its Java blocks, in order, is one of `PageTest`'s, between a
