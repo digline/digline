@@ -75,6 +75,11 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
+    # 1.1.0, the number the cut is expected to give the core release that
+    # carries `digline.recorder` — not yet a release. The three providers' maps
+    # type their stream readings with it, imported for the type checker
+    # alone; their floors are owed at the cut, in RELEASING.md's table.
+    "StreamReading": "1.1.0",
     # 0.35.0, the number the cut is expected to give the core release that
     # carries #548 — not yet a release. digline-mcp's `--names project` loads
     # its table with `load_name_table`, holds one answer to one table with
@@ -323,7 +328,8 @@ INTRODUCED: dict[str, str] = {
 #: `digline.providers` — and it reaches for the store, the driver, the report,
 #: the wire and the host. The rule is unchanged: a dated name that no longer
 #: exists anywhere fails, because the floor would then be computed against a
-#: version claim nobody can meet.
+#: version claim nobody can meet. `digline.recorder` joined at 1.1: the
+#: providers' maps type their stream readings with its `StreamReading`.
 SURFACE = (
     "digline.core",
     "digline.targets",
@@ -332,6 +338,7 @@ SURFACE = (
     "digline.report",
     "digline.wire",
     "digline.host",
+    "digline.recorder",
 )
 
 

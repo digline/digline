@@ -299,6 +299,26 @@ nothing. No public name is removed or renamed and no exit code changes.
   `digline record` now refuses an abbreviated option, so `--good` and `--bad`
   have no other spelling for the hook to miss.
 
+## digline-openai — unreleased
+
+- **A call recorded with `extra_body` has the setup it has off the wire.** The
+  recorder's map merges `extra_body`'s keys into the setup at the top level,
+  as the SDK merges them into the body it sends, where it kept them under a
+  key of their own, `extra_body`. So a call recorded in process, through
+  `digline record proxy` or by the Java recorder has one setup digest. **A
+  setup that sent `extra_body` records under another digest than before**, so
+  `digline record import` lists its earlier answers under an earlier setup:
+  the number is the cut's to choose (RELEASING.md, *Choosing the version*).
+  The stream readings are typed with `digline.recorder.StreamReading`, for the
+  type checker alone (ADR 0062 §2).
+
+## digline-anthropic — unreleased
+
+- **A call recorded with `extra_body` has the setup it has off the wire**, as
+  for `digline-openai` above, and with the same consequence: a setup that sent
+  `extra_body` records under another digest than before. The stream readings
+  are typed with `digline.recorder.StreamReading` (ADR 0062 §2).
+
 ## digline-anthropic 0.8.0 — 2026-11-03
 
 Published by its own tag, `digline-anthropic-v0.8.0`, after digline 1.0.3 was
