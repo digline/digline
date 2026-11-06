@@ -1104,10 +1104,11 @@ def _eventstreams() -> dict[str, bytes]:
         "tool-use": tool_use,
         # Cut halfway through the second event: the first is read.
         "abandoned": tool_use[: first + second // 2],
-        # The second event's last byte of payload changed, its CRC kept.
-        "bad-crc": _flipped(tool_use, first + second - 5),
-        # The first event's total length changed, its prelude's CRC kept.
-        "bad-prelude": _flipped(tool_use, 3),
+        # The second event's message CRC changed, and nothing it covers: only
+        # a reader that checks it refuses these bytes.
+        "bad-crc": _flipped(tool_use, first + second - 1),
+        # The first event's prelude CRC changed, its lengths kept.
+        "bad-prelude": _flipped(tool_use, 8),
         "exception": _frame("messageStart", {"role": "assistant"})
         + _frame("throttlingException", {"message": "slow down"}, exception=True),
         "bedrock-stream": _frames(WIRE_CALLS["bedrock-stream"]["events"]),
