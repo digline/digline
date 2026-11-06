@@ -801,11 +801,23 @@ def test_a_counterexample_no_check_refuses_is_said_to_be_the_judges(
     ) in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "given",
+    [
+        {"answer": "no input"},
+        {"vars": {"question": "q"}, "answer": 3},
+        {"vars": {}, "answer": "an empty input"},
+        {"vars": "q", "answer": "an input that is no table"},
+    ],
+)
 def test_a_counterexample_out_of_form_is_discarded(
-    here: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    here: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    given: dict[str, object],
 ) -> None:
     write(here, EPISODES)
-    upstream(monkeypatch, capsys, {"counterexample": {"answer": 3}})
+    upstream(monkeypatch, capsys, {"counterexample": given})
     assert new("private", "--model", MODEL) == 0
     assert '"WRITE"' in written(here)
     said = capsys.readouterr().err
