@@ -450,10 +450,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   (ADR 0059 §1, amended 2026-11-05). `run` and `explain` say who contradicted,
   in one sentence: the judge, or *a check on the steps … : before, on case
   T3*, or both; and explain's list of what it found has every contradiction,
-  the judge's and the steps', where it had only the judge's.
+  the judge's and the steps', where it had only the judge's. `compare` says
+  that sentence too, and its headline and explain's tally count answers, each
+  once: a yes whose steps went red on `never` and on `max_steps` was *the judge
+  contradicted a person on 2 reviewed answers … failed 2 the person said yes
+  to*, and is *checks on the steps contradicted a person on 1 reviewed answer:
+  never, on case T3; max_steps, on case T3, and the case fails*, with each
+  contradiction and its direction after it. `reviewed_failed_yes` and
+  `reviewed_passed_no` in `compare --json`, and `count` on explain's
+  `reviewed` entry, count answers too, as ADR 0059 §1 counts the cases.
+  `promote`'s refusal of such a run says the same sentence and names each
+  answer once: *checks on the steps contradicted a person on 1 reviewed
+  answer: never, on case T3; max_steps, on case T3, by answer T3 (failed a
+  yes)*, where it said *2 reviewed answer(s) the judge contradicted*.
 - **`digline run` names `explain`, never `promote`, after a run whose own exit
-  is not 0**, and says why on a contradiction: *reads this run back; the judge
-  contradicted a person*. Measured: every cause of a lone run's 1 or 2 was
+  is not 0**, and says why on a contradiction: *reads this run back; a check
+  contradicted a person*, the judge or one on the steps. Measured: every cause of a lone run's 1 or 2 was
   already one `promote` refuses, so the line changed only in its words.
 - **The recorder page of `digline view` says the calls from gate runs**, as
   `digline record status` says them, under the table of suites: *suite
