@@ -11,7 +11,7 @@ assumed:
   each starting number: no run read; 2 placeholders, each the strictest value its check accepts and marked in the file, failing until a measured number replaces it
   the calibration band: a skeleton for llm_rubric, with the answer to paste and the band to place, strictly between 0 and 1, both yours
   the counterexample: 1 reviewed no for llm_rubric, already in captured.json: the check must fail each
-  the regime: repository = 'private': the file quotes no recorded input or answer, under either regime; the rules read from the recordings, a tool's name or a key, are in its checks
+  the regime: repository = 'private': without an assistant, the file quotes no recorded input or answer; the rules read from the recordings, a tool's name or a key, are in its checks
 not yet examined: group 1 · episodes, text · 1 answer of 1, from 1 recording
 not yet examined: group 2 · episodes, text · 1 answer of 1, from 1 recording
 not yet examined: group 3 · episodes, text · 1 answer of 1, from 1 recording

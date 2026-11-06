@@ -32,7 +32,8 @@ Before choosing anything, find out what the application answers and what a
 person already said about it.
 
 - **Start from `digline suggest`.** `digline suggest --suite <suite>`
-  writes `suite.proposed.toml` beside the suite: the checks every recording
+  writes `suite.proposed.toml` beside the suite, or, for a suite that does
+  not exist yet, in the directory you run from: the checks every recording
   holds, the limits the runs measured or a placeholder marked as one, a
   counterexample and a calibration skeleton, and on standard error what it
   assumed (`docs/suggest.md`). Where there is no suite yet, give its name with
@@ -53,11 +54,11 @@ person already said about it.
   for an episode the actors of its steps — and says how many answers and
   recordings each group holds. The shape is what step 2 chooses from, and the
   counts say how much evidence there is.
-- **Where there is no suite yet, the listing needs one.** It reads the
-  suite's `[capture]`, whose `check` must name a judged check of the suite. So
-  write the skeleton of step 3 first, with the judged check you expect from
-  how the application is used, list, and revise the checks once the shapes
-  are in front of you.
+- **Where there is no suite yet, the listing needs one**: adopt
+  `suite.proposed.toml` as the skeleton, and revise the checks once the
+  shapes are in front of you. The listing reads the suite's `[capture]`,
+  whose `check` must name a judged check of the suite, and the proposal
+  declares both.
 - **The setup in force.** The listing prints it, the setup of the newest
   recording, and marks every answer recorded under an earlier one. A setup is
   everything a call decided besides the case: the model, the system prompt,

@@ -247,6 +247,26 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             "array of paths, not a table or cases written in the suite"
         )
 
+    # Every key `Suite` takes with no default, named in digline's words rather
+    # than in the constructor's `TypeError`. `assertions` is the file's own
+    # list and `cases` was refused above with its reason. (ADR 0007 §6)
+    absent = [
+        name
+        for name, field in suite_keys.items()
+        if field.default is MISSING
+        and field.default_factory is MISSING
+        and name not in ("assertions", "cases")
+        and name not in table
+    ]
+    if absent:
+        raise UsageError(
+            f"{where}, [suite]: no "
+            + " and no ".join(f"`{name}`" for name in absent)
+            + ". "
+            + ("It is" if len(absent) == 1 else "Each is")
+            + " mandatory, with no default (docs/declarative.md, [suite])"
+        )
+
     declared = dict(table)
     capture = (
         _capture(_table(document, "capture", where), path, perimeter, where)
@@ -259,7 +279,7 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
         # The capture file is absent until the first import writes it, and a
         # suite that names it is not broken before then: absent is no case,
         # as `read_cases` has it for a `suite.py`. Any other file is required.
-        if capture is not None and resolved == capture.cases_file:
+        if capture is not None and resolved.absolute() == capture.cases_file:
             cases.extend(read_cases(resolved))
         else:
             cases.extend(_cases(resolved, where))
@@ -417,7 +437,10 @@ def _capture(
     judged check. A table in a reviewed file is the change ADR 0007 §7 asks
     for, so a data suite declares it as a `suite.py` does; `repository` has no
     default here either. `cases_file` is read from the suite file's directory
-    and held to the perimeter. (ADR 0059 §4)"""
+    and held to the perimeter. It is made absolute here, from the directory
+    the suite was read in: a path left relative would be joined later to
+    whatever directory holds `.digline/`, which `--root` moves away from the
+    suite. (ADR 0059 §4)"""
     spot = f"{where}, [capture]"
     _refuse_unknown(table, set(_init_fields(CaptureSource)), spot, "key")
     if "repository" not in table:
@@ -430,7 +453,7 @@ def _capture(
         raise UsageError(f"{spot}: `cases_file` is the path of capture's own file")
     given = dict(table)
     given["cases_file"] = within_perimeter(
-        path.parent / str(given["cases_file"]), perimeter, "capture", where
+        path.absolute().parent / str(given["cases_file"]), perimeter, "capture", where
     )
     try:
         return CaptureSource(**cast("Any", given))

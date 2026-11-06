@@ -582,10 +582,12 @@ def test_nothing_recorded_proposes_nothing_and_says_where_a_suite_begins(
 def test_with_no_model_declared_no_provider_is_reached(
     here: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def reached() -> dict[str, object]:
-        raise AssertionError("a provider plugin was looked up")
+    def reached(self: object) -> object:
+        raise AssertionError("a provider plugin was loaded")
 
-    monkeypatch.setattr("digline.targets.registry._entry_points", reached)
+    # The judge's line lists the plugins installed, read from their metadata:
+    # what is refused is loading one.
+    monkeypatch.setattr("importlib.metadata.EntryPoint.load", reached)
     write(here, EPISODES)
     found = suggest_new(here, "triage", tenant="acme", repository="private", here=here)
     assert found.path == here / PROPOSAL
