@@ -804,7 +804,7 @@ def test_record_status_says_an_invalid_file_and_an_empty_root(
             "--sample belongs to `digline record on`",
         ),
         (["record", "status", "--production"], "--production belongs to"),
-        (["record", "on", "--json"], "--json belongs to `digline record status`"),
+        (["record", "on", "--json"], "--json belongs to `digline record import`"),
         (["record", "on"], "needs --tenant"),
         (["record", "off"], "needs --tenant"),
     ],

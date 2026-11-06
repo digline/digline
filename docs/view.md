@@ -146,6 +146,27 @@ value. A command it names is shown, never run, and the page has no button that
 starts a run or a gate. The switch is a button only where the recorder's are,
 under [`--allow-record`](#-allow-record), with the command under it.
 
+### On the command line: `digline where`
+
+The same reading, printed: the state's sentence, the command for the next
+step and the page that says more, in English or with `--locale it`.
+
+```console
+$ digline where --tenant acme
+Nothing recorded yet
+digline holds no recording of tenant acme. Record what the application asks the model, from its own language, and the calls become the material a suite is made of.
+The command: digline record on --tenant acme
+The page that says more: https://digline.dev/product/record/
+```
+
+`--tenant` is mandatory; with `--suite`, the states about its runs can hold
+too, and the suite's tenant is checked against it. `--json` is the same
+reading for a program: the state, its count, the shapes of `no_suite_yet`,
+the newest run's key and exit code where the state read one, the last import,
+the next step's command and the pages. The MCP server's `where` returns it,
+equal field for field ([digline over MCP](mcp.md)). It exits 0 whenever it
+could read the store: it is a reading, not a gate.
+
 ## The recorder's views
 
 Three more views sit beside the screens, in the menu of every page, for the

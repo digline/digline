@@ -148,6 +148,24 @@ nothing. No public name is removed or renamed and no exit code changes.
   each marked as its own. A check it adds, a key outside its reply's form or
   a limit less strict than the runs measured is discarded and counted. With
   no model declared nothing is called, and the proposal is what it was.
+- **`digline where --tenant T [--suite S]`, new: where the project is, on
+  the command line.** The reading *Where you are* lays out on its page, the
+  first of eleven states that holds, the counts that put it there, the command
+  for the next step and the page that says more, printed in English or with
+  `--locale it`. `--json` is the same reading for a program, and digline-mcp's
+  `where` returns it. It reads and writes nothing, and exits 0 whenever it
+  could read the store. The next step's command and the pages moved from the
+  view into `digline.wire.where`, which both read (`docs/view.md`).
+- **`digline record import --json`**: the listing for a program, the
+  declaration, the setup in force per form and, per group, the shape and
+  counts, with no input, no answer and no answer's id. It says where a yes or
+  a no is given, a page of `digline view`, and is refused beside `--good`,
+  `--bad` and `--by`, with the reason: a yes or a no is a person's, given by
+  reading the answer (ADR 0023 §9, as noted 2026-11-06).
+- **`digline record compare --json` carries an episode's shape** beside each
+  setup: `calls`, how many model calls its episodes made, and `models`, the
+  models its calls name, which are values of the configuration and travel as a
+  run's do. Added keys: `OUTPUT_VERSION` does not move.
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input
@@ -517,6 +535,31 @@ nothing. No public name is removed or renamed and no exit code changes.
   store, restates it in the same form); and the view's bar finds the runs'
   link in linear time, where a page of many lookalike links took quadratic
   time.
+
+## digline-mcp — unreleased
+
+- **Thirteen tools: the five of the first verbs join**, and none of them writes
+  ([ADR 0011](docs/adr/0011-the-mcp-server.md) §1, as noted 2026-11-06).
+  `where`, `record_status`, `record_listing`, `record_compare` and `suggest`
+  read what a project holds before its suite gates anything, each the
+  command line's `--json` of the same reading, whose command its description
+  names. Two differences are declared: `record_status` says its paths
+  relative to the repository's root, and `record_compare` names each case and
+  answer by its number in the answer, where the command line prints the
+  digest of the input and of the text. No recorded word reaches an answer.
+- **`suggest` writes nothing and asks no model.** It returns the proposal's
+  facts and the command that writes the file; what an assistant costs is said
+  before its call, and a tool has no before, so the command with `--model` is
+  in the answer for a person to run.
+- **A yes or a no is not given here**: `record import --good` and `--bad`,
+  `record on` and `record off` are absent, and the listing says where a person
+  gives a yes or a no, a page of `digline view` at its default port.
+- Under `--names project` the five are projected at the boundary: a check's
+  name, a setup's key and a model are tokens, digline's own keys stay in clear
+  as a run's do, and a cases file's path and the plugins installed are
+  withheld.
+- Its floor on `digline` becomes `1.1.0` in its own release, a minor cut with
+  the core's: RELEASING.md, *Owed at the cut*.
 
 ## pytest-digline — unreleased
 

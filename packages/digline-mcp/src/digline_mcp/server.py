@@ -1,4 +1,4 @@
-"""The eight tools, and the one that is missing.
+"""The thirteen tools, and the one that is missing.
 
 `promote` is not here. Not disabled, not permission-gated, not refused with a
 message: **absent by construction.** There is no function, no name in the tool
@@ -16,6 +16,13 @@ arrives in somebody's diff and must arrive because they put it there.
 maintenance somebody chose the moment for, and two human-facing documents.
 An agent that wants the facts behind the report calls `compare`, which carries
 them. (ADR 0011 §1)
+
+The five of the first verbs, `where`, `record_status`, `record_listing`,
+`record_compare` and `suggest`, read what a project holds before its suite
+gates anything, and none writes: a `record import` that writes a yes or a no
+and `record on` or `off` are absent for `promote`'s reason, and `suggest`
+returns the facts and the command that writes them. (ADR 0011 §1, as noted
+2026-11-06)
 """
 
 from __future__ import annotations
@@ -23,6 +30,7 @@ from __future__ import annotations
 import argparse
 import functools
 import logging
+import shlex
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
@@ -55,7 +63,9 @@ from digline.host import (
     explained,
     git_commit,
     history,
+    import_listing,
     instant,
+    listed,
     load_name_table,
     load_suite,
     load_target,
@@ -66,29 +76,45 @@ from digline.host import (
     read_artifacts,
     read_pinned,
     read_run,
+    record_compare,
+    recorder_status,
     refuse_unreadable_baseline,
     resolve_key,
+    suggest_for,
+    suggest_new,
     suite_runs,
     unignored,
     unignored_notes,
     utc_now_iso,
+    where,
 )
 from digline.report import diff as diff_report
 from digline.report import errored_verdicts, headline
 from digline.run import CallPlan, Suite, suite_notes
-from digline.store import FileResultStore
+from digline.store import FileResultStore, checked_name
 from digline.wire import (
     EXIT_USAGE,
     compare_json,
     diff_json,
     explain_json,
+    import_listing_json,
     log_json,
+    record_compare_json,
+    recorder_status_json,
     run_document,
     run_json,
     runs_json,
+    suggest_json,
+    where_json,
 )
 from digline_mcp.descriptions import DESCRIPTIONS
 from digline_mcp.errors import refuse, translated
+from digline_mcp.recordings import (
+    compare_answer,
+    listing_answer,
+    status_answer,
+    suggest_answer,
+)
 
 # What the delta-pass reads, not a declaration of public API: the server's
 # public surface is its command line and its tools, and no page documents a
@@ -449,6 +475,147 @@ def build_server(
             )
         )
 
+    def tenant_named(given: str | None) -> str | None:
+        """A tenant a tool was handed, checked as a name and against the one
+        this server was started for, which verifies and never overrides."""
+        if given is None:
+            return tenant
+        checked_name(given, "tenant")
+        if tenant is not None and given != tenant:
+            refuse(
+                f"tenant {given!r} is not {tenant!r}, the tenant this server was "
+                "started for with --tenant. It verifies; it does not override."
+            )
+        return given
+
+    @answered
+    def where_(tenant: str, suite: str | None = None) -> dict[str, Any]:
+        # The CLI's composition: the suite where one is named, its tenant held
+        # against the one given, and the reading from the host, which writes
+        # nothing. The command it names is written from the repository's root.
+        named_tenant = tenant_named(tenant)
+        assert named_tenant is not None
+        if suite is None:
+            found = where(perimeter, named_tenant, suite=None, module=None)
+        else:
+            open_ = opened(suite)
+            if open_.loaded.suite.tenant != named_tenant:
+                refuse(
+                    f"tenant {named_tenant!r} does not match the suite, which "
+                    f"declares {open_.loaded.suite.tenant!r}. The suite decides; "
+                    "this only verifies."
+                )
+            found = where(
+                perimeter,
+                named_tenant,
+                suite=open_.loaded.suite,
+                module=open_.loaded.module,
+            )
+        return where_json(found, suite_arg=suite, root=[])
+
+    @answered
+    def record_status(tenant: str | None = None) -> dict[str, Any]:
+        return status_answer(
+            recorder_status_json(recorder_status(perimeter, tenant_named(tenant))),
+            root=perimeter,
+            mint=answering(),
+        )
+
+    @answered
+    def record_listing(suite: str) -> dict[str, Any]:
+        # The listing `digline record import` prints before anything is named,
+        # as counts and shapes. Nothing here writes a yes or a no, and nothing
+        # can: `--good` and `--bad` are absent from this surface.
+        open_ = opened(suite)
+        loaded_suite = open_.loaded.suite
+        found = import_listing(
+            perimeter, loaded_suite, open_.loaded.module, loaded_suite.tenant
+        )
+        return listing_answer(
+            import_listing_json(
+                listed(found), review=["digline", "view", "--suite", suite]
+            ),
+            mint=answering(),
+        )
+
+    @answered
+    def record_compare_(
+        suite: str,
+        setups: list[str] | None = None,
+        show_setup: bool = False,
+        since: str | None = None,
+    ) -> dict[str, Any]:
+        loaded_suite = loaded(suite)
+        found = record_compare(
+            perimeter,
+            loaded_suite,
+            loaded_suite.tenant,
+            case=None,
+            since=since,
+            setups=setups,
+            show_setup=show_setup,
+        )
+        return compare_answer(record_compare_json(found), mint=answering())
+
+    @answered
+    def suggest(
+        suite: str | None = None,
+        name: str | None = None,
+        tenant: str | None = None,
+        repository: str | None = None,
+    ) -> dict[str, Any]:
+        # Never written and never assisted: the file is the repository's, which
+        # this server does not write, and an assistant's cost is said before
+        # its call, which a tool cannot do. The facts, and the command that
+        # writes them, which a person runs. (ADR 0011 §1, as noted 2026-11-06)
+        if (suite is None) == (name is None):
+            refuse(
+                "suggest takes suite, the file of a suite that exists, or name, "
+                "with tenant and repository, for a suite that does not exist "
+                "yet: one of the two"
+            )
+        if suite is not None:
+            for given, flag in ((tenant, "tenant"), (repository, "repository")):
+                if given is not None:
+                    refuse(
+                        f"{flag} is for a suite that does not exist yet: the "
+                        "suite named declares its tenant and its capture"
+                    )
+            open_ = opened(suite)
+            done = suggest_for(
+                perimeter,
+                open_.loaded.suite,
+                suite_file=open_.path,
+                module=open_.loaded.module,
+                repository=None,
+                write=False,
+            )
+            command = ["digline", "suggest", "--suite", suite]
+        else:
+            assert name is not None
+            done = suggest_new(
+                perimeter,
+                name,
+                tenant=tenant_named(tenant) if tenant is not None else None,
+                repository=repository,
+                here=perimeter,
+                write=False,
+            )
+            command = [
+                "digline", "suggest", "--suite", name,
+                "--tenant", str(tenant), "--repository", str(repository),
+            ]  # fmt: skip
+        assert done.facts is not None
+        return suggest_answer(
+            suggest_json(
+                done.facts,
+                command=shlex.join(command),
+                with_model=shlex.join([*command, "--model", "provider/model"]),
+            ),
+            root=perimeter,
+            mint=answering(),
+        )
+
     @answered
     def run(
         suite: str,
@@ -579,9 +746,10 @@ def build_server(
     # definition. The decorator form leaves every tool a function that is
     # defined and never referenced, which pyright strict reports and which is
     # also, read literally, true — the registration is a side effect. Listing
-    # them makes the surface one thing to read: **eight entries, and none of
-    # them writes.** `explain` and `log` arrived together so the count moved
-    # once. (ADR 0020 §9)
+    # them makes the surface one thing to read: **thirteen entries, and none
+    # of them writes.** `explain` and `log` arrived together so the count
+    # moved once (ADR 0020 §9), and the five of the first verbs together so it
+    # moved once more (ADR 0011 §1, as noted 2026-11-06).
     for name, fn, hints in (
         ("list_runs", list_runs, READS),
         ("get_run", get_run, READS),
@@ -591,6 +759,11 @@ def build_server(
         ("diff", diff, READS),
         ("explain", explain, READS),
         ("run", run, MEASURES),
+        ("where", where_, READS),
+        ("record_status", record_status, READS),
+        ("record_listing", record_listing, READS),
+        ("record_compare", record_compare_, READS),
+        ("suggest", suggest, READS),
     ):
         server.add_tool(
             _flushed(fn),

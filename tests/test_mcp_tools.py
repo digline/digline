@@ -46,7 +46,9 @@ def drive(root: Path, *server: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_every_tool_the_server_registers_answers(operator: Path) -> None:
-    """The eight, each called once, each with an answer and no error."""
+    """The thirteen, each called once, each with an answer and no error, but
+    the listing's refusal of a suite with no capture, the one the client takes
+    as an answer."""
     done = drive(
         operator,
         sys.executable,
@@ -85,7 +87,7 @@ def test_the_declared_tools_are_the_table_docs_mcp_md_shows() -> None:
     section = page.split("\n## The ", 1)[1].split("\n## ", 1)[0]
     rows = [line for line in section.splitlines() if line.startswith("| `")]
     named = sorted(line.split("`")[1] for line in rows)
-    assert len(named) == 8, named
+    assert len(named) == 13, named
     assert declared() == named
 
 

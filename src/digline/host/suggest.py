@@ -31,6 +31,7 @@ file and no stream.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 import textwrap
@@ -45,7 +46,6 @@ from digline.core.refused import RefusedError
 from digline.core.run import RecordedResponse, Run
 from digline.core.suggest import (
     PLACEHOLDER,
-    Measured,
     Merged,
     Proposed,
     budget_checks,
@@ -81,6 +81,7 @@ from digline.run.suite import Case, Suite
 from digline.store.file_store import FileResultStore, checked_name
 from digline.store.protocol import PathRefusedError
 from digline.targets.registry import installed
+from digline.wire.suggest import ProposedCheck, SuggestGroup, Suggestion
 
 __all__ = ["PROPOSAL", "SUITE_RULE", "Suggested", "suggest_for", "suggest_new"]
 
@@ -108,6 +109,8 @@ class Suggested:
 
     path: Path | None
     lines: tuple[str, ...]
+    #: What the lines are rendered from, and what the MCP server returns.
+    facts: Suggestion | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,10 +146,12 @@ def suggest_new(
     here: Path,
     model: str | None = None,
     say: Callable[[str], None] | None = None,
+    write: bool = True,
 ) -> Suggested:
     """The proposal for a suite that does not exist yet, read from the
     recordings filed under its name and written in `here`. `--tenant` and
     `--repository` are mandatory, with no default. (ADR 0063 §1, §5)
+    Without `write`, nothing is written and no assistant is asked.
 
     A name that already has runs under the tenant is a suite whose file was
     not given: digline does not look for it, and stops."""
@@ -200,6 +205,7 @@ def suggest_new(
         ),
         here / PROPOSAL,
         say,
+        write=write,
     )
 
 
@@ -213,10 +219,12 @@ def suggest_for(
     model: str | None = None,
     model_from: str = "",
     say: Callable[[str], None] | None = None,
+    write: bool = True,
 ) -> Suggested:
     """The proposal for a suite that exists, written beside its file. Its
     capture is the one used, so `--repository` is refused: the regime is
-    already declared. (ADR 0063 §1)"""
+    already declared. (ADR 0063 §1) Without `write`, nothing is written and
+    no assistant is asked."""
     if repository is not None:
         raise RefusedError(
             f"--repository is refused where the suite exists: suite "
@@ -248,6 +256,7 @@ def suggest_for(
         ),
         beside / PROPOSAL,
         say,
+        write=write,
     )
 
 
@@ -296,8 +305,14 @@ def _propose(
     source: _Source,
     target: Path,
     say: Callable[[str], None] | None = None,
+    *,
+    write: bool = True,
 ) -> Suggested:
-    if target.exists():
+    """The proposal's facts, the file written from them where `write`, and
+    the lines standard error says, rendered from the facts. Without `write`
+    nothing is written and no assistant is asked: what the MCP server
+    returns. (ADR 0011 §1, as noted 2026-11-06)"""
+    if write and target.exists():
         whose = _proposed_for(target)
         raise RefusedError(
             f"{target} is already there"
@@ -312,37 +327,30 @@ def _propose(
     eligible = list(split.eligible)
     unassigned = len(split_recordings(everything, UNASSIGNED).recordings)
     reviewed = [c for c in source.captured if c.reviewed_answer is not None]
-    lines: list[str] = []
+    common = Suggestion(
+        tenant=source.tenant,
+        suite=source.name,
+        repository=source.repository,
+        form=source.form,
+        proposal=str(target),
+        written=False,
+        unassigned=unassigned,
+    )
     if not eligible and not reviewed:
-        nothing = (
-            f"digline suggest: suite {source.name!r} of tenant "
-            f"{source.tenant!r} has no recording and no reviewed answer, so "
-            "nothing is proposed and nothing was written. "
-        )
-        if not split.recordings and any(
+        # The recorder on, with no call naming the suite, is said instead of
+        # `record on`: switching it on is not what is missing.
+        on = not split.recordings and any(
             t.on for t in recorder_status(root, source.tenant)
-        ):
-            # The recorder is on, so switching it on is not what is missing:
-            # the calls it records name another suite, or none.
-            named = sorted({r.suite for r in everything} - {UNASSIGNED})
-            lines.append(
-                nothing
-                + f"The recorder of tenant {source.tenant!r} is on, and no call "
-                f"it recorded named {source.name!r}: "
-                + (
-                    "the suites with recordings are "
-                    + ", ".join(repr(n) for n in named)
-                    if named
-                    else "no recorded call named a suite"
-                )
-            )
-        else:
-            lines.append(
-                nothing + "A suite begins where the application is recorded: digline "
-                f"record on --tenant {source.tenant}, which is yours to run"
-            )
-        lines.extend(_unassigned(unassigned, source))
-        return Suggested(path=None, lines=tuple(lines))
+        )
+        nothing = dataclasses.replace(
+            common,
+            nothing=True,
+            recorder_on=on,
+            recorded_suites=tuple(sorted({r.suite for r in everything} - {UNASSIGNED}))
+            if on
+            else (),
+        )
+        return Suggested(path=None, lines=tuple(_lines(nothing, [])), facts=nothing)
 
     runs, unread = _runs(store, source.tenant, source.name)
     # A run with no case measured nothing, and is not counted as read.
@@ -382,71 +390,139 @@ def _propose(
 
     assisted: Merged | None = None
     told: list[str] = []
-    if source.model is not None:
+    if write and source.model is not None:
         assisted, told = _assist(
             source, kept, eligible, split.recordings, reviewed, declared, say
         )
         kept = list(assisted.checks)
 
-    text = _toml(source, kept, judged, noes, calibrated, keys, assisted)
-    try:
-        with target.open("x", encoding="utf-8") as handle:
-            handle.write(text)
-    except FileExistsError:
-        raise RefusedError(
-            f"{target} appeared while the proposal was being made, and is not "
-            "overwritten (ADR 0063 §5)"
-        ) from None
+    if write:
+        text = _toml(source, kept, judged, noes, calibrated, keys, assisted)
+        try:
+            with target.open("x", encoding="utf-8") as handle:
+                handle.write(text)
+        except FileExistsError:
+            raise RefusedError(
+                f"{target} appeared while the proposal was being made, and is "
+                "not overwritten (ADR 0063 §5)"
+            ) from None
 
-    lines.append(
-        f"digline suggest: wrote {target}. It is a proposal, not a suite: no "
+    facts = dataclasses.replace(
+        common,
+        written=write,
+        setups={
+            form: tuple(setup[:8] for setup in setups)
+            for form, setups in setups_recorded(everything, source.name).items()
+        },
+        judged=judged,
+        judge_declared=judged in held,
+        plugins=() if judged in held else installed(),
+        checks=tuple(
+            ProposedCheck(
+                number=number,
+                type=check.type,
+                name=_name(check),
+                why=check.why,
+                placeholders=len(check.placeholders),
+            )
+            for number, check in enumerate(kept, start=1)
+        ),
+        already=tuple(_name(check) for check in already),
+        runs=found.runs,
+        unread=unread,
+        empty=empty,
+        placeholders=sum(len(check.placeholders) for check in kept),
+        suite_file=None if source.suite_file is None else source.suite_file.name,
+        adopted=() if source.suite_file is None else tuple(_adopted(source.suite_file)),
+        calibrated=calibrated,
+        noes=len(noes),
+        cases_file=source.cases_file,
+        counterexample_by_assistant=assisted is not None
+        and assisted.counterexample is not None,
+        assisted=assisted is not None,
+        groups=_groups(root, source, everything),
+    )
+    return Suggested(
+        path=target if write else None, lines=tuple(_lines(facts, told)), facts=facts
+    )
+
+
+def _lines(found: Suggestion, told: Sequence[str]) -> list[str]:
+    """What standard error says, rendered from the facts and nothing else,
+    with the assistant's lines, `told`, where they go."""
+    if found.nothing:
+        nothing = (
+            f"digline suggest: suite {found.suite!r} of tenant "
+            f"{found.tenant!r} has no recording and no reviewed answer, so "
+            "nothing is proposed and nothing was written. "
+        )
+        return [
+            nothing
+            + (
+                f"The recorder of tenant {found.tenant!r} is on, and no call "
+                f"it recorded named {found.suite!r}: "
+                + (
+                    "the suites with recordings are "
+                    + ", ".join(repr(n) for n in found.recorded_suites)
+                    if found.recorded_suites
+                    else "no recorded call named a suite"
+                )
+                if found.recorder_on
+                else "A suite begins where the application is recorded: digline "
+                f"record on --tenant {found.tenant}, which is yours to run"
+            ),
+            *_unassigned(found),
+        ]
+    judged = found.judged
+    lines = [
+        f"digline suggest: {'wrote' if found.written else 'would write'} "
+        f"{found.proposal}. It is a proposal, not a suite: no "
         "command of digline reads it, nothing in it is a verdict, and no "
         "answer was marked. Adopt its lines into your suite, and the commit "
-        "is yours"
-    )
-    lines.append("assumed:")
-    lines.append(f"  the form: {_form(source)}")
-    lines.extend(_setups(everything, source))
-    lines.append(f"  the judge: {_judge(source, judged, held)}")
-    if not kept:
+        "is yours",
+        "assumed:",
+        f"  the form: {_form(found.form)}",
+        *_setups(found),
+        f"  the judge: {_judge(found)}",
+    ]
+    if not found.checks:
         lines.append("  each check: none proposed beyond what the suite declares")
-    for number, check in enumerate(kept, start=1):
-        lines.append(f"  each check: {number}. {_name(check)}, {check.why}")
-    for check in already:
+    for check in found.checks:
+        lines.append(f"  each check: {check.number}. {check.name}, {check.why}")
+    for name in found.already:
         lines.append(
-            f"  each check: {_name(check)} is not proposed again: the suite "
+            f"  each check: {name} is not proposed again: the suite "
             "declares a check of that name"
         )
-    lines.append(f"  each starting number: {_numbers(kept, found, unread, empty)}")
-    if source.suite_file is not None:
-        adopted = _adopted(source.suite_file)
-        if adopted:
-            lines.append(
-                f"  each starting number: {_many(len(adopted), 'placeholder')} "
-                "you adopted "
-                + ("is still at its" if len(adopted) == 1 else "are still at their")
-                + f" most severe value, in {source.suite_file.name} at "
-                + ("line " if len(adopted) == 1 else "lines ")
-                + ", ".join(str(n) for n in adopted)
-                + ": each fails until a measured number replaces it"
-            )
+    lines.append(f"  each starting number: {_numbers(found)}")
+    if found.adopted:
+        adopted = found.adopted
+        lines.append(
+            f"  each starting number: {_many(len(adopted), 'placeholder')} "
+            "you adopted "
+            + ("is still at its" if len(adopted) == 1 else "are still at their")
+            + f" most severe value, in {found.suite_file} at "
+            + ("line " if len(adopted) == 1 else "lines ")
+            + ", ".join(str(n) for n in adopted)
+            + ": each fails until a measured number replaces it"
+        )
     lines.append(
         "  the calibration band: "
         + (
             f"the suite holds a calibration case for {judged}; none proposed"
-            if calibrated
+            if found.calibrated
             else f"a skeleton for {judged}, with the answer to paste and the "
             "band to place, strictly between 0 and 1, both yours"
         )
     )
-    built = assisted is not None and assisted.counterexample is not None
+    built = found.counterexample_by_assistant
     lines.append(
         "  the counterexample: "
         + (
-            f"{_many(len(noes), 'reviewed no', 'reviewed noes')} for {judged}, "
-            f"already in {source.cases_file}: the check must fail each"
+            f"{_many(found.noes, 'reviewed no', 'reviewed noes')} for {judged}, "
+            f"already in {found.cases_file}: the check must fail each"
             + ("; and counterexample-1, constructed by the assistant" if built else "")
-            if noes
+            if found.noes
             else "counterexample-1, constructed by the assistant and marked as "
             f"constructed: an input and the answer {judged} must refuse, both "
             "in the file"
@@ -457,14 +533,14 @@ def _propose(
         )
     )
     lines.append(
-        f"  the regime: repository = {source.repository!r}: "
+        f"  the regime: repository = {found.repository!r}: "
         + (
             "the file holds the assistant's text, which may quote what it "
             "read, so it stands where the capture's cases may (ADR 0023 §8)"
-            if assisted is not None and source.repository == "private"
+            if found.assisted and found.repository == "private"
             else (
                 "without an assistant, the file quotes no recorded input or answer"
-                if assisted is None
+                if not found.assisted
                 else "under public the assistant read no recorded input or "
                 "answer, so the file quotes none"
             )
@@ -473,9 +549,9 @@ def _propose(
         )
     )
     lines.extend(told)
-    lines.extend(_examined(root, source, everything, eligible))
-    lines.extend(_unassigned(unassigned, source))
-    return Suggested(path=target, lines=tuple(lines))
+    lines.extend(_examined(found))
+    lines.extend(_unassigned(found))
+    return lines
 
 
 #: The first line `_toml` writes, which names the suite as JSON writes it.
@@ -596,14 +672,14 @@ def _assist(
     return done, lines
 
 
-def _form(source: _Source) -> str:
-    if source.form is None:
+def _form(form: str | None) -> str:
+    if form is None:
         return (
             "suite.toml, the suite does not exist yet; the proposal is always "
             "TOML, and a target that is a function needs a suite.py "
             "(docs/declarative.md, What it cannot say)"
         )
-    if source.form == "suite.py":
+    if form == "suite.py":
         return (
             "suite.py, as the suite is; the proposal is always TOML, so its "
             "lines are translated into the suite by hand"
@@ -611,15 +687,15 @@ def _form(source: _Source) -> str:
     return "suite.toml, as the suite is; its lines are added to it by hand"
 
 
-def _setups(everything: Sequence[Recording], source: _Source) -> list[str]:
+def _setups(found: Suggestion) -> list[str]:
     """The setup in force per form, every earlier one of that form named
     beside it, and where more than one is named, the command that says how
     two of them differ. (`digline record compare`, ADR 0058 §10)"""
     forms: list[str] = []
-    by_form = setups_recorded(everything, source.name)
+    by_form = found.setups or {}
     named: list[tuple[str, str]] = []
     for form, said in ((False, "single calls"), (True, "episodes")):
-        setups = [setup[:8] for setup in by_form.get(form, ())]
+        setups = list(by_form.get(form, ()))
         if not setups:
             continue
         *earlier, in_force = setups
@@ -641,40 +717,47 @@ def _setups(everything: Sequence[Recording], source: _Source) -> list[str]:
     if pair is not None:
         lines.append(
             "  to read how two setups differ"
-            + (", once the proposal is your suite" if source.suite is None else "")
-            + f": digline record compare --tenant {source.tenant} --suite "
+            + (", once the proposal is your suite" if found.form is None else "")
+            + f": digline record compare --tenant {found.tenant} --suite "
             f"<your suite> --setup {pair[0]} {pair[1]} --show-setup"
         )
     return lines
 
 
-def _judge(source: _Source, judged: str, held: set[str]) -> str:
-    if judged in held:
-        return f"the one suite {source.name!r} declares for {judged}, unchanged"
-    plugins = installed()
+def _judge(found: Suggestion) -> str:
+    judged = found.judged
+    if found.judge_declared:
+        return f"the one suite {found.suite!r} declares for {judged}, unchanged"
     return (
         f'none read: {judged} is proposed with judge = "provider/model", a '
         "placeholder that is refused until you name the provider plugin and "
         "the model, which are yours to choose; "
         + (
-            f"the provider plugins installed here: {', '.join(plugins)}"
-            if plugins
+            f"the provider plugins installed here: {', '.join(found.plugins)}"
+            if found.plugins
             else "no provider plugin is installed here"
         )
     )
 
 
-def _numbers(kept: Sequence[Proposed], found: Measured, unread: int, empty: int) -> str:
-    placeholders = sum(len(check.placeholders) for check in kept)
+def _numbers(found: Suggestion) -> str:
     runs = (
         f"{_many(found.runs, 'run')} read"
-        + (f", {_many(unread, 'run')} that did not read back" if unread else "")
-        + (f", {_many(empty, 'run')} with no case, not counted" if empty else "")
-        if found.runs or unread or empty
+        + (
+            f", {_many(found.unread, 'run')} that did not read back"
+            if found.unread
+            else ""
+        )
+        + (
+            f", {_many(found.empty, 'run')} with no case, not counted"
+            if found.empty
+            else ""
+        )
+        if found.runs or found.unread or found.empty
         else "no run read"
     )
     return (
-        f"{runs}; {_many(placeholders, 'placeholder')}, each the strictest "
+        f"{runs}; {_many(found.placeholders, 'placeholder')}, each the strictest "
         "value its check accepts and marked in the file, failing until a "
         "measured number replaces it"
     )
@@ -715,40 +798,53 @@ def _adopted(suite_file: Path) -> list[int]:
     return found
 
 
-def _examined(
-    root: Path,
-    source: _Source,
-    everything: Sequence[Recording],
-    eligible: Sequence[Recording],
-) -> list[str]:
+def _groups(
+    root: Path, source: _Source, everything: Sequence[Recording]
+) -> tuple[SuggestGroup, ...]:
+    """The groups not yet examined: for a suite that exists, the import's
+    own listing, with how many answers no person has named; for one that
+    does not, the answers counted by shape, as the listing counts them."""
+    if source.suite is not None:
+        listing = import_listing(root, source.suite, source.module, source.tenant)
+        return tuple(
+            SuggestGroup(
+                shape=group.shape,
+                answers=len(group.answers),
+                recordings=group.recordings,
+                waiting=sum(1 for a in group.answers if a.elected is None),
+            )
+            for group in listing.groups
+        )
+    return tuple(
+        SuggestGroup(shape=shape, answers=answers, recordings=count, waiting=None)
+        for shape, answers, count in answer_counts(everything, source.name)
+    )
+
+
+def _examined(found: Suggestion) -> list[str]:
     """How many recordings and answers are not yet examined, by group, and
     the command that examines them. Counts alone: no answer is chosen."""
     lines: list[str] = []
-    if source.suite is not None:
-        listing = import_listing(root, source.suite, source.module, source.tenant)
-        for number, group in enumerate(listing.groups, start=1):
-            waiting = sum(1 for a in group.answers if a.elected is None)
-            lines.append(
-                f"not yet examined: group {number} · {_said(group.shape)} · "
-                f"{_many(waiting, 'answer')} of {len(group.answers)}, from "
+    for number, group in enumerate(found.groups, start=1):
+        lines.append(
+            f"not yet examined: group {number} · {_said(group.shape)} · "
+            + (
+                f"{_many(group.waiting, 'answer')} of {group.answers}, from "
+                f"{_many(group.recordings, 'recording')}"
+                if group.waiting is not None
+                else f"{_many(group.answers, 'answer')} from "
                 f"{_many(group.recordings, 'recording')}"
             )
+        )
+    if found.form is not None:
         lines.append(
             "to examine them: digline record import --tenant "
-            f"{source.tenant} --suite <your suite>"
+            f"{found.tenant} --suite <your suite>"
         )
-        return lines
-    for number, (shape, answers, count) in enumerate(
-        answer_counts(everything, source.name), start=1
-    ):
-        lines.append(
-            f"not yet examined: group {number} · {_said(shape)} · "
-            f"{_many(answers, 'answer')} from {_many(count, 'recording')}"
-        )
-    if eligible:
+    elif found.groups:
         lines.append(
             "to examine them, once the proposal is your suite: digline record "
-            f"import --tenant {source.tenant} --suite <your suite>"
+            f"import --tenant {found.tenant} --suite <your suite>"
         )
     return lines
 
@@ -758,13 +854,14 @@ def _said(shape: Shape) -> str:
     return f"{form}, {shape.kind or 'kind not recorded'}"
 
 
-def _unassigned(count: int, source: _Source) -> list[str]:
+def _unassigned(found: Suggestion) -> list[str]:
+    count = found.unassigned
     if not count:
         return []
     return [
-        f"{_many(count, 'call')} of tenant {source.tenant!r} named no suite "
+        f"{_many(count, 'call')} of tenant {found.tenant!r} named no suite "
         f"({UNASSIGNED}): counted, and read for nothing here. To give them "
-        f"a suite: digline record import --tenant {source.tenant} --suite "
+        f"a suite: digline record import --tenant {found.tenant} --suite "
         f"<your suite> --from {UNASSIGNED}"
     ]
 

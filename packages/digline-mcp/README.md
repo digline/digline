@@ -9,7 +9,7 @@ a baseline.
 
 Not because promotion is refused. Because there is no such tool.
 
-## The eight tools
+## The thirteen tools
 
 | tool | what it does |
 |---|---|
@@ -21,9 +21,15 @@ Not because promotion is refused. Because there is no such tool.
 | `diff` | two runs, neither of them a reference: should I switch? |
 | `explain` | one run read back as typed facts, with the exit code |
 | `run` | execute the suite, with the call count acknowledged first |
+| `where` | where the project is, and the command for the next step |
+| `record_status` | whether each tenant records, and how much |
+| `record_listing` | a suite's recorded answers, counted by the shape of the output; never a yes or a no |
+| `record_compare` | a suite's recorded answers by case and by setup, each by its number in the answer |
+| `suggest` | a first suite, proposed as facts, with the command that writes it; writes nothing, asks no model |
 
-`promote` is **absent by construction**, and so are `migrate`, `view` and
-`report`. A baseline is an *approved reference*, and `promote` writes into
+`promote` is **absent by construction**, and so are `migrate`, `view`,
+`report`, a `record import` that writes a yes or a no, and `record on` and
+`off`. A baseline is an *approved reference*, and `promote` writes into
 `.digline/<tenant>/baselines/`, which is committed — anything landing there
 arrives in somebody's diff and must arrive because they put it there. A refusal
 would be a conversation an agent could argue with; an absence is not.

@@ -60,7 +60,29 @@ CARRIES: dict[str, tuple[str, ...]] = {
         "Do not move a tolerance, declare a KIND unchecked, or drop a case to "
         "make a note go away.",
     ),
+    # The first verbs. (ADR 0011 §1, as noted 2026-11-06)
+    "where": ("the command for the next step is a proposal",),
+    "record_status": ("the command for the next step is a proposal",),
+    "record_listing": (
+        "A yes or a no about an answer is a person's too.",
+        "never give one on your own initiative",
+    ),
+    "suggest": (
+        "what an assistant costs is said before its call, and a tool has no before",
+    ),
 }
+
+
+#: The tools of the first verbs, whose descriptions name the command a person
+#: types for the same reading. (ADR 0011 §1, as noted 2026-11-06)
+FIRST_VERBS = ("where", "record_status", "record_listing", "record_compare", "suggest")
+
+
+@pytest.mark.parametrize("tool", FIRST_VERBS)
+def test_each_description_names_the_command_a_person_types(tool: str) -> None:
+    """What an agent does through one of these tools can be done again by
+    hand: its description names the command line that does it."""
+    assert "Equivalent on the command line:" in DESCRIPTIONS[tool], tool
 
 
 def test_agents_md_is_where_this_thinks_it_is() -> None:
@@ -108,6 +130,11 @@ def test_every_tool_has_a_description() -> None:
         "diff",
         "explain",
         "run",
+        "where",
+        "record_status",
+        "record_listing",
+        "record_compare",
+        "suggest",
     }
     for name, text in DESCRIPTIONS.items():
         assert len(text) > 200, f"{name} has no room for a rule in it"

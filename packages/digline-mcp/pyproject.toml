@@ -174,6 +174,16 @@ dependencies = [
     # reason as, `WITHHELD_WORDS["cost_reason"]`, is new there too. Against
     # 1.0.1 the call raises `TypeError`. 1.0.2 was on PyPI before this floor
     # named it. (ADR 0004 §8.0, item 2)
+    #
+    # **Owed at the cut: the floor raised to 1.1.0, added 2026-11-06.** The
+    # five tools of the first verbs, `where`, `record_status`,
+    # `record_listing`, `record_compare` and `suggest`, read through the
+    # host's `where`, `recorder_status`, `import_listing`, `record_compare`
+    # and `suggest_for`, and render through the wire's functions for each:
+    # all first ship in 1.1.0, which no index serves yet, and a floor may not
+    # name a release that does not exist. So it is raised in this package's
+    # own release, a minor, cut with the core's. RELEASING.md, *Owed at the
+    # cut*, holds the row. (ADR 0011 §1, as noted 2026-11-06)
     "digline>=1.0.2,<2",
     # Both halves matter. Unpinned, a resolver could hand somebody 1.x, where
     # `MCPServer` does not exist and `mcp.server.fastmcp` raises on import: the
