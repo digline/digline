@@ -335,8 +335,9 @@ test("a Bedrock retry after an error is one call", async () => {
   fake.plan.push(500);
   await suite("triage", () => bedrock(recorder).send(new ConverseCommand({ modelId: fixture.model_id, ...fixture.request })));
   await settled(recorder, 1);
+  await pause();
   assert.equal(written(made).length, 1);
-  assert.equal(recorder.counts().recorded, 1);
+  assert.deepEqual(recorder.counts(), { noted: {}, not_recorded: {}, orphan: 0, recorded: 1 });
 });
 
 test("production refuses a development file, and records under a production one", async () => {
