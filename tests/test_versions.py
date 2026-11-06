@@ -383,6 +383,12 @@ RECORDED: dict[str, dict[str, str]] = {
             "CI job through-the-proxy runs, not a digline version, held equal to "
             "recorders/node/package.json by tests/test_record_node_page.py"
         ),
+        "3.1163.0": (
+            "'@aws-sdk/client-bedrock-runtime 3.1163.0': the version of Node's "
+            "Bedrock client the CI job recorder-node runs, not a digline version, "
+            "held equal to recorders/node/package.json by "
+            "tests/test_record_node_page.py"
+        ),
     },
     "docs/record.md": {
         "1.0.3": (

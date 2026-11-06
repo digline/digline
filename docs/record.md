@@ -528,8 +528,8 @@ which no list, import or compare reads
 ([the recording's format](recording-format.md#a-run-in-progress-the-gates-calls)).
 
 **Each process writes one subdirectory per tenant**, however many clients it
-wraps: `recordings/p<pid>-…/` from Python, `recordings/j<pid>-…/` from Java;
-the format leaves the name free. digline's recorder keeps its counts there
+wraps: `recordings/p<pid>-…/` from Python, `recordings/j<pid>-…/` from Java,
+`recordings/n<pid>-…/` from Node; the format leaves the name free. digline's recorder keeps its counts there
 beside its recordings, so the status reads them from any process. With
 `--suite`, it also says how many recordings the suite gained since its last
 import. In the application, `client.digline_counts` gives the counts of that

@@ -643,6 +643,67 @@ jobs:
           uv run --no-sync pytest -o pythonpath=. -v
           tests/test_recorder_java.py::test_what_the_java_recorder_wrote_is_imported_by_digline_alone
 
+  recorder-node:
+    name: The Node recorder writes what digline reads
+    # The Node recorder's contract, held where it is written (ADR 0062 §4, as
+    # amended 2026-11-06). `recorders/node/digline/` holds the files an
+    # application copies, and `recorders/node/` the tests that hold them. Two
+    # halves, as `recorder-java`:
+    #
+    # - the Node tests hold the writer to the fixtures digline's own Python
+    #   makes, in `recorders/fixtures/` (a setup's digest, a float's text, a
+    #   switch's sentences, one recorded call byte for byte, and each hook's
+    #   reading of a call off the wire against its provider's map); run each
+    #   hook on its SDK's real client against a fake provider; run the lines
+    #   `docs/record-node.md` quotes; and write a tenant's recordings into a
+    #   directory of the runner's;
+    # - `tests/test_recorder_node.py` then imports those files with digline
+    #   alone, no plugin installed, and reads `record status` say *not
+    #   counted*, since a writer outside Python keeps no counts file.
+    #
+    # On every pull request and on the queue's ref, with no filter on paths, as
+    # `recorder-java`. Not required: that is the ruleset's, and a person rules
+    # it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: recorders/node/package-lock.json
+
+      - name: Node's SDKs, at the versions recorders/node/package-lock.json holds
+        # No install scripts: the tests need the SDKs' code, not what an
+        # install would run.
+        run: npm ci --prefix recorders/node --ignore-scripts --no-audit --no-fund
+
+      - name: The Node tests, writing the recordings the import reads
+        env:
+          DIGLINE_NODE_IMPORT_ROOT: ${{ runner.temp }}/node-recordings
+        run: npm test --prefix recorders/node
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: digline alone
+        # No --all-packages: the root project and its dev group, and none of
+        # the plugins under packages/. The test asserts they are absent.
+        run: uv sync --locked
+
+      - name: digline imports what Node wrote
+        env:
+          DIGLINE_NODE_RECORDINGS: ${{ runner.temp }}/node-recordings
+          # Set beside the directory, so that this run fails where the test
+          # would otherwise skip.
+          DIGLINE_NODE_REQUIRED: "1"
+        # `-o pythonpath=.`, as in `recorder-java`: digline alone.
+        run: >-
+          uv run --no-sync pytest -o pythonpath=. -v
+          tests/test_recorder_node.py::test_what_the_node_recorder_wrote_is_imported_by_digline_alone
+
   through-the-proxy:
     name: Other languages' SDKs are recorded through the proxy
     # The lines a page per language quotes, run (ADR 0062 §5): Node's openai
@@ -678,7 +739,7 @@ jobs:
           cache-dependency-path: recorders/node/package-lock.json
 
       - name: Node's SDKs, at the versions recorders/node/package-lock.json holds
-        run: npm ci --prefix recorders/node --no-audit --no-fund
+        run: npm ci --prefix recorders/node --ignore-scripts --no-audit --no-fund
 
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:

@@ -133,7 +133,9 @@ updates:
   # The SDKs the CI job `through-the-proxy` sends through `digline record
   # proxy` (ADR 0062 §5): Node's, and LangChain4j's in Java. Their own entries
   # and groups, so a bump arrives apart and the job says on that pull request
-  # whether the proxy still records what the new version sends.
+  # whether the proxy still records what the new version sends. Node's are
+  # also the SDKs the Node recorder's hooks hook (ADR 0062 §4, as amended
+  # 2026-11-06), and the job `recorder-node` says whether they still read them.
   - package-ecosystem: npm
     directories:
       - /recorders/node
