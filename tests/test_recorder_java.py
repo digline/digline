@@ -202,6 +202,32 @@ def test_every_java_block_on_the_page_is_one_the_java_tests_run() -> None:
     assert [_lines(block) for block in page] == [_lines(block) for block in run]
 
 
+MARK = "> **Arrives with digline 1.1.**"
+FROM_THE_REPOSITORY = (
+    'uv tool install "digline @ git+https://github.com/digline/digline"'
+)
+
+
+def test_the_install_line_from_the_repository_carries_the_mark() -> None:
+    """Until 1.1.0 is on PyPI, *Install the digline CLI* installs digline from
+    this repository, and the mark that says why stands right above that line.
+    The cut takes both out together (RELEASING.md, *Owed to the next
+    version*): a mark with no such line, or such a line with no mark, is a
+    page cut halfway."""
+    page = PAGE.read_text(encoding="utf-8")
+    section = page.split("## Install the digline CLI", 1)[1].split("\n## ", 1)[0]
+    marked, from_repository = MARK in section, FROM_THE_REPOSITORY in section
+    assert marked == from_repository, (marked, from_repository)
+    if marked:
+        beside = re.search(
+            re.escape(MARK)
+            + r"[^\n]*(?:\n>[^\n]*)*\n\n```console\n\$ "
+            + re.escape(FROM_THE_REPOSITORY),
+            section,
+        )
+        assert beside, "the mark is not right above the line it explains"
+
+
 SUITE = """\
 [suite]
 tenant = "t"

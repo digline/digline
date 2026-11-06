@@ -155,6 +155,10 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **`digline record import` says the cases file from the repository**, in
   the declaration and in the line after a write, the same from a `suite.py`
   and a `suite.toml`: one printed it whole and the other as typed.
+- **`digline record import` writes a `suite.toml`'s cases file beside the
+  suite when `--root` is elsewhere.** With both paths relative, the file was
+  written under the root, and the suite then refused to load for the cases
+  it did not load.
 - **One stylesheet for the HTML report and the view, and the report's look
   changes with it**: system fonts, tabular figures, and a light and a dark
   theme from `prefers-color-scheme`. `digline report` still writes one
