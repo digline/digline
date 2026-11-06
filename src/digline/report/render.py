@@ -86,6 +86,8 @@ __all__ = [
     "run_tally",
     "calibration_fact",
     "calibration_section",
+    "contradicted_answers",
+    "contradicted_said",
     "reviewed_fact",
     "reviewed_section",
     "scale_lost",
@@ -1383,33 +1385,89 @@ def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:
 
 
 def _directed(found: Sequence[Contradiction], direction: Against) -> int:
-    return sum(1 for c in found if c.direction == direction)
+    """How many reviewed answers were contradicted in `direction`: answers,
+    not checks, because ADR 0059 §1 counts the cases. One answer whose steps
+    went red on two checks is one answer failed where a person said yes."""
+    return len({c.case_id for c in found if c.direction == direction})
+
+
+def contradicted_answers(found: Sequence[Contradiction]) -> int:
+    """How many reviewed answers `found` contradicts, each counted once
+    however many checks contradicted it."""
+    return len({c.case_id for c in found})
+
+
+def contradicted_said(found: Sequence[Contradiction], locale: Locale) -> str:
+    """Who contradicted a person, and on how many reviewed answers: the judge,
+    through the check an answer was reviewed for, or a check on the steps
+    beside it, named with its case; both where both did. Lower case and with
+    no full stop, so a caller opens and closes it as its line needs.
+
+    The one sentence `digline run` says beside the bill and `explain` at the
+    top of what it found, so the two cannot name the same run's contradictions
+    two ways. (ADR 0059 §1, amended 2026-11-05)"""
+    judge = [c for c in found if not c.on_the_steps]
+    steps = [c for c in found if c.on_the_steps]
+    parts: list[str] = []
+    if judge:
+        answers = len({c.case_id for c in judge})
+        parts.append(
+            phrase(locale, f"fact.contradicted.{_many(answers)}", count=answers)
+        )
+    if steps:
+        answers = len({c.case_id for c in steps})
+        parts.append(
+            phrase(
+                locale,
+                f"fact.contradicted.steps.{_many(len(steps))}",
+                answers=phrase(
+                    locale, f"fact.contradicted.answers.{_many(answers)}", count=answers
+                ),
+                checks="; ".join(
+                    phrase(
+                        locale,
+                        "fact.contradicted.step_check",
+                        check=c.check,
+                        case=c.case_id,
+                    )
+                    for c in steps
+                ),
+            )
+        )
+    return "; ".join(parts)
+
+
+def _many(count: int) -> str:
+    return "one" if count == 1 else "many"
 
 
 def reviewed_fact(found: Sequence[Contradiction], locale: Locale) -> str:
     """The clause a contradicted reviewed answer earns, or nothing at all.
 
-    Silent when the judge agreed with every person, and when a suite declares
-    no reviewed answer, for the canary's reason. The two directions are
-    counted apart, because a judge too lenient and a judge too strict are two
-    faults. (ADR 0059 §1)
+    Silent when every check agreed with every person, and when a suite
+    declares no reviewed answer, for the canary's reason. It opens with
+    `contradicted_said`, the sentence `run` and `explain` say, so the three
+    cannot name one run's contradictions three ways, and it counts answers,
+    not checks. Then each contradiction, with its direction, because a judge
+    too lenient and a judge too strict are two faults. (ADR 0059 §1, amended
+    2026-11-05)
     """
     if not found:
         return ""
-    if len(found) == 1:
-        first = found[0]
-        return phrase(
-            locale,
-            f"fact.reviewed.one.{first.direction}",
-            case=first.case_id,
-            check=first.check,
-        )
+    said = contradicted_said(found, locale)
     return phrase(
         locale,
-        "fact.reviewed.many",
-        count=len(found),
-        passed_no=_directed(found, "passed_no"),
-        failed_yes=_directed(found, "failed_yes"),
+        f"fact.reviewed.{_many(contradicted_answers(found))}",
+        said=said[:1].upper() + said[1:],
+        cases="; ".join(
+            phrase(
+                locale,
+                f"explain.tally.reviewed.{c.direction}",
+                case=c.case_id,
+                check=c.check,
+            )
+            for c in found
+        ),
     )
 
 

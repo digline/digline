@@ -530,7 +530,8 @@ def _next_command(
 
     **Nor where the run's own exit is not 0** (`run_exit_code`): the caller
     passes `promotable` false then, and `contradicted` where that exit is a
-    judge that contradicted a person, which `explain` names.
+    check that contradicted a person, the judge or one on the steps, which
+    `explain` names.
     """
     if baseline_found and args.accepting_baseline_schema is not None:
         words = ["digline", "migrate", "--suite", args.suite]
@@ -545,7 +546,7 @@ def _next_command(
     else:
         words = ["digline", "explain", "--suite", args.suite, "--run", "latest"]
         does = (
-            "reads this run back; the judge contradicted a person"
+            "reads this run back; a check contradicted a person"
             if contradicted
             else "reads this run back; promote would refuse it"
         )
