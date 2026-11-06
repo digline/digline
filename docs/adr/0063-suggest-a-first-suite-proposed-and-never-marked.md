@@ -1,11 +1,13 @@
 # ADR 0063 — `digline suggest`: a first suite, proposed and never marked
 
-- Status: proposed 2026-11-06. **Its decisions were ruled before this record
-  was written**, by Alessandro Prandini on 2026-11-06 (P-1548), on a table of
+- Status: accepted 2026-11-06, by Alessandro Prandini (P-1549), with every
+  item marked *decided here* taken and one amendment before it landed: a
+  suite that does not exist yet moved from *Not decided here* into §1 and §5.
+  Proposed 2026-11-06. **Its decisions were ruled before this record was
+  written**, by Alessandro Prandini on 2026-11-06 (P-1548), on a table of
   seven questions measured against the code at `18b2c1be`. They are stated
   here as ruled, in this record's own words. **What this record adds is
-  marked *decided here***, for acceptance to take or remove item by item.
-  Nothing in it is implemented
+  marked *decided here***. Nothing in it is implemented
 - Shipped: unreleased
 - Date: 2026-11-06
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
@@ -90,6 +92,22 @@ there are and the command that assigns them.
 With no recording and no reviewed answer it proposes nothing, and says where
 a suite begins: `digline record on`, which stays the person's act.
 
+**A suite that does not exist yet.** *Ruled at acceptance (P-1549).* The
+command reads the recordings even where no file of the suite exists, because
+the recorder writes them by the suite's name (ADR 0058 §2). *Measured:* they
+are filed by process, under `.digline/<tenant>/recordings/<process>/`, and the
+name is each file's `suite` field (`docs/recording-format.md`), so the command
+reads the files whose `suite` names S, across the tenant's process
+directories. Then:
+
+- **`--repository private|public` is mandatory and has no default**, as
+  ADR 0059 §4 has it for a capture: the declaration is the person's. The
+  proposed `[capture]` carries it;
+- *decided here:* **`--tenant T` is mandatory too**, because with no suite
+  there is no declared tenant to find the recordings under;
+- where the suite exists, its capture is the one used, and **`--repository`
+  is refused** by name: the regime is already declared.
+
 ### 2. What it proposes
 
 *Ruled.* One file of proposal, holding:
@@ -158,8 +176,10 @@ and the gate uses no word the assistant wrote until a person adopts it.
 
 ### 5. Where it lives
 
-*Ruled.* **The verb `digline suggest --suite S`, in the core.** It writes
-`suite.proposed.toml` beside the suite, **always TOML**, a `suite.py`
+*Ruled.* **The verb `digline suggest --suite S`, in the core.** `S` is a
+suite's file, or, where no file exists yet, the suite's name, with `--tenant`
+and `--repository` (§1). It writes `suite.proposed.toml` beside the suite, or,
+*decided here*, in the working directory where there is no suite yet, **always TOML**, a `suite.py`
 included, and says so on standard error, with what it assumed: the form, the
 setup in force, the judge it read, each check and why, each number and where
 it came from, the calibration band left to place, the counterexample. These
@@ -241,8 +261,6 @@ first and it is never the judge, so no verdict depends on it.
 - **Choosing cases, or answers to review**, which amends ADR 0023 §4 and ADR
   0059 §3.
 - **The read-only view** at the page.
-- **A suite that does not exist yet**: `--suite S` names a suite that loads,
-  because its capture says where the recordings and the cases are.
 - **`--json` and an MCP tool**, beyond §6's rule for them.
 
 ## Test plan
@@ -260,6 +278,10 @@ first and it is never the judge, so no verdict depends on it.
   it.
 - `_unassigned` calls are counted and never quoted, and never reach the
   assistant.
+- A suite that does not exist: with `--tenant` and `--repository` the command
+  writes the proposal, its `[capture]` carrying the regime given; without
+  `--repository` it refuses and names the flag. Where the suite exists,
+  `--repository` is refused.
 - With no model declared, no call is made; with one, the cost is said before
   the first call.
 - Under `"public"`, no recorded text is in the file; under either regime,

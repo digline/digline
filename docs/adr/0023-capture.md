@@ -588,7 +588,7 @@ record's authority. So this record amends nothing about the regime, although
 it was written to.
 
 *Noted 2026-11-06 ([ADR 0063](0063-suggest-a-first-suite-proposed-and-never-marked.md)
-§6, proposed), and the section above kept as written.* **The file of proposal
+§6, accepted), and the section above kept as written.* **The file of proposal
 `digline suggest` writes follows this regime**: it quotes recorded inputs and
 answers, so it stands where the suite's capture declares the cases may. Under
 `"public"` it holds the rules and the counts and no recorded text, and the

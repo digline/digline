@@ -273,7 +273,7 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "client's calls do not exist"
     ),
     "0063-suggest-a-first-suite-proposed-and-never-marked": (
-        "proposed, and nothing of it is built: no `digline suggest` verb, no "
+        "accepted, and nothing of it is built: no `digline suggest` verb, no "
         "`[suggest]` table, no file of proposal. Meant for 1.1"
     ),
 }
