@@ -536,6 +536,10 @@ in the list.
 3. **The rich import**: proposing an assertion from the shape of the output
    and sampling by output (*Not decided here*).
 
+   *Noted 2026-11-06 ([ADR 0063](0063-suggest-a-first-suite-proposed-and-never-marked.md),
+   proposed), and the item above kept as written:* its first half is
+   `digline suggest`, and its second is still open.
+
 At the end of November 2026 what exists is looked at, and whether anything of
 it moves to a later release is decided then, not here.
 
@@ -614,6 +618,14 @@ land in `_unassigned` (§10).
   to do (*nothing ranked, scored, starred or pre-selected*), and an expected
   read from the recorded response may be what 0023 §11 item 1 forbids. Built
   third (§13), and ruled before it is.
+
+  *Noted 2026-11-06 ([ADR 0063](0063-suggest-a-first-suite-proposed-and-never-marked.md),
+  proposed), and the item above kept as written.* **The half that proposes
+  checks is ruled there**: `digline suggest` proposes checks from the shape
+  of the output and the steps, in a file no command reads until a person
+  adopts its lines, and chooses no case. **The half that samples recordings
+  into cases stays open**: ADR 0023 §4 is not amended, and nothing is
+  pre-selected.
 - **How a suite declares recordings as its source.** ADR 0023 §3 declares a
   source in Python with a reader; recordings are read by digline. Whether the
   declaration still has to be code is 0023 §3's question, asked again.
