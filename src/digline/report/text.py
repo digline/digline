@@ -347,23 +347,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "compared on."
         ),
         "fact.calibration.across": " across {count} samples ({values})",
-        # Beside the calibration clause, and as plain: a person said yes or no
-        # and the judge said the other. The two directions are worded apart,
-        # because a judge too lenient and one too strict are two faults.
-        # (ADR 0059 §1)
-        "fact.reviewed.one.passed_no": (
-            "The judge passed the reviewed answer {case} for {check}, which a "
-            "person said no to: it contradicts the person, and the case fails."
-        ),
-        "fact.reviewed.one.failed_yes": (
-            "The judge failed the reviewed answer {case} for {check}, which a "
-            "person said yes to: it contradicts the person, and the case fails."
-        ),
-        "fact.reviewed.many": (
-            "The judge contradicted a person on {count} reviewed answers: it "
-            "passed {passed_no} the person said no to and failed {failed_yes} "
-            "the person said yes to, and each of those cases fails."
-        ),
+        # Beside the calibration clause, and as plain: who contradicted a
+        # person, in `contradicted_said`'s words, which `run` and `explain` say
+        # too, then each contradiction with its direction, because a judge too
+        # lenient and one too strict are two faults. One and many count
+        # answers, not checks. (ADR 0059 §1, amended 2026-11-05)
+        "fact.reviewed.one": "{said}, and the case fails: {cases}.",
+        "fact.reviewed.many": "{said}, and each of those cases fails: {cases}.",
         # First in the sentence, before any count: a run that does not know what
         # it measured qualifies every number after it. Named, because "1 check
         # short" sends somebody hunting and the name ends the question.
@@ -2104,19 +2094,8 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "vengono confrontati."
         ),
         "fact.calibration.across": " su {count} campioni ({values})",
-        "fact.reviewed.one.passed_no": (
-            "Il giudice ha promosso la risposta rivista {case} per {check}, a cui "
-            "una persona ha detto no: contraddice la persona, e il caso fallisce."
-        ),
-        "fact.reviewed.one.failed_yes": (
-            "Il giudice ha bocciato la risposta rivista {case} per {check}, a cui "
-            "una persona ha detto sì: contraddice la persona, e il caso fallisce."
-        ),
-        "fact.reviewed.many": (
-            "Il giudice ha contraddetto una persona su {count} risposte riviste: "
-            "ne ha promosse {passed_no} a cui la persona ha detto no e bocciate "
-            "{failed_yes} a cui ha detto sì, e ciascuno di quei casi fallisce."
-        ),
+        "fact.reviewed.one": "{said}, e il caso fallisce: {cases}.",
+        "fact.reviewed.many": "{said}, e ciascuno di quei casi fallisce: {cases}.",
         "fact.unreconciled.one": (
             "L'esecuzione non torna con ciò che la suite ha chiesto, in 1 "
             "controllo: {gaps}. Non è una regressione: non si sa che cosa "
