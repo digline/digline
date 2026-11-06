@@ -31,6 +31,16 @@ are in digline's repository, under `docs/`.
 Before choosing anything, find out what the application answers and what a
 person already said about it.
 
+- **Start from `digline suggest`.** `digline suggest --suite <suite>`
+  writes `suite.proposed.toml` beside the suite: the checks every recording
+  holds, the limits the runs measured or a placeholder marked as one, a
+  counterexample and a calibration skeleton, and on standard error what it
+  assumed (`docs/suggest.md`). Where there is no suite yet, give its name with
+  `--tenant <tenant>` and `--repository`, `private` or `public`: whether the
+  cases stay inside the perimeter of whoever owns the text is the person's to
+  say, so ask. It marks nothing, and no command of digline reads the file.
+  It is your starting point and a proposal too: the steps below read what
+  it could not, and the person adopts its lines.
 - **The recordings.** `digline record status` says, per tenant, whether the
   recorder is on and how many calls it holds for each suite name
   (`docs/record.md`). No recordings is not a dead end: the suite can start

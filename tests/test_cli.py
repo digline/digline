@@ -1910,6 +1910,7 @@ PARSES: dict[str, tuple[str, ...]] = {
     "log": ("--suite", "s.py"),
     "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
     "record": ("status",),
+    "suggest": ("--suite", "s.py"),
 }
 
 #: The subcommands that take no `--suite`: `record` addresses a tenant's

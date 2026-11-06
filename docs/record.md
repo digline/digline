@@ -536,6 +536,10 @@ not known, which is not the same as nothing.
 
 ## From recordings to cases: `digline record import`
 
+**The first step is [`digline suggest`](suggest.md)**, which proposes the
+suite these cases run in, its `[capture]` included, from the recordings
+themselves, and marks nothing. Then the import below, which is yours.
+
 The suite declares where its captured cases go, under which regime and for
 which judged check, and loads that file beside its own cases. In a `suite.py`:
 
@@ -646,7 +650,7 @@ beside the other ways of reading a judge, calibration cases, the labelled
 aggregates and `Repeated`, is [Calibrating a judge](calibration.md).
 
 A coding agent can propose the suite these cases run in, by digline's
-method, and leave the yes and no to you:
+method and from the same first proposal, and leave the yes and no to you:
 [Letting an agent propose a suite](proposing-a-suite.md).
 
 Recordings of another tenant than the suite's are refused before anything is

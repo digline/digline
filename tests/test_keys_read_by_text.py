@@ -171,6 +171,17 @@ KNOWN: dict[Use, tuple[int, str]] = {
         "a step's actor, read off `metadata['response']['steps']`, a live "
         "response, which no projection reaches (ADR 0060 §4)",
     ),
+    ("digline.core.suggest", "measured", "model"): (
+        1,
+        "a step's actor, read off a run's recorded responses, which a "
+        "projection drops whole (ADR 0063 §2)",
+    ),
+    ("digline.core.suggest", "step_checks", "model"): (
+        1,
+        "the actor `max_steps` is proposed to count, a word of digline's "
+        "written into a file of proposal, never read from a document "
+        "(ADR 0063 §2)",
+    ),
 }
 
 
