@@ -291,7 +291,8 @@ def test_without_a_model_the_output_is_the_rules_alone_byte_for_byte(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """The fixtures are what the command wrote at 4c1a4960, before the
-    assistant: a model never declared changes nothing, on the file or on
+    assistant, regenerated since only for the corrections to its lines that
+    followed it: a model never declared changes nothing, on the file or on
     standard error."""
     from tests._providers import REGISTERED
 
@@ -322,10 +323,13 @@ def test_without_a_model_the_output_is_the_rules_alone_byte_for_byte(
     assert said.err.replace(str(here), "<here>") == (
         FIXTURES / f"{fixture}.err"
     ).read_text(encoding="utf-8")
-    assert "assistant" not in said.err
-    # The suite's own judge is the only provider looked up, and only where a
-    # suite exists to load it.
-    assert looked == (["registry"] if fixture == "existing" else [])
+    # No line of the assistant's: the regime's line names one only to say
+    # there is none.
+    assert "assistant:" not in said.err
+    # Where a suite exists, its own judge is the provider looked up; where
+    # none does, the judge's line lists the plugins installed, from their
+    # metadata, and loads none.
+    assert looked == ["registry"]
 
 
 # The declaration.
