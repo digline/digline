@@ -19,7 +19,8 @@ fixes it.
   in `source_tenant`, and a file whose tenant is not its directory's is
   refused.
 - **`<process>`** is a directory of the writing process's own, one per
-  process. Its name is free. digline's recorder writes `p<pid>-<8 hex>`.
+  process: `p<pid>-<8 hex>` from Python's recorder, `j<pid>-<8 hex>` from
+  Java's; the format leaves the name free.
 - **`<name>`** is free, ends in `.json` and does not start with a dot. Files
   are read in the order their paths sort, so name them to sort in the order
   they were written: digline writes `000001.json`, `000002.json` and so on.
