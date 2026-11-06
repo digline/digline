@@ -203,7 +203,9 @@ def test_every_java_block_on_the_page_is_one_the_java_tests_run() -> None:
 
 
 MARK = "> **Arrives with digline 1.1.**"
-FROM_THE_REPOSITORY = 'uv tool install "digline @ git+https://github.com/digline/digline"'
+FROM_THE_REPOSITORY = (
+    'uv tool install "digline @ git+https://github.com/digline/digline"'
+)
 
 
 def test_the_install_line_from_the_repository_carries_the_mark() -> None:
@@ -218,7 +220,8 @@ def test_the_install_line_from_the_repository_carries_the_mark() -> None:
     assert marked == from_repository, (marked, from_repository)
     if marked:
         beside = re.search(
-            re.escape(MARK) + r"[^\n]*(?:\n>[^\n]*)*\n\n```console\n\$ "
+            re.escape(MARK)
+            + r"[^\n]*(?:\n>[^\n]*)*\n\n```console\n\$ "
             + re.escape(FROM_THE_REPOSITORY),
             section,
         )
