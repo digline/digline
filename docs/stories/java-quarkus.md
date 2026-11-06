@@ -14,8 +14,8 @@ that calls `converse` or `invokeModel` with an Anthropic model.
 Everything on this page was run, on 2026-11-06, with digline installed from
 this repository at `b28fdef8`, Quarkus 3.40.1.1 and the SDK 2.57.8. **No call
 reached AWS or a model.** A stand-in for Bedrock on 127.0.0.1 answered the
-application and the judge, and every answer, score and cost below is the
-stand-in's. The SDK and the judge were pointed at it with
+application and the judge, and every answer, score and token count below is
+the stand-in's. The SDK and the judge were pointed at it with
 `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`, which both read; on your machine that
 variable is left out and Bedrock answers. Paths are shortened to `…`.
 
