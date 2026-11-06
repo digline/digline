@@ -29,6 +29,9 @@ are filed under, and where its captured cases may live:
 $ digline suggest --suite triage --tenant acme --repository private
 ```
 
+With `--model provider/model`, an assistant writes into the proposal what the
+rules leave as placeholders (below).
+
 The proposal is written in the directory you run from. `--tenant` and
 `--repository` are mandatory here, with no default: there is no suite to read
 the tenant from, and whether the cases file stays inside the perimeter of
@@ -115,6 +118,72 @@ how many recordings and answers are not yet examined, by group, and the
 command that examines them. Choosing which recordings become cases is a
 pre-selection, which [ADR 0023](adr/0023-capture.md) §4 forbids.
 
+## The assistant
+
+A model of its own, never the suite's judge, asked once for what the rules
+cannot know: a rubric for the judged check, a sentence on why each check is
+there, limits in place of the placeholders, and a counterexample. It is
+declared, or nothing is called:
+
+```toml
+[suggest]
+model = "anthropic/claude-haiku-4-5"
+```
+
+in a `suite.toml`, by coordinates as [a judge is](declarative.md#the-judge-by-coordinates),
+or with `--model`, which wins over it. A `suite.py` and a suite that does not
+exist yet take `--model` alone. `[suggest]` is outside the suite: no run reads
+it, and the suite's `config_hash` is the same with it or without it.
+
+**What it costs is said before the call**, and not asked:
+
+```console
+$ digline suggest --suite eval/suite.toml --model anthropic/claude-haiku-4-5
+assistant: anthropic/claude-haiku-4-5, from --model
+assistant: 1 call to anthropic/claude-haiku-4-5, 42 recordings and 7 reviewed answers, about 31,000 input tokens (at the ratio the suite's recordings report) and at most 4,000 output; at most $0.05
+```
+
+The figures above are an example. The input tokens are estimated at the ratio
+of tokens to characters that the suite's recordings report, or at 4
+characters a token where none reports one, which is a convention and is said
+as one. A model the plugin's price list does not know is refused before the
+call: the judge's call it goes through refuses a reply it cannot price, once
+that reply is paid for.
+
+**What it reads follows the capture's regime:**
+
+- **`"private"`**: the suite's recordings, their input, answer, kind and
+  steps, and the reviewed answers, whole. That is at most 50 recordings and
+  200,000 characters, the newest of the setups in force first, each whole and
+  never cut; standard error says how many were left out.
+- **`"public"`**: the shape, not the text. That is the kinds, the finishes,
+  the tools declared and called, the checks already proposed, which carry the
+  JSON keys and the regularities of the steps, and counts, of the reviewed
+  answers how many yes and how many no. No input, no answer and no step's
+  arguments reach it.
+
+The calls no suite named are never given to it, under either regime.
+
+**What it writes is merged, never obeyed.** It names the checks the proposal
+already holds, and may write into them:
+
+- a rubric for a judged check;
+- a sentence of why beside a check;
+- a limit in place of a placeholder, or stricter than one a run measured;
+- a counterexample: an input and the answer the suite must refuse.
+
+Each is marked as the assistant's in the file. These are discarded, and
+standard error counts each by reason:
+
+- a check of its own;
+- a key outside the reply's form, `[capture]` or a case among them;
+- a limit less strict than the runs measured;
+- a value its check does not accept.
+
+A reply that is no JSON object is not used at all. Its counterexample is asked
+of the checks that need no judge, and where none refuses it, standard error
+says that only the judge can.
+
 ## What it says
 
 On standard error, what it assumed, in the words of the fifth step of
@@ -134,15 +203,13 @@ promotion, and it writes no file but `suite.proposed.toml`. Your suite and
 its cases file are byte for byte what they were, and the suite loads to the
 same `config_hash`. The yes and the no are yours, and so is the commit.
 
-The file quotes no recorded input or answer, under either regime: it holds
-the rules read from the recordings and the placeholders you fill. A file of
+Without an assistant, the file quotes no recorded input or answer, under
+either regime: it holds the rules read from the recordings and the
+placeholders you fill. With one under `"private"`, the assistant's text may
+quote what it read. A file of
 proposal stands where the suite's capture says its cases may
 ([ADR 0023](adr/0023-capture.md) §8).
 
 ## Not yet
 
-- **An assistant**: a model of its own, declared under `[suggest]`, that
-  drafts a rubric, says why each check is there and fills the placeholders.
-  [ADR 0063](adr/0063-suggest-a-first-suite-proposed-and-never-marked.md) §4
-  rules it, and it is not built.
 - A `--json`, an MCP tool, and a view at the page.

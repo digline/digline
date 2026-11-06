@@ -316,7 +316,16 @@ class JudgeBase(ABC):
         return self.uncounted_calls == 0 and self.unpriced_calls == 0
 
     def _ask(self, prompt: str) -> Mapping[str, Any]:
-        """One judging call: timed, priced, counted, parsed.
+        """One judging call, under this judge's own instruction."""
+        return self._ask_as(self.system, prompt)
+
+    def _ask_as(self, system: str, prompt: str) -> Mapping[str, Any]:
+        """One call under `system`: timed, priced, counted, parsed.
+
+        The judging call's body, with the instruction as an argument, so that
+        `digline suggest`'s assistant is asked through the same code that
+        prices and counts a judge, and not a second path (ADR 0063 §4). The
+        reply is still one JSON object, read leniently.
 
         A call that raises is *not* counted. Its cost is unknown, and counting
         it at zero would be the undercount that reads as good news. It is
@@ -328,7 +337,7 @@ class JudgeBase(ABC):
         try:
             # Read through `as_completion`: a plugin may still return the pair,
             # and always may (ADR 0004 §6).
-            reply = as_completion(self._complete(self.system, prompt))
+            reply = as_completion(self._complete(system, prompt))
         except BaseException:
             # Every exception, an interrupt included: the call left, and it is
             # on no line. Re-raised unchanged. (#563)

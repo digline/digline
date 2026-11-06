@@ -16,6 +16,12 @@ measured number replaces it. A placeholder is never a default that passes
 **What a proposal says of itself is digline's words**: kinds, counts and the
 names of checks. A tool's name or a key read from a recording goes into a
 check's parameters, which is the rule, and into no sentence (ADR 0063 §6).
+
+**What an assistant replies is merged, never obeyed** (§4): `merged` takes
+from its reply a rubric for a judged check, a sentence of why beside a check,
+a limit in place of a placeholder or stricter than the runs measured, and a
+constructed counterexample. Anything else, a check of its own among them, is
+discarded and counted.
 """
 
 from __future__ import annotations
@@ -28,12 +34,16 @@ from typing import cast
 from digline.core.run import RecordedResponse, Run, restore_output
 
 __all__ = [
+    "LIMITS",
     "PLACEHOLDER",
+    "Counterexample",
     "Measured",
+    "Merged",
     "Proposed",
     "declared_tools",
     "judged_check",
     "measured",
+    "merged",
     "shape_checks",
     "step_checks",
 ]
@@ -64,6 +74,11 @@ class Proposed:
     params: Mapping[str, object]
     why: str
     placeholders: tuple[str, ...] = ()
+    #: The assistant's sentence of why, where it wrote one, said beside
+    #: digline's and never in place of it.
+    said: str = ""
+    #: The parameters the assistant wrote, each marked as its in the file.
+    assisted: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -504,4 +519,229 @@ def judged_check(name: str, found: Measured) -> Proposed:
             "inner.tolerance",
             *(("inner.threshold",) if placeholder else ()),
         ),
+    )
+
+
+# What an assistant replies. (ADR 0063 §4)
+
+#: The parameters an assistant may write a number for, and which way is
+#: stricter: a ceiling down, a floor up. A tolerance stays the person's.
+LIMITS: Mapping[str, str] = {
+    "maximum": "ceiling",
+    "limit": "ceiling",
+    "max_usd": "ceiling",
+    "max_ms": "ceiling",
+    "inner.threshold": "floor",
+}
+
+#: The parts of a reply, and nothing else is read.
+REPLY = ("rubric", "why", "limits", "counterexample")
+
+FORM = "a part outside the reply's form"
+NOT_HELD = "a check the proposal does not hold"
+NOT_JUDGED = "a rubric for a check that is not judged"
+NOT_TEXT = "a rubric or a sentence that is not text"
+NOT_A_LIMIT = "a parameter that is not a limit of its check"
+NOT_ACCEPTED = "a limit its check does not accept"
+LAXER = "a limit less strict than the runs measured"
+NO_COUNTEREXAMPLE = "a counterexample not of the form vars and answer"
+
+#: A sentence of why longer than this is cut: a comment beside a check.
+SAID_CHARS = 400
+
+
+@dataclass(frozen=True, slots=True)
+class Counterexample:
+    """A case an assistant constructed: the input, and the answer the suite
+    must refuse."""
+
+    vars: Mapping[str, object]
+    answer: str
+
+
+@dataclass(frozen=True, slots=True)
+class Merged:
+    """The checks with what the assistant wrote merged in, the counterexample
+    it constructed, and what was discarded, by reason."""
+
+    checks: tuple[Proposed, ...]
+    counterexample: Counterexample | None
+    discarded: Mapping[str, int]
+    rubrics: int = 0
+    sentences: int = 0
+    limits: int = 0
+
+
+def handle(number: int) -> str:
+    """How the reply names the `number`th check of the proposal."""
+    return f"check-{number}"
+
+
+def _plain(text: str) -> str:
+    """One line, with no control character, as a comment can hold it."""
+    return " ".join("".join(ch if ch.isprintable() else " " for ch in text).split())
+
+
+def _param(check: Proposed, key: str) -> object:
+    """The parameter at `key`, one level deep: `inner.threshold` is inside
+    `repeated`'s inner check."""
+    head, _, rest = key.partition(".")
+    value = check.params.get(head)
+    if not rest:
+        return value
+    if isinstance(value, Mapping):
+        return cast(Mapping[str, object], value).get(rest)
+    return None
+
+
+def _with(check: Proposed, key: str, value: object) -> Proposed:
+    """`check` with the parameter at `key` set, marked as the assistant's and
+    no longer a placeholder."""
+    params = dict(check.params)
+    if key.startswith("inner."):
+        inner = dict(cast(Mapping[str, object], params["inner"]))
+        inner[key.removeprefix("inner.")] = value
+        params["inner"] = inner
+    else:
+        params[key] = value
+    return Proposed(
+        type=check.type,
+        params=params,
+        why=check.why,
+        placeholders=tuple(p for p in check.placeholders if p != key),
+        said=check.said,
+        assisted=(*check.assisted, key),
+    )
+
+
+def _accepted(check: Proposed, key: str, value: object) -> float | None:
+    """The number as its check takes it, or `None` where the check refuses
+    it: a count is whole, a threshold is in (0, 1], every other limit is
+    above zero."""
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    number = float(value)
+    if number != number or number in (float("inf"), float("-inf")):
+        return None
+    if key in ("maximum", "limit"):
+        if number != int(number) or number < (1 if key == "limit" else 0):
+            return None
+        return int(number)
+    if key == "inner.threshold":
+        return number if 0 < number <= 1 else None
+    return number if number > 0 else None
+
+
+def merged(checks: Sequence[Proposed], reply: Mapping[str, object]) -> Merged:
+    """What an assistant's reply may change in the proposal, changed, and the
+    rest discarded and counted. The checks are named in the reply by
+    `handle`, so a check the proposal does not hold has no name to be
+    written under: the assistant adds none, removes none, and touches no
+    `[capture]` and no case."""
+    held = {handle(n): n - 1 for n in range(1, len(checks) + 1)}
+    out = list(checks)
+    discarded: dict[str, int] = {}
+    rubrics = sentences = limits = 0
+
+    def discard(reason: str) -> None:
+        discarded[reason] = discarded.get(reason, 0) + 1
+
+    def part(key: str) -> Mapping[str, object]:
+        value = reply.get(key)
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            discard(FORM)
+            return {}
+        return cast(Mapping[str, object], value)
+
+    for key in reply:
+        if key not in REPLY:
+            discard(FORM)
+
+    for name, text in part("rubric").items():
+        index = held.get(name)
+        if index is None:
+            discard(NOT_HELD)
+        elif not isinstance(text, str) or not text.strip():
+            discard(NOT_TEXT)
+        elif _param(out[index], "inner.rubric") is None:
+            discard(NOT_JUDGED)
+        else:
+            out[index] = _with(out[index], "inner.rubric", text.strip())
+            rubrics += 1
+
+    for name, text in part("why").items():
+        index = held.get(name)
+        if index is None:
+            discard(NOT_HELD)
+        elif not isinstance(text, str) or not _plain(text):
+            discard(NOT_TEXT)
+        else:
+            check = out[index]
+            out[index] = Proposed(
+                type=check.type,
+                params=check.params,
+                why=check.why,
+                placeholders=check.placeholders,
+                said=_plain(text)[:SAID_CHARS],
+                assisted=check.assisted,
+            )
+            sentences += 1
+
+    for name, value in part("limits").items():
+        number, _, key = name.partition(".")
+        index = held.get(number)
+        if index is None:
+            discard(NOT_HELD)
+            continue
+        check = out[index]
+        current = _param(check, key)
+        if key not in LIMITS or not isinstance(current, int | float):
+            discard(NOT_A_LIMIT)
+            continue
+        accepted = _accepted(check, key, value)
+        if accepted is None:
+            discard(NOT_ACCEPTED)
+            continue
+        if key not in check.placeholders and (
+            accepted > current if LIMITS[key] == "ceiling" else accepted < current
+        ):
+            discard(LAXER)
+            continue
+        out[index] = _with(check, key, accepted)
+        limits += 1
+
+    counterexample: Counterexample | None = None
+    raw = reply.get("counterexample")
+    if raw is not None:
+        vars_ = (
+            cast(Mapping[str, object], raw).get("vars")
+            if isinstance(raw, Mapping)
+            else None
+        )
+        answer = (
+            cast(Mapping[str, object], raw).get("answer")
+            if isinstance(raw, Mapping)
+            else None
+        )
+        if (
+            isinstance(vars_, Mapping)
+            and vars_
+            and all(isinstance(k, str) for k in cast(Mapping[object, object], vars_))
+            and isinstance(answer, str)
+        ):
+            counterexample = Counterexample(
+                vars=dict(cast(Mapping[str, object], vars_)), answer=answer
+            )
+        else:
+            discard(NO_COUNTEREXAMPLE)
+
+    return Merged(
+        checks=tuple(out),
+        counterexample=counterexample,
+        discarded=discarded,
+        rubrics=rubrics,
+        sentences=sentences,
+        limits=limits,
     )

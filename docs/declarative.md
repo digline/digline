@@ -157,6 +157,18 @@ so a data suite declares its source as a `suite.py` does
 ([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
 §4). The import is in [`record.md`](record.md).
 
+## `[suggest]`
+
+The model `digline suggest` asks to fill its proposal, by coordinates as a
+judge is. It is no part of the suite: no run reads it, and the suite's
+`config_hash` is the same with it or without it. `model` is its one key, and
+any other is refused by name ([suggest.md](suggest.md#the-assistant)):
+
+```toml
+[suggest]
+model = "anthropic/claude-haiku-4-5"
+```
+
 A suite that samples without a floor, declares no assertions, repeats a case id
 or asks for a ratio no sample count can produce is refused when it loads — with
 the same sentence the Python form gives, because it is the same check running.

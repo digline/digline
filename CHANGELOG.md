@@ -134,9 +134,20 @@ nothing. No public name is removed or renamed and no exit code changes.
   already there is refused by name. What it assumed is said on standard
   error in the words of the `proposing-a-suite` skill's fifth step, and no
   recorded text reaches either stream. The skill, `AGENTS.md`,
-  `docs/record.md` and `docs/proposing-a-suite.md` start from it. A model
-  that drafts the rubric and fills the placeholders, `[suggest]` in §4, is
-  not built ([`docs/suggest.md`](docs/suggest.md)).
+  `docs/record.md` and `docs/proposing-a-suite.md` start from it
+  ([`docs/suggest.md`](docs/suggest.md)).
+- **`digline suggest` asks an assistant, where one is declared** (ADR 0063
+  §4). `[suggest] model = "provider/model"` in a suite.toml, or `--model`,
+  which wins, names a model of its own, never the suite's judge. It is built
+  and called as a judge is, through the provider plugin, and says what it
+  will cost before the one call. Under `"private"` it reads the suite's
+  recordings and reviewed answers, the newest of the setups in force, at most
+  50 recordings and 200,000 characters; under `"public"` it reads their shape
+  and never their text. It writes rubrics, a sentence of why per check,
+  limits in place of placeholders and a counterexample into the proposal,
+  each marked as its own. A check it adds, a key outside its reply's form or
+  a limit less strict than the runs measured is discarded and counted. With
+  no model declared nothing is called, and the proposal is what it was.
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input

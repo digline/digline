@@ -110,7 +110,12 @@ from digline.host.suggest import (
     suggest_for,
     suggest_new,
 )
-from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
+from digline.host.toml_suite import (
+    SUITE_SUFFIX,
+    load_toml_suite,
+    read_cases,
+    suggest_model,
+)
 from digline.host.where import (
     STATES,
     State,
@@ -193,6 +198,7 @@ __all__ = [
     "seed_observed",
     "suite_runs",
     "suggest_for",
+    "suggest_model",
     "suggest_new",
     "switch_off",
     "switch_on",

@@ -10,6 +10,8 @@
   marked *decided here***. Nothing in it is implemented.
   *Built in part 2026-11-06:* the verb without a model, §1 to §3 and §5 to
   §7, with `docs/suggest.md`. §4's assistant is not built
+  *Built 2026-11-06, the rest:* §4's assistant, with what its measurement
+  added noted beside §4 and §6
 - Shipped: unreleased
 - Date: 2026-11-06
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
@@ -176,6 +178,49 @@ and the gate uses no word the assistant wrote until a person adopts it.
 - **Without a declared model the command works**, with the rules of §2 alone
   and its placeholders. With none declared, no call is made: fixed decision 5.
 
+*Added 2026-11-06, with the assistant's code, by Alessandro Prandini's
+ruling (P-1555) on what was measured for it:*
+
+- **Where it is declared.** `[suggest]` holds the one key `model`, in a
+  `suite.toml` alone. It enters neither `Suite` nor its `config_hash`, so no
+  run reads it, and any other key under it is refused by name. `--model` wins
+  over it, and standard error says where the model came from. A `suite.py` and
+  a suite that does not exist yet take `--model` alone. *Measured:* the one
+  file per tenant that is not a suite, `recorder.toml`, is the recorder's
+  switch. It refuses a key it does not know, and an application in production
+  reads it (ADR 0058 §4). This record adds nothing to the layout.
+- **How it is called.** Through the provider plugin's judge, built by the code
+  that builds a judge from its coordinates, with a reply allowance of 4,000
+  tokens. It is asked through the judge's own call, which takes the
+  instruction as an argument (`JudgeBase._ask_as`). No plugin changes.
+- **What it costs.** One call. Standard error says it before the call: the
+  material, the input tokens and the output allowance, and the most it can
+  cost. The input tokens are estimated at the ratio the suite's recordings
+  report, or at 4 characters a token where none reports one, which is a
+  convention and is said as one. *Measured:* the judge's call raises on a
+  reply it cannot price, after that reply is paid for. So a model the
+  plugin's price list does not know is refused before the call, and the
+  `unpriced` the ruling named has no case left.
+- **How much it is given.** *Decided here:* at most 50 recordings and 200,000
+  characters, the newest of the setups in force first, each whole and never
+  cut. Without a bound, 50 recordings at the recorder's ceiling of 65,536
+  characters each for the input, the answer and the trajectory come to about
+  9.8 million characters.
+- **What it writes is merged, never obeyed.** It may write:
+  - a rubric for a judged check;
+  - a sentence of why beside a check;
+  - a limit in place of a placeholder, or stricter than one a run measured;
+  - a constructed counterexample.
+
+  Each is marked as the assistant's in the file. These are discarded, and
+  standard error counts each by reason:
+  - a check of its own;
+  - a key outside the reply's form;
+  - a limit less strict than a run measured.
+
+  Where no check refuses the counterexample without a judge, standard error
+  says that only the judge can refuse it.
+
 ### 5. Where it lives
 
 *Ruled.* **The verb `digline suggest --suite S`, in the core.** `S` is a
@@ -208,6 +253,25 @@ the names of checks. **The recorded text reaches the file and nothing else**:
 not standard output, not standard error. A `--json` and an MCP tool are not
 in this record; where they come, they carry counts and the kinds of checks
 alone (fixed decision 9; ADR 0012 §4).
+
+*Added 2026-11-06, with the assistant's code, by Alessandro Prandini's
+ruling (P-1555):* **the assistant reads under the same regime.**
+
+- **Under `"public"`** it is given the shape alone:
+  - the kinds and the finishes;
+  - the tools declared and the tools called;
+  - the checks already proposed, which carry the JSON keys with their types
+    and the regularities of the steps;
+  - counts, including how many reviewed answers are a yes and how many a no.
+
+  It is given no input, no answer and no step's arguments. The file therefore
+  holds no recorded text under `"public"`, with an assistant too.
+- **Under `"private"`** it is given the material whole, and its text in the
+  file may quote what it read, which this section allows there.
+
+A sieve over the reply was measured and not taken. It would have cut every
+verbatim span above a length, and a short identifying string falls below any
+such threshold.
 
 ### 7. What the core holds
 

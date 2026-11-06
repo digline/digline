@@ -22,13 +22,18 @@ it writes.
 the fifth step of the `proposing-a-suite` skill, and counts. Digline's own
 words alone: no recorded text reaches standard output or standard error, and
 the lines are built here so that a front end lays them out.
+
+**The assistant** (§4), where one is declared, is `digline.host.assistant`'s:
+what it costs is said through `say` before the call, and what it wrote is
+merged into the file by `digline.core.suggest.merged`. Its words reach the
+file and no stream.
 """
 
 from __future__ import annotations
 
 import json
 import textwrap
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
@@ -39,13 +44,24 @@ from digline.core.refused import RefusedError
 from digline.core.run import RecordedResponse, Run
 from digline.core.suggest import (
     Measured,
+    Merged,
     Proposed,
     budget_checks,
     declared_tools,
     judged_check,
     measured,
+    merged,
     shape_checks,
     step_checks,
+)
+from digline.host.assistant import (
+    MAX_CHARS,
+    MAX_RECORDINGS,
+    announcement,
+    ask,
+    assistant,
+    material,
+    refused_by,
 )
 from digline.host.importing import (
     Shape,
@@ -107,6 +123,9 @@ class _Source:
     #: Every case the suite loads, and the cases its capture file holds.
     cases: tuple[Case, ...]
     captured: tuple[Case, ...]
+    #: The assistant's coordinates, where one is declared, and where.
+    model: str | None = None
+    model_from: str = ""
 
 
 def suggest_new(
@@ -116,6 +135,8 @@ def suggest_new(
     tenant: str | None,
     repository: str | None,
     here: Path,
+    model: str | None = None,
+    say: Callable[[str], None] | None = None,
 ) -> Suggested:
     """The proposal for a suite that does not exist yet, read from the
     recordings filed under its name and written in `here`. `--tenant` and
@@ -160,8 +181,11 @@ def suggest_new(
             form=None,
             cases=(),
             captured=(),
+            model=model,
+            model_from="--model",
         ),
         here / PROPOSAL,
+        say,
     )
 
 
@@ -172,6 +196,9 @@ def suggest_for(
     suite_file: Path,
     module: ModuleType | None,
     repository: str | None,
+    model: str | None = None,
+    model_from: str = "",
+    say: Callable[[str], None] | None = None,
 ) -> Suggested:
     """The proposal for a suite that exists, written beside its file. Its
     capture is the one used, so `--repository` is refused: the regime is
@@ -201,8 +228,11 @@ def suggest_for(
             form="suite.toml" if suite_file.suffix == ".toml" else "suite.py",
             cases=tuple(suite.cases),
             captured=tuple(read_cases(path)),
+            model=model,
+            model_from=model_from,
         ),
         beside / PROPOSAL,
+        say,
     )
 
 
@@ -235,7 +265,12 @@ def _name(check: Proposed) -> str:
     return str(check.params.get("name", check.type))
 
 
-def _propose(root: Path, source: _Source, target: Path) -> Suggested:
+def _propose(
+    root: Path,
+    source: _Source,
+    target: Path,
+    say: Callable[[str], None] | None = None,
+) -> Suggested:
     if target.exists():
         raise RefusedError(
             f"{target} is already there: digline suggest does not overwrite "
@@ -295,7 +330,15 @@ def _propose(root: Path, source: _Source, target: Path) -> Suggested:
     )
     keys = list(dict.fromkeys(key for r in eligible for key in r.case))
 
-    text = _toml(source, kept, judged, noes, calibrated, keys)
+    assisted: Merged | None = None
+    told: list[str] = []
+    if source.model is not None:
+        assisted, told = _assist(
+            source, kept, eligible, split.recordings, reviewed, declared, say
+        )
+        kept = list(assisted.checks)
+
+    text = _toml(source, kept, judged, noes, calibrated, keys, assisted)
     try:
         with target.open("x", encoding="utf-8") as handle:
             handle.write(text)
@@ -334,25 +377,132 @@ def _propose(root: Path, source: _Source, target: Path) -> Suggested:
             "band to place, strictly between 0 and 1, both yours"
         )
     )
+    built = assisted is not None and assisted.counterexample is not None
     lines.append(
         "  the counterexample: "
         + (
             f"{_many(len(noes), 'reviewed no', 'reviewed noes')} for {judged}, "
             f"already in {source.cases_file}: the check must fail each"
+            + ("; and counterexample-1, constructed by the assistant" if built else "")
             if noes
+            else "counterexample-1, constructed by the assistant and marked as "
+            f"constructed: an input and the answer {judged} must refuse, both "
+            "in the file"
+            if built
             else f"counterexample-1, constructed and marked as constructed: "
             f"its input is yours to write, one whose answer {judged} must "
             "refuse, and nothing in it was recorded"
         )
     )
     lines.append(
-        f"  the regime: repository = {source.repository!r}: the file quotes "
-        "no recorded input or answer, under either regime; the rules read "
-        "from the recordings, a tool's name or a key, are in its checks"
+        f"  the regime: repository = {source.repository!r}: "
+        + (
+            "the file holds the assistant's text, which may quote what it "
+            "read, so it stands where the capture's cases may (ADR 0023 §8)"
+            if assisted is not None and source.repository == "private"
+            else "the file quotes no recorded input or answer, under either "
+            "regime; the rules read from the recordings, a tool's name or a "
+            "key, are in its checks"
+        )
     )
+    lines.extend(told)
     lines.extend(_examined(root, source, everything, eligible))
     lines.extend(_unassigned(unassigned, source))
     return Suggested(path=target, lines=tuple(lines))
+
+
+def _silent(line: str) -> None:
+    """Where no front end is listening: a caller in code reads the lines."""
+
+
+def _assist(
+    source: _Source,
+    kept: Sequence[Proposed],
+    eligible: Sequence[Recording],
+    recordings: Sequence[Recording],
+    reviewed: Sequence[Case],
+    declared: Sequence[str],
+    say: Callable[[str], None] | None,
+) -> tuple[Merged, list[str]]:
+    """The assistant asked once, what it costs said first, and its reply
+    merged. The lines it returns are counts and digline's words: what the
+    assistant wrote reaches the file alone. (ADR 0063 §4, §6)"""
+    assert source.model is not None
+    judge = assistant(source.model, source.model_from)
+    given = material(
+        suite=source.name,
+        regime=source.repository,
+        eligible=eligible,
+        reviewed=reviewed,
+        checks=kept,
+        declared=declared,
+    )
+    tell = say if say is not None else _silent
+    tell(f"assistant: {source.model}, from {source.model_from}")
+    tell(announcement(source.model, judge, given, recordings))
+    reply = ask(judge, given.prompt)
+
+    lines = ["the assistant:"]
+    if given.regime == "private":
+        left = given.recordings_left + given.reviewed_left
+        lines.append(
+            f"  the regime: under private the assistant read the text: "
+            f"{_many(given.recordings, 'recording')} and "
+            f"{_many(given.reviewed, 'reviewed answer')}, the newest of the "
+            "setups in force, each whole"
+            + (
+                f"; {left} more left out at the bound of "
+                f"{MAX_RECORDINGS} recordings and {MAX_CHARS:,} characters"
+                if left
+                else ""
+            )
+        )
+    else:
+        lines.append(
+            "  the regime: under public the assistant read the shape, not the "
+            "text: kinds, finishes, tools, the checks proposed and counts"
+        )
+    spent = (
+        f"${judge.spent_usd:.4f}"
+        if judge.every_cost_known
+        else "not known: the call was not priced"
+    )
+    lines.append(
+        f"  what it cost: {spent}, for {judge.tokens.input_tokens:,} input and "
+        f"{judge.tokens.output_tokens:,} output tokens"
+        if judge.calls - judge.uncounted_calls
+        else f"  what it cost: {spent}"
+    )
+    if reply is None:
+        lines.append(
+            "  its reply was no JSON object: none of it was used, and the "
+            "proposal is the rules' alone"
+        )
+        return merged(kept, {}), lines
+    done = merged(kept, reply)
+    wrote = [
+        _many(done.rubrics, "rubric"),
+        _many(done.sentences, "sentence") + " of why",
+        _many(done.limits, "limit"),
+        "a counterexample" if done.counterexample else "no counterexample",
+    ]
+    lines.append(
+        f"  what it wrote: {', '.join(wrote)}, each marked as the assistant's "
+        "in the file"
+    )
+    for reason, count in sorted(done.discarded.items()):
+        lines.append(f"  discarded: {count} × {reason}")
+    if done.counterexample is not None:
+        refusing = refused_by(done.checks, done.counterexample.answer)
+        lines.append(
+            "  its counterexample: "
+            + (
+                f"refused without a judge by {', '.join(refusing)}"
+                if refusing
+                else "refused by no check without a judge: only the judge can refuse it"
+            )
+        )
+    return done, lines
 
 
 def _form(source: _Source) -> str:
@@ -475,7 +625,9 @@ def _value(value: object) -> str:
     if isinstance(value, int | float):
         return repr(value)
     if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
+        # DEL is the one control character JSON leaves as it is and a TOML
+        # string refuses; an assistant's rubric may hold one.
+        return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
     if isinstance(value, Mapping):
         table = cast(Mapping[str, object], value)
         items = ", ".join(f"{_key(k)} = {_value(v)}" for k, v in table.items())
@@ -486,6 +638,12 @@ def _value(value: object) -> str:
 
 
 def _placeholder(key: str, check: Proposed, prefix: str = "") -> str:
+    if f"{prefix}{key}" in check.assisted:
+        return (
+            "  # from the assistant: a draft, yours to read"
+            if key == "rubric"
+            else "  # from the assistant, not measured"
+        )
     return (
         "  # placeholder: yours to write"
         if f"{prefix}{key}" in check.placeholders
@@ -497,7 +655,19 @@ def _check(check: Proposed) -> list[str]:
     why = textwrap.wrap(
         check.why, width=76, initial_indent="# ", subsequent_indent="# "
     )
-    lines = ["", "[[assertions]]", *why, f'type = "{check.type}"']
+    said = textwrap.wrap(
+        f"the assistant: {check.said}",
+        width=76,
+        initial_indent="# ",
+        subsequent_indent="#   ",
+    )
+    lines = [
+        "",
+        "[[assertions]]",
+        *why,
+        *(said if check.said else []),
+        f'type = "{check.type}"',
+    ]
     tables: list[tuple[str, Mapping[str, object]]] = []
     for key, value in check.params.items():
         if key == "inner" and isinstance(value, Mapping):
@@ -522,6 +692,7 @@ def _toml(
     noes: Sequence[Case],
     calibrated: bool,
     keys: Sequence[str],
+    assisted: Merged | None = None,
 ) -> str:
     lines = [
         f"# {PROPOSAL}, written by `digline suggest` for suite "
@@ -564,13 +735,33 @@ def _toml(
     for check in kept:
         lines += _check(check)
     lines.append("")
+    built = assisted.counterexample if assisted is not None else None
     if noes:
         lines += [
             f"# The counterexample: the reviewed noes for {judged}, already in",
             f"# {source.cases_file}, which the check must fail:",
             *(f"#   {case.id}" for case in noes),
         ]
-    else:
+    if built is not None:
+        constructed = {
+            "id": "counterexample-1",
+            "vars": dict(built.vars),
+            "metadata": {
+                "constructed": "by the assistant of digline suggest, not "
+                f"recorded: an input whose answer {judged} must refuse",
+                "answer": built.answer,
+            },
+        }
+        if noes:
+            lines.append("")
+        lines += [
+            "# The counterexample the assistant constructed, not recorded: paste",
+            "# it into a cases file the suite reads. `metadata.answer` is the",
+            "# answer the suite must refuse:",
+            # ASCII: a model's text may hold a character a TOML comment may not.
+            "# " + json.dumps(constructed),
+        ]
+    elif not noes:
         vars_ = {key: "WRITE" for key in keys}
         constructed = {
             "id": "counterexample-1",

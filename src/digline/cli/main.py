@@ -89,6 +89,7 @@ from digline.host import (
     reported,
     resolve_key,
     suggest_for,
+    suggest_model,
     suggest_new,
     suite_runs,
     switch_off,
@@ -1772,12 +1773,26 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         suite_file = (
             Path(module_file) if module_file else Path(args.suite.split(":")[0])
         )
+        # `[suggest]` is read from a suite.toml alone, and `--model` wins over
+        # it: the source is said beside the assistant. (ADR 0063 §4)
+        declared = (
+            suggest_model(suite_file) if suite_file.suffix == SUITE_SUFFIX else None
+        )
+        model_from = (
+            "--model"
+            + (f", which wins over [suggest] in {suite_file.name}" if declared else "")
+            if args.model is not None
+            else f"[suggest] in {suite_file.name}"
+        )
         done = suggest_for(
             root,
             suite,
             suite_file=suite_file,
             module=loaded.module,
             repository=args.repository,
+            model=args.model if args.model is not None else declared,
+            model_from=model_from,
+            say=lambda line: say(line, err=True),
         )
     else:
         done = suggest_new(
@@ -1786,6 +1801,8 @@ def cmd_suggest(args: argparse.Namespace) -> int:
             tenant=args.tenant,
             repository=args.repository,
             here=Path.cwd(),
+            model=args.model,
+            say=lambda line: say(line, err=True),
         )
     for line in done.lines:
         say(line, err=True)
@@ -2545,6 +2562,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "the regime of the proposed [capture], for a suite that does not "
             "exist yet; refused where the suite exists"
+        ),
+    )
+    sug_p.add_argument(
+        "--model",
+        metavar="PROVIDER/MODEL",
+        help=(
+            "the assistant that writes the rubrics, the reasons, the limits and "
+            "a counterexample into the proposal; wins over [suggest] in a "
+            "suite.toml. Without either, no model is called"
         ),
     )
     sug_p.set_defaults(func=cmd_suggest)
