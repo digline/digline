@@ -9,6 +9,8 @@
 tenant = "acme"
 name = "triage"
 # environment = WRITE: mandatory, with no default: where it runs
+# captured.json is written by digline record import; until
+# then the suite has no case.
 cases = ["captured.json"]
 # A starting point: a reviewed answer needs the target asked at least twice.
 samples = 3
@@ -69,14 +71,15 @@ min_agreement = "2/3"
   type = "llm_rubric"
   name = "llm_rubric"
   rubric = "WRITE: one question a good answer says yes to"  # placeholder: yours to write
-  judge = "provider/model"  # placeholder: yours to write
+  judge = "provider/model"  # placeholder: yours to write, docs/declarative.md#the-judge-by-coordinates
   threshold = 1.0  # placeholder: yours to write
   tolerance = 0.0  # placeholder: yours to write
 
 # The counterexample, constructed and not recorded: a suite that
 # cannot fail measures nothing. Paste it into a cases file the
 # suite reads, and write the input whose answer llm_rubric must
-# refuse:
+# refuse. It is answered by the target, so the suite needs a
+# [target]:
 # {"id": "counterexample-1", "vars": {"question": "WRITE"}, "metadata": {"constructed": "by digline suggest, not recorded: an input whose answer llm_rubric must refuse"}}
 
 # The calibration skeleton (ADR 0024 §4.1): the answer and the band,
