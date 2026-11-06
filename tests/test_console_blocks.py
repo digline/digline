@@ -25,9 +25,15 @@ ROOT = Path(__file__).resolve().parents[1]
 _BLOCK = re.compile(r"^```console\n(.*?)^```", re.S | re.M)
 
 
+def _pages() -> list[Path]:
+    """The pages under `docs/`, and the stories under `docs/stories/`."""
+    docs = ROOT / "docs"
+    return sorted([*docs.glob("*.md"), *docs.glob("stories/*.md")])
+
+
 def _blocks_without_a_command() -> list[tuple[str, int, str]]:
     found: list[tuple[str, int, str]] = []
-    for page in sorted((ROOT / "docs").glob("*.md")):
+    for page in _pages():
         text = page.read_text(encoding="utf-8")
         for match in _BLOCK.finditer(text):
             first = match.group(1).split("\n", 1)[0]
@@ -45,6 +51,14 @@ def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
         "a `console` block that shows output with no `$ ` line before it does "
         "not say which command printed it:\n  " + "\n  ".join(unexplained)
     )
+
+
+def test_the_walk_reads_the_stories_too() -> None:
+    """The control for `docs/stories/`: a page there whose console block
+    lost its `$ ` line is one the walk reports."""
+    story = ROOT / "docs" / "stories" / "java-quarkus.md"
+    assert story in _pages()
+    assert _BLOCK.search(story.read_text(encoding="utf-8"))
 
 
 def test_the_walk_finds_console_blocks_at_all() -> None:
