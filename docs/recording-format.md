@@ -1,6 +1,7 @@
 # The recording document
 
-A recording is one call an application made to a model, kept as a JSON file.
+A recording is one call an application made to a model, or one turn of an
+agent made of several calls ([an episode](#what-is-fixed)), kept as a JSON file.
 digline's recorder writes these files, and so may a program in another
 language. The import, `digline record compare` and `digline record status`
 read the files and nothing else, so a file written to this page is read like

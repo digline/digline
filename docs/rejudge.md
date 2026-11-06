@@ -34,8 +34,8 @@ turning it on costs no baseline and no re-promotion — recording changes no
 score, pairs no verdict differently and moves no bar.
 
 What lands in the run file, per case and per sample: the answer, the rendered
-prompt that produced it, and what that call cost in money, in milliseconds and
-in tokens.
+prompt that produced it, the steps it took where there are any, and what it
+cost in money, in milliseconds and in tokens.
 
 A replay's own bill says what the *replay* spent: its target line is a zero,
 because it called no target, and its judge line is real, because the judging is
@@ -120,9 +120,9 @@ Each one arrives before the first judge is paid, and each names what is missing.
    score that looks like every other score.
 4. **The sample count does not match.** A replay at one count over a run taken
    at another is a different measurement wearing the suite's name.
-5. **The suite judges a trajectory and the run recorded none.** `tools_called`
-   and `tool_called_with` read what the model called on the way to its answer,
-   and a run produced before trajectories were recorded — or by a target that
+5. **The suite judges a trajectory and the run recorded none.** `tools_called`,
+   `tool_called_with`, `subsequence`, `before`, `never` and `max_steps` read
+   the steps taken on the way to the answer, and a run produced before trajectories were recorded — or by a target that
    reports none — carries nothing for them to read. This one is a refusal rather
    than an errored check on purpose: an errored check is a declared gate quietly
    becoming a row nobody gated on, which is the thing recording the trajectory

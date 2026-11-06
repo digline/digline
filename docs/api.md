@@ -108,9 +108,11 @@ compares.
 
 ### `Suite.artifacts`: the files that are the thing under test
 
-The prompt is what is being evaluated, and until it is recorded a run cannot say
-what produced it: while a prompt is being tuned the tree is dirty, every run
-reads `-dirty`, and two runs of two different prompts are the same document.
+The files that make the system are what is being evaluated — a prompt, or an
+agent's instructions and the definitions of its tools — and until they are
+recorded a run cannot say what produced it: while a prompt is being tuned the
+tree is dirty, every run reads `-dirty`, and two runs of two different prompts
+are the same document.
 
 ```python
 Suite(..., artifacts=[Path("prompts/system.md"), Path("prompts/rubric.md")])
@@ -181,8 +183,9 @@ test changed"* and stops — no diff, no digest, no path.
 ### `Suite.record_responses`: the answers, for judging them again
 
 Off by default. With `record_responses=True` the run records, per case and per
-sample, what the target answered, the rendered prompt that produced it, and what
-that call cost in money and in milliseconds:
+sample, what the target answered, the rendered prompt that produced it, the
+steps it took where there are any, and what it cost in money and in
+milliseconds:
 
 ```python
 suite = Suite(..., record_responses=True)
@@ -657,8 +660,12 @@ customer's own Azure deployment or vLLM judges its own runs.
 `judge.tokens` accumulate for the life of the object and are **never reset**: a
 per-run figure is a delta the caller takes. A call that raises is not counted —
 its cost is unknown, and counting it at zero is the undercount that reads as
-good news. `Response.cost_usd` is the *target's* call and does not include any
-of this (ADR 0004 §3).
+good news. `Response.cost_usd` is the *target's* and does not include any of
+this (ADR 0004 §3). For a target that calls a model through a client `wrap()`
+returned, it is every call of the case, priced where the target has a price
+list, a provider target's; a function target's is not known, even where it
+returns one of its own, and the run says why
+([`digline record`](record.md#steps-live)).
 
 `judge.every_cost_known` says whether `spent_usd` is the whole of it. It is
 `False` from the first call whose usage was not read or whose cost could not
@@ -1030,8 +1037,8 @@ file only as what an assertion measured out of it, through `Score.metadata`.
 
 ### `config`: what decided how the model answered
 
-A run records the verdicts, the rules that judged them, the prompt that produced
-them — and, since ADR 0005, the system that answered:
+A run records the verdicts, the rules that judged them, the files under test that
+produced them — and, since ADR 0005, the system that answered:
 
 ```python
 @property
@@ -1655,7 +1662,7 @@ KIND: ClassVar[CheckKind] = "deterministic"
 
 | `KIND` | Means |
 |---|---|
-| `deterministic` | The same output always gets the same verdict. |
+| `deterministic` | The same response always gets the same verdict: the same answer, or for a check on the steps the same trajectory. |
 | `judged` | A model decides, so the verdict is noisy by construction: `LlmRubric`, `Faithfulness`. |
 | `budget` | A declared ceiling on cost or latency, scored graded rather than pass/fail — `cap / (cap + measured)`, `0.5` exactly at the cap — so drift under the cap stays visible to `compare()`. Over the cap the verdict fails, whatever the score rounds to: `CostBudget`, `LatencyBudget`. |
 | `aggregate` | One verdict about the whole run, from every case's outcome: `Precision`, `Recall`, `Accuracy`, `F1`. |
@@ -1866,7 +1873,7 @@ first call of the new leg, when any of these has moved since the run started —
 |---|---|
 | `config_hash` | thresholds, tolerances, `samples`, `min_agreement`, the aggregates |
 | the cases | their ids, data, labels, groups and order |
-| the artifacts | the prompt is the thing under test, and it is digested |
+| the artifacts | the files under test, a prompt or an agent's tool definitions, each digested |
 | `target_config`, `judge_config` | a different model, temperature or endpoint answered |
 | `record_responses` | the document would carry answers for half its cases |
 | `git_commit`, the digline version | the code around the suite, and the engine |

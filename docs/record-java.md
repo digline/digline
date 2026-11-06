@@ -268,8 +268,11 @@ threshold = 0.7
 tolerance = 0.05
 ```
 
-- **The body** sends the case's `messages`, which is what an imported case
-  holds: the conversation the call was given, less the instructions. The
+- **The body** sends the case's `messages`, which is what a case imported
+  from a single call holds: the conversation the call was given, less the
+  instructions. A case imported from an episode holds the `case` its turn was
+  given instead, `ticket` in the episode above, and a body for it sends
+  `case.vars.ticket` ([the recording document](recording-format.md)). The
   endpoint answers with the reply under `answer`; under `config` what model
   answered and how; under `trajectory.calls` the tools it called; under
   `usage` the token counts. Each of the last three is optional, and

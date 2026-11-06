@@ -1,10 +1,12 @@
-# `digline record` — the calls your application makes, kept as cases
+# `digline record` — the calls and agent turns your application makes, kept as cases
 
 While an application is being built, the calls it makes to a model are the
 material a suite is made of. The recorder keeps them, at the place where the
 application makes them, in the shape a suite reads: what the call was asked,
-what decided how it answered, and what it answered. A person then reads them
-back and names the ones that become cases.
+what decided how it answered, and what it answered. A turn of an agent, the
+calls it makes on the way to one answer, is kept as one recording, an
+episode with its steps. A person then reads them back and names the ones that
+become cases.
 
 > **Arrives with digline 1.1.** On 1.0.3, `digline record` and
 > `digline.recorder` do not exist.
@@ -75,12 +77,15 @@ reply = client.messages.create(
   with to the case, beside the messages, where the user message mixes a
   template and the data.
 
-A recording keeps the call in three compartments: the **case**, the messages
-(less the leading instructions, for OpenAI) and the `digline_vars`; the
-**setup**, everything else the call decided; and the **response**, the answer
-with its measurements. The response also carries its **input**, the case's
-messages as JSON text: the question the import puts beside the answer for the
-judge, whether the call was made, streamed or awaited.
+A recording of a call keeps it in three compartments: the **case**, the
+messages (less the leading instructions, for OpenAI) and the `digline_vars`;
+the **setup**, everything else the call decided; and the **response**, the
+answer with its measurements, and its steps unless the call reported nothing
+about tools ([below](#steps-live)). The response also carries its **input**, the case's messages as JSON
+text: the question the import puts beside the answer for the judge, whether
+the call was made, streamed or awaited. An agent's turn is one recording of
+its own, with the `case` it was given
+([an episode](#a-turn-of-an-agent-episode)).
 
 `suite=` and `digline_vars=` are taken out of the call before it reaches the
 provider's SDK, whether the recorder is on or off. The client returned is the
