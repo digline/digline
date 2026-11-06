@@ -20,7 +20,7 @@ fixes it.
   refused.
 - **`<process>`** is a directory of the writing process's own, one per
   process: `p<pid>-<8 hex>` from Python's recorder, `j<pid>-<8 hex>` from
-  Java's; the format leaves the name free.
+  Java's, `n<pid>-<8 hex>` from Node's; the format leaves the name free.
 - **`<name>`** is free, ends in `.json` and does not start with a dot. Files
   are read in the order their paths sort, so name them to sort in the order
   they were written: digline writes `000001.json`, `000002.json` and so on.
