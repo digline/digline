@@ -53,6 +53,8 @@
 - Amended: 2026-10-23, with #507, in §10. A failure nobody anticipated is
   caught and said in the server's own words: whose it was, its type and its
   line, never its message
+- Amended: 2026-11-06, by Alessandro Prandini's ruling (P-1567), in §1:
+  thirteen tools. The five of the first verbs join, and none of them writes
 - Assumes: [ADR 0002](0002-three-worlds-and-where-the-data-lives.md) §1 (the
   tenant is the perimeter), §8 (a baseline is an approved reference) and the
   payload/verdict boundary that fixed decision 9 states;
@@ -119,6 +121,39 @@ missing is the thesis.**
 *Amended 2026-09-15 by [ADR 0020](0020-the-reading-across-runs.md) §9: the six
 tools chosen here became eight, once, for `explain` and `log` together. Neither
 writes, and the absent list below did not shrink.*
+
+*Amended 2026-11-06, for 1.1, by Alessandro Prandini's ruling (P-1567):
+thirteen tools.* `where`, `record_status`, `record_listing`, `record_compare`
+and `suggest` join, and none of them writes. `suggest` returns the facts of the
+proposal and the command that writes it; it calls no model, because the cost of
+an assistant is said before the call and a tool has no before. A reviewed
+answer is not given here: the listing says where a person gives it. The absent
+list grows by `record import --good/--bad`, `record on/off` and a `suggest`
+that writes. What crosses is §5's rule applied to recordings: counts, shapes,
+setups by digest, never a recorded word, and no digest of an answer or an
+input, which are verifiers as an artifact's digest is.
+
+The five, each with the command a person types for the same reading, which its
+description names:
+
+| tool | arguments | the command line's counterpart |
+|---|---|---|
+| `where` | `tenant`, `suite` | `digline where --json`, new with it |
+| `record_status` | `tenant` | `digline record status --json`, its paths relative to the root |
+| `record_listing` | `suite` | `digline record import --json`, new with it, the listing alone |
+| `record_compare` | `suite`, `setups`, `show_setup`, `since` | `digline record compare --json`, a case and an answer by their number in the answer |
+| `suggest` | `suite`, or `name`, `tenant`, `repository` | `digline suggest`, which writes the file the facts describe |
+
+Two things this note measured and the ruling took. **The command line's `record
+compare --json` keeps its digests**, for the person who ran the command inside
+the perimeter; the tool names each case and answer by its number, and its
+description declares the difference. **An episode's shape crosses on both**,
+`calls` and `models` beside each setup, on the command line too: the models are
+values of the configuration, which travel by ADR 0005 §2, and `calls` is a
+count. `digline.wire.record_compare` had said both were payload, with no reason
+measured, and takes a note that says so. Under `--names project` each of the
+five is projected at its boundary, §7 of ADR 0054, and the gate that drives
+every tool drives them.
 
 The server exposes exactly these tools, and no others:
 

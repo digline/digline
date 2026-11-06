@@ -544,7 +544,7 @@ def exercise_pytest(app: pathlib.Path) -> None:
 SUITE = {"suite": "suite.py"}
 
 
-def tool_arguments(tool: str, keys: Sequence[str]) -> dict[str, Any]:
+def tool_arguments(tool: str, keys: Sequence[str], tenant: str) -> dict[str, Any]:
     """What each tool is called with; `run` is called apart, with its count.
 
     A tool the server lists and this does not know is red, not skipped: the
@@ -554,6 +554,21 @@ def tool_arguments(tool: str, keys: Sequence[str]) -> dict[str, Any]:
             return SUITE
         case "diff":
             return {**SUITE, "run1": keys[0], "run2": keys[1]}
+        # The first verbs. `suggest` is asked for a suite that does not exist
+        # yet, which needs no capture and writes nothing. (ADR 0011 §1, as
+        # noted 2026-11-06)
+        case "where":
+            return {**SUITE, "tenant": tenant}
+        case "record_status":
+            return {"tenant": tenant}
+        case "record_listing" | "record_compare":
+            return SUITE
+        case "suggest":
+            return {
+                "name": "against-core-probe",
+                "tenant": tenant,
+                "repository": "private",
+            }
         case _:
             raise SystemExit(
                 f"the server lists a tool `{tool}` this script has no arguments "
@@ -607,6 +622,8 @@ def exercise_mcp(app: pathlib.Path) -> None:
                 if listed.is_error:
                     raise SystemExit(f"list_runs: {text(listed)}")
                 keys.extend(re.findall(r'"key":\s*"([^"]+)"', text(listed)))
+                tenants = re.findall(r'"tenant":\s*"([^"]+)"', text(listed))
+                tenant = tenants[0] if tenants else ""
                 if len(keys) < 2:
                     raise SystemExit(
                         f"list_runs named {len(keys)} runs, and two were written"
@@ -624,9 +641,15 @@ def exercise_mcp(app: pathlib.Path) -> None:
                         )
                     else:
                         result = await session.call_tool(
-                            tool, tool_arguments(tool, keys)
+                            tool, tool_arguments(tool, keys, tenant)
                         )
-                    if result.is_error:
+                    # The one refusal taken as an answer: the quickstart
+                    # declares no capture, so its listing is refused, and the
+                    # refusal saying so is the server answering.
+                    refused_listing = tool == "record_listing" and "capture" in text(
+                        result
+                    )
+                    if result.is_error and not refused_listing:
                         raise SystemExit(f"{tool}: {text(result)}")
                     print(f"{tool}: answered")
 

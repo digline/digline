@@ -92,6 +92,7 @@ from digline.host.toml_suite import read_cases, within_perimeter
 from digline.recorder import UNASSIGNED
 from digline.run.suite import CaptureSource, Case, Suite
 from digline.store.file_store import FileResultStore
+from digline.wire.recordings import Listed, ListedGroup, Shape
 
 __all__ = [
     "Declaration",
@@ -101,6 +102,7 @@ __all__ = [
     "Shape",
     "SuiteRecorded",
     "answer_counts",
+    "listed",
     "answer_id",
     "answer_state",
     "capture_file",
@@ -164,30 +166,6 @@ class Declaration:
         return (
             f"tenant {self.tenant!r} · suite {self.suite}{taken} · writes to "
             f"{self.shown} · repository {self.repository} · check {check}"
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class Shape:
-    """The shape of an output, which is what the listing groups by.
-
-    `episode` is false for a single call, whose shape is its `OutputKind`
-    alone until a call carries a finish (ADR 0057's schema 23). For an episode,
-    `actors` are its steps' actors in order and `finish` the last finish they
-    carry. `None` is *not recorded*, never a kind."""
-
-    episode: bool
-    kind: OutputKind | None
-    actors: tuple[str, ...] = ()
-    finish: str | None = None
-
-    def says(self) -> str:
-        kind = self.kind or "kind not recorded"
-        if not self.episode:
-            return f"a single call, {kind}"
-        steps = " → ".join(self.actors) if self.actors else "no step recorded"
-        return (
-            f"an episode, {kind}, steps {steps}, finish {self.finish or 'not recorded'}"
         )
 
 
@@ -521,6 +499,24 @@ def setups_in_force(
     return _setups_in_force(split_recordings(everything, suite).eligible)
 
 
+#: Why an answer cannot be elected, by the word `digline.wire.recordings`
+#: counts it under, in the order they are asked.
+_REFUSALS: Mapping[str, str] = {
+    "already_in_the_file": "already in the file",
+    "earlier_setups": (
+        "recorded only under earlier setups: a yes or no about an answer "
+        "the setup in force did not give says nothing about it"
+    ),
+    "no_input": (
+        "recorded with no input: the judge reads the question beside the "
+        "answer, and there is none to give it"
+    ),
+    "conversation": (
+        "a conversation, which a cases file cannot hold as an answer in this release"
+    ),
+}
+
+
 def _refusal(
     recordings: Sequence[Recording],
     setup: str | None,
@@ -530,23 +526,59 @@ def _refusal(
     """Why this answer cannot be elected, or `None` where it can."""
     first = recordings[0]
     if elected is not None or found is not None:
-        return "already in the file"
+        return _REFUSALS["already_in_the_file"]
     if all(r.setup_digest != setup for r in recordings):
-        return (
-            "recorded only under earlier setups: a yes or no about an answer "
-            "the setup in force did not give says nothing about it"
-        )
+        return _REFUSALS["earlier_setups"]
     if not first.response.input:
-        return (
-            "recorded with no input: the judge reads the question beside the "
-            "answer, and there is none to give it"
-        )
+        return _REFUSALS["no_input"]
     if first.response.kind == "conversation":
-        return (
-            "a conversation, which a cases file cannot hold as an answer in "
-            "this release"
-        )
+        return _REFUSALS["conversation"]
     return None
+
+
+def listed(listing: ImportListing) -> Listed:
+    """The listing's facts for a program: counts and shapes, and no answer,
+    input, vars, step or call site. (`digline.wire.recordings`)"""
+    reason = {sentence: key for key, sentence in _REFUSALS.items()}
+    groups: list[ListedGroup] = []
+    for group in listing.groups:
+        refused: dict[str, int] = {}
+        for answer in group.answers:
+            if answer.refusal is not None:
+                key = reason[answer.refusal]
+                refused[key] = refused.get(key, 0) + 1
+        groups.append(
+            ListedGroup(
+                shape=group.shape,
+                setup=group.setup,
+                answers=len(group.answers),
+                recordings=group.recordings,
+                waiting=sum(1 for a in group.answers if a.elected is None),
+                good=sum(1 for a in group.answers if a.elected is True),
+                bad=sum(1 for a in group.answers if a.elected is False),
+                refused=refused,
+            )
+        )
+    declaration = listing.declaration
+    return Listed(
+        tenant=declaration.tenant,
+        suite=declaration.suite,
+        cases_file=declaration.shown,
+        repository=declaration.repository,
+        check=declaration.check,
+        taken_from=declaration.taken_from,
+        setups=dict(listing.setups),
+        samples=listing.samples,
+        deterministic_output=listing.deterministic_output,
+        groups=tuple(groups),
+        recordings=listing.recordings,
+        orphans=listing.orphans,
+        detached=listing.detached,
+        interrupted=listing.interrupted,
+        oversize=listing.oversize,
+        unreadable=listing.unreadable,
+        examined_through=listing.examined_through,
+    )
 
 
 def import_listing(

@@ -145,7 +145,9 @@ same line produces.
 **`register` is a writer, and it is absent from the MCP surface by
 construction**, for the reason `promote` is: it writes into the repository, and
 a disposition is by definition not the agent's to give. The server keeps
-[eight tools](mcp.md), none of which writes, and this is not one of them.
+[tools that read and measure](mcp.md), none of which writes, and this is not
+one of them. *Noted 2026-11-06:* they were eight when this was written, and are
+thirteen.
 
 Absence is not the whole of the rule, because the scheduled
 [operator loop](https://github.com/digline/digline/tree/main/examples/operator)

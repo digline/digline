@@ -17,10 +17,11 @@ from digline_mcp.server import build_server
 
 SRC = Path(__file__).resolve().parents[1] / "src"
 
-#: The whole surface. Adding a ninth entry has to happen here first, which is
-#: the point: a tool that appears without somebody editing this line is a tool
+#: The whole surface. Adding an entry has to happen here first, which is the
+#: point: a tool that appears without somebody editing this line is a tool
 #: nobody decided on. `explain` and `log` were added together, so the count moved
-#: once. (ADR 0020 §9)
+#: once (ADR 0020 §9); the five of the first verbs together, so it moved once
+#: more, and none of them writes. (ADR 0011 §1, as noted 2026-11-06)
 TOOLS = {
     "list_runs",
     "get_run",
@@ -30,6 +31,11 @@ TOOLS = {
     "diff",
     "explain",
     "run",
+    "where",
+    "record_status",
+    "record_listing",
+    "record_compare",
+    "suggest",
 }
 
 
@@ -45,11 +51,25 @@ def tool_names(root: str) -> set[str]:
     return anyio.run(go)
 
 
-def test_the_surface_is_exactly_eight_tools(tmp_path: Path) -> None:
+def test_the_surface_is_exactly_thirteen_tools(tmp_path: Path) -> None:
     assert tool_names(str(tmp_path)) == TOOLS
 
 
-@pytest.mark.parametrize("absent", ["promote", "migrate", "view", "report", "register"])
+@pytest.mark.parametrize(
+    "absent",
+    [
+        "promote",
+        "migrate",
+        "view",
+        "report",
+        "register",
+        "record_import",
+        "import",
+        "record_on",
+        "record_off",
+        "record",
+    ],
+)
 def test_the_missing_tools_are_missing(absent: str, tmp_path: Path) -> None:
     """Named one at a time so a failure says which one came back.
 
@@ -58,7 +78,11 @@ def test_the_missing_tools_are_missing(absent: str, tmp_path: Path) -> None:
     the file still says `baseline` and nobody decided anything. The next three
     are upgrade maintenance and two human-facing documents. `register` is absent
     for `promote`'s reason: it writes a committed file, and a disposition is by
-    definition a person's (ADR 0021 §2).
+    definition a person's (ADR 0021 §2). An import that writes is absent for
+    the same reason: a yes or a no about an answer is a person's, written into
+    a committed cases file (ADR 0023 §9). Switching the recorder on or off
+    writes the file a person keeps, and is absent too. (ADR 0011 §1, as noted
+    2026-11-06)
     """
     assert absent not in tool_names(str(tmp_path))
 
@@ -68,7 +92,16 @@ def test_the_absence_holds_at_the_import_graph_too() -> None:
     still imported `promote_baseline` would be one editor away from offering it,
     and the reviewer of that edit would see a two-line diff.
     """
-    forbidden = {"promote_baseline", "migrate_paths", "serve", "render_html"}
+    forbidden = {
+        "promote_baseline",
+        "migrate_paths",
+        "serve",
+        "render_html",
+        # The writes of the first verbs: a yes or a no, and the switch.
+        "import_elect",
+        "switch_on",
+        "switch_off",
+    }
     for source in sorted(SRC.rglob("*.py")):
         tree = ast.parse(source.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

@@ -329,6 +329,20 @@ first and it is never the judge, so no verdict depends on it.
 - **The read-only view** at the page.
 - **`--json` and an MCP tool**, beyond §6's rule for them.
 
+  *Noted 2026-11-06, by Alessandro Prandini's ruling (P-1567):* **an MCP tool
+  is built, `suggest`, and a `--json` is not.** It returns the facts standard
+  error is rendered from, one value, `digline.wire.suggest.Suggestion`, and the
+  command that writes the file; it writes nothing, because the server writes
+  nothing into the repository, and asks no assistant, because §4's cost is
+  said before the call and a tool has no before. What it carries is wider
+  than §6's *"counts and the kinds of checks alone"*, and holds §6's reason:
+  the checks by their number, type and name, the setups by their digests, the
+  groups by the shape of their output, and the suites the recorder's calls
+  named, all digline's words, digests and names the committing party gave,
+  and no recorded word. A check's sentence of why is left out. Under `--names
+  project` a check's name is a token. ([ADR 0011](0011-the-mcp-server.md) §1,
+  as noted 2026-11-06)
+
 ## Test plan
 
 - `digline suggest` writes `suite.proposed.toml` and nothing else; a second

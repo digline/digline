@@ -32,7 +32,7 @@ bug. An absence is not a conversation.
 
 The reasoning in full is [ADR 0011](adr/0011-the-mcp-server.md).
 
-## The eight tools
+## The thirteen tools
 
 | tool | arguments | what it answers |
 |---|---|---|
@@ -44,9 +44,45 @@ The reasoning in full is [ADR 0011](adr/0011-the-mcp-server.md).
 | `diff` | `suite`, `run1`, `run2` | should I switch? |
 | `explain` | `suite`, `run` | the same run read back as typed facts, with the exit code |
 | `run` | `suite`, `acknowledge_calls` | measure it now |
+| `where` | `tenant`, `suite` | where the project is, and the command for the next step |
+| `record_status` | `tenant` | whether each tenant records, and how much |
+| `record_listing` | `suite` | the recorded answers, counted by the shape of the output |
+| `record_compare` | `suite`, `setups`, `show_setup`, `since` | the recorded answers by case and by setup |
+| `suggest` | `suite`, or `name`, `tenant` and `repository` | a first suite, proposed, as facts |
 
 `explain` and `log` arrived together, so the surface moved once, from six to
 eight ([ADR 0020](adr/0020-the-reading-across-runs.md)). Neither writes.
+
+**The first verbs arrived together too**, so it moved once more, from eight to
+thirteen ([ADR 0011](adr/0011-the-mcp-server.md) §1, as noted 2026-11-06).
+None of the five writes. They read what a project holds before its suite gates
+anything, and each description names the command a person types for the same
+reading, so what an agent did can be done again by hand:
+
+- **`where`** is `digline where --json`: the first of eleven states that
+  holds, the counts that put it there, the command for the next step and the
+  pages that say more ([Where you are](view.md#where-you-are)). The command is
+  shown and never run.
+- **`record_status`** is `digline record status --json`, with the paths said
+  relative to the repository's root, its refusals included.
+- **`record_listing`** is `digline record import --json`: the declaration, the
+  setup in force per form, and per group the shape and counts. No input, no
+  answer and no answer's id. **A yes or a no is not given here**, and no tool
+  gives one: `review` says where a person reads the answers and decides, a
+  page of `digline view`, with its address at the default port, 7373.
+- **`record_compare`** is `digline record compare --json`, with a case and an
+  answer named by their number in the answer, `case 1`, `answer 2`, where the
+  command line prints the digest of the input and of the text. A digest of a
+  short answer is the answer: an answer of a classifier is one word among few,
+  and the digest of each is a table anybody can build. The numbers say which
+  answers are equal, which is what the comparison is for. An episode's shape
+  crosses with it: how many model calls it made, and which models its calls
+  name.
+- **`suggest`** returns the proposal's facts and `command`, the command that
+  writes `suite.proposed.toml`, and writes nothing: the file is the
+  repository's. It asks no assistant: what one costs is said before its call,
+  and a tool has no before, so `assistant.command`, the command with
+  `--model`, is the person's to run.
 
 **What `get_run` and `get_baseline` say about the instrument.** Since 0.16.0 the
 run document marks a judged check (`judged`), a canary (`canary`), a calibration
@@ -71,7 +107,9 @@ per-check fact, nor of `judge_samples`, which no surface carried at all. The
 sentence is replaced rather than quietly deleted, so the page shows it was
 checked.
 
-`promote`, `migrate`, `view` and `report` are absent. The first is the thesis;
+`promote`, `migrate`, `view` and `report` are absent, and so are the writes
+of the first verbs: `record import` with `--good` or `--bad`, `record on` and
+`record off`, and a `suggest` that writes. The first is the thesis;
 the second is upgrade maintenance somebody chose the moment for; the last two
 are documents written for a person, and an agent that wants the facts behind the
 report calls `compare`, which carries them.
@@ -206,8 +244,14 @@ there is no answer to which one is digline's. What each tool returns today:
 | `list_runs` | `runs_json` | none: `digline list` has no `--json` |
 | `get_run` | the run document, plus `key` | none |
 | `get_baseline` | the run document, plus `key` | none |
+| `where` | `where_json` | `digline where --json`, held equal by a test in each of the eleven states |
+| `record_status` | `recorder_status_json`, its paths relative to the root | `digline record status --json`, held equal by a test but for the paths |
+| `record_listing` | `import_listing_json` | `digline record import --json`, held equal by a test |
+| `record_compare` | `record_compare_json`, cases and answers by their number | `digline record compare --json`, held equal by a test but for the numbers |
+| `suggest` | `suggest_json`, from the value standard error is rendered from | `digline suggest`, which writes the file the facts describe |
 
-The tests are in `packages/digline-mcp/tests/test_tools.py`.
+The tests are in `packages/digline-mcp/tests/test_tools.py`, and for the first
+verbs in `packages/digline-mcp/tests/test_first_verbs.py`.
 
 **A verdict's check is named `assertion` in every tool**: `get_run`,
 `get_baseline` and each aggregate row of `list_runs`, `compare`'s `deltas`,

@@ -68,6 +68,7 @@ from digline.host import (
     import_listing,
     imported_since,
     instant,
+    listed,
     listing_lines,
     load_suite,
     load_target,
@@ -98,6 +99,7 @@ from digline.host import (
     unignored,
     unignored_notes,
     utc_now_iso,
+    where,
     written_lines,
 )
 from digline.host.gate import STALE_SECONDS
@@ -117,6 +119,7 @@ from digline.report import (
     summary_lines,
 )
 from digline.report import diff as diff_report
+from digline.report.pages import VIEW_PORT
 from digline.run import (
     ReplayError,
     Suite,
@@ -159,6 +162,8 @@ from digline.wire import (
     run_json,
     usage_lines,
 )
+from digline.wire.recordings import import_listing_json
+from digline.wire.where import WHERE_DOCS, docs_url, where_command, where_json
 
 __all__ = [
     "EXIT_OK",
@@ -1415,7 +1420,7 @@ def cmd_record(args: argparse.Namespace) -> int:
         "redact": ("on",),
         "ceiling": ("on",),
         "interval": ("on",),
-        "json": ("status", "compare"),
+        "json": ("import", "status", "compare"),
         "good": ("import",),
         "bad": ("import",),
         "by": ("import",),
@@ -1597,11 +1602,20 @@ def cmd_record_import(args: argparse.Namespace) -> int:
     Without `--good` or `--bad` it lists and writes nothing. With them, and
     `--by`, it writes the answers named, each as a reviewed answer, and stops:
     no commit, no run, no promotion. There is no dialogue, no default and no
-    preselection, and nothing serves it to an agent. What is read and said is
-    the host's; this lays it out. (ADR 0058 §4, ADR 0059)
+    preselection. With `--json` it lists for a program, counts and shapes
+    with no recorded word, and writes nothing: a yes or a no is never a
+    program's. What is read and said is the host's; this lays it out.
+    (ADR 0058 §4, ADR 0059; ADR 0023 §9, as noted 2026-11-06)
     """
     if args.tenant is None or args.suite is None:
         raise UsageError("`digline record import` needs --tenant and --suite")
+    if args.json and (args.good or args.bad or args.by is not None):
+        raise UsageError(
+            "--json lists and writes nothing, so it is refused with --good, "
+            "--bad and --by: a yes or a no about an answer is a person's, "
+            "given by reading the answer, and a listing for a program has no "
+            "answer in it to read. Leave out --json to write them"
+        )
     suite, loaded = _record_suite(args)
     found = import_listing(
         Path(args.root), suite, loaded.module, args.tenant, taken_from=args.taken_from
@@ -1612,6 +1626,20 @@ def cmd_record_import(args: argparse.Namespace) -> int:
         )
         for line in written_lines(found, written):
             say(line)
+        return EXIT_OK
+    if args.json:
+        flags = [] if args.root in ("", ".") else ["--root", args.root]
+        emit(
+            json.dumps(
+                import_listing_json(
+                    listed(found),
+                    review=["digline", "view", "--suite", args.suite, *flags],
+                ),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return EXIT_OK
     for line in listing_lines(found):
         say(line)
@@ -1754,6 +1782,54 @@ def _names_a_suite(spec: str) -> bool:
         or "/" in spec
         or ":" in spec
     )
+
+
+def cmd_where(args: argparse.Namespace) -> int:
+    """Where the project is and the next step, read from `.digline/`: the
+    first of eleven states that holds, the counts that put it there, the
+    command for the next step and the page that says more. Not a gate: it
+    exits 0 whenever it could read the store. (`digline.host.where`)"""
+    root = Path(args.root)
+    suite: Suite | None = None
+    module = None
+    if args.suite is not None:
+        suite, loaded = load_suite(args.suite, root=root)
+        _check_perimeter(suite, args.tenant, None)
+        module = loaded.module
+    found = where(root, args.tenant, suite=suite, module=module)
+    flags = [] if args.root in ("", ".") else ["--root", args.root]
+    if args.json:
+        emit(
+            json.dumps(
+                where_json(found, suite_arg=args.suite, root=flags),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+    values = {
+        "count": found.count,
+        "suite": found.suite or "",
+        "tenant": found.tenant,
+        "exit_code": found.exit_code,
+        "last_import": found.last_import or phrase(args.locale, "view.where.never"),
+    }
+    said = (
+        "view.where.nothing_recorded.tenant"
+        if found.state == "nothing_recorded" and suite is None
+        else f"view.where.{found.state}.say"
+    )
+    say(phrase(args.locale, f"view.where.{found.state}.title", **values))
+    say(phrase(args.locale, said, **values))
+    for shape, count in found.shapes:
+        say(f"  {shape.says()} · {count}")
+    command = where_command(found, args.suite, flags)
+    if command:
+        say(f"{phrase(args.locale, 'view.where.command')}: {shlex.join(command)}")
+    for page, anchor in WHERE_DOCS[found.state]:
+        say(f"{phrase(args.locale, 'view.where.docs')}: {docs_url(page, anchor)}")
+    return EXIT_OK
 
 
 def cmd_suggest(args: argparse.Namespace) -> int:
@@ -2320,7 +2396,7 @@ def build_parser() -> argparse.ArgumentParser:
     # tenant's pages, *Where you are* first, which say the first steps before
     # any suite exists.
     common(view_p, suite_required=False)
-    view_p.add_argument("--port", type=int, default=7373, help="bind port")
+    view_p.add_argument("--port", type=int, default=VIEW_PORT, help="bind port")
     view_p.add_argument("--target", help=TARGET_HELP)
     view_p.add_argument(
         "--allow-promote",
@@ -2436,7 +2512,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help=(
-            "status and compare: emit what the lines are rendered from; for "
+            "import, status and compare: emit what the lines are rendered "
+            "from; for import, the listing alone, counts and shapes; for "
             "compare, digests and never the recorded text"
         ),
     )
@@ -2540,6 +2617,29 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     rec_p.set_defaults(func=cmd_record)
+
+    where_p = subparsers.add_parser(
+        "where",
+        help="where the project is, and the command for the next step",
+    )
+    where_p.add_argument(
+        "--tenant", required=True, help="the tenant whose .digline/ is read"
+    )
+    where_p.add_argument(
+        "--suite",
+        help=(
+            "path/to/suite.py, path/to/suite.toml or module:attribute; without "
+            "it, only the states read from the recordings can hold"
+        ),
+    )
+    where_p.add_argument("--root", default=".", help="directory holding .digline/")
+    where_p.add_argument(
+        "--json",
+        action="store_true",
+        help="the same reading for a program: the state, its counts, the next step",
+    )
+    terminal_locale(where_p)
+    where_p.set_defaults(func=cmd_where)
 
     sug_p = subparsers.add_parser(
         "suggest",
