@@ -42,10 +42,12 @@ trajectory — if your application calls tools.
 }
 ```
 
-- **`data`** — what the assistant said. This is what gets judged. A string, or
-  an object if that is what your endpoint returns.
-- **`usage`** — what the call cost and how long it took. digline cannot price a
-  call it did not make, so you report it. The price list lives in your code
+- **`data`** — what the assistant said. This is what the checks on the text
+  judge; a trajectory, where you report one, is what the checks on the tool
+  calls judge ([below](#if-your-application-calls-tools)). A string, or an
+  object if that is what your endpoint returns.
+- **`usage`** — what answering cost, every model call it made summed, and how
+  long it took. digline cannot price calls it did not make, so you report it. The price list lives in your code
   (`SupportService.java`, in either service),
   dated, because a price is a fact about a day.
 - **`usage.tokens`** — the counts behind the price, by digline's own names:

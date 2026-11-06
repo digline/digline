@@ -56,7 +56,8 @@ This track makes the verdict itself trustworthy.
       an unchanged suite is a named delta instead of an invisible one
       (ADR 0005 §9)
 - [x] Repeated runs per case: score as a distribution, not a single sample —
-      `Suite.samples` folds N calls per case, and since ADR 0006 the raw
+      `Suite.samples` folds N calls of the target per case, for an agent N
+      turns, and since ADR 0006 the raw
       per-sample scores and the interval they span are recorded on the verdict
       and travel with it
 - [x] Regression thresholds expressed relative to measured variance, not as
@@ -78,8 +79,8 @@ This track makes the verdict itself trustworthy.
       a fact of its own beside it. A suite that declares one must sample: at one
       sample there is no noise to measure and every wobble would stop a release
 - [x] **Judging stored answers again** (ADR 0015) — `record_responses=True`
-      keeps what the target said, per case and per sample, beside the prompt
-      that produced it; `digline rejudge` replays those answers through the
+      keeps what the target said and the steps it took, per case and per
+      sample, beside the prompt that produced it; `digline rejudge` replays those answers through the
       current suite, so a changed judge, rubric or threshold is measurable at no
       cost to the target. The field's usual answer to this is a response cache,
       which hands back an old answer as though it were a new one; this declares
@@ -142,7 +143,7 @@ reader can see rather than from a residue nobody can.
       with, an absence is not, so `AGENTS.md` §1 stops being a rule an agent is
       asked to follow. `run` takes a mandatory
       `acknowledge_calls` that must match the preflight, so an agent cannot
-      spend a hundred model calls without having stated the number. It brought
+      spend a hundred calls to the target without having stated the number. It brought
       two internal layers with it: `digline.host`, the part of the CLI that
       touches the world, and `digline.wire`, the machine surface both front ends
       render through
@@ -213,7 +214,7 @@ is a **second engine**: two implementations of what `contains` means, drifting
 apart, with the run format as the only thing holding them together. The one
 place that is allowed to happen is nowhere. `HttpTarget` keeps one engine and
 one set of assertion semantics, and asks the application only for what it alone
-can know — its answer, its cost, its configuration.
+can know — its answer, the calls it made, its cost, its configuration.
 
 **Exit gate:** someone who is not the author sets up a suite without asking
 the author anything.

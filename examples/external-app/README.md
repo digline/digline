@@ -2,7 +2,8 @@
 
 Yes, and nothing here is about Java. digline needs a body it can post and a
 field it can read out of the answer; what produced the answer is not its
-business. Your service can be a JVM app, a Go binary, a gateway, a shell script
+business, unless your service runs an agent: then it reports the tool calls it
+made too, where the suite's `tool_calls_path` says. Your service can be a JVM app, a Go binary, a gateway, a shell script
 behind `nc`.
 
 `server.py` stands in for it — twenty lines of `http.server`, so the example
@@ -11,7 +12,8 @@ else in `suite.py` changes.
 
 `HttpTarget` is the twenty lines every suite used to write by hand: a callable
 that builds the body from the case, and dotted paths that say where the answer,
-the cost and the elapsed time live in the response. Its `preflight` asks whether
+the cost, the elapsed time and, for an agent, its tool calls live in the
+response. Its `preflight` asks whether
 anything is listening **before** the first case, so a service that is down fails
 once with a sentence instead of five times with a stack trace.
 

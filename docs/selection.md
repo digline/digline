@@ -2,9 +2,11 @@
 
 Some systems do not produce an answer, they produce a **choice**: which items,
 from a set that was in the input. An assistant picking documents to cite, a
-router picking a tool, a recommender picking products, a briefing picking the
-morning's activities. For those the verdict is not in the text. It is in the
-relation between what was chosen and what was offered.
+router naming a tool in its reply, a recommender picking products, a briefing
+picking the morning's activities. For those the verdict is not in the text. It
+is in the relation between what was chosen and what was offered. An agent that
+*calls* the tool has made its choice in its steps, and `ToolsCalled`,
+`Subsequence` and `Never` read it there ([the metrics](metrics.md#toolscalled)).
 
 The [Handbook's chapter on ground truth](https://digline.dev/handbook/03-ground-truth/)
 explains why that relation can be checked only once the selection is data
@@ -184,8 +186,9 @@ be declared on the case, and read by a check of your own.
 declare a custom assertion, so it cannot run the check below. The limits are
 spelled out at the end of this page.
 
-**Where the set is declared.** A check never sees `case.vars`: those fill the
-prompt. What it does see is `case.metadata`, which arrives as
+**Where the set is declared.** A check never sees `case.vars`: those are the
+target's input, a prompt's variables or what a function target hands its agent.
+What it does see is `case.metadata`, which arrives as
 `inputs.metadata["case"]`. So the offered and required ids go in `metadata`.
 
 The file you copy is the check:

@@ -250,7 +250,8 @@ the question is `IsJson` or `JsonSchema`.
 ### `IsJson`
 
 **Use it when** the only question is whether it parses — the first check on any
-tool-calling or structured-output path.
+structured-output path. An agent's tool calls are not parsed out of its answer:
+`ToolsCalled` and `ToolCalledWith` read them where the target reports them.
 
 ```python
 IsJson(top_level="object")
@@ -443,9 +444,12 @@ because dropping the hole would move every later name to a position it did
 not hold. Do not `str()` an entry, and do not take the list's length as the
 number of named calls. A suite that discloses `called` meets this `null` in
 `--json` exactly as written.
-**Watch out** it needs a target that *reports* its tool calls — a provider
-plugin on a provider that names them. Anywhere else it is an **error**, not a
-failure: nobody reported, so what the model called is not knowable, and
+**Watch out** it needs a response that *reports* its tool calls: a provider
+target writes them where its provider names them, a run writes them for a
+target whose client is wrapped with `digline.recorder.wrap()`
+([`record.md`](record.md#steps-live)), an `HttpTarget` reads them at
+`tools_path` or `tool_calls_path`, and a function target writes them itself.
+Anywhere else it is an **error**, not a failure: nobody reported, so what the model called is not knowable, and
 "called nothing" would be a finding nobody established. It errors too when a
 provider contradicts itself, ending the turn on a tool call and then naming
 none. A call whose tool nobody named never passes: it **fails** where the reply
@@ -691,7 +695,7 @@ that a number can be reconciled with the case file:
 | `unlabelled_excluded` | the case carries no human mark to count against |
 | `canary_excluded` | the case watches the model rather than measuring it — see [`api.md`](api.md#casecanary-watching-the-model-instead-of-measuring-it) |
 | `calibration_excluded` | the case calibrates the judge on a fixed answer — see [`api.md`](api.md#casecalibration-watching-the-judges-scale) |
-| `reviewed_excluded` | the case is an answer a person said yes or no about, and measures the judge against that person — see [`api.md`](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer) |
+| `reviewed_excluded` | the case is an answer a person said yes or no about, and measures the judge against that person, and on an episode's answer the suite's checks on its steps too — see [`api.md`](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer) |
 
 `suspended_excluded` is the one figure here that can be improved by doing
 *less* work, which is why it is never printed on its own. The clause naming the
@@ -710,8 +714,10 @@ always the same shape — a prompt file, a model, a bill.
 
 ### `ProviderTarget`
 
-**Use it when** the system under test is a prompt sent to a provider, which is
-the ordinary case.
+**Use it when** the system under test is a prompt sent to a provider: one call,
+one turn. An agent is a function target that calls your own code
+([`declarative.md`](declarative.md#what-it-cannot-say)), its steps reported by
+it or read through `digline.recorder.wrap()`.
 
 ```python
 AnthropicTarget(
@@ -725,7 +731,8 @@ AnthropicTarget(
 **Takes** `prompt_file`, `model`, and whatever the plugin needs;
 `system` or `system_file`, never both. **Produces** a `Response` with the
 composed prompt in `input`, the cost in `cost_usd`, the measured duration in
-`latency_ms`, and the model and token counts in `metadata`.
+`latency_ms`, and the model and token counts in `metadata`, with the call's
+`tools` and its `steps` where the provider reported tool calls.
 **Watch out** both files are recorded in every run, so the baseline carries the
 prompt that produced it — which is the point, and which means a redacted run
 withholds them unless the suite says `Disclosure(artifact_body=True)`.
@@ -749,8 +756,10 @@ HttpTarget(
 ```
 
 **Takes** a URL, a callable that builds the body from the case, and dotted paths
-to the answer, the cost and the time the service reports. **Produces** a
-`Response` like any other target: what made it is not digline's business.
+to the answer, the cost and the time the service reports, and for an agent
+behind the URL, `tools_path` or `tool_calls_path` to the calls it made.
+**Produces** a `Response` like any other target. It reports no steps, so
+`MaxSteps` errors on it ([`declarative.md`](declarative.md#the-trajectory-tools_path-and-tool_calls_path)).
 **Watch out** `preflight` asks whether anything is listening before the first
 case, so a service that is down fails once with a sentence rather than once per
 case with a stack trace. Without `latency_from_response` the round trip is
