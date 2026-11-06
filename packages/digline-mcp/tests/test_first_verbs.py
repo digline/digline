@@ -488,7 +488,11 @@ def test_under_project_the_plugins_installed_are_withheld(root: Path) -> None:
     """A suite that does not exist yet has its judge as a placeholder, and the
     answer names the plugins installed beside it: in clear, the control, and
     under `project` none, since no kind holds a plugin's name."""
-    arguments = {"name": "triage", "tenant": TENANT, "repository": "private"}
+    arguments: dict[str, Any] = {
+        "name": "triage",
+        "tenant": TENANT,
+        "repository": "private",
+    }
     clear = server_call(root, "suggest", **arguments)
     assert clear["judge"]["declared"] is False
     assert clear["judge"]["plugins"]
