@@ -705,7 +705,10 @@ def test_digline_run_judges_it_and_report_exits_by_it(
         )
         assert refused.returncode == EXIT_USAGE, refused.stderr
         assert "cap-1 (failed a yes)" not in refused.stderr
-        assert "contradicted a person about (cap-1 (passed a no))" in refused.stderr
+        assert (
+            "the judge contradicted a person on 1 reviewed answer, by answer "
+            "cap-1 (passed a no)." in refused.stderr
+        ), refused.stderr
         assert not list((tmp_path / ".digline" / "acme").rglob("baselines/*.json"))
 
 
@@ -717,8 +720,11 @@ def test_promotion_refuses_a_run_the_judge_contradicted_a_person_in() -> None:
     )
     refusals = refusals_for(against, against.config_hash, declared=None)
     [refusal] = [r for r in refusals if isinstance(r, ContradictedRunError)]
-    assert "no-good (passed a no), yes-bad (failed a yes)" in str(refusal)
-    assert "a baseline where the judge contradicts the person is not a baseline" in (
+    assert (
+        "the judge contradicted a person on 2 reviewed answers, by answer "
+        "no-good (passed a no), yes-bad (failed a yes)." in str(refusal)
+    ), str(refusal)
+    assert "a baseline where a check contradicts the person is not a baseline" in (
         str(refusal)
     )
     agreeing = run(*AGREES)

@@ -137,8 +137,9 @@ class UncalibratedRunError(Exception):
 
 
 class ContradictedRunError(Exception):
-    """Raised when promoting a run in which the judge contradicted a person
-    about a reviewed answer.
+    """Raised when promoting a run in which a check contradicted a person
+    about a reviewed answer: the judge, or a check on the steps of an
+    episode's answer (ADR 0059 §1, amended 2026-11-05).
 
     The person's yes or no is the expected verdict, and the judge gave the
     other. Promoted, the run would become the reference later runs are held
@@ -752,11 +753,12 @@ class ResultStore(Protocol):
             implicates; or if `accepting_pins` names a path where nothing is
             implicated. A movement made the reference must have been named by
             whoever promoted it (ADR 0053).
-        12. `ContradictedRunError`, after 5, if the judge contradicted a person
-            about a reviewed answer — passed one the person said no to, or
-            failed one the person said yes to. The person's verdict is the
-            expected one, and a reference scored by a judge that disagrees with
-            it is not one (ADR 0059 §1, as noted 2026-11-04).
+        12. `ContradictedRunError`, after 5, if a check contradicted a person
+            about a reviewed answer — the judge passed one the person said no
+            to, or the judge or a check on the steps failed one the person
+            said yes to. The person's verdict is the expected one, and a
+            reference scored by a check that disagrees with it is not one
+            (ADR 0059 §1, as noted 2026-11-04, amended 2026-11-05).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:

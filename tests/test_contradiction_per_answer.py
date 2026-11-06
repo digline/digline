@@ -26,11 +26,13 @@ from digline.core import (
     Run,
     compare,
 )
-from digline.core.reviewed import contradicted
+from digline.core.reviewed import Contradiction, contradicted
 from digline.core.run import RecordedStep, RecordedToolCall
 from digline.report import contradicted_said, explain_text, facts, headline
 from digline.report.explain import TallyFact
 from digline.run import Case, Response, ReviewedAnswer, Suite, execute
+from digline.store import ContradictedRunError, refusals_for
+from digline.store.promotion import contradicted_said_en
 from digline.wire.contract import exit_code
 
 CREATED = "2026-11-06T00:00:00+00:00"
@@ -206,3 +208,60 @@ suite = Suite(
     err = capsys.readouterr().err.splitlines()
     assert f"digline: {SAID}." in err, err
     assert not any("the judge contradicted" in line for line in err), err
+
+
+def test_promote_refuses_the_story_with_the_same_sentence_and_one_answer() -> None:
+    """Condition 12: one answer, two checks on its steps, is 1 reviewed
+    answer, named once with its direction."""
+    found = ran()
+    refusals = refusals_for(found, found.config_hash, declared=None)
+    [refusal] = [r for r in refusals if isinstance(r, ContradictedRunError)]
+    assert f"{SAID}, by answer T3 (failed a yes)." in str(refusal), str(refusal)
+    assert "2 reviewed answer" not in str(refusal), str(refusal)
+    assert "the judge" not in str(refusal), str(refusal)
+
+
+def _c(case: str, check: str, *, good: bool, steps: bool) -> Contradiction:
+    return Contradiction(
+        case_id=case, check=check, good=good, score=0.0, on_the_steps=steps
+    )
+
+
+@pytest.mark.parametrize(
+    "found",
+    [
+        (_c("A", "llm_rubric", good=True, steps=False),),
+        (
+            _c("A", "llm_rubric", good=False, steps=False),
+            _c("B", "llm_rubric", good=True, steps=False),
+        ),
+        (_c("T3", "before", good=True, steps=True),),
+        (
+            _c("T3", "never", good=True, steps=True),
+            _c("T3", "max_steps", good=True, steps=True),
+        ),
+        (
+            _c("T3", "never", good=True, steps=True),
+            _c("T4", "never", good=True, steps=True),
+        ),
+        (
+            _c("T3", "llm_rubric", good=True, steps=False),
+            _c("T3", "never", good=True, steps=True),
+            _c("T4", "max_steps", good=True, steps=True),
+        ),
+    ],
+    ids=[
+        "judge-one",
+        "judge-two-answers",
+        "steps-one",
+        "steps-two-checks-one-answer",
+        "steps-two-answers",
+        "both",
+    ],
+)
+def test_the_refusal_says_the_reports_english_word_for_word(
+    found: tuple[Contradiction, ...],
+) -> None:
+    """`store` may not import `report`, so the refusal's sentence is written
+    twice; this is what keeps it one sentence."""
+    assert contradicted_said_en(found) == contradicted_said(found, "en")

@@ -459,6 +459,10 @@ nothing. No public name is removed or renamed and no exit code changes.
   contradiction and its direction after it. `reviewed_failed_yes` and
   `reviewed_passed_no` in `compare --json`, and `count` on explain's
   `reviewed` entry, count answers too, as ADR 0059 §1 counts the cases.
+  `promote`'s refusal of such a run says the same sentence and names each
+  answer once: *checks on the steps contradicted a person on 1 reviewed
+  answer: never, on case T3; max_steps, on case T3, by answer T3 (failed a
+  yes)*, where it said *2 reviewed answer(s) the judge contradicted*.
 - **`digline run` names `explain`, never `promote`, after a run whose own exit
   is not 0**, and says why on a contradiction: *reads this run back; a check
   contradicted a person*, the judge or one on the steps. Measured: every cause of a lone run's 1 or 2 was

@@ -44,14 +44,14 @@ core, and are imported from there.
 from __future__ import annotations
 
 import shlex
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 
 from digline.core.calibration import scale_lost
 from digline.core.compare import compare
 from digline.core.declared import Declared, cases_that_count, nothing_judged
 from digline.core.gate import causes_of_two, pins_implicated
 from digline.core.reconcile import unreconciled
-from digline.core.reviewed import contradicted
+from digline.core.reviewed import Contradiction, contradicted
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
@@ -66,6 +66,7 @@ from digline.store.protocol import (
 
 __all__ = [
     "PromotionRefusal",
+    "contradicted_said_en",
     "refusal_for_a_moved_baseline",
     "refusal_for_unaccepted_pins",
     "refusals_for",
@@ -263,20 +264,21 @@ def refusals_for(
         )
 
     # Condition 12, beside 5 and for the judge's other fault: a person's yes
-    # or no is the expected verdict, and a reference scored by a judge that
-    # gave the other is not one. Named by case and direction. (ADR 0059 §1)
+    # or no is the expected verdict, and a reference scored by a check that
+    # gave the other is not one. Said as `run`, `explain` and `compare` say
+    # it, then each answer once, with its direction. (ADR 0059 §1, amended
+    # 2026-11-05)
     against = contradicted(run)
     if against:
-        named = ", ".join(
-            f"{item.case_id} ({_WENT[item.direction]})" for item in against
-        )
+        went = {item.case_id: item.direction for item in against}
+        named = ", ".join(f"{case} ({_WENT[way]})" for case, way in went.items())
         refusals.append(
             ContradictedRunError(
-                f"run {key} has {len(against)} reviewed answer(s) the judge "
-                f"contradicted a person about ({named}): the person's yes or no "
-                "is the expected verdict, and a baseline where the judge "
-                "contradicts the person is not a baseline. Promote a run whose "
-                "judge agreed with every person"
+                f"run {key}: {contradicted_said_en(against)}, by answer {named}. "
+                "The person's yes or no is the expected verdict, and a "
+                "baseline where a check contradicts the person is not a "
+                "baseline. Promote a run whose every check agreed with every "
+                "person"
             )
         )
 
@@ -285,6 +287,38 @@ def refusals_for(
 
 #: Which way a judge contradicted a person, as condition 12 names it.
 _WENT = {"passed_no": "passed a no", "failed_yes": "failed a yes"}
+
+
+def contradicted_said_en(found: Sequence[Contradiction]) -> str:
+    """`digline.report.contradicted_said(found, "en")`, word for word.
+
+    Written here because `store` may import `core` alone, and the report's
+    table is above it (`tests/test_layering.py`). The two are held equal by
+    `tests/test_contradiction_per_answer.py` on every shape: the judge
+    alone, the steps alone, both, one answer and many. A refusal is an
+    English runtime string, so only the English is needed. (ADR 0059 §1,
+    amended 2026-11-05)
+    """
+    judge = [c for c in found if not c.on_the_steps]
+    steps = [c for c in found if c.on_the_steps]
+    parts: list[str] = []
+    if judge:
+        answers = len({c.case_id for c in judge})
+        parts.append(f"the judge contradicted a person on {_answers(answers)}")
+    if steps:
+        who = (
+            "a check on the steps contradicted"
+            if len(steps) == 1
+            else "checks on the steps contradicted"
+        )
+        checks = "; ".join(f"{c.check}, on case {c.case_id}" for c in steps)
+        answers = len({c.case_id for c in steps})
+        parts.append(f"{who} a person on {_answers(answers)}: {checks}")
+    return "; ".join(parts)
+
+
+def _answers(count: int) -> str:
+    return "1 reviewed answer" if count == 1 else f"{count} reviewed answers"
 
 
 def refusal_for_a_moved_baseline(
