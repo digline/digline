@@ -153,7 +153,7 @@ def suggest_new(
     if tenant is not None and _has_runs(root, tenant, name):
         raise RefusedError(
             f"{name[:40]!r} has runs under this tenant but no suite file here: "
-            "give the path. Nothing was proposed (ADR 0063 §1)"
+            "give the path. Nothing was proposed"
         )
     missing = [
         flag
