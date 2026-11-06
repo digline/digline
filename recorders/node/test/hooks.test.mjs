@@ -195,7 +195,8 @@ test("off, nothing is read or written", async () => {
   assert.equal(answer.choices[0].message.content, "Je regarde.");
   await pause();
   assert.equal(fs.existsSync(path.join(made, ".digline")), false);
-  assert.equal(recorder.counts().recorded, 0);
+  // Off is one test per call: nothing read, so nothing counted either.
+  assert.deepEqual(recorder.counts(), { noted: {}, not_recorded: {}, orphan: 0, recorded: 0 });
 });
 
 test("the application's call never fails because the recorder cannot write", async () => {
@@ -207,6 +208,35 @@ test("the application's call never fails because the recorder cannot write", asy
   assert.equal(answer.choices[0].message.content, "Je regarde.");
   await pause();
   assert.deepEqual(recorder.counts().not_recorded, { writer: 1 });
+});
+
+test("a stream whose body the application cancels is counted abandoned", async () => {
+  // The SDKs abort the request when a loop breaks, which the test above
+  // reaches; a body cancelled by the application's own code is the other way
+  // a stream ends early.
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  const first = `data: ${JSON.stringify(wire("openai-stream").events[0])}\n\n`;
+  const inner = async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(first));
+        },
+      }),
+      { status: 200, headers: { "content-type": "text/event-stream" } },
+    );
+  const response = await suite("triage", () =>
+    diglineFetch(recorder, { fetch: inner })(`${fake.url}/v1/chat/completions`, {
+      method: "POST",
+      body: JSON.stringify(wire("openai-stream").request),
+    }),
+  );
+  const reader = response.body.getReader();
+  await reader.read();
+  await reader.cancel();
+  await pause();
+  assert.deepEqual(recorder.counts().not_recorded, { "stream abandoned": 1 });
 });
 
 async function answerTicket(client) {
