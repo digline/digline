@@ -42,7 +42,8 @@ declares the regime.
 
 `--suite` is read as a suite when it is a file that is there, a path ending
 in `.py` or `.toml`, or `module:attribute`. Anything else is the name of a
-suite that does not exist yet, and is never imported.
+suite that does not exist yet; digline does not look for one, and stops if
+that name already has runs. A name is never imported.
 
 A `suite.proposed.toml` already there is never overwritten: the command
 refuses and names it, and you move it or delete it. What you wrote in a
@@ -61,7 +62,9 @@ proposal is not the command's to throw away.
 - **The suite's runs**, where there are any, for the limits.
 
 With no recording and no reviewed answer it writes nothing, and says where a
-suite begins: `digline record on`, which is yours to run.
+suite begins: `digline record on`, which is yours to run. Where the tenant's
+recorder is already on and no call named the suite, it says so instead, and
+names the suites the calls did name.
 
 ## What it proposes
 
@@ -87,6 +90,12 @@ proposed from them. A tool call nobody named takes out every check that names
 a tool, since it may be any of them. A check the suite already declares, by
 name, is not proposed again.
 
+**For a suite that does not exist yet, `[suite]` asks the target three
+times**, `samples = 3` with `min_agreement = "2/3"`: a reviewed answer needs
+the target asked at least twice
+([`record.md`](record.md#from-recordings-to-cases-digline-record-import)), and
+three is the starting point that leaves room for one sample to disagree.
+
 **The judged check the capture reviews answers for**, where the suite does
 not declare it: `llm_rubric`, wrapped in `repeated` with three samples and
 `"2/3"`, the starting point of [the guide](guide.md), chapter 3. Its rubric
@@ -106,7 +115,12 @@ reviewed noes for the judged check, where there are any, named by id: they
 are already in your cases file, and the check must fail them. Otherwise a case
 constructed and marked as constructed, `counterexample-1`, written as a line
 to paste into a cases file, whose input is yours to write: one whose answer
-the check must refuse.
+the check must refuse. It is answered by the target, so the suite needs a
+`[target]`.
+
+**The cases file**, for a suite that does not exist yet, is the capture's,
+`captured.json`, and the file says so beside `cases`: it is written by
+`digline record import`, and until then the suite has no case.
 
 **A calibration skeleton**, where the suite has no calibration case for the
 judged check: the answer to paste, one you know is partly right, and the band
@@ -114,8 +128,9 @@ to place, strictly between 0 and 1
 ([Calibrating a judge](calibration.md)).
 
 **No case is chosen, and no answer is chosen for review.** The command says
-how many recordings and answers are not yet examined, by group, and the
-command that examines them. Choosing which recordings become cases is a
+how many recordings and answers are not yet examined, by group (the shape of
+the answers, as `record import` lists them), and the command that examines
+them. Choosing which recordings become cases is a
 pre-selection, which [ADR 0023](adr/0023-capture.md) §4 forbids.
 
 ## The assistant
@@ -191,6 +206,11 @@ On standard error, what it assumed, in the words of the fifth step of
 reproduces, the judge, each check and each starting number, the calibration
 band, the counterexample. Then the counts. Standard output stays empty.
 
+Where the suite's recordings were made under more than one setup, it names
+each beside the one in force, and the `digline record compare` command that
+shows the keys two of them differ on. The provider plugins installed are
+named beside the judge, which is yours to choose.
+
 What it says is digline's own words: kinds, counts and the names of checks.
 **No recorded text reaches either stream**, under either regime: not an
 input, not an answer, and not a tool's name or a key read from a recording.
@@ -199,8 +219,11 @@ Those last two are the rules, and they are in the file's checks.
 ## What it never does
 
 It never writes a reviewed answer, a `good`, a `--by`, a label or a
-promotion, and it writes no file but `suite.proposed.toml`. Your suite and
-its cases file are byte for byte what they were, and the suite loads to the
+promotion, and it writes no file but `suite.proposed.toml`. Your suite is
+not rewritten, and neither are its limits: a placeholder you adopted stays
+until you replace it, and on the next run the command counts those still at
+their most severe value. Your suite and its cases file are byte for byte what
+they were, and the suite loads to the
 same `config_hash`. The yes and the no are yours, and so is the commit.
 
 Without an assistant, the file quotes no recorded input or answer, under

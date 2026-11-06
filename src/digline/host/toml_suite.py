@@ -247,6 +247,26 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             "array of paths, not a table or cases written in the suite"
         )
 
+    # Every key `Suite` takes with no default, named in digline's words rather
+    # than in the constructor's `TypeError`. `assertions` is the file's own
+    # list and `cases` was refused above with its reason. (ADR 0007 §6)
+    absent = [
+        name
+        for name, field in suite_keys.items()
+        if field.default is MISSING
+        and field.default_factory is MISSING
+        and name not in ("assertions", "cases")
+        and name not in table
+    ]
+    if absent:
+        raise UsageError(
+            f"{where}, [suite]: no "
+            + " and no ".join(f"`{name}`" for name in absent)
+            + ". "
+            + ("It is" if len(absent) == 1 else "Each is")
+            + " mandatory, with no default (docs/declarative.md, [suite])"
+        )
+
     declared = dict(table)
     capture = (
         _capture(_table(document, "capture", where), path, perimeter, where)

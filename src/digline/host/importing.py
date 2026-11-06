@@ -100,6 +100,7 @@ __all__ = [
     "ImportListing",
     "Shape",
     "SuiteRecorded",
+    "answer_counts",
     "answer_id",
     "answer_state",
     "capture_file",
@@ -114,6 +115,7 @@ __all__ = [
     "refuse_another_tenant",
     "group_setup_line",
     "setup_line",
+    "setups_recorded",
     "split_recordings",
     "unloaded_capture",
     "written_lines",
@@ -468,6 +470,46 @@ def shape_counts(
         shape = _shape(recording)
         counts[shape] = counts.get(shape, 0) + 1
     return tuple(counts.items())
+
+
+def answer_counts(
+    everything: Sequence[Recording], suite: str
+) -> tuple[tuple[Shape, int, int], ...]:
+    """`shape_counts` with the answers beside the recordings, as the listing
+    counts them: per shape, how many answers, an input and its answer counted
+    once, and how many recordings gave them. Needs no capture declaration
+    either."""
+    answers: dict[Shape, set[str]] = {}
+    recordings: dict[Shape, int] = {}
+    for recording in split_recordings(everything, suite).eligible:
+        shape = _shape(recording)
+        text = cast(str, _answer(recording.response))
+        answers.setdefault(shape, set()).add(answer_id(recording.case, text))
+        recordings[shape] = recordings.get(shape, 0) + 1
+    return tuple((shape, len(ids), recordings[shape]) for shape, ids in answers.items())
+
+
+def setups_recorded(
+    everything: Sequence[Recording], suite: str
+) -> dict[bool, tuple[str, ...]]:
+    """Every setup `suite`'s eligible recordings were made under, per form,
+    ordered by each setup's newest recording as `setups_in_force` orders
+    them, so that the last of each form is the setup in force."""
+    eligible = split_recordings(everything, suite).eligible
+    found: dict[bool, tuple[str, ...]] = {}
+    for form in (True, False):
+        newest: dict[str, tuple[int, str, int]] = {}
+        mine = [r for r in eligible if r.is_episode == form]
+        for index, recording in enumerate(mine):
+            # An undated recording sorts before every dated one: where any is
+            # dated, the setup in force is the newest dated recording's.
+            at = recording.recorded_at
+            key = (1, instant_of(at), index) if at is not None else (0, "", index)
+            held = newest.get(recording.setup_digest)
+            newest[recording.setup_digest] = key if held is None else max(held, key)
+        if newest:
+            found[form] = tuple(sorted(newest, key=lambda setup: newest[setup]))
+    return found
 
 
 def setups_in_force(
