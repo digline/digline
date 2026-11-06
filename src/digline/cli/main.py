@@ -56,6 +56,7 @@ from digline.host import (
     LATEST,
     NO_BASELINE,
     REFUSALS,
+    SUITE_SUFFIX,
     Loaded,
     Resolved,
     UsageError,
@@ -86,6 +87,8 @@ from digline.host import (
     refused_exit,
     reported,
     resolve_key,
+    suggest_for,
+    suggest_new,
     suite_runs,
     switch_off,
     switch_on,
@@ -1738,6 +1741,52 @@ def _setup_value(value: SetupValue) -> str:
     return f"{shown} ({value.chars} characters)" if value.clipped else shown
 
 
+def _names_a_suite(spec: str) -> bool:
+    """Whether `--suite` names a suite to load rather than the name of one
+    that does not exist yet: a file that is there, a `.py` or `.toml` path,
+    or `module:attribute`. Anything else is a name, and is never imported."""
+    return (
+        Path(spec).is_file()
+        or spec.endswith((".py", SUITE_SUFFIX))
+        or "/" in spec
+        or ":" in spec
+    )
+
+
+def cmd_suggest(args: argparse.Namespace) -> int:
+    """A first suite, proposed into `suite.proposed.toml` and never marked.
+
+    Everything it says is on standard error, in digline's own words: no
+    recorded text reaches either stream, so standard output carries nothing.
+    What is read, proposed and refused is the host's. (ADR 0063)"""
+    root = Path(args.root)
+    if _names_a_suite(args.suite):
+        suite, loaded = load_suite(args.suite, root=root)
+        _check_perimeter(suite, args.tenant, None)
+        module_file = getattr(loaded.module, "__file__", None)
+        suite_file = (
+            Path(module_file) if module_file else Path(args.suite.split(":")[0])
+        )
+        done = suggest_for(
+            root,
+            suite,
+            suite_file=suite_file,
+            module=loaded.module,
+            repository=args.repository,
+        )
+    else:
+        done = suggest_new(
+            root,
+            args.suite,
+            tenant=args.tenant,
+            repository=args.repository,
+            here=Path.cwd(),
+        )
+    for line in done.lines:
+        say(line, err=True)
+    return EXIT_OK
+
+
 def cmd_record_status(args: argparse.Namespace) -> int:
     """Whether each tenant records, where, how much, and whether it stopped at
     its ceiling. Not a gate: it exits 0 whenever it could read the store.
@@ -2461,6 +2510,39 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     rec_p.set_defaults(func=cmd_record)
+
+    sug_p = subparsers.add_parser(
+        "suggest",
+        help="propose a first suite from the recordings, into suite.proposed.toml",
+    )
+    sug_p.add_argument(
+        "--suite",
+        required=True,
+        help=(
+            "path/to/suite.py, path/to/suite.toml or module:attribute; or the "
+            "name of a suite that does not exist yet, with --tenant and "
+            "--repository"
+        ),
+    )
+    sug_p.add_argument("--root", default=".", help="directory holding .digline/")
+    sug_p.add_argument(
+        "--tenant",
+        help=(
+            "verify the suite's tenant; never overrides. Mandatory for a "
+            "suite that does not exist yet"
+        ),
+    )
+    # No default and no `choices`: the regime is the person's to say, and the
+    # host refuses a missing or another value by name. (ADR 0063 §1)
+    sug_p.add_argument(
+        "--repository",
+        metavar="private|public",
+        help=(
+            "the regime of the proposed [capture], for a suite that does not "
+            "exist yet; refused where the suite exists"
+        ),
+    )
+    sug_p.set_defaults(func=cmd_suggest)
 
     rep_p = subparsers.add_parser("report", help="render the report")
     common(rep_p)
