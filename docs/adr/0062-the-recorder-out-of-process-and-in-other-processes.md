@@ -437,6 +437,29 @@ held where it is written, and the job is required where the files ship.
 **.NET** (a `DelegatingHandler`), **Node** (around `fetch`) and **Go** (an
 `http.RoundTripper`) come after 1.1, each with its own job.
 
+*Amended 2026-11-06, by Alessandro Prandini's ruling (P-1569): **Node's
+interceptor is in 1.1.*** The sentence above is kept as written, and .NET and
+Go stay after 1.1. Node's is not "around `fetch`" in general but on the doors
+the SDKs give, measured on 2026-11-06 with Node 22.22.0, openai 7.50.0,
+@anthropic-ai/sdk 1.4.0 and @aws-sdk/client-bedrock-runtime 3.1163.0 against a
+fake provider on 127.0.0.1:
+
+- **`diglineFetch(recorder)`**, given as the client's `fetch` option, which
+  both SDKs take: Chat Completions and Messages, single and streamed. A patch
+  of the global `fetch` was measured and not taken: a client built before the
+  patch keeps the `fetch` it read when it was built.
+- **`diglineAws(recorder)`**, a middleware Bedrock's client takes with
+  `middlewareStack.use(...)`, placed after `deserializerMiddleware`, where it
+  reads the reply's bytes before the SDK does: Converse, and InvokeModel with
+  an Anthropic model. Their streams pass unrecorded, and counted, until a
+  second pull request decodes AWS's event stream.
+- **`DiglineRecorder`**, the writer, in `recorders/node/digline/`, Node alone,
+  with the suite, the episode and the attach held by `AsyncLocalStorage`
+  rather than by a thread.
+
+Its job is `recorder-node`, and the same request recorded through it is held
+to the digest Python's and Java's give, in `through-the-proxy`.
+
 ### 5. A page per language — *decided here*
 
 **`docs/record-java.md`, and then `record-dotnet.md`, `record-node.md` and
@@ -468,6 +491,11 @@ stays for the "after", the production side, which this record does not open.
 
 About **12 days** for 1.1. The interceptors for .NET, Node and Go are after.
 
+*Amended 2026-11-06 (P-1569, §4's note):* Node's interceptor is in 1.1, in two
+pull requests: the writer, the `fetch` hook and Bedrock's calls that do not
+stream, about 4 days; then Bedrock's streams with a decoder of AWS's event
+stream, about 1.5 days. .NET's and Go's are after.
+
 ## What does not change
 
 - **A recording's place, its compartments and its version** (ADR 0058 §3, §4,
@@ -496,6 +524,8 @@ ahead on its own, as #901.
 
 - **The interceptors for .NET, Node and Go**, and their pages beyond what the
   proxy does.
+  *Amended 2026-11-06 (P-1569):* Node's is decided, in §4's note. .NET's and
+  Go's are not.
 - **OpenTelemetry**, for the "after".
 - **The bridge** (ADR 0058, *Not decided here*): §3's proxy records one
   tenant, and bringing it to another is still the bridge.
