@@ -273,9 +273,8 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "client's calls do not exist"
     ),
     "0063-suggest-a-first-suite-proposed-and-never-marked": (
-        "built in part and not released: the verb without a model, §1 to §3 "
-        "and §5 to §7, with its file of proposal. §4's assistant, the "
-        "`[suggest]` table, is not built. Meant for 1.1"
+        "built and not released: the verb and its file of proposal, and §4's "
+        "assistant, `[suggest]` or `--model`. Meant for 1.1"
     ),
 }
 
