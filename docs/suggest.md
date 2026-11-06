@@ -138,6 +138,7 @@ it, and the suite's `config_hash` is the same with it or without it.
 **What it costs is said before the call**, and not asked:
 
 ```console
+$ digline suggest --suite eval/suite.toml --model anthropic/claude-haiku-4-5
 assistant: anthropic/claude-haiku-4-5, from --model
 assistant: 1 call to anthropic/claude-haiku-4-5, 42 recordings and 7 reviewed answers, about 31,000 input tokens (at the ratio the suite's recordings report) and at most 4,000 output; at most $0.05
 ```
