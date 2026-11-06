@@ -49,7 +49,7 @@ from digline.host.importing import (
     input_line,
     setup_line,
 )
-from digline.host.where import State, SuiteFound, Where, record_lines
+from digline.host.where import SuiteFound, record_lines
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
     answer_address,
@@ -65,6 +65,13 @@ from digline.wire.record_compare import (
     RecordComparison,
 )
 from digline.wire.recorder import TenantRecorder
+from digline.wire.where import (
+    NO_SUITE_ARG,
+    WHERE_DOCS,
+    Where,
+    docs_url,
+    where_command,
+)
 
 __all__ = [
     "SHOWN_CHARS",
@@ -956,58 +963,9 @@ def _suites(status: TenantRecorder, locale: Locale) -> str:
 # Where the project is
 # --------------------------------------------------------------------------- #
 
-#: Where the documentation is read, on the site that publishes `docs/`.
-DOCS_SITE = "https://digline.dev/product/"
-
-#: The pages that say more about each state, by their path under `docs/`
-#: and the anchor on the page; `tests/test_where_page.py` holds each to a
-#: page that exists and an anchor it has.
-WHERE_DOCS: dict[State, tuple[tuple[str, str], ...]] = {
-    "nothing_recorded": (("record.md", ""),),
-    "recording_off": (("record.md", "switching-it-on"),),
-    "unassigned": (("record.md", "from-recordings-to-cases-digline-record-import"),),
-    "no_suite_yet": (("proposing-a-suite.md", ""), ("declarative.md", "capture")),
-    "to_import": (("record.md", "from-recordings-to-cases-digline-record-import"),),
-    "never_run": (("guide.md", ""),),
-    "judge_disagrees": (("calibration.md", ""), ("explain.md", "")),
-    "green_without_red": (("proposing-a-suite.md", ""),),
-    "new_setup": (("record.md", "comparing-setups-digline-record-compare"),),
-    "nothing_to_do": (("view.md", ""),),
-    "last_run_red": (("explain.md", ""),),
-}
-
-
-#: What a command for a suite says where the server was started without one.
-NO_SUITE_ARG = "<suite file>"
-
-
-def where_command(
-    found: Where, suite_arg: str | None, root: Sequence[str]
-) -> list[str]:
-    """The command for the state's next step, as a person types it, or none
-    where the step is an edit: a suite written, a counterexample added. It is
-    shown and never run: no button on this page launches a run or a gate.
-    Without a suite it names the suite's file as the person's to fill in."""
-    tenant = ["--tenant", found.tenant]
-    suite = ["--suite", suite_arg or NO_SUITE_ARG]
-    words: dict[State, list[str]] = {
-        "nothing_recorded": ["record", "on", *tenant],
-        "recording_off": ["record", "on", *tenant],
-        "unassigned": ["record", "import", *tenant, *suite, "--from", "_unassigned"],
-        "to_import": ["record", "import", *tenant, *suite],
-        "never_run": ["run", *suite],
-        "judge_disagrees": ["explain", *suite, "--run", "latest"],
-        "new_setup": ["record", "compare", *tenant, *suite],
-        "last_run_red": ["explain", *suite, "--run", "latest"],
-    }
-    if found.state not in words:
-        return []
-    return ["digline", *words[found.state], *root]
-
 
 def _docs_link(page: str, anchor: str) -> str:
-    slug = page.removesuffix(".md")
-    href = f"{DOCS_SITE}{slug}/" + (f"#{anchor}" if anchor else "")
+    href = docs_url(page, anchor)
     return f'<a href="{escape(href)}">{escape(page)}</a>'
 
 

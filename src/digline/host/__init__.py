@@ -46,6 +46,7 @@ from digline.host.importing import (
     import_elect,
     import_listing,
     imported_since,
+    listed,
     listing_lines,
     written_lines,
 )
@@ -160,6 +161,7 @@ __all__ = [
     "around_target",
     "import_elect",
     "import_listing",
+    "listed",
     "listing_lines",
     "written_lines",
     "imported_since",

@@ -330,6 +330,29 @@ INTRODUCED: dict[str, str] = {
     "around_target": "1.1.0",
     "contradicted": "1.1.0",
     "running": "1.1.0",
+    # 1.1.0 too, for digline-mcp's five tools of the first verbs: the host's
+    # readings, `where`, the recorder's status, the import's listing, the
+    # comparison by setup and the proposal, and the wire's renderings of
+    # each. None is in `v1.0.3`'s `src/` (`git grep` of each `def` at that
+    # tag); its floor is owed at the cut, in RELEASING.md's table. (ADR 0011
+    # §1, as noted 2026-11-06)
+    "checked_name": "1.1.0",
+    "import_listing": "1.1.0",
+    "import_listing_json": "1.1.0",
+    "listed": "1.1.0",
+    "record_compare": "1.1.0",
+    "record_compare_json": "1.1.0",
+    "recorder_status": "1.1.0",
+    "recorder_status_json": "1.1.0",
+    "suggest_for": "1.1.0",
+    "suggest_json": "1.1.0",
+    "suggest_new": "1.1.0",
+    "where": "1.1.0",
+    "where_json": "1.1.0",
+    # In `digline.core.__all__` from 0.35.0 (`git log -S` and `git describe
+    # --contains`): digline-mcp keeps digline's own configuration keys in
+    # clear under `--names project`, as a run's projection does.
+    "NAMED_CONFIG_KEYS": "0.35.0",
 }
 
 #: Where a dated name may live. Was `core` and `targets` alone, which was true

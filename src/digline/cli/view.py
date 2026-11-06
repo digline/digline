@@ -112,6 +112,7 @@ from digline.report import (
     escape,
     pages,
 )
+from digline.report.pages import VIEW_PORT
 from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
 from digline.store import PathRefusedError, ResultStore, RunRef, checked_name
@@ -1580,7 +1581,7 @@ def serve(
     suite: Suite | None,
     store: ResultStore,
     *,
-    port: int = 7373,
+    port: int = VIEW_PORT,
     pricing: str = "",
     allow_promote: bool = False,
     allow_record: bool = False,

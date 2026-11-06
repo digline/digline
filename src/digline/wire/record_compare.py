@@ -13,6 +13,14 @@ cases by their ids, the setups by their digests, each answer by the digest of
 its text, the dates, how many times an answer came back, and, for two setups,
 the keys whose values differ, never the values.
 
+*Noted 2026-11-06.* An episode's shape now crosses beside its setup: `calls`,
+the numbers of model calls its episodes made, which are counts, and `models`,
+the models its children's setups name, which are values of the configuration
+and travel by ADR 0005 §2, as a run's `target_config` does. This module said
+both were payload and never on the wire; that was decided with no reason
+measured, and the MCP server, which shows the same comparison to an agent,
+measured one. Added keys: `OUTPUT_VERSION` does not move.
+
 **Nothing is judged.** No answer is better than another, and no word here or in
 what is built from it says so: the view shows, and the person reads.
 """
@@ -68,8 +76,8 @@ class ComparedSetup:
     For an episode, the shape of its steps beside the setup's name: `calls`,
     the numbers of model calls its episodes made, each once, in the order
     first met, and `models`, the models its children's setups name, in the
-    order of the setup's own list. Empty for a single call. Payload, and
-    never on the wire."""
+    order of the setup's own list. Empty for a single call. On the wire since
+    2026-11-06: a count and values of the configuration."""
 
     setup: str
     answers: tuple[ComparedAnswer, ...]
@@ -215,6 +223,8 @@ def record_compare_json(comparison: RecordComparison) -> dict[str, object]:
                     "setups": [
                         {
                             "setup": setup.setup[:SHORT],
+                            "calls": list(setup.calls),
+                            "models": list(setup.models),
                             "answers": [
                                 {
                                     "digest": answer.digest,
