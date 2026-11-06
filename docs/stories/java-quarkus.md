@@ -60,8 +60,9 @@ Other beans reach the client and the recorder through `client()` and
 `recorder()`. Read through an injected bean's fields, both were `null`: what
 is injected is the bean's proxy.
 
-**The root comes from configuration**, `digline.root`, because the working
-directory is not the same under `mvn test`, `quarkus:dev` and a deployed jar.
+**The root comes from configuration**, `digline.root`, and not from the
+working directory: the jar below and `mvn test` were each given theirs, and
+the tests recorded or not by which one they were given (the last section).
 Here it is set by the environment, `DIGLINE_ROOT`, the name MicroProfile
 Config maps it to.
 
