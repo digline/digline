@@ -482,3 +482,16 @@ def test_suggest_for_a_suite_that_does_not_exist_yet(root: Path) -> None:
 def test_suggest_takes_a_suite_or_a_name(root: Path, arguments: dict[str, Any]) -> None:
     said = server_refusal(root, "suggest", **arguments)
     assert "suite" in said
+
+
+def test_under_project_the_plugins_installed_are_withheld(root: Path) -> None:
+    """A suite that does not exist yet has its judge as a placeholder, and the
+    answer names the plugins installed beside it: in clear, the control, and
+    under `project` none, since no kind holds a plugin's name."""
+    arguments = {"name": "triage", "tenant": TENANT, "repository": "private"}
+    clear = server_call(root, "suggest", **arguments)
+    assert clear["judge"]["declared"] is False
+    assert clear["judge"]["plugins"]
+    projected = server_call(root, "suggest", table=RecordingTable(), **arguments)
+    assert projected["judge"]["plugins"] == []
+    assert projected["judge"]["check"] != "llm_rubric"
