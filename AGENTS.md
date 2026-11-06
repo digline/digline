@@ -63,6 +63,13 @@ operator's journal, which is the machine's: never record one on your own
 initiative and never on a schedule. Recommend the disposition with the evidence
 for it; the reason belongs in the message of the commit the human makes.
 
+**A yes or a no about an answer is a person's too.** The `--good` and
+`--bad` of `digline record import` write a reviewed answer into the suite's
+committed cases file, and a judge is then held to it as the expected verdict. Never give one
+on your own initiative, and never from a listing for a program: that listing
+holds counts, not the answers a yes or a no is about. Send the person to the
+page that lists them, `digline view`, and let them read and decide.
+
 A wall lives outside the constrained identity's configuration surface. Three
 rungs: a protection the identity can bypass is a preference; one it must first
 reconfigure to cross (`enforce_admins` — the change is an auditable event) is a
@@ -314,7 +321,14 @@ reads this file instead.
 
 1. **Read what is there**, starting from `digline suggest --suite <suite>`,
    whose `suite.proposed.toml` is a first proposal made without a model
-   ([`docs/suggest.md`](docs/suggest.md)). Then `digline record status`; the
+   ([`docs/suggest.md`](docs/suggest.md)). `digline where --tenant <tenant>`
+   says where the project is and the command for its next step: **the command
+   for the next step is a proposal**, and one that writes, `record on` or an
+   import, is the person's to run. Over the MCP server, `suggest` returns the
+   proposal's facts and the command that writes the file, and writes nothing.
+   It asks no assistant there: **what an assistant costs is said before its
+   call, and a tool has no before**, so the command with `--model` is the
+   person's to run. Then `digline record status`; the
    grouped listing, `digline record import --tenant <tenant> --suite <suite>`,
    for the shape of the output, the counts and the setup in force (it needs a
    suite with a capture declaration, so write the skeleton of step 3 first

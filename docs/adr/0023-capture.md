@@ -740,6 +740,17 @@ its own: `--elect` writes into the repository, and the listing prints
 third-party text, which an agent has no need to hold. The server keeps its
 eight tools.
 
+*Noted 2026-11-06, by Alessandro Prandini's ruling (P-1567), the text above
+kept as written:* **the listing enters the MCP server, and `--elect` stays
+out.** The reason given for the listing was that it prints third-party text;
+`record_listing` prints none. It is `digline record import --json`, new with
+it, which holds the declaration, the setup in force per form and, per group,
+the shape and counts: no input, no answer and no answer's id, whose digest is a
+verifier of the text. Writing a yes or a no stays absent for `promote`'s
+reason, on the server and from `--json`, which is refused beside `--good`,
+`--bad` and `--by`. The server's tools are thirteen
+([ADR 0011](0011-the-mcp-server.md) §1, as noted 2026-11-06).
+
 ### 10. The second consumer: the operator's own decisions
 
 ADR 0019 §10 gave the decision journal a `wanted` field — *would you have
