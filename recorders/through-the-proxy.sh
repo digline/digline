@@ -8,9 +8,11 @@
 # The fake OpenAI and Anthropic of tests/test_record_proxy.py, as a process;
 # `digline record proxy` in front of it, writing under DIRECTORY; then Node's,
 # Java's and Python's SDKs, each a single call and a stream, sent through it
-# with the base URL and X-Digline-Suite; then the proxy stopped, so its open
-# episodes and its counts are written. tests/test_through_the_proxy.py reads
-# what it wrote. Each step says how long it took.
+# with the base URL and X-Digline-Suite; Node's again with the recorder in
+# the process, straight to the upstream, writing beside the proxy; then the
+# proxy stopped, so its open episodes and its counts are written.
+# tests/test_through_the_proxy.py reads what both wrote. Each step says how
+# long it took.
 set -euo pipefail
 
 root="$1"
@@ -52,6 +54,7 @@ fi
 export DIGLINE_PROXY="http://127.0.0.1:$proxy_port"
 
 step "Node: openai and @anthropic-ai/sdk" env ANTHROPIC_BASE_URL="$DIGLINE_PROXY" node recorders/node/through-the-proxy.mjs
+step "Node: the recorder in the process, straight to the upstream" env DIGLINE_RECORD=1 DIGLINE_ROOT="$root" DIGLINE_UPSTREAM="http://127.0.0.1:$upstream_port" node recorders/node/in-process.mjs
 step "Java: LangChain4j OpenAI" mvn -B -q -f recorders/java-proxy/pom.xml test "-Ddigline.proxy=$DIGLINE_PROXY"
 step "Python: openai and anthropic, the control" "$python" recorders/python-proxy/through_the_proxy.py
 
