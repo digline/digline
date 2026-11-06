@@ -292,25 +292,42 @@ def _before(first: str, then: str, seen: Sequence[str]) -> bool:
     return first in seen[: seen.index(then)]
 
 
+def _named(tools: object, *path: str) -> list[str]:
+    """The names in a list of tool declarations, each read at `path`, or at
+    `function.name` where `path` finds none."""
+    names: list[str] = []
+    if not isinstance(tools, list):
+        return names
+    for tool in cast(list[object], tools):
+        name: object = tool
+        for key in path:
+            name = (
+                cast(Mapping[str, object], name).get(key)
+                if isinstance(name, Mapping)
+                else None
+            )
+        if name is None and isinstance(tool, Mapping):
+            function = cast(Mapping[str, object], tool).get("function")
+            if isinstance(function, Mapping):
+                name = cast(Mapping[str, object], function).get("name")
+        if isinstance(name, str) and name:
+            names.append(name)
+    return names
+
+
 def declared_tools(setups: Sequence[Mapping[str, object]]) -> tuple[str, ...]:
-    """The tools a call declared to the model, in the order first met: the
-    names under a setup's `tools`, each by `name` or `function.name`, the two
-    shapes the provider maps record. A setup that declares none adds none."""
+    """The tools a call declared to the model, in the order first met, in the
+    shapes the provider maps record: under a setup's `tools`, by `name`, the
+    Messages form, which an InvokeModel body on Bedrock carries too, or by
+    `function.name`, OpenAI's; and under Bedrock Converse's `toolConfig`,
+    `tools[].toolSpec.name`. A setup that declares none adds none."""
     names: list[str] = []
     for setup in setups:
-        tools = setup.get("tools")
-        if not isinstance(tools, list):
-            continue
-        for tool in cast(list[object], tools):
-            if not isinstance(tool, Mapping):
-                continue
-            entry = cast(Mapping[str, object], tool)
-            function = entry.get("function")
-            name = entry.get("name")
-            if name is None and isinstance(function, Mapping):
-                name = cast(Mapping[str, object], function).get("name")
-            if isinstance(name, str) and name:
-                names.append(name)
+        names += _named(setup.get("tools"), "name")
+        config = setup.get("toolConfig")
+        if isinstance(config, Mapping):
+            tools = cast(Mapping[str, object], config).get("tools")
+            names += _named(tools, "toolSpec", "name")
     return tuple(dict.fromkeys(names))
 
 

@@ -56,6 +56,7 @@ from digline.host import (
     LATEST,
     NO_BASELINE,
     REFUSALS,
+    SUITE_RULE,
     SUITE_SUFFIX,
     Loaded,
     Resolved,
@@ -1761,6 +1762,10 @@ def cmd_suggest(args: argparse.Namespace) -> int:
     What is read, proposed and refused is the host's. (ADR 0063)"""
     root = Path(args.root)
     if _names_a_suite(args.suite):
+        if ":" not in args.suite and not Path(args.suite).is_file():
+            raise UsageError(
+                f"--suite {args.suite!r} is no file that is there: {SUITE_RULE}"
+            )
         suite, loaded = load_suite(args.suite, root=root)
         _check_perimeter(suite, args.tenant, None)
         module_file = getattr(loaded.module, "__file__", None)

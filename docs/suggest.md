@@ -75,7 +75,7 @@ breaks a rule takes the check out.
 | every one calls the same tools in the same order | `tools_called` |
 | otherwise, two or more tools in one order common to all | `subsequence` |
 | every call to one tool has a call to another before it | `before` |
-| a tool declared to the model and called in none | `never` |
+| a tool declared to the model and called in none: under the setup's `tools`, by `name` or `function.name`, or under Bedrock Converse's `toolConfig`, by `toolSpec.name` | `never` |
 | an agent's episodes | `max_steps` over the model's turns |
 | every one carries a cost, or a latency | `cost_budget`, `latency_budget`: the target you declare has to report it too |
 

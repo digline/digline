@@ -103,7 +103,13 @@ from digline.host.resolve import (
     replacing,
     resolve_key,
 )
-from digline.host.suggest import PROPOSAL, Suggested, suggest_for, suggest_new
+from digline.host.suggest import (
+    PROPOSAL,
+    SUITE_RULE,
+    Suggested,
+    suggest_for,
+    suggest_new,
+)
 from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite, read_cases
 from digline.host.where import (
     STATES,
@@ -127,6 +133,7 @@ __all__ = [
     "Resolved",
     "SUITE_ATTR",
     "PROPOSAL",
+    "SUITE_RULE",
     "SUITE_SUFFIX",
     "Suggested",
     "TARGET_ATTR",

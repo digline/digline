@@ -43,6 +43,7 @@ import pytest
 
 from digline.core import EvaluatorInputs
 from digline.core.recording import Recording, setup_digest_of
+from digline.core.refused import RefusedError
 from digline.core.run import (
     CaseResult,
     RecordedResponse,
@@ -52,10 +53,9 @@ from digline.core.run import (
 )
 from digline.core.suggest import PLACEHOLDER
 from digline.core.types import OutputKind
-from digline.host import PROPOSAL, load_suite, suggest_new
+from digline.host import PROPOSAL, SUITE_RULE, load_suite, suggest_new
 from digline.recorder import UNASSIGNED
 from digline.store.file_store import FileResultStore, RecordingWriter
-from digline.store.protocol import PathRefusedError
 
 #: Text only a recording holds: none of it may reach the file under
 #: `"public"`, or a stream under either regime.
@@ -789,7 +789,7 @@ def test_a_suite_with_no_capture_is_refused_by_name(
 
 
 def test_suggest_new_refuses_an_unsafe_name() -> None:
-    with pytest.raises(PathRefusedError):
+    with pytest.raises(RefusedError, match="neither a suite's file"):
         suggest_new(
             Path("."), "../x", tenant="acme", repository="private", here=Path(".")
         )
@@ -806,3 +806,76 @@ def test_a_shape_check_the_suite_declares_is_not_proposed_again(
     assert main("suggest", "--suite", "suite.toml") == 0
     assert "length" not in types(here)
     assert "length is not proposed again" in capsys.readouterr().err
+
+
+def bedrock(number: int, setup: dict[str, object], *tools: str) -> Recording:
+    """A single call on Bedrock, whose setup declares its tools in the shape
+    the call was made in, and which called `tools`."""
+    return Recording(
+        source_tenant="acme",
+        app="quarkus",
+        suite="triage",
+        case={"messages": f"{SECRET_INPUT} {number}"},
+        setup=setup,
+        setup_digest=setup_digest_of(setup),
+        response=RecordedResponse(
+            output=f"{SECRET_ANSWER} {number}",
+            kind="text",
+            input=f"{SECRET_INPUT} {number}",
+            steps=trajectory(*tools),
+        ),
+        recorded_at=f"2026-11-06T11:{number:02d}:00+00:00",
+    )
+
+
+#: Converse declares a tool under `toolConfig`, by `toolSpec.name`.
+CONVERSE: dict[str, object] = {
+    "modelId": "eu.anthropic.claude-haiku-4-5",
+    "toolConfig": {
+        "tools": [
+            {"toolSpec": {"name": "lookup_order", "inputSchema": {"json": {}}}},
+            {"toolSpec": {"name": "delete_account", "inputSchema": {"json": {}}}},
+        ]
+    },
+}
+
+#: InvokeModel carries a Messages body, whose tools are named as Anthropic's.
+INVOKE: dict[str, object] = {
+    "modelId": "eu.anthropic.claude-haiku-4-5",
+    "anthropic_version": "bedrock-2023-05-31",
+    "tools": [
+        {"name": "lookup_order", "input_schema": {}},
+        {"name": "delete_account", "input_schema": {}},
+    ],
+}
+
+
+@pytest.mark.parametrize("setup", [CONVERSE, INVOKE], ids=["converse", "invoke"])
+def test_a_tool_bedrock_declared_and_nobody_called_is_never(
+    here: Path, fake_provider: None, setup: dict[str, object]
+) -> None:
+    (here / "suite.toml").write_text(SUITE_TOML, encoding="utf-8")
+    write(here, [bedrock(1, setup, "lookup_order"), bedrock(2, setup, "lookup_order")])
+    assert main("suggest", "--suite", "suite.toml") == 0
+    assert [c["tool"] for c in checks(here) if c["type"] == "never"] == [
+        "delete_account"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("given", "said"),
+    [
+        ("eval/suite.toml", "is no file that is there"),
+        ("not a name", "is neither a suite's file nor a suite's name"),
+    ],
+)
+def test_a_suite_that_resolves_to_nothing_is_told_the_rule(
+    here: Path, given: str, said: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code = main(
+        "suggest", "--suite", given, "--tenant", "acme", "--repository", "private"
+    )
+    assert code == 64
+    err = capsys.readouterr().err
+    assert said in err
+    assert SUITE_RULE in err

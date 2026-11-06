@@ -60,8 +60,16 @@ from digline.host.toml_suite import read_cases
 from digline.recorder import UNASSIGNED
 from digline.run.suite import Case, Suite
 from digline.store.file_store import FileResultStore, checked_name
+from digline.store.protocol import PathRefusedError
 
-__all__ = ["PROPOSAL", "Suggested", "suggest_for", "suggest_new"]
+__all__ = ["PROPOSAL", "SUITE_RULE", "Suggested", "suggest_for", "suggest_new"]
+
+#: How `--suite` is read, said whole wherever it resolves to nothing.
+SUITE_RULE = (
+    "--suite is a suite when it is a file that is there, a path ending in .py "
+    "or .toml, or module:attribute; anything else is the name of a suite that "
+    "does not exist yet, given with --tenant and --repository private|public"
+)
 
 #: The one file the command writes.
 PROPOSAL = "suite.proposed.toml"
@@ -132,7 +140,13 @@ def suggest_new(
             f"--repository takes 'private' or 'public', not {repository[:40]!r}"
         )
     checked_name(tenant, "tenant")
-    checked_name(name, "suite")
+    try:
+        checked_name(name, "suite")
+    except PathRefusedError:
+        raise RefusedError(
+            f"--suite {name[:40]!r} is neither a suite's file nor a suite's "
+            f"name: {SUITE_RULE}"
+        ) from None
     return _propose(
         root,
         _Source(
