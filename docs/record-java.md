@@ -23,9 +23,9 @@ The commands on this page, `digline record on`, `status`, `import`, `proxy`,
 `view` and `run`, are digline's command line, which is Python. In a project
 that is not Python, install it as a tool of its own, apart from the project.
 
-> **Arrives with digline 1.1.** PyPI holds 1.0.3, which has no
-> `digline record`, so until 1.1.0 is published the line below installs
-> digline and its plugins from this repository.
+> **Arrives with digline 1.1.** The release on PyPI has no `digline record`,
+> so until 1.1.0 is published the line below installs digline and its
+> plugins from this repository.
 
 ```console
 $ uv tool install "digline @ git+https://github.com/digline/digline" \
