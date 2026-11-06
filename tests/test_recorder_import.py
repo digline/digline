@@ -821,6 +821,23 @@ def test_status_says_never_imported_and_then_how_many_came_after(
     assert (triage["imported"], triage["since_last_import"]) == (True, 1)
 
 
+def test_status_reads_the_tenant_from_the_suite_and_asks_only_for_a_name(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A suite file declares its tenant, so `--suite` alone is enough. A name
+    with no suite behind it declares nothing, and `--tenant` is asked for."""
+    status = ["record", "status", "--root", str(root), "--suite"]
+    assert main([*status, str(root / "suite.py")]) == 0
+    said = capsys.readouterr().out
+    assert "tenant 'acme'" in said
+    assert "never imported, 11 in all" in said
+    assert main([*status, "triage"]) == EXIT_USAGE
+    assert (
+        "`digline record status --suite triage` needs --tenant"
+        in capsys.readouterr().err
+    )
+
+
 def test_status_without_a_suite_does_not_read_the_draft(
     root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -862,6 +879,48 @@ def test_both_forms_say_the_cases_file_from_the_repository(
         shown.append(found.declaration.line())
     # The TOML template declares no check, so the lines differ there alone.
     assert all("· writes to captured.json ·" in line for line in shown), shown
+
+
+JUDGED_TOML = """\
+[suite]
+tenant = "acme"
+environment = "dev"
+name = "triage"
+cases = ["captured.json"]
+samples = 2
+min_agreement = "2/2"
+
+[capture]
+cases_file = "captured.json"
+repository = "private"
+check = "llm_rubric"
+
+[[assertions]]
+type = "llm_rubric"
+rubric = "r"
+judge = "fake/m"
+threshold = 0.7
+tolerance = 0.05
+"""
+
+
+def test_the_cases_file_is_born_beside_the_suite_when_root_is_elsewhere(
+    root: Path, monkeypatch: pytest.MonkeyPatch, fake_provider: None
+) -> None:
+    """Run from the suite's own directory, with `--root` at the repository and
+    both paths relative: `cases_file` is read from the suite file's directory
+    (declarative.md), so that is where the import writes it, and where the
+    suite then loads it from. It was written under the root, and the suite
+    refused to load for the cases it did not load."""
+    (root / "eval").mkdir()
+    (root / "eval" / "suite.toml").write_text(JUDGED_TOML, encoding="utf-8")
+    monkeypatch.chdir(root / "eval")
+    elect = ["record", "import", "--tenant", "acme", "--suite", "suite.toml"]
+    assert main([*elect, "--root", "..", "--good", ID_A_NEW, "--by", "Ada"]) == 0
+    assert (root / "eval" / "captured.json").is_file()
+    assert not (root / "captured.json").exists()
+    suite, _ = load_suite("suite.toml", root=Path(".."))
+    assert [c.id for c in suite.cases] == [ID_A_NEW]
 
 
 # -- the calls that named no suite --------------------------------------------- #

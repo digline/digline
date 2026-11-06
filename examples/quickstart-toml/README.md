@@ -5,7 +5,9 @@ Yes. This suite is two data files and no code at all.
 The reader this is for has an application in Java, Go, C# or TypeScript, an
 endpoint that answers questions, and a CI job that needs to fail when the
 answers get worse. digline needs a body it can post and a field it can read out
-of the answer; what produced the answer is not its business.
+of the answer; what produced the answer is not its business, unless your
+endpoint runs an agent: then it reports the tool calls it made too, under
+`tool_calls_path` (below).
 
     suite.toml    the rules  — what is checked, and how badly it may drift
     cases.json    the data   — the questions, and which ones are set aside
@@ -57,7 +59,9 @@ between two different systems.
 ## What is in the suite
 
 `[target]` names your endpoint and says where the three things live in its
-answer, dotted: the answer itself, what the call cost, how long it took. It also
+answer, dotted: the answer itself, what the call cost, how long it took. For an
+agent it says where the tool calls are too, `tool_calls_path`, which this stub
+does not need. It also
 names `config_path`, and that one earns its line — it is where your service says
 which model answered and how it was set up. Without it a run records nothing
 about the system under test, and the day somebody bumps the model the comparison

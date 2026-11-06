@@ -572,6 +572,7 @@ after the tag, on the site, and its *Then* says so.
 | Package | What it carries | What the number must reflect | Then |
 |---|---|---|---|
 | `digline` | `docs/record.md`, under its first paragraph, says *"Arrives with digline 1.1."*, which turns false at the tag. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the line and deletes this row |
+| `digline` | `docs/record-java.md`, *Install the digline CLI*, says *"Arrives with digline 1.1."* above a line that installs digline and its plugins from this repository by `git+https`, which turns stale at the tag. `tests/test_recorder_java.py` holds the two together. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the mark, puts back `uv tool install digline --with digline-openai` in place of the line, and deletes this row |
 | `digline` | on digline.dev, `product/record.md` moves from *Essentials* to *Commands*, with its group in `COMMAND_GROUPS` (`tools/hooks/home.py`), once the release has captured `home.json` again with `record` in its command list. The precedent is `digline delete`, entered by digline.dev `e96f4b9` after 0.30.0. | 1.1.0 | a session, on digline.dev after the tag of 1.1.0 and the capture of `home.json`; the pull request here that names that site commit deletes this row |
 
 Empty is the normal state here too. A row left after its package's release is a

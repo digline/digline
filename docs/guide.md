@@ -1456,9 +1456,9 @@ takes.
 
 Triggers four and five both end in the same question — *what was it, exactly,
 that changed?* — and until now this guide could not answer it. The commit says
-`-dirty`. The configuration says it did not move. Neither says which prompt
-produced these verdicts, and by the time anyone asks, the working tree has moved
-on.
+`-dirty`. The configuration says it did not move. Neither says which prompt, or
+for an agent which instructions and tool definitions, produced these verdicts,
+and by the time anyone asks, the working tree has moved on.
 
 So a suite can declare the files that **are** the thing under test, and every
 run records their content and their digest:

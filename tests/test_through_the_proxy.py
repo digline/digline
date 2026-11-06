@@ -12,6 +12,10 @@ Python is the control. What is held here, on what the proxy wrote:
 - the same request gives the same case and the same setup digest from every
   language: the proof that what the proxy records does not depend on the
   language that sent it;
+- Node's recorder in the process, `recorders/node/in-process.mjs`, sending
+  the same request straight to the upstream, gives that case and that digest
+  too, single and streamed: the proof that the writer and the proxy read a
+  call alike;
 - `digline record import` lists them, electable.
 
 Skipped where the job has not run, and never in the job, which sets
@@ -105,7 +109,7 @@ def test_every_language_is_recorded_and_the_same_request_digests_alike(
                 f"  {app:7} {kind(recording):14} "
                 f"{recording['setup'].get('model', '-'):12} {recording['setup_digest']}"
             )
-    assert sorted(by_app) == ["java", "node", "python"]
+    assert sorted(by_app) == ["java", "node", "node-in-process", "python"]
 
     def calls(app: str, model: str) -> list[dict[str, Any]]:
         return [
@@ -115,14 +119,16 @@ def test_every_language_is_recorded_and_the_same_request_digests_alike(
         ]
 
     for route, model in (("openai", "gpt-test"), ("anthropic", "claude-test")):
-        apps = ("node", "python", "java") if route == "openai" else ("node", "python")
+        apps = ("node", "node-in-process", "python")
+        apps = (*apps, "java") if route == "openai" else apps
         seen = {
             (app, r["setup_digest"], json.dumps(r["case"], sort_keys=True))
             for app in apps
             for r in calls(app, model)
         }
         # A single call and a stream from each language: one case, one
-        # setup, whatever sent it.
+        # setup, whatever sent it, and whether the proxy or Node's recorder
+        # in the process wrote it (ADR 0062 §4, as amended 2026-11-06).
         assert {(digest, case) for _, digest, case in seen} == {
             (
                 next(iter(seen))[1],

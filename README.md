@@ -377,9 +377,12 @@ actually arrives with. Every one runs with no API key, carries its committed
 
 - **Not an observability platform.** Dashboards over production traces are a
   served market. digline asks for none of that: what it needs from the system
-  under test is a function or an HTTP endpoint. What is designed and not yet
-  built is narrower: evaluating production responses inside *your* perimeter,
-  and turning a failure into a committed test case.
+  under test is a function or an HTTP endpoint. What it keeps inside *your*
+  perimeter is narrower: the recorder keeps your application's calls, and an
+  agent's turn as one episode with its steps, and `digline record import`
+  writes the ones a person names, with their yes or no, as cases a suite loads
+  ([`docs/record.md`](docs/record.md)). Judging production responses as they
+  arrive is designed and not yet built.
 - **Not a red-teaming tool.** digline generates no attacks. Once one is found,
   it becomes a `Case`, and the suite makes sure it never works again.
 - **Not YAML.** The suite is Python — or, within declared limits, TOML: cases

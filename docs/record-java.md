@@ -21,19 +21,25 @@ providers that answer in each provider's shape.
 
 The commands on this page, `digline record on`, `status`, `import`, `proxy`,
 `view` and `run`, are digline's command line, which is Python. In a project
-that is not Python, install it as a tool of its own, apart from the project:
+that is not Python, install it as a tool of its own, apart from the project.
+
+> **Arrives with digline 1.1.** The release on PyPI has no `digline record`,
+> so until 1.1.0 is published the line below installs digline and its
+> plugins from this repository.
 
 ```console
-$ uv tool install digline --with digline-openai
+$ uv tool install "digline @ git+https://github.com/digline/digline" \
+    --with "digline-openai @ git+https://github.com/digline/digline#subdirectory=packages/digline-openai" \
+    --with "digline-anthropic @ git+https://github.com/digline/digline#subdirectory=packages/digline-anthropic" \
+    --with "digline-bedrock @ git+https://github.com/digline/digline#subdirectory=packages/digline-bedrock"
 ```
 
-`--with` adds the plugin of the provider that the proxy routes to and that the
-suite's judge calls: `digline-anthropic` and `digline-bedrock` are added the
-same way. `digline record` is in digline 1.1 and later. The
+Each `--with` adds the plugin of a provider that the proxy routes to or that
+the suite's judge calls, and the ones you do not use can be left out. The
 [Quickstart](https://github.com/digline/digline#quickstart) installs digline
 into a Python project instead, with `uv add digline` or `pip install digline`,
-and says which Python it needs. The line above was run with digline 1.1.0
-built from this repository; `pipx` was not tried.
+and says which Python it needs. The line above was run on 2026-11-06, and
+installed digline 1.1.0 from `main` at `98bbf62c`; `pipx` was not tried.
 
 ## With an official SDK: the files to copy
 
@@ -155,6 +161,10 @@ DiglineRecorder recorder = DiglineRecorder.production(root, () -> tenantOf(reque
 function*, which is Python's way of saying production. In Java it is
 `DiglineRecorder.production`.
 
+An application with one tenant, deployed, uses
+`production(root, () -> "acme", app)`, so the file must declare `redact`,
+`sample` and `ceiling`.
+
 ### An asynchronous call
 
 Neither SDK's asynchronous client calls the hook on the thread that made the
@@ -192,6 +202,9 @@ BedrockRuntimeClient client = BedrockRuntimeClient.builder()
         .build();
 ```
 
+In a CDI bean, `root` comes from configuration, since the working directory
+differs between tests, dev mode and a deployed jar.
+
 And the one method every call goes through names the suite:
 
 ```java
@@ -209,7 +222,9 @@ frame outside both, not by LangChain4j's class. That was measured with a
 stand-in class in LangChain4j's package, not with LangChain4j itself.
 
 For new code on Bedrock, Converse is the form to prefer: one API for every
-chat model, tool use in the same shape, and streaming as events.
+chat model, tool use in the same shape, and streaming as events. The two forms
+record a different case and setup, so a suite whose calls mix them has two
+setups, and only the newest one's answers can be written.
 
 ## With LangChain4j or Quarkus: the proxy
 
@@ -268,8 +283,11 @@ threshold = 0.7
 tolerance = 0.05
 ```
 
-- **The body** sends the case's `messages`, which is what an imported case
-  holds: the conversation the call was given, less the instructions. The
+- **The body** sends the case's `messages`, which is what a case imported
+  from a single call holds: the conversation the call was given, less the
+  instructions. A case imported from an episode holds the `case` its turn was
+  given instead, `ticket` in the episode above, and a body for it sends
+  `case.vars.ticket` ([the recording document](recording-format.md)). The
   endpoint answers with the reply under `answer`; under `config` what model
   answered and how; under `trajectory.calls` the tools it called; under
   `usage` the token counts. Each of the last three is optional, and
@@ -281,13 +299,15 @@ tolerance = 0.05
   written in a suite.
 - **`[capture]`** names the file the import writes, the one `cases` loads
   beside `cases.json`, and the judged check the reviewed answers are for.
-- **`cases.json` holds at least one case of your own.** A suite with no case
-  is refused when it is loaded, the import included.
+- **`cases.json` holds the cases of your own.** A suite that declares
+  `[capture]` loads with no case yet, the import included, and
+  `digline run` on it judges nothing and exits `2`, never a green.
 
 A suite of reviewed answers alone never calls the target: each reviewed answer
 is judged on the answer the application gave, and the run says so, *with no
-call to the target*. The `[target]` is still declared, because every suite
-needs one today.
+call to the target*. Such a suite may leave `[target]` out. A case the target
+answers, added to it later, is refused when the suite is loaded, and the
+refusal names the case.
 
 ```console
 $ digline record import --tenant acme --suite suite.toml
@@ -306,8 +326,8 @@ client can be pointed at the proxy, and how, is not known here.
   [An asynchronous call](#an-asynchronous-call).
 - **Another endpoint of the same SDK.** `DiglineOkHttp` reads Chat
   Completions and nothing else, so OpenAI's Responses API goes through
-  unrecorded. `DiglineAnthropic` reads Messages, and `DiglineAws` reads
-  Converse and ConverseStream.
+  unrecorded. `DiglineAnthropic` reads Messages. `DiglineAws` reads Converse
+  and ConverseStream, and InvokeModel with an Anthropic model.
 - **`extra_body`.** On the wire its keys are merged into the request. The
   OpenAI and Anthropic plugins' recorder maps merge it the same way from their
   next release (#919), and until then a call that sends `extra_body` has
@@ -325,3 +345,6 @@ client can be pointed at the proxy, and how, is not known here.
 - **A switch file the reader does not know.** The writer reads the TOML a
   switch holds. An array, a date or a dotted key is refused, as digline's
   reader refuses it, but in another sentence.
+- **Tests that build the client with the hook record too**, while the switch
+  is on: point the root of the test profile at a directory with no
+  `.digline/`, or switch it off.

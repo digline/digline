@@ -1888,16 +1888,23 @@ def cmd_suggest(args: argparse.Namespace) -> int:
 def cmd_record_status(args: argparse.Namespace) -> int:
     """Whether each tenant records, where, how much, and whether it stopped at
     its ceiling. Not a gate: it exits 0 whenever it could read the store.
-    With `--suite`, how many of its recordings came after its last import."""
+    With `--suite`, how many of its recordings came after its last import:
+    the tenant is the suite's where `--tenant` does not name one, and is asked
+    for only where `--suite` is a name with no suite to read it from."""
     imports: dict[str, tuple[int | None, int]] = {}
+    tenant_named = args.tenant
     if args.suite is not None:
-        if args.tenant is None:
-            raise UsageError("`digline record status --suite` needs --tenant")
+        if tenant_named is None and not _names_a_suite(args.suite):
+            raise UsageError(
+                f"`digline record status --suite {args.suite}` needs --tenant: "
+                "it is a name, not a suite file that declares one"
+            )
         suite, loaded = _record_suite(args)
+        tenant_named = tenant_named or suite.tenant
         imports[suite.name] = imported_since(
-            Path(args.root), suite, loaded.module, args.tenant
+            Path(args.root), suite, loaded.module, tenant_named
         )
-    tenants = recorder_status(Path(args.root), args.tenant, imports)
+    tenants = recorder_status(Path(args.root), tenant_named, imports)
     if args.json:
         emit(
             json.dumps(

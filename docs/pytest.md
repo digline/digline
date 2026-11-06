@@ -147,11 +147,13 @@ Producing the run is a separate act — `digline run`, the
 pytest --digline-suite eval/suite.py --digline-run
 ```
 
-It calls your provider and spends money, so it is a flag on the command line
-where the cost is visible in the log; it prints the planned call count on stderr
-before the first call (`20 cases × 5 samples = 100 calls to the target`); and it
-**refuses under `--collect-only`**, because a command whose job is to list test
-names must never be able to spend a hundred model calls.
+It calls your target, your provider or the agent that calls it, and spends
+money, so it is a flag on the command line where the cost is visible in the
+log; it prints the planned call count on stderr before the first call
+(`20 cases × 5 samples = 100 calls to the target`); and it **refuses under
+`--collect-only`**, because a command whose job is to list test names must
+never be able to spend a hundred calls to the target, each of them one model
+call or an agent's several.
 
 Beside that count it names, as `digline run` does, the checks whose class
 declares no `KIND`, which `explain`'s shape reading leaves out, and each check

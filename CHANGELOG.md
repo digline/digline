@@ -173,6 +173,10 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **`digline record import` says the cases file from the repository**, in
   the declaration and in the line after a write, the same from a `suite.py`
   and a `suite.toml`: one printed it whole and the other as typed.
+- **`digline record import` writes a `suite.toml`'s cases file beside the
+  suite when `--root` is elsewhere.** With both paths relative, the file was
+  written under the root, and the suite then refused to load for the cases
+  it did not load.
 - **One stylesheet for the HTML report and the view, and the report's look
   changes with it**: system fonts, tabular figures, and a light and a dark
   theme from `prefers-color-scheme`. `digline report` still writes one
@@ -383,6 +387,21 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **The Java recorder's call site skips LangChain4j's frames**, as it skips
   the SDKs': a call made through LangChain4j is named by the first frame
   outside both, not by the library's class.
+- **A recorder for Node, as a directory to copy**: `recorders/node/digline/`,
+  Node alone, which writes the recording to its contract (ADR 0062 §4, as
+  amended 2026-11-06). Its writer reads the switch as digline does, in
+  development and in production, and names a suite, an episode and an attach
+  through `AsyncLocalStorage`. `diglineFetch` is the `fetch` given to the
+  OpenAI and Anthropic SDKs, for Chat Completions and Messages, whole and
+  streamed. `diglineAws` is a middleware of Bedrock's runtime client, for
+  Converse and InvokeModel with an Anthropic model, whose streams pass
+  unrecorded and counted for now. A reply is recorded only where it is 2xx,
+  and the application's call never fails because of the recorder. The CI job
+  `recorder-node` holds it to the fixtures Java's recorder is held to and
+  imports what it writes with digline alone, and `through-the-proxy` holds
+  that the same request gives the same digest through it as through the
+  proxy. [`docs/record-node.md`](docs/record-node.md) now starts with it, and
+  the proxy is the second door.
 - **`docs/record-java.md` says what a Java team does around the files**, from a
   user's pass over it: how to install the `digline` command as a tool of its
   own, `uv tool install digline --with digline-openai`; how the gate runs a

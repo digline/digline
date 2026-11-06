@@ -1,11 +1,18 @@
 {
-  "name": "digline-through-the-proxy-node",
+  "name": "digline-recorders-node",
   "private": true,
-  "description": "Only for the CI job through-the-proxy: Node's SDKs, pointed at digline record proxy (ADR 0062 §5).",
+  "description": "Only for digline's CI: Node's SDKs, for the recorder in digline/ (job recorder-node) and pointed at digline record proxy (job through-the-proxy) (ADR 0062 §4, §5).",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "1.4.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1163.0",
+    "@smithy/node-http-handler": "4.14.2",
     "openai": "7.50.0"
+  },
+  "scripts": {
+    "test": "node --test 'test/*.test.mjs' page.test.mjs"
   }
 }

@@ -202,6 +202,32 @@ def test_every_java_block_on_the_page_is_one_the_java_tests_run() -> None:
     assert [_lines(block) for block in page] == [_lines(block) for block in run]
 
 
+MARK = "> **Arrives with digline 1.1.**"
+FROM_THE_REPOSITORY = (
+    'uv tool install "digline @ git+https://github.com/digline/digline"'
+)
+
+
+def test_the_install_line_from_the_repository_carries_the_mark() -> None:
+    """Until 1.1.0 is on PyPI, *Install the digline CLI* installs digline from
+    this repository, and the mark that says why stands right above that line.
+    The cut takes both out together (RELEASING.md, *Owed to the next
+    version*): a mark with no such line, or such a line with no mark, is a
+    page cut halfway."""
+    page = PAGE.read_text(encoding="utf-8")
+    section = page.split("## Install the digline CLI", 1)[1].split("\n## ", 1)[0]
+    marked, from_repository = MARK in section, FROM_THE_REPOSITORY in section
+    assert marked == from_repository, (marked, from_repository)
+    if marked:
+        beside = re.search(
+            re.escape(MARK)
+            + r"[^\n]*(?:\n>[^\n]*)*\n\n```console\n\$ "
+            + re.escape(FROM_THE_REPOSITORY),
+            section,
+        )
+        assert beside, "the mark is not right above the line it explains"
+
+
 SUITE = """\
 [suite]
 tenant = "t"
@@ -231,14 +257,25 @@ output_path = "data"
 def test_what_the_java_recorder_wrote_is_imported_by_digline_alone(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    given = os.environ.get(RECORDINGS)
+    imported_by_digline_alone(RECORDINGS, REQUIRED, "recorder-java", capsys)
+
+
+def imported_by_digline_alone(
+    recordings: str, required: str, job: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """What a writer in another language wrote, one episode of suite `s` and
+    two of its calls for tenant `t`, imported with digline alone. The Java
+    and the Node writers write the same three answers; `recordings` names the
+    variable that says where, and `required` the one that makes a run of
+    `job` fail where it would otherwise skip."""
+    given = os.environ.get(recordings)
     if not given:
-        assert not os.environ.get(REQUIRED), (
-            f"{REQUIRED} is set and {RECORDINGS} is not"
+        assert not os.environ.get(required), (
+            f"{required} is set and {recordings} is not"
         )
-        pytest.skip(f"run by the CI job recorder-java, which sets {RECORDINGS}")
+        pytest.skip(f"run by the CI job {job}, which sets {recordings}")
     root = Path(given)
-    if os.environ.get(REQUIRED):
+    if os.environ.get(required):
         # The job measures the import with digline alone (P-1501).
         for plugin in ("digline_openai", "digline_anthropic", "digline_bedrock"):
             assert importlib.util.find_spec(plugin) is None, f"{plugin} is installed"
