@@ -250,8 +250,9 @@ first and it is never the judge, so no verdict depends on it.
 - `digline suggest` writes `suite.proposed.toml` and nothing else; a second
   run refuses where the file is there.
 - No `reviewed_answer`, `good`, `--by`, label or promotion is written, and no
-  command reads the file: a run of the suite after `suggest` is byte for byte
-  the run before it.
+  command reads the file: after `suggest`, the suite loads to the same
+  declaration and the same `config_hash` as before it, and the cases file is
+  byte for byte what it was.
 - A check on the steps is proposed only where every recording of the group
   holds it; one contradicting recording takes it out.
 - The counterexample is a reviewed no where there is one, and a constructed
