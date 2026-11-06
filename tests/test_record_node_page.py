@@ -26,9 +26,7 @@ PAGE = (ROOT / "docs" / "record-node.md").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "recorders" / "node" / "through-the-proxy.mjs").read_text(
     encoding="utf-8"
 )
-PAGE_TEST = (ROOT / "recorders" / "node" / "page.test.mjs").read_text(
-    encoding="utf-8"
-)
+PAGE_TEST = (ROOT / "recorders" / "node" / "page.test.mjs").read_text(encoding="utf-8")
 #: Where the page's second part, the proxy's, begins.
 PROXY_PART = "\n## Through the proxy\n"
 JOB = (ROOT / "recorders" / "through-the-proxy.sh").read_text(encoding="utf-8")

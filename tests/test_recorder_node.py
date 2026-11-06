@@ -12,7 +12,6 @@ counted*, since a writer outside Python keeps no counts file.
 from __future__ import annotations
 
 import pytest
-
 from tests.test_recorder_java import imported_by_digline_alone
 
 #: Where the CI job's Node run left its recordings, and whether this run must
