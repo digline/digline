@@ -84,6 +84,20 @@ test("every float is written as Python writes it", () => {
   assert.deepEqual(wrong, []);
 });
 
+test("a tie at the sixth place goes to the even digit, as Python's round takes it", () => {
+  // floats.json holds no exact tie, so it cannot tell half to even from half
+  // up. A double is a tie at the sixth place only at an odd multiple of
+  // 1/128; Python 3.14's round(value, 6), read on 2026-11-06, gave these.
+  for (const [value, python] of [
+    [0.0078125, "0.007812"],
+    [0.0234375, "0.023438"],
+    [-0.0078125, "-0.007812"],
+    [1.0078125, "1.007812"],
+  ]) {
+    assert.equal(pythonRepr(round(value)), python, String(value));
+  }
+});
+
 test("every switch is read as Python reads it", () => {
   for (const each of parsed("switches.json")) {
     if (each.refusal !== undefined) {
