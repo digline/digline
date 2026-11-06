@@ -5,11 +5,17 @@ you already work with a coding agent, it can propose one by digline's method,
 from what your application recorded and what you said about its answers. It
 proposes; you decide.
 
+Without an agent, the first step is a command:
+[`digline suggest`](suggest.md) reads the same recordings, reviewed answers
+and runs, and writes a first suite into `suite.proposed.toml`, with its
+counterexample and the numbers it could not know marked as placeholders. An
+agent starts from that file too.
+
 The method is the `proposing-a-suite` skill, shipped in the Claude Code plugin
 at `plugins/digline/skills/proposing-a-suite/SKILL.md`, and written into
 [`AGENTS.md`](https://github.com/digline/digline/blob/main/AGENTS.md) for any
 other agent that reads that file. In five steps it reads what is there
-(`digline record status`, the grouped listing of
+(`digline suggest` first, then `digline record status`, the grouped listing of
 [`digline record import`](record.md#from-recordings-to-cases-digline-record-import),
 your reviewed answers), chooses the checks from the tree in
 [the metrics](metrics.md#choosing-one), writes the suite in the form

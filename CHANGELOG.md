@@ -117,6 +117,26 @@ nothing. No public name is removed or renamed and no exit code changes.
   or imports, and the commit is the person's. A test holds every command,
   flag, metric and page it cites to the CLI, the registry and the docs. A page
   says the three rules: [Letting an agent propose a suite](docs/proposing-a-suite.md).
+- **`digline suggest`, new: a first suite, proposed and never marked**
+  (ADR 0063). It reads the suite's recordings, the reviewed answers in its
+  capture file and its runs, and writes `suite.proposed.toml` beside the
+  suite, or, for a suite that does not exist yet, named with `--tenant` and
+  `--repository private|public`, in the working directory. In it: the
+  `[capture]` of a new suite; the checks every recording holds, `is_json`, a
+  draft `json_schema`, `length`, `tools_called`, `subsequence`, `before`,
+  `never` and `max_steps`, and the budgets where every recording carries a
+  cost or a latency, none of them where a single recording contradicts it;
+  the judged check the capture names, where the suite does not declare it;
+  limits from the runs, and otherwise a placeholder, the strictest value its
+  check accepts, marked; a counterexample, the reviewed noes or a case
+  constructed and marked as constructed; and a calibration skeleton. It
+  chooses no case and marks nothing, no command reads the file, and a file
+  already there is refused by name. What it assumed is said on standard
+  error in the words of the `proposing-a-suite` skill's fifth step, and no
+  recorded text reaches either stream. The skill, `AGENTS.md`,
+  `docs/record.md` and `docs/proposing-a-suite.md` start from it. A model
+  that drafts the rubric and fills the placeholders, `[suggest]` in §4, is
+  not built ([`docs/suggest.md`](docs/suggest.md)).
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input

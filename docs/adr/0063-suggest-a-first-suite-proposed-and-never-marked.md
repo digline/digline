@@ -7,7 +7,9 @@
   written**, by Alessandro Prandini on 2026-11-06 (P-1548), on a table of
   seven questions measured against the code at `18b2c1be`. They are stated
   here as ruled, in this record's own words. **What this record adds is
-  marked *decided here***. Nothing in it is implemented
+  marked *decided here***. Nothing in it is implemented.
+  *Built in part 2026-11-06:* the verb without a model, §1 to §3 and §5 to
+  §7, with `docs/suggest.md`. §4's assistant is not built
 - Shipped: unreleased
 - Date: 2026-11-06
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no

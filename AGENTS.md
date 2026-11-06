@@ -312,12 +312,15 @@ It is the `proposing-a-suite` skill in the Claude Code plugin,
 which says each step in full; this is the same procedure for an agent that
 reads this file instead.
 
-1. **Read what is there.** `digline record status`; the grouped listing,
-   `digline record import --tenant <tenant> --suite <suite>`, for the shape of
-   the output, the counts and the setup in force (it needs a suite with a
-   capture declaration, so write the skeleton of step 3 first where there is
-   none); the reviewed answers in the capture file, their yeses and noes; and
-   how the application calls the model ([`docs/record.md`](docs/record.md),
+1. **Read what is there**, starting from `digline suggest --suite <suite>`,
+   whose `suite.proposed.toml` is a first proposal made without a model
+   ([`docs/suggest.md`](docs/suggest.md)). Then `digline record status`; the
+   grouped listing, `digline record import --tenant <tenant> --suite <suite>`,
+   for the shape of the output, the counts and the setup in force (it needs a
+   suite with a capture declaration, so write the skeleton of step 3 first
+   where there is none); the reviewed answers in the capture file, their
+   yeses and noes; and how the application calls the model
+   ([`docs/record.md`](docs/record.md),
    [`docs/declarative.md`](docs/declarative.md)).
 2. **Choose the checks from the tree** in
    [`docs/metrics.md`](docs/metrics.md), *Choosing one*: the shape of the
