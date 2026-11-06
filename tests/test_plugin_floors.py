@@ -441,6 +441,9 @@ CALLED: dict[tuple[str, str, str], str] = {
     # In `digline.cli` from 0.5.0; dated to the move, as INTRODUCED dates
     # the host names.
     ("digline.host.loader", "Loaded", "suite"): "0.6.0",
+    # The same move: digline-mcp's `where` hands the suite's module to the
+    # host's reading, as `run` hands it to `load_target`.
+    ("digline.host.loader", "Loaded", "module"): "0.6.0",
     ("digline.host.measure", "Measured", "plan"): "0.11.0",
     ("digline.host.measure", "Measured", "ref"): "0.11.0",
     ("digline.host.measure", "Measured", "run"): "0.11.0",
@@ -515,6 +518,9 @@ UNRELEASED: dict[tuple[str, str, str], str] = {
     # (P-1543)
     ("digline.recorder", "StreamReading", "add"): "P-1543",
     ("digline.recorder", "StreamReading", "completion"): "P-1543",
+    # digline-mcp's `suggest` returns the facts standard error is rendered
+    # from, and writes nothing. (ADR 0011 §1, as noted 2026-11-06)
+    ("digline.host.suggest", "Suggested", "facts"): "ADR 0011 §1, 2026-11-06",
 }
 
 

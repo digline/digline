@@ -76,9 +76,19 @@ def _text(result: CallToolResult) -> str:
     return "".join(b.text for b in result.content if isinstance(b, TextContent))
 
 
-def _answered(result: CallToolResult) -> str | None:
+#: The one refusal taken as an answer, and the tool it is taken from: the
+#: example declares no capture, so the listing of its recordings is refused,
+#: and the refusal saying so is the server answering. Any other refusal, from
+#: it or any tool, is red. (ADR 0011 §1, as noted 2026-11-06)
+NO_CAPTURE = ("record_listing", "capture")
+
+
+def _answered(result: CallToolResult, name: str = "") -> str | None:
     """`None` when the tool answered, or what is wrong with the answer."""
     if result.is_error:
+        tool, word = NO_CAPTURE
+        if name == tool and word in _text(result):
+            return None
         return f"refused: {_text(result)}"
     if not isinstance(result.structured_content, Mapping):
         return "answered with no structured content"
@@ -124,11 +134,13 @@ async def drive(
                 )
             said.append(("run", _answered(first)))
         keys: list[str] = []
+        tenant = ""
         if "list_runs" in registered:
             listed = await call("list_runs", {"suite": SUITE})
             said.append(("list_runs", _answered(listed)))
             content = listed.structured_content or {}
             keys = [str(r["key"]) for r in content.get("rows", []) if "key" in r]
+            tenant = str(content.get("tenant", ""))
         arguments: dict[str, dict[str, Any]] = {
             "get_run": {"suite": SUITE},
             "get_baseline": {"suite": SUITE},
@@ -138,6 +150,17 @@ async def drive(
             "diff": {"suite": SUITE, "run1": keys[0], "run2": keys[-1]}
             if len(keys) >= 2
             else {},
+            # The first verbs. `suggest` is asked for a suite that does not
+            # exist yet, which needs no capture and writes nothing.
+            "where": {"tenant": tenant, "suite": SUITE},
+            "record_status": {"tenant": tenant},
+            "record_listing": {"suite": SUITE},
+            "record_compare": {"suite": SUITE},
+            "suggest": {
+                "name": "mcp-tools-probe",
+                "tenant": tenant,
+                "repository": "private",
+            },
         }
         for name in registered:
             if name in ("run", "list_runs"):
@@ -150,7 +173,7 @@ async def drive(
             if name == "diff" and len(keys) < 2:
                 said.append((name, f"needs two runs, and list_runs gave {len(keys)}"))
                 continue
-            said.append((name, _answered(await call(name, arguments[name]))))
+            said.append((name, _answered(await call(name, arguments[name]), name)))
     return said
 
 
