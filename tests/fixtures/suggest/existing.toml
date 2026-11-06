@@ -1,0 +1,50 @@
+# suite.proposed.toml, written by `digline suggest` for suite "triage" of tenant "acme".
+#
+# A proposal, not a suite: no command of digline reads this file. Adopt
+# its lines into your suite by hand, and the commit is yours. Nothing
+# here is a verdict and no answer was marked. Every value marked
+# `placeholder` fails until you write a measured one. (ADR 0063)
+#
+# Suite "triage" declares [suite] and [capture]: these are the
+# checks to add, and the cases to paste into a file it reads.
+
+[[assertions]]
+# every one of 3 recordings answers text; maximum is a placeholder, the
+# strictest the check accepts: no run measured it
+type = "length"
+maximum = 0  # placeholder: yours to write
+unit = "characters"
+
+[[assertions]]
+# in every one of 3 recordings, each call to the second tool has a call to
+# the first before it; 2 of them call the second
+type = "before"
+first = "lookup_order"
+then = "issue_refund"
+
+[[assertions]]
+# in every one of 3 recordings, each call to the second tool has a call to
+# the first before it; 1 of them call the second
+type = "before"
+first = "lookup_order"
+then = "send_email"
+
+[[assertions]]
+# declared to the model and called in none of 3 recordings
+type = "never"
+tool = "delete_account"
+
+[[assertions]]
+# the model's turns, in an agent's episode; limit is a placeholder, the
+# strictest the check accepts: no run measured it
+type = "max_steps"
+limit = 1  # placeholder: yours to write
+count = "model"
+
+# The counterexample: the reviewed noes for llm_rubric, already in
+# captured.json, which the check must fail:
+#   cap-no-0
+
+# The calibration skeleton (ADR 0024 §4.1): the answer and the band,
+# strictly between 0 and 1, are yours. Paste it into a cases file:
+# {"id": "calibration-llm_rubric", "calibration": {"check": "llm_rubric", "output": "PASTE an answer you know is partly right", "input": "PASTE its question", "low": "PLACE", "high": "PLACE"}}

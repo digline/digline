@@ -110,7 +110,10 @@ __all__ = [
     "ASSERTIONS",
     "PYTHON_ONLY",
     "SUITE_SUFFIX",
+    "assistant_of",
+    "check_of",
     "load_toml_suite",
+    "suggest_model",
 ]
 
 #: What makes the CLI read a suite as data rather than import it.
@@ -197,10 +200,14 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
 
     _refuse_unknown(
         document,
-        {"suite", "target", "assertions", "capture"},
+        {"suite", "target", "assertions", "capture", "suggest"},
         f"{where}, top level",
         "table",
     )
+    # Read for its refusals and dropped: the assistant is declared beside the
+    # suite and is no part of it, so it enters neither `Suite` nor its
+    # `config_hash`, and no run reads it. (ADR 0063 §4)
+    _suggest(document, where)
     table = _table(document, "suite", where)
     assertions, aggregates = _assertions(document, where)
 
@@ -311,6 +318,42 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
         # and may declare none; one with any other case may not. (ADR 0059 §1)
         return suite, no_target(suite, f"{path.name}: no [target] table")
     return suite, _target(document, path, perimeter)
+
+
+def suggest_model(path: Path) -> str | None:
+    """The assistant a `suite.toml` declares under `[suggest]`, or `None`.
+    Refused by the sentences the loader refuses it with. (ADR 0063 §4)"""
+    return _suggest(_parse(path), path.name)
+
+
+def _suggest(document: Mapping[str, object], where: str) -> str | None:
+    if "suggest" not in document:
+        return None
+    table = _table(document, "suggest", where)
+    _refuse_unknown(table, {"model"}, f"{where}, [suggest]", "key")
+    model = table.get("model")
+    if not isinstance(model, str):
+        raise UsageError(
+            f'{where}, [suggest]: needs `model = "anthropic/claude-haiku-4-5"`, '
+            "the assistant `digline suggest` asks, by coordinates as a judge "
+            "is: the provider, a slash, and the model (ADR 0063 §4)"
+        )
+    if "/" not in model:
+        raise not_a_coordinate(model, where=f"{where}, [suggest]", key="model")
+    return model
+
+
+def assistant_of(coordinate: str, *, where: str, max_tokens: int) -> object:
+    """The assistant of `digline suggest`, built by the code that builds a
+    judge from its coordinates, with the reply allowance it needs: the
+    provider plugin's own judge. (ADR 0063 §4)"""
+    return _instrument(coordinate, "judge", where, "model", max_tokens=max_tokens)
+
+
+def check_of(entry: Mapping[str, object], where: str) -> Any:
+    """One `[[assertions]]` table, built as the loader builds it."""
+    built, _ = _one(entry, where)
+    return built
 
 
 # --------------------------------------------------------------------------- #
@@ -544,9 +587,16 @@ def _value(
 
 
 def _instrument(
-    value: object, factory: str, where: str, key: str, judge_pricing: object = None
+    value: object,
+    factory: str,
+    where: str,
+    key: str,
+    judge_pricing: object = None,
+    *,
+    max_tokens: int | None = None,
 ) -> object:
-    """A judge, from its coordinates (ADR 0007 §3)."""
+    """A judge, from its coordinates (ADR 0007 §3). `max_tokens` is given by
+    `digline suggest` alone, whose assistant writes more than a verdict."""
     if isinstance(value, Mapping):
         # A table is how somebody asks for a judge with settings — a
         # max_tokens, a temperature. The coordinate carries the instrument's
@@ -579,6 +629,8 @@ def _instrument(
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
     build = getattr(provider, factory)
     priced: dict[str, object] = {}
+    if max_tokens is not None:
+        priced["max_tokens"] = max_tokens
     if judge_pricing is not None:
         if "pricing" not in _accepted(build):
             raise UsageError(

@@ -1,0 +1,19 @@
+digline suggest: wrote suite.proposed.toml. It is a proposal, not a suite: no command of digline reads it, nothing in it is a verdict, and no answer was marked. Adopt its lines into your suite, and the commit is yours
+assumed:
+  the form: suite.toml, as the suite is; its lines are added to it by hand
+  the setup its target reproduces: eeeeeeee for episodes
+  the judge: the one suite 'triage' declares for llm_rubric, unchanged
+  each check: 1. length, every one of 3 recordings answers text; maximum is a placeholder, the strictest the check accepts: no run measured it
+  each check: 2. before, in every one of 3 recordings, each call to the second tool has a call to the first before it; 2 of them call the second
+  each check: 3. before, in every one of 3 recordings, each call to the second tool has a call to the first before it; 1 of them call the second
+  each check: 4. never, declared to the model and called in none of 3 recordings
+  each check: 5. max_steps, the model's turns, in an agent's episode; limit is a placeholder, the strictest the check accepts: no run measured it
+  each starting number: no run read; 2 placeholders, each the strictest value its check accepts and marked in the file, failing until a measured number replaces it
+  the calibration band: a skeleton for llm_rubric, with the answer to paste and the band to place, strictly between 0 and 1, both yours
+  the counterexample: 1 reviewed no for llm_rubric, already in captured.json: the check must fail each
+  the regime: repository = 'private': the file quotes no recorded input or answer, under either regime; the rules read from the recordings, a tool's name or a key, are in its checks
+not yet examined: group 1 · episodes, text · 1 answer of 1, from 1 recording
+not yet examined: group 2 · episodes, text · 1 answer of 1, from 1 recording
+not yet examined: group 3 · episodes, text · 1 answer of 1, from 1 recording
+to examine them: digline record import --tenant acme --suite <your suite>
+1 call of tenant 'acme' named no suite (_unassigned): counted, and read for nothing here. To give them a suite: digline record import --tenant acme --suite <your suite> --from _unassigned

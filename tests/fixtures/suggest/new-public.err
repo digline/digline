@@ -1,0 +1,19 @@
+digline suggest: wrote <here>/suite.proposed.toml. It is a proposal, not a suite: no command of digline reads it, nothing in it is a verdict, and no answer was marked. Adopt its lines into your suite, and the commit is yours
+assumed:
+  the form: suite.toml, the suite does not exist yet; the proposal is always TOML, and a target that is a function needs a suite.py (docs/declarative.md, What it cannot say)
+  the setup its target reproduces: eeeeeeee for episodes
+  the judge: none read: llm_rubric is proposed with judge = "provider/model", a placeholder that is refused until you name the provider plugin and the model, which are yours to choose
+  each check: 1. length, every one of 3 recordings answers text; maximum is a placeholder, the strictest the check accepts: no run measured it
+  each check: 2. before, in every one of 3 recordings, each call to the second tool has a call to the first before it; 2 of them call the second
+  each check: 3. before, in every one of 3 recordings, each call to the second tool has a call to the first before it; 1 of them call the second
+  each check: 4. never, declared to the model and called in none of 3 recordings
+  each check: 5. max_steps, the model's turns, in an agent's episode; limit is a placeholder, the strictest the check accepts: no run measured it
+  each check: 6. llm_rubric, the judged check the capture reviews answers for, asked three times with two in three to agree; threshold is a placeholder, the strictest the check accepts: no run measured it; the rubric, the judge and the tolerance are placeholders
+  each starting number: no run read; 6 placeholders, each the strictest value its check accepts and marked in the file, failing until a measured number replaces it
+  the calibration band: a skeleton for llm_rubric, with the answer to paste and the band to place, strictly between 0 and 1, both yours
+  the counterexample: counterexample-1, constructed and marked as constructed: its input is yours to write, one whose answer llm_rubric must refuse, and nothing in it was recorded
+  the regime: repository = 'public': the file quotes no recorded input or answer, under either regime; the rules read from the recordings, a tool's name or a key, are in its checks
+not yet examined: group 1 · episodes, text · 1 recording
+not yet examined: group 2 · episodes, text · 1 recording
+not yet examined: group 3 · episodes, text · 1 recording
+to examine them, once the proposal is your suite: digline record import --tenant acme --suite <your suite>

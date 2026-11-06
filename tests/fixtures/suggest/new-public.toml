@@ -1,0 +1,84 @@
+# suite.proposed.toml, written by `digline suggest` for suite "triage" of tenant "acme".
+#
+# A proposal, not a suite: no command of digline reads this file. Adopt
+# its lines into your suite by hand, and the commit is yours. Nothing
+# here is a verdict and no answer was marked. Every value marked
+# `placeholder` fails until you write a measured one. (ADR 0063)
+
+[suite]
+tenant = "acme"
+name = "triage"
+# environment = WRITE: mandatory, with no default: where it runs
+cases = ["captured.json"]
+# A starting point: a reviewed answer needs the target asked at least twice.
+samples = 3
+min_agreement = "2/3"
+
+[capture]
+cases_file = "captured.json"
+repository = "public"
+check = "llm_rubric"
+
+# [target] is yours to write: the call the setup in force makes
+# (docs/declarative.md, [target]). A suite whose cases are all
+# reviewed answers may leave it out.
+
+[[assertions]]
+# every one of 3 recordings answers text; maximum is a placeholder, the
+# strictest the check accepts: no run measured it
+type = "length"
+maximum = 0  # placeholder: yours to write
+unit = "characters"
+
+[[assertions]]
+# in every one of 3 recordings, each call to the second tool has a call to
+# the first before it; 2 of them call the second
+type = "before"
+first = "lookup_order"
+then = "issue_refund"
+
+[[assertions]]
+# in every one of 3 recordings, each call to the second tool has a call to
+# the first before it; 1 of them call the second
+type = "before"
+first = "lookup_order"
+then = "send_email"
+
+[[assertions]]
+# declared to the model and called in none of 3 recordings
+type = "never"
+tool = "delete_account"
+
+[[assertions]]
+# the model's turns, in an agent's episode; limit is a placeholder, the
+# strictest the check accepts: no run measured it
+type = "max_steps"
+limit = 1  # placeholder: yours to write
+count = "model"
+
+[[assertions]]
+# the judged check the capture reviews answers for, asked three times with
+# two in three to agree; threshold is a placeholder, the strictest the check
+# accepts: no run measured it; the rubric, the judge and the tolerance are
+# placeholders
+type = "repeated"
+samples = 3
+min_agreement = "2/3"
+
+  [assertions.inner]
+  type = "llm_rubric"
+  name = "llm_rubric"
+  rubric = "WRITE: one question a good answer says yes to"  # placeholder: yours to write
+  judge = "provider/model"  # placeholder: yours to write
+  threshold = 1.0  # placeholder: yours to write
+  tolerance = 0.0  # placeholder: yours to write
+
+# The counterexample, constructed and not recorded: a suite that
+# cannot fail measures nothing. Paste it into a cases file the
+# suite reads, and write the input whose answer llm_rubric must
+# refuse:
+# {"id": "counterexample-1", "vars": {"question": "WRITE"}, "metadata": {"constructed": "by digline suggest, not recorded: an input whose answer llm_rubric must refuse"}}
+
+# The calibration skeleton (ADR 0024 §4.1): the answer and the band,
+# strictly between 0 and 1, are yours. Paste it into a cases file:
+# {"id": "calibration-llm_rubric", "calibration": {"check": "llm_rubric", "output": "PASTE an answer you know is partly right", "input": "PASTE its question", "low": "PLACE", "high": "PLACE"}}
