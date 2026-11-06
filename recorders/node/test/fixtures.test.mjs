@@ -11,6 +11,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import * as aws from "../digline/aws.mjs";
+import { StreamError, crc32, decode } from "../digline/eventstream.mjs";
 import { chat, chatStreamed } from "../digline/fetch.mjs";
 import * as messages from "../digline/messages.mjs";
 import {
@@ -49,8 +50,10 @@ function parsed(name) {
 /** The latency every wire fixture is recorded with: `WIRE_LATENCY_MS` in make.py. */
 const LATENCY_MS = 250.5;
 
-/** The wire calls this pull request reads. Bedrock's two streams are read by the next. */
-const STREAMS_OF_BEDROCK = ["bedrock-invoke-stream.json", "bedrock-stream.json"];
+/** A Bedrock stream's bytes, as make.py frames its events. */
+function eventStreamOf(name) {
+  return fs.readFileSync(path.join(FIXTURES, "eventstream", name.replace(".json", ".bin")));
+}
 
 test("every setup digest is Python's", () => {
   const setups = parsed("setups.json");
@@ -144,8 +147,12 @@ test("one call is the file digline's writer writes", () => {
   assert.equal(file(written) + "\n", read("call.expected.json"));
 });
 
-/** A wire fixture read by the reader its route takes, as each hook reads it. */
-function readWire(wire) {
+/**
+ * A wire fixture read by the reader its route takes, as each hook reads it:
+ * a Bedrock stream from its bytes, decoded, and InvokeModel's chunks out of
+ * their base64.
+ */
+function readWire(wire, name) {
   const streamed = wire.events !== undefined;
   switch (wire.route) {
     case "openai":
@@ -156,6 +163,13 @@ function readWire(wire) {
         : messages.call(wire.request, wire.reply, LATENCY_MS);
     case "bedrock": {
       const asked = object({ modelId: wire.model_id, ...wire.request });
+      if (streamed) {
+        const read = decode(eventStreamOf(name));
+        assert.equal(read.cut, false, name);
+        return wire.path.includes("/invoke")
+          ? messages.streamed(asked, aws.chunks(read.events), LATENCY_MS)
+          : aws.streamed(asked, read.events, LATENCY_MS);
+      }
       return wire.path.includes("/invoke")
         ? messages.call(asked, wire.reply, LATENCY_MS)
         : aws.call(asked, wire.reply, LATENCY_MS);
@@ -173,14 +187,65 @@ test("every wire call is the file digline's map writes", () => {
     .sort();
   assert.equal(calls.length, 12, calls.join(" "));
   const call = parsed("call.json");
-  const read_ = calls.filter((name) => !STREAMS_OF_BEDROCK.includes(name));
-  assert.equal(read_.length, 10);
-  for (const name of read_) {
+  for (const name of calls) {
     const fixture = parse(fs.readFileSync(path.join(wire, name), "utf8"));
-    const written = singleDocument(call.tenant, call.app, call.suite, readWire(fixture), call.recorded_at);
+    const written = singleDocument(call.tenant, call.app, call.suite, readWire(fixture, name), call.recorded_at);
     const expected = fs.readFileSync(path.join(wire, name.replace(".json", ".expected.json")), "utf8");
     assert.equal(file(written) + "\n", expected, name);
   }
+});
+
+test("the CRC-32 is zlib's, on the value every CRC-32 is checked against", () => {
+  assert.equal(crc32(Buffer.from("123456789", "ascii")), 0xcbf43926);
+  assert.equal(crc32(Buffer.alloc(0)), 0);
+});
+
+test("every event stream is read as botocore reads it", () => {
+  // Each file: the events botocore yields and whether bytes are left that
+  // hold no whole message, or that it refuses them. make.py frames them with
+  // zlib's CRC-32 and botocore reads them back.
+  const frames = parsed("eventstream/frames.json");
+  const names = fs
+    .readdirSync(path.join(FIXTURES, "eventstream"))
+    .filter((name) => name.endsWith(".bin"))
+    .map((name) => name.slice(0, -".bin".length))
+    .sort();
+  assert.deepEqual(names, Object.keys(frames).sort());
+  for (const [name, botocore] of Object.entries(frames)) {
+    const bytes = fs.readFileSync(path.join(FIXTURES, "eventstream", `${name}.bin`));
+    if (botocore.refused !== undefined) {
+      assert.throws(() => decode(bytes), StreamError, name);
+      continue;
+    }
+    const read = decode(bytes);
+    assert.deepEqual(read.events, botocore.events, name);
+    assert.equal(read.cut, botocore.cut, name);
+  }
+  // The cases the brief names are among them.
+  assert.equal(frames["one-event"].events.length, 1);
+  assert.equal(frames["tool-use"].events.length, 3);
+  assert.deepEqual([frames.abandoned.events.length, frames.abandoned.cut], [1, true]);
+  assert.equal(frames["bad-crc"].refused, "checksum");
+});
+
+test("InvokeModel's chunks are Messages events out of their base64", () => {
+  const read = decode(eventStreamOf("bedrock-invoke-stream.json"));
+  const found = aws.chunks(read.events);
+  assert.equal(found.length, read.events.length);
+  assert.deepEqual(
+    found.map((event) => event.type),
+    [
+      "message_start",
+      "content_block_start",
+      "content_block_delta",
+      "content_block_stop",
+      "content_block_start",
+      "content_block_delta",
+      "content_block_stop",
+      "message_delta",
+      "message_stop",
+    ],
+  );
 });
 
 test("Bedrock takes the model from the path", () => {

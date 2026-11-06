@@ -2,7 +2,7 @@
 
 A Node application's calls to a model, recorded by digline: the answers it
 gives become cases a person names, as [`digline record`](record.md) does for
-an application in Python. In Node the door is **a directory of four files
+an application in Python. In Node the door is **a directory of five files
 copied into the application**, which hooks the client the application already
 builds. Where the application's code is not to be touched,
 **`digline record proxy`** is the second door: a process on the application's
@@ -21,9 +21,10 @@ to install it apart from a project that is not Python.
 ## In the process: the files to copy
 
 Copy `recorders/node/digline/` from digline's repository into your project,
-as a directory named `digline`. Its four files need Node 22 or later and no
+as a directory named `digline`. Its five files need Node 22 or later and no
 package: `recorder.mjs`, the writer, `messages.mjs`, which reads Anthropic's
-Messages for the two hooks that meet it, and the two hooks:
+Messages for the two hooks that meet it, `eventstream.mjs`, which reads the
+event stream Bedrock's streams reply in, and the two hooks:
 
 | Your client | The hook | How it is installed |
 |---|---|---|
@@ -39,7 +40,10 @@ holds every block here to that file. The job also holds the writer to the
 fixtures digline's own Python makes, the ones Java's recorder is held to, and
 imports what it wrote with digline alone. The CI job `through-the-proxy` sends
 the request it sends from every language through `diglineFetch` too, and holds
-that it gives the same case and setup digest as through the proxy.
+that it gives the same case and setup digest as through the proxy. It sends
+Bedrock's two streams from Node through `diglineAws` and through the proxy,
+each answered with the same bytes, and holds that both write the same
+recording.
 
 ```js
 import OpenAI from "openai";
@@ -126,9 +130,11 @@ const recorder = DiglineRecorder.production(root, () => tenantOf(request), "supp
 - **`diglineFetch`** reads Chat Completions and Messages, single and
   streamed, by the request's path. Any other request goes through untouched
   and is not counted.
-- **`diglineAws`** reads Converse, and InvokeModel with an Anthropic model,
-  whose body is Anthropic's Messages, read as a direct call to Anthropic is.
-  InvokeModel with another family, Titan, Llama or Mistral, is not recorded,
+- **`diglineAws`** reads Converse and `converseStream`, and InvokeModel and
+  `invokeModelWithResponseStream` with an Anthropic model, whose body is
+  Anthropic's Messages, read as a direct call to Anthropic is. InvokeModel
+  with another family, Titan, Llama or Mistral, streamed or not, is not
+  recorded,
   and neither is an embedding model: each call is counted in
   `recorder.counts()` with its reason, *model family not recorded* or
   *embeddings not recorded*, and standard error says it once a family. The
@@ -138,7 +144,15 @@ const recorder = DiglineRecorder.production(root, () => tenantOf(request), "supp
   after an error is one call, recorded once.
 - **A stream is recorded when the application has read it to its end.** One it
   stops reading before is counted *stream abandoned*. OpenAI's SDK stops at
-  `[DONE]`, and Anthropic's at `message_stop`: either counts as the end.
+  `[DONE]`, and Anthropic's at `message_stop`: either counts as the end, and
+  so do Bedrock's `metadata` and, in InvokeModel's chunks, `message_stop`.
+  Bedrock's SDK stops reading a stream when its call is aborted, with
+  `abortSignal`. A `break` out of the loop alone was measured to leave the
+  connection open, and the call is not settled while it is.
+- **A Bedrock stream whose bytes do not check**, a checksum that does not
+  match, or that carries an exception after its 200, is not recorded and is
+  counted *stream error*, as the proxy counts it. What the application meets
+  is what the SDK throws, as it would without the hook.
 
 ## Through the proxy
 
@@ -221,16 +235,12 @@ lists them.
 
 ## What stays out
 
-- **Bedrock's streams.** `converseStream` and `invokeModelWithResponseStream`
-  pass through `diglineAws` unrecorded, and each is counted *stream not
-  recorded* in `recorder.counts()`, until the reading of AWS's event stream
-  lands. The SDK reads them as it would without the hook.
 - **HTTP/2 to AWS.** The Bedrock client speaks HTTP/2 by default, and the
-  page's lines were run that way, but against the fake provider on
-  `127.0.0.1`, not against AWS. The hook sits above the transport and reads
+  page's lines were run that way, and so was a `converseStream` in the hooks'
+  tests, but against the fake provider on `127.0.0.1`, not against AWS. The hook sits above the transport and reads
   the bytes the SDK reads.
-- **Bedrock through the proxy from Node** is not measured: the proxy records
-  Bedrock, and the job sends it no call from Node.
+- **Bedrock's single calls through the proxy from Node** are not measured:
+  the job sends the proxy Node's two streams, not Converse or InvokeModel.
 - **The counts.** The writer keeps no counts file, which is not part of the
   contract. `digline record status` says *not counted* for its process, and
   `recorder.counts()` gives the same counts in memory.

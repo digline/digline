@@ -19,6 +19,7 @@ import math
 import random
 import struct
 import tempfile
+import zlib
 from decimal import ROUND_HALF_EVEN, Context, Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -1015,6 +1016,133 @@ def _written(
         return path.read_text(encoding="utf-8")
 
 
+#: AWS's event stream, as Bedrock's two streams reply in it: the bytes a
+#: reader of the framing is held to, each file's checksums by zlib's CRC-32,
+#: and `eventstream/frames.json` saying what botocore, the decoder boto3 and
+#: `digline record proxy` read them with, makes of each. A header of every
+#: type that is not a string is in `one-event`, which Bedrock does not send
+#: and the framing allows.
+def _header(name: str, kind: int, value: bytes) -> bytes:
+    key = name.encode("utf-8")
+    return bytes([len(key)]) + key + bytes([kind]) + value
+
+
+def _string(name: str, value: str) -> bytes:
+    text = value.encode("utf-8")
+    return _header(name, 7, struct.pack(">H", len(text)) + text)
+
+
+def _frame(
+    kind: str, payload: object, *, exception: bool = False, extra: bytes = b""
+) -> bytes:
+    """One message: the prelude and its CRC, the headers, the payload and
+    the message's CRC."""
+    headers = extra + (
+        _string(":exception-type", kind)
+        + _string(":content-type", "application/json")
+        + _string(":message-type", "exception")
+        if exception
+        else _string(":event-type", kind)
+        + _string(":content-type", "application/json")
+        + _string(":message-type", "event")
+    )
+    body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+    prelude = struct.pack(">II", 12 + len(headers) + len(body) + 4, len(headers))
+    message = prelude + struct.pack(">I", zlib.crc32(prelude)) + headers + body
+    return message + struct.pack(">I", zlib.crc32(message))
+
+
+def _frames(events: list[dict[str, Any]]) -> bytes:
+    return b"".join(
+        _frame(kind, payload) for event in events for kind, payload in event.items()
+    )
+
+
+#: Every type of header value that is not a string, with a value of its own.
+_OTHER_HEADERS = (
+    _header("true", 0, b"")
+    + _header("false", 1, b"")
+    + _header("byte", 2, b"\x07")
+    + _header("short", 3, struct.pack(">h", -2))
+    + _header("integer", 4, struct.pack(">i", 1 << 20))
+    + _header("long", 5, struct.pack(">q", 1 << 40))
+    + _header("bytes", 6, struct.pack(">H", 3) + b"\x00\x01\x02")
+    + _header("timestamp", 8, struct.pack(">q", 1762387200000))
+    + _header("uuid", 9, bytes(range(16)))
+)
+
+_TOOL_USE: list[dict[str, Any]] = [
+    {
+        "contentBlockStart": {
+            "contentBlockIndex": 0,
+            "start": {"toolUse": {"toolUseId": "t1", "name": "lookup"}},
+        }
+    },
+    {
+        "contentBlockDelta": {
+            "contentBlockIndex": 0,
+            "delta": {"toolUse": {"input": '{"order": "A1"}'}},
+        }
+    },
+    {"messageStop": {"stopReason": "tool_use"}},
+]
+
+
+def _flipped(data: bytes, at: int) -> bytes:
+    return data[:at] + bytes([data[at] ^ 0xFF]) + data[at + 1 :]
+
+
+def _eventstreams() -> dict[str, bytes]:
+    """Each file of `eventstream/`, by its name."""
+    tool_use = _frames(_TOOL_USE)
+    first = len(_frame(*next(iter(_TOOL_USE[0].items()))))
+    second = len(_frame(*next(iter(_TOOL_USE[1].items()))))
+    return {
+        "one-event": _frame(
+            "messageStart", {"role": "assistant"}, extra=_OTHER_HEADERS
+        ),
+        "tool-use": tool_use,
+        # Cut halfway through the second event: the first is read.
+        "abandoned": tool_use[: first + second // 2],
+        # The second event's last byte of payload changed, its CRC kept.
+        "bad-crc": _flipped(tool_use, first + second - 5),
+        # The first event's total length changed, its prelude's CRC kept.
+        "bad-prelude": _flipped(tool_use, 3),
+        "exception": _frame("messageStart", {"role": "assistant"})
+        + _frame("throttlingException", {"message": "slow down"}, exception=True),
+        "bedrock-stream": _frames(WIRE_CALLS["bedrock-stream"]["events"]),
+        "bedrock-invoke-stream": _frames(WIRE_CALLS["bedrock-invoke-stream"]["events"]),
+    }
+
+
+def _read_by_botocore(data: bytes) -> dict[str, Any]:
+    """What botocore makes of the bytes: the events, each `{type: payload}`,
+    and whether bytes are left over that hold no whole message; or that it
+    refuses them, a checksum or an exception."""
+    from botocore.eventstream import (  # pyright: ignore[reportMissingTypeStubs]
+        EventStreamBuffer,
+        ParserError,
+    )
+
+    buffer: Any = EventStreamBuffer()
+    buffer.add_data(data)
+    events: list[object] = []
+    used = 0
+    try:
+        for message in buffer:
+            headers = cast(dict[str, object], message.headers)
+            if headers.get(":message-type") != "event":
+                return {"refused": "exception"}
+            payload = cast(bytes, message.payload)
+            events.append(
+                {str(headers[":event-type"]): json.loads(payload) if payload else {}}
+            )
+            used += message.prelude.total_length
+    except ParserError:
+        return {"refused": "checksum"}
+    return {"events": events, "cut": used != len(data)}
+
+
 #: The gate's markers a writer may find in `.digline/<tenant>/runs/.gate/`,
 #: each with its age in seconds, far from `STALE_SECONDS` on either side so
 #: the second a test takes cannot move it across. (ADR 0058, 2026-11-05)
@@ -1109,8 +1237,9 @@ def _json(value: object) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False) + "\n"
 
 
-def expected() -> dict[str, str]:
-    """Each fixture's path, relative to this directory, and its text."""
+def expected() -> dict[str, str | bytes]:
+    """Each fixture's path, relative to this directory, and its text, or its
+    bytes for an event stream."""
     return {
         "setups.json": _json(
             [{"setup": setup, "digest": setup_digest_of(setup)} for setup in SETUPS]
@@ -1130,6 +1259,10 @@ def expected() -> dict[str, str]:
             f"wire/{name}.expected.json": _wire_bytes(call)
             for name, call in WIRE_CALLS.items()
         },
+        **{f"eventstream/{name}.bin": data for name, data in _eventstreams().items()},
+        "eventstream/frames.json": _json(
+            {name: _read_by_botocore(data) for name, data in _eventstreams().items()}
+        ),
     }
 
 
@@ -1137,5 +1270,8 @@ if __name__ == "__main__":
     for name, text in expected().items():
         target = HERE / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(text, encoding="utf-8")
+        if isinstance(text, bytes):
+            target.write_bytes(text)
+        else:
+            target.write_text(text, encoding="utf-8")
         print(f"wrote {target.relative_to(HERE)}")
