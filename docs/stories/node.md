@@ -18,8 +18,9 @@ Everything on this page was run, on 2026-11-07, with digline installed from
 this repository at `37d5c1dd`, Node 22.22.0, openai 7.50.0,
 @anthropic-ai/sdk 1.4.0 and @aws-sdk/client-bedrock-runtime 3.1163.0. **No
 call reached a provider or a model.** A stand-in on 127.0.0.1,
-`recorders/node/test/stand-in.mjs` in digline's repository, answered the application and the judge, and every answer, score and token
-count below is the stand-in's. Each SDK was pointed at it by the variable it
+`recorders/node/test/stand-in.mjs` in digline's repository, answered the
+application and the judge, and every answer, score and token count below is
+the stand-in's. Each SDK was pointed at it by the variable it
 reads, `OPENAI_BASE_URL`, `ANTHROPIC_BASE_URL` and
 `AWS_ENDPOINT_URL_BEDROCK_RUNTIME`; on your machine those are left out and
 the providers answer. Paths are shortened to `…`.
@@ -409,8 +410,8 @@ twice, from the two versions.
   not run it.
 - **OpenAI's Responses API is not recorded.** `diglineFetch` reads Chat
   Completions and Messages by the request's path. A `responses.create` sent
-  through it inside a `suite` reached the stand-in at `/v1/responses`, was
-  answered, and wrote no recording and counted nothing in
+  through it inside a `suite`, to a server on 127.0.0.1 that answered it,
+  reached `/v1/responses`, and wrote no recording and counted nothing in
   `recorder.counts()`.
 - **Not measured**: a framework over the SDKs, LangChain.js or the Vercel AI
   SDK, and a call made in a worker thread, where whether `suite`, `episode`
