@@ -16,10 +16,15 @@ Observed, each one a rewrite by a different `uv`:
   relocked to digline 0.35.0, caught before the commit and redone with
   `uv` 0.13.6 (`519f5c5a`, which took `llamaindex` back to 5);
 - 2026-10-28, `uvx --from uv uv` moved the root from 3 to 5 while it was
-  relocked for pytest-digline 0.5.0, caught before the commit.
+  relocked for pytest-digline 0.5.0, caught before the commit;
+- 2026-11-06, Dependabot moved the root from 3 to 5 in the workspace group
+  (#950). Measured on 2026-11-07: the uv CI installed that day, 0.13.7 (job
+  127958404987), relocks the root from main's lock to the same three versions
+  at 5, byte for byte Dependabot's lock, and a local uv 0.11.14 at 3. The root
+  is at 5 since.
 
-**The table records a state, not a decision.** The root at 3 and the seven
-examples at 5 is nobody's choice: it is which `uv` ran last on each. Nothing
+**The table records a state, not a decision.** Every lock at 5 is nobody's
+choice: it is which `uv` ran last on each. Nothing
 here says the mix is wanted. A lock with no row is red, so a new one is
 recorded and not assumed. RELEASING.md names this test where the locks are
 regenerated: step 5 of *Before the tag: moving the number*, and *Before the
@@ -56,10 +61,10 @@ _DEPENDABOT = (
 #: The lock, its `revision`, and why it reads that.
 REVISIONS: dict[str, tuple[int, str]] = {
     "uv.lock": (
-        3,
-        "3 since the nltk move by hand (246dcd84, 2026-10-26) rewrote "
-        "Dependabot's 5 (34beafe8) with a uv that writes 3; the bump to 0.35.0, "
-        "digline-mcp 0.7.0 and pytest-digline 0.5.0 relocked it at 3",
+        5,
+        "5 since the workspace group's bump (#950, 2026-11-06): CI installs "
+        "the newest uv, 0.13.7 when measured, which writes 5; the 3 it read "
+        "before came from an older local uv, and 0.11.14 still writes 3",
     ),
     "examples/classifier/uv.lock": (5, _DEPENDABOT),
     "examples/langchain/uv.lock": (5, _DEPENDABOT),
@@ -132,9 +137,9 @@ def test_a_lock_moved_to_another_revision_is_named(tmp_path: Path) -> None:
     sentence names the file."""
     name = "uv.lock"
     text = (ROOT / name).read_text(encoding="utf-8")
-    assert "\nrevision = 3\n" in text
-    moved = text.replace("\nrevision = 3\n", "\nrevision = 5\n", 1)
+    assert "\nrevision = 5\n" in text
+    moved = text.replace("\nrevision = 5\n", "\nrevision = 3\n", 1)
     (tmp_path / name).write_text(moved, encoding="utf-8")
     wrong = revision_mismatches(tmp_path, {name: REVISIONS[name]})
     assert len(wrong) == 1
-    assert wrong[0].startswith(f"{name}: revision 5, declared 3")
+    assert wrong[0].startswith(f"{name}: revision 3, declared 5")
