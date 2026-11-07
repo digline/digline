@@ -19,7 +19,10 @@ stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
 stand-in's. **No IDE was driven**: the tool calls were made by a client of the
 `mcp` SDK that starts the server as `.mcp.json` declares it, over stdio, the
-way `.github/mcp_tools.py` does. Paths are shortened to `…`.
+way `.github/mcp_tools.py` does. Paths are shortened to `…`. The stand-in and
+the client are `tests/_story_ide_stand_in.py` and
+`tests/_story_ide_mcp_client.py`, and `tests/test_story_from_the_ide.py`
+replays this page against them.
 
 ## Day one: from recordings to a suite
 
