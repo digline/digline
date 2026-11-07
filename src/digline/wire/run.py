@@ -8,6 +8,7 @@ it reports that a run happened, not whether it was any good.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 
 from digline.core import (
     CallTotals,
@@ -18,15 +19,50 @@ from digline.core import (
     SystemConfig,
     Verdict,
     Withheld,
+    contradicted,
     crossing_refusal,
 )
+from digline.core.projection import project_check_name
+from digline.report import contradicted_said
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.store.protocol import skipped_advice
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
-__all__ = ["run_document", "run_json", "runs_json", "usage_lines"]
+__all__ = [
+    "contradiction_notes",
+    "run_document",
+    "run_json",
+    "runs_json",
+    "usage_lines",
+]
+
+
+def contradiction_notes(run: Run, *, mint: Minter | None = None) -> tuple[str, ...]:
+    """Who contradicted a person in `run`, as `digline run` says it on stderr
+    beside the bill: `contradicted_said`'s sentence, which names each check,
+    its case and, through who contradicted, its direction. Empty where every
+    check agreed with every person.
+
+    A run's `notes` carry it after `suite_notes`, so a front end with no stderr
+    hears it where `digline run` says it: over MCP, and in `run --json`. Facts
+    of the run, a check's name and a case's id, and no recorded word. `mint`
+    names them by the tokens the run's projection carries, as `suite_notes`
+    names its checks. (ADR 0059 §1; ADR 0011 §4; P-1582)"""
+    found = contradicted(run)
+    if not found:
+        return ()
+    if mint is not None:
+        found = tuple(
+            replace(
+                item,
+                case_id=mint("case_id", item.case_id),
+                check=project_check_name(item.check, mint),
+            )
+            for item in found
+        )
+    return (contradicted_said(found, "en"),)
 
 
 def usage_lines(usage: RunUsage | None) -> list[str]:
@@ -229,10 +265,11 @@ def run_json(
 
     `notes` is `suite_notes(suite)`, the lines the CLI prints on stderr before
     the first call: a check whose class declares no `KIND`, a tolerance that
-    switches its check off. Always present and empty when there is nothing to
-    say, so that an empty list is a suite that was read and not a digline that
-    did not look. Sentences and not their facts, as `runs.note` is. (#396;
-    ADR 0011 §4, ADR 0024 §6.4)
+    switches its check off; then `contradiction_notes(run)`, the line it
+    prints beside the bill where a check contradicted a person. Always present
+    and empty when there is nothing to say, so that an empty list is a suite
+    that was read and not a digline that did not look. Sentences and not
+    their facts, as `runs.note` is. (#396; ADR 0011 §4, ADR 0024 §6.4)
 
     `mint` is the minter of a front end that projects its answers, `None` in
     clear. It is read by `unpriced` alone: the plan's sentence is named by the

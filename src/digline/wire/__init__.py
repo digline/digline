@@ -50,7 +50,13 @@ from digline.wire.recordings import (
     import_listing_json,
 )
 from digline.wire.refusal import WITHHELD, refusal_text
-from digline.wire.run import run_document, run_json, runs_json, usage_lines
+from digline.wire.run import (
+    contradiction_notes,
+    run_document,
+    run_json,
+    runs_json,
+    usage_lines,
+)
 from digline.wire.suggest import (
     ProposedCheck,
     SuggestGroup,
@@ -66,9 +72,11 @@ from digline.wire.where import (
     docs_url,
     where_command,
     where_json,
+    where_said,
 )
 
 __all__ = [
+    "contradiction_notes",
     "EXIT_INTERNAL",
     "EXIT_OK",
     "EXIT_UNJUDGED",
@@ -116,5 +124,6 @@ __all__ = [
     "usage_lines",
     "where_command",
     "where_json",
+    "where_said",
     "writer_ahead",
 ]
