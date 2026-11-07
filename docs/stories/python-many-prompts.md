@@ -107,13 +107,15 @@ print(reply_to("When will I hear back about the backend role?"))
 print(reply_to("Can I apply for two roles at once?"))
 ```
 
-**Switch it on, and run it**, from the project's root:
+**Switch it on, and run it**, from the project's root. The first block was
+run again on 2026-11-07, with digline at `1b5cf083`, after the sentence on
+production came to name Node:
 
 ```console
 $ digline record on --tenant acme
 recording on for tenant 'acme': …/hiring/.digline/acme/recorder.toml
   values: on true, sample 1.0 (default), redact none (default), ceiling 104857600 bytes (default), interval 5.0 s (default)
-  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
+  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java and Node; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
 ```
 
 ```console
@@ -460,7 +462,10 @@ and its own exit code. There is no verdict of the application: digline does
 not say whether the hiring tool, as a whole, got worse.
 
 **`pytest-digline` holds the three in one session**, one line per suite, and
-the session does not end green if any of them is not:
+the session does not end green if any of them is not. This block was run
+again on 2026-11-07, with digline and pytest-digline at `1b5cf083`, over the
+same recordings, reviewed answers, references and runs, made again with
+it from the start, after its failure row came to name the contradiction:
 
 ```console
 $ pytest -q -p no:cacheprovider --digline-suite eval/screening/suite.toml --digline-suite eval/job-ad/suite.toml --digline-suite eval/candidate-reply/suite.toml
@@ -468,7 +473,7 @@ $ pytest -q -p no:cacheprovider --digline-suite eval/screening/suite.toml --digl
 =================================== FAILURES ===================================
 __________________ cap-e86d1ffe511d405b-1bc2c6cb::llm_rubric ___________________
 digline: cap-e86d1ffe511d405b-1bc2c6cb · llm_rubric
-  Checked here, not present in the reference.
+  llm_rubric passed where the person said no.
   reason: mean of 3 samples (1.000000, 1.000000, 1.000000)
 =================================== digline ====================================
 eval/screening/suite.toml: Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
@@ -477,7 +482,7 @@ eval/candidate-reply/suite.toml: The judge contradicted a person on 1 reviewed a
 eval/candidate-reply/suite.toml: digline exits 1, so this session does not end green.
 =========================== short test summary info ============================
 FAILED eval/candidate-reply/suite.toml::cap-e86d1ffe511d405b-1bc2c6cb::llm_rubric
-1 failed, 7 passed in 0.09s
+1 failed, 7 passed in 0.11s
 ```
 
 It exited `1`. The session's exit says that one of the three suites is
