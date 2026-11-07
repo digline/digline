@@ -133,8 +133,8 @@ for whoever wrote the suite: say it beside the run. A note stops nothing and is
 not a verdict, and an empty list means the suite was read and had none. A note
 is answered, not silenced. After them, where a check contradicted a person
 about a reviewed answer, the sentence `digline run` says beside its bill:
-report it, and read `explain`, because `compare` exits 1 on it. **Do not move a tolerance, declare a KIND
-unchecked, or drop a case to make a note go away.**
+report it, and read `explain`, because `compare` exits 1 on it. **Do not move a
+tolerance, declare a KIND unchecked, or drop a case to make a note go away.**
 
 `unpriced` holds why a cost is not known: the sentence a plugin wrote for each
 reply it could not price, once each. An empty list means the run looked and
