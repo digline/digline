@@ -390,6 +390,13 @@ RECORDED: dict[str, dict[str, str]] = {
             "tests/test_record_node_page.py"
         ),
     },
+    "docs/stories/python-many-prompts.md": {
+        "2.6.0": (
+            "'anthropic 2.6.0': the Python SDK for Anthropic the story was run "
+            "with, on 2026-11-07, not a digline version; written by hand, and no "
+            "test holds it"
+        ),
+    },
     "docs/record.md": {
         "1.0.3": (
             "'On 1.0.3, digline record and digline.recorder do not exist' — the "
