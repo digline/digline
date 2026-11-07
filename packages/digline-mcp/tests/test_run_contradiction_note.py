@@ -164,6 +164,7 @@ def test_under_project_the_note_names_check_and_case_by_their_tokens(
 
     table = RecordingTable()
     (note,) = run_tool(repo, "suite_steps.py", table=table)["notes"]
-    for kind, name in (("verdict_name", "before"), ("case_id", "refund-turn")):
-        assert name not in note, note
-        assert table.mint(kind, name) in note, note
+    assert "before" not in note, note
+    assert "refund-turn" not in note, note
+    assert table.mint("verdict_name", "before") in note, note
+    assert table.mint("case_id", "refund-turn") in note, note
