@@ -72,26 +72,31 @@ def _flat(text: str) -> str:
     return " ".join(text.split())
 
 
-def holds(page: object, actual: object, where: str = "$") -> None:
+def holds(
+    page: object, actual: object, where: str = "$", *, whole: bool = False
+) -> None:
     """Every key the page shows is in the answer with the value it shows; a
-    list the page shows is the answer's, item for item."""
+    list the page shows is the answer's, item for item. `whole` where the page
+    shows the answer whole: then the answer has no key the page leaves out."""
     if isinstance(page, dict):
         assert isinstance(actual, dict), (where, actual)
         shown: dict[str, object] = dict(page)  # pyright: ignore[reportUnknownArgumentType]
         given: dict[str, object] = dict(actual)  # pyright: ignore[reportUnknownArgumentType]
+        if whole:
+            assert sorted(shown) == sorted(given), (where, sorted(shown), sorted(given))
         for key, value in shown.items():
             assert key in given, (where, key, sorted(given))
             if key in VOLATILE:
                 assert isinstance(given[key], str), (where, key)
                 continue
-            holds(value, given[key], f"{where}.{key}")
+            holds(value, given[key], f"{where}.{key}", whole=whole)
     elif isinstance(page, list):
         assert isinstance(actual, list), (where, actual)
         left: list[object] = list(page)  # pyright: ignore[reportUnknownArgumentType]
         right: list[object] = list(actual)  # pyright: ignore[reportUnknownArgumentType]
         assert len(left) == len(right), (where, left, right)
         for index, (one, other) in enumerate(zip(left, right, strict=True)):
-            holds(one, other, f"{where}[{index}]")
+            holds(one, other, f"{where}[{index}]", whole=whole)
     else:
         assert page == actual, (where, page, actual)
 
@@ -226,7 +231,7 @@ def test_the_story_runs_as_the_page_says(story: Story) -> None:
     assert _flat(said.split(")", 1)[1]) in text
     refused, said = story.tool("where", {"tenant": "acme"})
     assert not refused
-    holds(story.shown(), said)
+    holds(story.shown(), said, whole=True)
     story.command(story.session("digline where"))
 
     # suggest, which writes nothing; the command, run by hand, which does.
@@ -255,7 +260,7 @@ def test_the_story_runs_as_the_page_says(story: Story) -> None:
     # under the button of the page `digline view` serves.
     refused, said = story.tool("record_listing", {"suite": "suite.toml"})
     assert not refused
-    holds(story.shown(), said)
+    holds(story.shown(), said, whole=True)
     story.session("digline view --suite suite.toml --allow-record")
     story.command(story.session("digline record import"))
 
