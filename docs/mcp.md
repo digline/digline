@@ -60,9 +60,10 @@ anything, and each description names the command a person types for the same
 reading, so what an agent did can be done again by hand:
 
 - **`where`** is `digline where --json`: the first of eleven states that
-  holds, the counts that put it there, the command for the next step and the
-  pages that say more ([Where you are](view.md#where-you-are)). The command is
-  shown and never run.
+  holds, the counts that put it there, the next step in words, `next.say`,
+  the command for it where it has one and the pages that say more
+  ([Where you are](view.md#where-you-are)). The command is shown and never
+  run.
 - **`record_status`** is `digline record status --json`, with the paths said
   relative to the repository's root, its refusals included.
 - **`record_listing`** is `digline record import --json`: the declaration, the
@@ -225,7 +226,11 @@ the first call. One names the checks whose class declares no `KIND`, which
 `explain`'s shape reading leaves out; one per check names a tolerance so wide
 the check is reported only when it flips. Each is a sentence for whoever wrote
 the suite, said and never refused. An empty list is a suite that was read and
-had nothing to say. `digline run --json` carries the same list. (#396)
+had nothing to say. After them, where a check contradicted a person about a
+reviewed answer, comes the line `digline run` prints beside its bill, *the
+judge contradicted a person on 1 reviewed answer*, with the check and the case
+where a check on the steps did. `digline run --json` carries the same list.
+(#396; ADR 0059 §1)
 
 ## What the responses are
 

@@ -95,6 +95,7 @@ from digline.store import FileResultStore, checked_name
 from digline.wire import (
     EXIT_USAGE,
     compare_json,
+    contradiction_notes,
     diff_json,
     explain_json,
     import_listing_json,
@@ -729,7 +730,12 @@ def build_server(
             measured.ref,
             _plan_named(measured.plan, table_),
             usage=measured.run.usage,
-            notes=suite_notes(loaded_suite, mint=table_),
+            # Then the contradiction `digline run` says beside the bill, named
+            # by the tokens the run carries. (P-1582)
+            notes=(
+                *suite_notes(loaded_suite, mint=table_),
+                *contradiction_notes(measured.run, mint=table_),
+            ),
             # The count `digline run --json` carries, from the same function,
             # so the two key sets stay equal. (#654)
             errored_checks=len(errored_verdicts(measured.run)),

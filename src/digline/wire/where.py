@@ -16,6 +16,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from digline.report.text import Locale, phrase
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.recordings import Shape, shape_json
 from digline.wire.text import neutralised
@@ -30,6 +31,7 @@ __all__ = [
     "docs_url",
     "where_command",
     "where_json",
+    "where_said",
 ]
 
 State = Literal[
@@ -136,6 +138,27 @@ def where_command(
     return ["digline", *words[found.state], *root]
 
 
+def where_said(found: Where, *, suite_named: bool, locale: Locale) -> str:
+    """The state's sentence: what holds, and the next step in words, the one
+    `digline where` prints under the title. Every state has one, including
+    those whose step is an edit and has no command. digline's own words, from
+    counts and names; no recorded word. `suite_named` is whether a suite was
+    given: without one, `nothing_recorded` speaks of the tenant."""
+    values = {
+        "count": found.count,
+        "suite": found.suite or "",
+        "tenant": found.tenant,
+        "exit_code": found.exit_code,
+        "last_import": found.last_import or phrase(locale, "view.where.never"),
+    }
+    key = (
+        "view.where.nothing_recorded.tenant"
+        if found.state == "nothing_recorded" and not suite_named
+        else f"view.where.{found.state}.say"
+    )
+    return phrase(locale, key, **values)
+
+
 def docs_url(page: str, anchor: str) -> str:
     """A page of `docs/` as the site publishes it, with its anchor."""
     slug = page.removesuffix(".md")
@@ -149,7 +172,11 @@ def where_json(
     there, the next step's command where there is one, and the pages that say
     more. Counts, shapes, a run's key and an instant: no recorded word. No
     `exit_code` of its own: the reading is not a gate, and the newest run's
-    is a field."""
+    is a field.
+
+    `next.say` is the sentence `digline where` prints under the title, in
+    English, so a program reads the next step where `next.command` is `null`
+    because the step is an edit. (`where_said`)"""
     command = where_command(found, suite_arg, root)
     return neutralised(
         {
@@ -167,6 +194,9 @@ def where_json(
             "last_import": found.last_import,
             "capture": found.capture,
             "next": {
+                "say": where_said(
+                    found, suite_named=suite_arg is not None, locale="en"
+                ),
                 "command": shlex.join(command) if command else None,
                 "docs": [
                     {"page": page, "anchor": anchor, "url": docs_url(page, anchor)}
