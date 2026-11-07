@@ -320,6 +320,9 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         # (p) the first verbs' sentences and commands, composed from the
         # suite's file as it was named and from projected values
         "$.next.command": ("p", gate.prose),
+        # The next step in words: a state's sentence, from counts, the
+        # tenant and the suite's name, which stay in clear. (P-1582)
+        "$.next.say": ("p", gate.prose),
         "$.review.sentence": ("p", gate.prose),
         "$.review.command": ("p", gate.prose),
         "$.review.address": ("p", gate.prose),

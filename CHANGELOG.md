@@ -561,6 +561,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   relative to the repository's root, and `record_compare` names each case and
   answer by its number in the answer, where the command line prints the
   digest of the input and of the text. No recorded word reaches an answer.
+  `where` carries the next step in words, `next.say`, the sentence `digline
+  where` prints under its title, where `next.command` is `null` because the
+  step is an edit, as `no_suite_yet`'s suite to write; `digline where --json`
+  carries it too, so the two stay equal key for key.
+- **`run`'s `notes` say a contradiction**, as `digline run` says it on
+  stderr beside the bill: *the judge contradicted a person on 1 reviewed
+  answer*, or the checks on the steps by name and case. It was empty on such
+  a run, which exits 0 while `compare` and `explain` exit 1, so an agent heard
+  it only from them. A check's name and a case's id, under `--names project`
+  their tokens, and no recorded word. `digline run --json` carries the same
+  note (ADR 0059 §1).
 - **`suggest` writes nothing and asks no model.** It returns the proposal's
   facts and the command that writes the file; what an assistant costs is said
   before its call, and a tool has no before, so the command with `--model` is
@@ -587,7 +598,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   a no the judge failed harder than in the reference failed its row, and a no
   the judge now passes, which the comparison calls improved, passed it. The
   row now reads the run's contradictions, as the suite's exit code already did
-  (ADR 0059 §1).
+  (ADR 0059 §1). And its FAILURES line says the contradiction, *llm_rubric
+  passed where the person said no* or *failed where the person said yes*,
+  where it said the movement: on a reviewed answer added after the
+  reference, *Checked here, not present in the reference*, which names
+  nothing that failed.
 - Its floor on `digline` becomes `1.1.0` in its own release, after the core's:
   RELEASING.md, *Owed at the cut*.
 
