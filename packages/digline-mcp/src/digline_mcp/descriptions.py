@@ -131,8 +131,10 @@ check whose class declares no `KIND`, which the shape reading leaves out, and a
 tolerance so wide its check is reported only when it flips. Each is a sentence
 for whoever wrote the suite: say it beside the run. A note stops nothing and is
 not a verdict, and an empty list means the suite was read and had none. A note
-is answered, not silenced. **Do not move a tolerance, declare a KIND
-unchecked, or drop a case to make a note go away.**
+is answered, not silenced. After them, where a check contradicted a person
+about a reviewed answer, the sentence `digline run` says beside its bill:
+report it, and read `explain`, because `compare` exits 1 on it. **Do not move a
+tolerance, declare a KIND unchecked, or drop a case to make a note go away.**
 
 `unpriced` holds why a cost is not known: the sentence a plugin wrote for each
 reply it could not price, once each. An empty list means the run looked and
@@ -206,7 +208,9 @@ Equivalent on the command line: `digline where --tenant <tenant> --suite
 
 The command for the next step is a proposal: say it, and where it writes,
 `record on` or an import, it is the person's to run. It is written to be run
-from the repository's root. `run_exit_code` is the newest run's, where the
+from the repository's root. `next.say` is the next step in words, the sentence
+the command line prints; where the step is an edit, a suite to write, there is
+no command and `next.say` is the step. `run_exit_code` is the newest run's, where the
 state read one; this reading is not a gate and has no exit code of its own."""
 
 RECORD_STATUS = """\

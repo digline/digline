@@ -797,6 +797,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "the behaviour changed."
         ),
         "detail.new": "Checked here, not present in the reference.",
+        # A reviewed answer's failing row, in pytest: the contradiction, which
+        # is what fails it, and not the movement. (ADR 0059 §1)
+        "detail.reviewed.passed_no": "{check} passed where the person said no.",
+        "detail.reviewed.failed_yes": "{check} failed where the person said yes.",
         "detail.new.errored": ("New here, and the check could not run."),
         "detail.missing": "Present in the reference, not checked here.",
         "detail.errored": "The check could not run.",
@@ -2480,6 +2484,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "quindi sono cambiati sia la regola sia il comportamento."
         ),
         "detail.new": "Controllato qui, assente nel riferimento.",
+        "detail.reviewed.passed_no": (
+            "{check} ha promosso la risposta a cui la persona ha detto no."
+        ),
+        "detail.reviewed.failed_yes": (
+            "{check} ha bocciato la risposta a cui la persona ha detto sì."
+        ),
         "detail.new.errored": (
             "Nuovo qui, e il controllo non ha potuto essere eseguito."
         ),

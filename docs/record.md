@@ -485,12 +485,12 @@ calls are in or out with it. At the ceiling the recorder stops recording for
 that tenant and says so in the status; it never rotates or deletes.
 
 **In production**, for an application that resolves its tenant per request
-(`wrap(tenant=callable)` in Python, `DiglineRecorder.production` in Java; the
-proxy's `--tenant` is never production), a file that switches a tenant on
-must declare `redact`, `sample` and `ceiling`, and the tenant's directory must
-be writable. Otherwise the client is refused when it is wrapped, and the
-refusal names each missing declaration. `DIGLINE_RECORD=1` is refused there:
-it declares neither redaction nor sampling.
+(`wrap(tenant=callable)` in Python, `DiglineRecorder.production` in Java and
+Node; the proxy's `--tenant` is never production), a file that switches a
+tenant on must declare `redact`, `sample` and `ceiling`, and the tenant's
+directory must be writable. Otherwise the client is refused when it is
+wrapped, and the refusal names each missing declaration. `DIGLINE_RECORD=1`
+is refused there: it declares neither redaction nor sampling.
 
 ```console
 $ digline record on --tenant acme --production --sample 0.1 --redact none --ceiling 500000000

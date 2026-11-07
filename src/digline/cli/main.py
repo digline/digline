@@ -47,7 +47,6 @@ from digline.core import (
     Run,
     Written,
     compare,
-    contradicted,
     diff,
     key_of,
     nothing_judged,
@@ -107,7 +106,6 @@ from digline.report import (
     against_line,
     artifact_lines,
     config_lines,
-    contradicted_said,
     errored_verdicts,
     explain_text,
     headline,
@@ -151,6 +149,7 @@ from digline.wire import (
     TenantRecorder,
     ahead_note,
     compare_json,
+    contradiction_notes,
     diff_json,
     episode_shape,
     exit_code,
@@ -163,7 +162,13 @@ from digline.wire import (
     usage_lines,
 )
 from digline.wire.recordings import import_listing_json
-from digline.wire.where import WHERE_DOCS, docs_url, where_command, where_json
+from digline.wire.where import (
+    WHERE_DOCS,
+    docs_url,
+    where_command,
+    where_json,
+    where_said,
+)
 
 __all__ = [
     "EXIT_OK",
@@ -406,7 +411,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                     measured.plan,
                     resumed=resume is not None,
                     usage=measured.run.usage,
-                    notes=notes,
+                    # And the contradiction the terminal says beside the bill,
+                    # from the same function. (P-1582)
+                    notes=(*notes, *contradiction_notes(measured.run)),
                     errored_checks=errored,
                     unpriced=measured.unpriced,
                 )
@@ -436,11 +443,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         # exits 0, and report, explain and compare exit 1 on it, so the person
         # who ran the command hears it here first. The `next:` line below then
         # names explain, because promote refuses such a run. (ADR 0059 §1)
-        against = contradicted(measured.run)
-        if against:
-            # Who contradicted, the judge or a check on the steps, in the
-            # sentence `explain` opens with. (ADR 0059 §1, amended 2026-11-05)
-            say(f"digline: {contradicted_said(against, 'en')}.", err=True)
+        # Who contradicted, the judge or a check on the steps, in the sentence
+        # `explain` opens with, and the one `--json` and MCP carry in `notes`.
+        # (ADR 0059 §1, amended 2026-11-05)
+        for note in contradiction_notes(measured.run):
+            say(f"digline: {note}.", err=True)
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)
@@ -1475,8 +1482,8 @@ def cmd_record(args: argparse.Namespace) -> int:
             "  development: what the file leaves out is a default; an "
             "application that resolves its tenant per request is production "
             "(wrap(tenant=callable) in Python, DiglineRecorder.production in "
-            "Java; the proxy's --tenant is never production), and refuses this "
-            "file unless it declares sample, redact and ceiling"
+            "Java and Node; the proxy's --tenant is never production), and "
+            "refuses this file unless it declares sample, redact and ceiling"
         )
     return EXIT_OK
 
@@ -1815,13 +1822,9 @@ def cmd_where(args: argparse.Namespace) -> int:
         "exit_code": found.exit_code,
         "last_import": found.last_import or phrase(args.locale, "view.where.never"),
     }
-    said = (
-        "view.where.nothing_recorded.tenant"
-        if found.state == "nothing_recorded" and suite is None
-        else f"view.where.{found.state}.say"
-    )
     say(phrase(args.locale, f"view.where.{found.state}.title", **values))
-    say(phrase(args.locale, said, **values))
+    # The sentence `--json` carries as `next.say`, from the same function.
+    say(where_said(found, suite_named=suite is not None, locale=args.locale))
     for shape, count in found.shapes:
         say(f"  {shape.says()} · {count}")
     command = where_command(found, args.suite, flags)

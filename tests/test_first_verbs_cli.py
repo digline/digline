@@ -97,6 +97,34 @@ def test_where_json_holds_the_state_and_its_counts(root: Path) -> None:
     assert "exit_code" not in found
 
 
+@pytest.mark.parametrize("with_suite", [False, True], ids=["no-suite-yet", "to-import"])
+def test_where_json_says_the_next_step_as_the_terminal_does(
+    tmp_path: Path, with_suite: bool
+) -> None:
+    """`next.say` is the sentence the terminal prints under the title, and it
+    is there where the step is an edit and `next.command` is null: with no
+    suite, the recordings are `no_suite_yet`, whose step is a suite to write.
+    (P-1582)"""
+    if with_suite:
+        write_suite(tmp_path)
+    record(tmp_path, *EARLY)
+    flags = ["--suite", SUITE] if with_suite else []
+    found = printed(tmp_path, "where", "--tenant", TENANT, *flags, "--json")
+    done = cli(tmp_path, "where", "--tenant", TENANT, *flags)
+    assert done.returncode == 0, done.stderr
+    assert found["next"]["say"] == done.stdout.splitlines()[1]
+    if with_suite:
+        assert found["state"] == "to_import"
+        assert found["next"]["command"] is not None
+    else:
+        assert found["state"] == "no_suite_yet"
+        assert found["next"]["command"] is None
+        assert found["next"]["say"].endswith(
+            "Write the suite with a capture declaration, or let an agent "
+            "propose one by digline's method."
+        )
+
+
 def test_where_refuses_a_suite_of_another_tenant(root: Path) -> None:
     done = cli(root, "where", "--tenant", "other", "--suite", SUITE)
     assert done.returncode == 64
