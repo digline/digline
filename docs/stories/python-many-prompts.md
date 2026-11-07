@@ -15,8 +15,9 @@ Everything on this page was run, on 2026-11-07, with digline,
 `digline-anthropic` and `pytest-digline` installed from this repository at
 `37d5c1dd`, `anthropic` 2.6.0 and Python 3.13. **No call reached Anthropic or
 a model.** A stand-in for the Messages API on 127.0.0.1,
-`tests/_story_python_stand_in.py` in this repository, answered the application and the judge, and every answer, score and token
-count below is the stand-in's. The SDK and the judge were pointed at it with
+`tests/_story_python_stand_in.py` in this repository, answered the
+application and the judge, and every answer, score and token count below is
+the stand-in's. The SDK and the judge were pointed at it with
 `ANTHROPIC_BASE_URL`, which both read, and given `ANTHROPIC_API_KEY=fake`; on
 your machine the first is left out and the second is your key. Paths are
 shortened to `…`.
