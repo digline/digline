@@ -384,6 +384,18 @@ RECORDED: dict[str, dict[str, str]] = {
             "recorders/node/package.json by tests/test_record_node_page.py"
         ),
     },
+    "docs/stories/java-quarkus.md": {
+        "2.57.8": (
+            "'the SDK 2.57.8': the AWS SDK for Java v2 the story was run with, on "
+            "2026-11-06, not a digline version; written by hand, and no test "
+            "holds it equal to recorders/java/pom.xml"
+        ),
+        "1.0.0": (
+            "'triage 1.0.0-SNAPSHOT': the version of the story's own Quarkus "
+            "application, in the startup line Quarkus printed, not a digline "
+            "version"
+        ),
+    },
     "docs/record.md": {
         "1.0.3": (
             "'On 1.0.3, digline record and digline.recorder do not exist' — the "
