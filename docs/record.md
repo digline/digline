@@ -485,12 +485,12 @@ calls are in or out with it. At the ceiling the recorder stops recording for
 that tenant and says so in the status; it never rotates or deletes.
 
 **In production**, for an application that resolves its tenant per request
-(`wrap(tenant=callable)` in Python, `DiglineRecorder.production` in Java; the
-proxy's `--tenant` is never production), a file that switches a tenant on
-must declare `redact`, `sample` and `ceiling`, and the tenant's directory must
-be writable. Otherwise the client is refused when it is wrapped, and the
-refusal names each missing declaration. `DIGLINE_RECORD=1` is refused there:
-it declares neither redaction nor sampling.
+(`wrap(tenant=callable)` in Python, `DiglineRecorder.production` in Java and
+Node; the proxy's `--tenant` is never production), a file that switches a
+tenant on must declare `redact`, `sample` and `ceiling`, and the tenant's
+directory must be writable. Otherwise the client is refused when it is
+wrapped, and the refusal names each missing declaration. `DIGLINE_RECORD=1`
+is refused there: it declares neither redaction nor sampling.
 
 ```console
 $ digline record on --tenant acme --production --sample 0.1 --redact none --ceiling 500000000
@@ -528,8 +528,8 @@ which no list, import or compare reads
 ([the recording's format](recording-format.md#a-run-in-progress-the-gates-calls)).
 
 **Each process writes one subdirectory per tenant**, however many clients it
-wraps: `recordings/p<pid>-…/` from Python, `recordings/j<pid>-…/` from Java;
-the format leaves the name free. digline's recorder keeps its counts there
+wraps: `recordings/p<pid>-…/` from Python, `recordings/j<pid>-…/` from Java,
+`recordings/n<pid>-…/` from Node; the format leaves the name free. digline's recorder keeps its counts there
 beside its recordings, so the status reads them from any process. With
 `--suite`, it also says how many recordings the suite gained since its last
 import. In the application, `client.digline_counts` gives the counts of that
@@ -630,6 +630,16 @@ conversation, which a cases file cannot hold as an answer yet. Orphans,
 interrupted episodes and recordings over the ceiling are counted, and are never
 cases.
 
+**With `--json` the listing is for a program**, and holds no recorded word:
+the declaration, the setup in force per form, and per group the shape, how
+many answers and recordings, how many no person has named yet, how many are
+already a yes or a no, and how many cannot be written, by why. No answer's id,
+which carries its digest, no input and no text. It says where a yes or a no is
+given, `review`: the page of [`digline view`](view.md) that lists the same
+answers. `--json` is refused with `--good`, `--bad` and `--by`, because a yes
+or a no is a person's, given by reading the answer, and the listing for a
+program has none in it to read.
+
 **The second writes the answers named, and no other.** Each one becomes a
 [reviewed answer](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer)
 for the source's check: the recorded answer, its input, and your yes or no,
@@ -709,7 +719,10 @@ writes nothing, and does not move the import's `examined_through`.
 - `--json` is the same structure for a program. It carries digests, never the
   recorded text (fixed decision 9): the cases by their ids, the setups and
   the answers by their digests, the dates, the counts, and for `--show-setup`
-  the keys that differ, never their values. The words are in the terminal's
+  the keys that differ, never their values. For an episode it also carries
+  the shape of its steps under each setup: how many model calls its episodes
+  made, and the models its child setups name, which are values of the
+  configuration and travel as a run's do. The words are in the terminal's
   text, for the person who ran the command.
 
 Recordings of another tenant than the suite's are refused before anything is

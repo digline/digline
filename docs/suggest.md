@@ -238,6 +238,14 @@ quote what it read. A file of
 proposal stands where the suite's capture says its cases may
 ([ADR 0023](adr/0023-capture.md) §8).
 
+## Over MCP
+
+The MCP server's `suggest` tool returns what this command says, as facts, and
+the command that writes the file: it writes nothing, because the server writes
+nothing into your repository. It asks no assistant there: what one costs is
+said before its call, and a tool has no before, so the command with `--model`
+is in its answer for you to run ([digline over MCP](mcp.md)).
+
 ## Not yet
 
-- A `--json`, an MCP tool, and a view at the page.
+- A `--json`, and a view at the page.

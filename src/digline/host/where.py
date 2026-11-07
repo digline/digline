@@ -49,7 +49,6 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Literal
 
 from digline.core.calibration import scale_lost
 from digline.core.capture import capture_id
@@ -57,7 +56,6 @@ from digline.core.recording import Recording, instant_of
 from digline.core.reviewed import contradicted
 from digline.core.run import Run
 from digline.host.importing import (
-    Shape,
     imported_since,
     read_recordings,
     setups_in_force,
@@ -70,6 +68,7 @@ from digline.recorder import UNASSIGNED
 from digline.run.suite import Suite
 from digline.store.file_store import FileResultStore
 from digline.wire.contract import run_exit_code
+from digline.wire.where import STATES, State, Where
 
 __all__ = [
     "RECORD_LINES",
@@ -129,60 +128,6 @@ RECORD_LINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ),
     ("any other", *_PROXY),
 )
-
-State = Literal[
-    "nothing_recorded",
-    "recording_off",
-    "unassigned",
-    "no_suite_yet",
-    "to_import",
-    "never_run",
-    "judge_disagrees",
-    "green_without_red",
-    "new_setup",
-    "nothing_to_do",
-    "last_run_red",
-]
-
-#: Every state, in the order `where` asks them.
-STATES: tuple[State, ...] = (
-    "nothing_recorded",
-    "recording_off",
-    "unassigned",
-    "no_suite_yet",
-    "to_import",
-    "never_run",
-    "judge_disagrees",
-    "green_without_red",
-    "new_setup",
-    "nothing_to_do",
-    "last_run_red",
-)
-
-
-@dataclass(frozen=True, slots=True)
-class Where:
-    """One state and the facts that put the project in it.
-
-    `count` is the number the state's sentence names: recordings, calls,
-    reviewed answers, disagreements, answers or cases, by state. `suite` is
-    the suite the state is about, `None` where it is about the tenant.
-    `shapes` are the output shapes of `no_suite_yet`, each with its count.
-    `run_key` and `exit_code` are the newest run's, where the state reads it;
-    `last_import` the newest `examined_through` a case of the suite holds.
-    """
-
-    state: State
-    tenant: str
-    count: int = 0
-    suite: str | None = None
-    shapes: tuple[tuple[Shape, int], ...] = ()
-    run_key: str | None = None
-    exit_code: int | None = None
-    last_import: str | None = None
-    #: Whether the suite declares a capture source: `--from _unassigned` is
-    #: refused without one. `None` where no suite was given.
-    capture: bool | None = None
 
 
 def where(

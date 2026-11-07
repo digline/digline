@@ -78,7 +78,7 @@ def test_every_tool_the_server_lists_is_called_and_answers(tmp_path: Path) -> No
 
 def test_a_tool_the_script_has_no_arguments_for_is_red_rather_than_skipped() -> None:
     with pytest.raises(SystemExit, match="lists a tool `promote` this script has no"):
-        script.tool_arguments("promote", ["a", "b"])
+        script.tool_arguments("promote", ["a", "b"], "acme")
 
 
 def test_a_session_names_the_suite_both_ways(tmp_path: Path) -> None:

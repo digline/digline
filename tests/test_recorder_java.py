@@ -61,9 +61,9 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
             del sys.modules[name]
 
 
-def _expected() -> dict[str, str]:
+def _expected() -> dict[str, str | bytes]:
     made = runpy.run_path(str(FIXTURES / "make.py"))
-    return cast(Callable[[], dict[str, str]], made["expected"])()
+    return cast(Callable[[], dict[str, str | bytes]], made["expected"])()
 
 
 def test_every_fixture_is_what_diglines_python_makes_of_it() -> None:
@@ -75,7 +75,12 @@ def test_every_fixture_is_what_diglines_python_makes_of_it() -> None:
     )
     assert on_disk == sorted(expected)
     for name, text in expected.items():
-        assert (FIXTURES / name).read_text(encoding="utf-8") == text, (
+        on_file = (
+            (FIXTURES / name).read_bytes()
+            if isinstance(text, bytes)
+            else (FIXTURES / name).read_text(encoding="utf-8")
+        )
+        assert on_file == text, (
             f"recorders/fixtures/{name} is not what digline makes of it now: run "
             "`uv run python recorders/fixtures/make.py`, and the Java tests are held "
             "to the new answer"
@@ -257,14 +262,25 @@ output_path = "data"
 def test_what_the_java_recorder_wrote_is_imported_by_digline_alone(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    given = os.environ.get(RECORDINGS)
+    imported_by_digline_alone(RECORDINGS, REQUIRED, "recorder-java", capsys)
+
+
+def imported_by_digline_alone(
+    recordings: str, required: str, job: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """What a writer in another language wrote, one episode of suite `s` and
+    two of its calls for tenant `t`, imported with digline alone. The Java
+    and the Node writers write the same three answers; `recordings` names the
+    variable that says where, and `required` the one that makes a run of
+    `job` fail where it would otherwise skip."""
+    given = os.environ.get(recordings)
     if not given:
-        assert not os.environ.get(REQUIRED), (
-            f"{REQUIRED} is set and {RECORDINGS} is not"
+        assert not os.environ.get(required), (
+            f"{required} is set and {recordings} is not"
         )
-        pytest.skip(f"run by the CI job recorder-java, which sets {RECORDINGS}")
+        pytest.skip(f"run by the CI job {job}, which sets {recordings}")
     root = Path(given)
-    if os.environ.get(REQUIRED):
+    if os.environ.get(required):
         # The job measures the import with digline alone (P-1501).
         for plugin in ("digline_openai", "digline_anthropic", "digline_bedrock"):
             assert importlib.util.find_spec(plugin) is None, f"{plugin} is installed"

@@ -123,6 +123,10 @@ def _segment(name: str) -> str:
     return urllib.parse.quote(name, safe="")
 
 
+#: The port `digline view` binds where `--port` is not given.
+VIEW_PORT = 7373
+
+
 def recordings_address(tenant: str, suite: str) -> str:
     """Where a suite's recordings are listed, as the import lists them."""
     return f"/recordings/{_segment(tenant)}/{_segment(suite)}/"

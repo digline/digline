@@ -148,6 +148,24 @@ nothing. No public name is removed or renamed and no exit code changes.
   each marked as its own. A check it adds, a key outside its reply's form or
   a limit less strict than the runs measured is discarded and counted. With
   no model declared nothing is called, and the proposal is what it was.
+- **`digline where --tenant T [--suite S]`, new: where the project is, on
+  the command line.** The reading *Where you are* lays out on its page, the
+  first of eleven states that holds, the counts that put it there, the command
+  for the next step and the page that says more, printed in English or with
+  `--locale it`. `--json` is the same reading for a program, and digline-mcp's
+  `where` returns it. It reads and writes nothing, and exits 0 whenever it
+  could read the store. The next step's command and the pages moved from the
+  view into `digline.wire.where`, which both read (`docs/view.md`).
+- **`digline record import --json`**: the listing for a program, the
+  declaration, the setup in force per form and, per group, the shape and
+  counts, with no input, no answer and no answer's id. It says where a yes or
+  a no is given, a page of `digline view`, and is refused beside `--good`,
+  `--bad` and `--by`, with the reason: a yes or a no is a person's, given by
+  reading the answer (ADR 0023 §9, as noted 2026-11-06).
+- **`digline record compare --json` carries an episode's shape** beside each
+  setup: `calls`, how many model calls its episodes made, and `models`, the
+  models its calls name, which are values of the configuration and travel as a
+  run's do. Added keys: `OUTPUT_VERSION` does not move.
 - **The recordings page says *case from the first call* beside an answer's
   id**, where the proxy read an episode with no case given and took its
   first call's, as `digline record import` says it after the input
@@ -369,6 +387,23 @@ nothing. No public name is removed or renamed and no exit code changes.
 - **The Java recorder's call site skips LangChain4j's frames**, as it skips
   the SDKs': a call made through LangChain4j is named by the first frame
   outside both, not by the library's class.
+- **A recorder for Node, as a directory to copy**: `recorders/node/digline/`,
+  Node alone, which writes the recording to its contract (ADR 0062 §4, as
+  amended 2026-11-06). Its writer reads the switch as digline does, in
+  development and in production, and names a suite, an episode and an attach
+  through `AsyncLocalStorage`. `diglineFetch` is the `fetch` given to the
+  OpenAI and Anthropic SDKs, for Chat Completions and Messages, whole and
+  streamed. `diglineAws` is a middleware of Bedrock's runtime client, for
+  Converse and InvokeModel with an Anthropic model, single and streamed: AWS's
+  event stream is read by `eventstream.mjs`, with no package, and a stream
+  whose checksum does not match, or that carries an exception, is counted
+  *stream error*, as the proxy counts it. A reply is recorded only where it
+  is 2xx, and the application's call never fails because of the recorder. The CI job
+  `recorder-node` holds it to the fixtures Java's recorder is held to and
+  imports what it writes with digline alone, and `through-the-proxy` holds
+  that the same request gives the same digest through it as through the
+  proxy. [`docs/record-node.md`](docs/record-node.md) now starts with it, and
+  the proxy is the second door.
 - **`docs/record-java.md` says what a Java team does around the files**, from a
   user's pass over it: how to install the `digline` command as a tool of its
   own, `uv tool install digline --with digline-openai`; how the gate runs a
@@ -417,10 +452,22 @@ nothing. No public name is removed or renamed and no exit code changes.
   (ADR 0059 §1, amended 2026-11-05). `run` and `explain` say who contradicted,
   in one sentence: the judge, or *a check on the steps … : before, on case
   T3*, or both; and explain's list of what it found has every contradiction,
-  the judge's and the steps', where it had only the judge's.
+  the judge's and the steps', where it had only the judge's. `compare` says
+  that sentence too, and its headline and explain's tally count answers, each
+  once: a yes whose steps went red on `never` and on `max_steps` was *the judge
+  contradicted a person on 2 reviewed answers … failed 2 the person said yes
+  to*, and is *checks on the steps contradicted a person on 1 reviewed answer:
+  never, on case T3; max_steps, on case T3, and the case fails*, with each
+  contradiction and its direction after it. `reviewed_failed_yes` and
+  `reviewed_passed_no` in `compare --json`, and `count` on explain's
+  `reviewed` entry, count answers too, as ADR 0059 §1 counts the cases.
+  `promote`'s refusal of such a run says the same sentence and names each
+  answer once: *checks on the steps contradicted a person on 1 reviewed
+  answer: never, on case T3; max_steps, on case T3, by answer T3 (failed a
+  yes)*, where it said *2 reviewed answer(s) the judge contradicted*.
 - **`digline run` names `explain`, never `promote`, after a run whose own exit
-  is not 0**, and says why on a contradiction: *reads this run back; the judge
-  contradicted a person*. Measured: every cause of a lone run's 1 or 2 was
+  is not 0**, and says why on a contradiction: *reads this run back; a check
+  contradicted a person*, the judge or one on the steps. Measured: every cause of a lone run's 1 or 2 was
   already one `promote` refuses, so the line changed only in its words.
 - **The recorder page of `digline view` says the calls from gate runs**, as
   `digline record status` says them, under the table of suites: *suite
@@ -503,6 +550,42 @@ nothing. No public name is removed or renamed and no exit code changes.
   link in linear time, where a page of many lookalike links took quadratic
   time.
 
+## digline-mcp — unreleased
+
+- **Thirteen tools: the five of the first verbs join**, and none of them writes
+  ([ADR 0011](docs/adr/0011-the-mcp-server.md) §1, as noted 2026-11-06).
+  `where`, `record_status`, `record_listing`, `record_compare` and `suggest`
+  read what a project holds before its suite gates anything, each the
+  command line's `--json` of the same reading, whose command its description
+  names. Two differences are declared: `record_status` says its paths
+  relative to the repository's root, and `record_compare` names each case and
+  answer by its number in the answer, where the command line prints the
+  digest of the input and of the text. No recorded word reaches an answer.
+  `where` carries the next step in words, `next.say`, the sentence `digline
+  where` prints under its title, where `next.command` is `null` because the
+  step is an edit, as `no_suite_yet`'s suite to write; `digline where --json`
+  carries it too, so the two stay equal key for key.
+- **`run`'s `notes` say a contradiction**, as `digline run` says it on
+  stderr beside the bill: *the judge contradicted a person on 1 reviewed
+  answer*, or the checks on the steps by name and case. It was empty on such
+  a run, which exits 0 while `compare` and `explain` exit 1, so an agent heard
+  it only from them. A check's name and a case's id, under `--names project`
+  their tokens, and no recorded word. `digline run --json` carries the same
+  note (ADR 0059 §1).
+- **`suggest` writes nothing and asks no model.** It returns the proposal's
+  facts and the command that writes the file; what an assistant costs is said
+  before its call, and a tool has no before, so the command with `--model` is
+  in the answer for a person to run.
+- **A yes or a no is not given here**: `record import --good` and `--bad`,
+  `record on` and `record off` are absent, and the listing says where a person
+  gives a yes or a no, a page of `digline view` at its default port.
+- Under `--names project` the five are projected at the boundary: a check's
+  name, a setup's key and a model are tokens, digline's own keys stay in clear
+  as a run's do, and a cases file's path and the plugins installed are
+  withheld.
+- Its floor on `digline` becomes `1.1.0` in its own release, a minor cut with
+  the core's: RELEASING.md, *Owed at the cut*.
+
 ## pytest-digline — unreleased
 
 - **`--digline-run` measures as `digline run` does.** Inside
@@ -515,7 +598,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   a no the judge failed harder than in the reference failed its row, and a no
   the judge now passes, which the comparison calls improved, passed it. The
   row now reads the run's contradictions, as the suite's exit code already did
-  (ADR 0059 §1).
+  (ADR 0059 §1). And its FAILURES line says the contradiction, *llm_rubric
+  passed where the person said no* or *failed where the person said yes*,
+  where it said the movement: on a reviewed answer added after the
+  reference, *Checked here, not present in the reference*, which names
+  nothing that failed.
 - Its floor on `digline` becomes `1.1.0` in its own release, after the core's:
   RELEASING.md, *Owed at the cut*.
 

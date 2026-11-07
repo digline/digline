@@ -373,7 +373,7 @@ def test_a_contradicted_run_is_told_to_explain_and_why(
 ) -> None:
     assert next_line(tmp_path, False, monkeypatch, capsys) == (
         "digline: next: digline explain --suite suite.py --run latest"
-        "  # reads this run back; the judge contradicted a person"
+        "  # reads this run back; a check contradicted a person"
     )
 
 

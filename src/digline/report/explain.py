@@ -50,6 +50,8 @@ from digline.core import (
 from digline.report.render import (
     ABSENT,
     SECTIONS,
+    contradicted_answers,
+    contradicted_said,
     denominator_sentence,
     diff_lines,
     diff_tally,
@@ -325,9 +327,10 @@ class TallyFact:
     #: shows. The count is their number, and it stays beside them. (ADR 0024
     #: §4.5)
     bands: Sequence[ScaleLost] = ()
-    #: Only on `reviewed`: each reviewed answer the judge contradicted a person
-    #: about, with its check and its direction, what the report's section
-    #: shows. (ADR 0059 §1)
+    #: Only on `reviewed`: each check that contradicted a person about a
+    #: reviewed answer, the judge's or one on the steps, with its direction.
+    #: The count is the answers, each once, and an answer two checks
+    #: contradicted is two entries here. (ADR 0059 §1, amended 2026-11-05)
     contradictions: Sequence[Contradiction] = ()
 
 
@@ -414,7 +417,12 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
         # contradicted a person about a known answer. (ADR 0059 §1)
         if against:
             out.insert(
-                0, TallyFact("reviewed", count=len(against), contradictions=against)
+                0,
+                TallyFact(
+                    "reviewed",
+                    count=contradicted_answers(against),
+                    contradictions=against,
+                ),
             )
         if lost:
             out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
@@ -455,7 +463,14 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     if comparison.comparability_reduced:
         out.insert(0, TallyFact("comparability", state=True))
     if against:
-        out.insert(0, TallyFact("reviewed", count=len(against), contradictions=against))
+        out.insert(
+            0,
+            TallyFact(
+                "reviewed",
+                count=contradicted_answers(against),
+                contradictions=against,
+            ),
+        )
     if lost:
         out.insert(0, TallyFact("calibration", count=len(lost), bands=lost))
     # Above even the lost scale: that one says what the numbers were measured
@@ -622,50 +637,6 @@ def _contradictions(run: Run) -> list[Fact]:
             )
         )
     return out
-
-
-def contradicted_said(found: Sequence[Contradiction], locale: Locale) -> str:
-    """Who contradicted a person, and on how many reviewed answers: the judge,
-    through the check an answer was reviewed for, or a check on the steps
-    beside it, named with its case; both where both did. Lower case and with
-    no full stop, so a caller opens and closes it as its line needs.
-
-    The one sentence `digline run` says beside the bill and `explain` at the
-    top of what it found, so the two cannot name the same run's contradictions
-    two ways. (ADR 0059 §1, amended 2026-11-05)"""
-    judge = [c for c in found if not c.on_the_steps]
-    steps = [c for c in found if c.on_the_steps]
-    parts: list[str] = []
-    if judge:
-        answers = len({c.case_id for c in judge})
-        parts.append(
-            phrase(locale, f"fact.contradicted.{_many(answers)}", count=answers)
-        )
-    if steps:
-        answers = len({c.case_id for c in steps})
-        parts.append(
-            phrase(
-                locale,
-                f"fact.contradicted.steps.{_many(len(steps))}",
-                answers=phrase(
-                    locale, f"fact.contradicted.answers.{_many(answers)}", count=answers
-                ),
-                checks="; ".join(
-                    phrase(
-                        locale,
-                        "fact.contradicted.step_check",
-                        check=c.check,
-                        case=c.case_id,
-                    )
-                    for c in steps
-                ),
-            )
-        )
-    return "; ".join(parts)
-
-
-def _many(count: int) -> str:
-    return "one" if count == 1 else "many"
 
 
 def _checks(run: Run, comparison: Comparison | None) -> list[Fact]:

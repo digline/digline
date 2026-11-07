@@ -388,8 +388,8 @@ judge contradicted a person. `digline run` exits as it does for a lost scale,
 the next step. **A run with a contradiction cannot be promoted**
 (`ContradictedRunError`, promotion's condition 12 in
 [ADR 0002](adr/0002-three-worlds-and-where-the-data-lives.md) §8): a baseline
-where the judge contradicts the person is not a baseline, and the refusal names
-each case and which way the judge went. A reviewed answer is in no aggregate, which counts it as
+where a check contradicts the person is not a baseline, and the refusal says
+the sentence `run` says, then names each answer once and which way it went. A reviewed answer is in no aggregate, which counts it as
 `reviewed_excluded`, needs no `label`, and its delta in a comparison is kept,
 flagged `reviewed`, and counted in no outcome. A replay re-judges it from the
 declaration, as a calibration case.

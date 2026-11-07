@@ -1911,6 +1911,7 @@ PARSES: dict[str, tuple[str, ...]] = {
     "report": ("--suite", "s.py", "--run", "k", "--locale", "en"),
     "record": ("status",),
     "suggest": ("--suite", "s.py"),
+    "where": ("--tenant", "acme"),
 }
 
 #: The subcommands that take no `--suite`: `record` addresses a tenant's
@@ -1920,8 +1921,9 @@ NO_SUITE: frozenset[str] = frozenset({"record"})
 
 #: The subcommands where `--suite` is optional: `view` without it serves a
 #: tenant's pages, *Where you are* first (`tests/test_view_tenant.py`). It is
-#: no missing flag there, so the test of one leaves it out.
-SUITE_OPTIONAL: frozenset[str] = frozenset({"view"})
+#: no missing flag there, so the test of one leaves it out. `where` without it
+#: reads a tenant, as that page does.
+SUITE_OPTIONAL: frozenset[str] = frozenset({"view", "where"})
 
 #: The subcommands that take a choice, and the option that carries it. The
 #: others have none, so a wrong choice cannot be asked of them.
@@ -1932,6 +1934,7 @@ CHOICE: dict[str, str] = {
     "explain": "--locale",
     "log": "--locale",
     "report": "--locale",
+    "where": "--locale",
 }
 
 

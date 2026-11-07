@@ -43,14 +43,20 @@ def _tracked_example(tmp: Path) -> Path:
 
 def _outside_runs(repo: Path) -> set[str]:
     """Every file of the built fixture outside `.git` and outside the runs,
-    whose names carry the instant each was made."""
-    return {
-        path.relative_to(repo).as_posix()
-        for path in repo.rglob("*")
-        if path.is_file()
-        and path.relative_to(repo).parts[0] != ".git"
-        and "runs" not in path.relative_to(repo).parts
-    }
+    whose names carry the instant each was made. A recording's process
+    directory is named for the process that wrote it, so it is said as
+    `<process>`: the files under it are compared, not which process wrote
+    them."""
+    found: set[str] = set()
+    for path in repo.rglob("*"):
+        parts = path.relative_to(repo).parts
+        if not path.is_file() or parts[0] == ".git" or "runs" in parts:
+            continue
+        if "recordings" in parts and len(parts) > parts.index("recordings") + 2:
+            at = parts.index("recordings") + 1
+            parts = (*parts[:at], "<process>", *parts[at + 1 :])
+        found.add("/".join(parts))
+    return found
 
 
 def _runs(repo: Path) -> list[str]:

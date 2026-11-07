@@ -131,8 +131,10 @@ check whose class declares no `KIND`, which the shape reading leaves out, and a
 tolerance so wide its check is reported only when it flips. Each is a sentence
 for whoever wrote the suite: say it beside the run. A note stops nothing and is
 not a verdict, and an empty list means the suite was read and had none. A note
-is answered, not silenced. **Do not move a tolerance, declare a KIND
-unchecked, or drop a case to make a note go away.**
+is answered, not silenced. After them, where a check contradicted a person
+about a reviewed answer, the sentence `digline run` says beside its bill:
+report it, and read `explain`, because `compare` exits 1 on it. **Do not move a
+tolerance, declare a KIND unchecked, or drop a case to make a note go away.**
 
 `unpriced` holds why a cost is not known: the sentence a plugin wrote for each
 reply it could not price, once each. An empty list means the run looked and
@@ -189,6 +191,93 @@ committed, so it is there even where no run is. There is no tool that records
 one: a disposition is a person's. Assemble the evidence and recommend; the human
 runs `digline register` and puts the reason in the commit message."""
 
+# The five tools of the first verbs: what a project holds before its suite
+# gates anything. Each names the command a person types for the same reading,
+# so what an agent did here can be done again by hand. (ADR 0011 §1, as noted
+# 2026-11-06)
+
+WHERE = """\
+Where the project is, read from `.digline/`: the first of eleven states that
+holds, the counts that put it there, the command for the next step and the
+pages that say more. `tenant` is the tenant whose recordings are read; with
+`suite`, a suite file inside this repository, the states about its runs can
+hold too.
+
+Equivalent on the command line: `digline where --tenant <tenant> --suite
+<suite> --json`, which returns this same answer.
+
+The command for the next step is a proposal: say it, and where it writes,
+`record on` or an import, it is the person's to run. It is written to be run
+from the repository's root. `next.say` is the next step in words, the sentence
+the command line prints; where the step is an edit, a suite to write, there is
+no command and `next.say` is the step. `run_exit_code` is the newest run's, where the
+state read one; this reading is not a gate and has no exit code of its own."""
+
+RECORD_STATUS = """\
+Whether each tenant records, where, and how much: the switch file and what it
+declares, and per suite how many calls and episodes were recorded, how many
+were left out and why, and how many came after the last import. With `tenant`,
+that tenant alone; without, every tenant under this repository.
+
+Equivalent on the command line: `digline record status --tenant <tenant>
+--json`. Two differences, both declared: the two paths are said relative to
+the repository's root, and where this server shows names as tokens, `redact`
+is one.
+
+Switching the recorder on or off writes a file a person keeps, and no tool here
+does it: the command for the next step is a proposal, and `digline where` names
+it. This is a reading and not a gate."""
+
+RECORD_LISTING = """\
+The recorded answers of one suite, counted, as `digline record import` lists
+them before a person names any: the suite's capture declaration, the setup in
+force per form, and per group, the shape of the output and how many answers,
+from how many recordings, how many no person has named yet, how many are
+already a yes or a no, and how many cannot be named, by why. No input, no
+answer and no answer's id: the listing for a program holds counts.
+
+Equivalent on the command line: `digline record import --tenant <tenant>
+--suite <suite> --json`, which returns this same answer.
+
+A yes or a no about an answer is a person's too. There is no tool here that
+gives one, and you never give one on your own initiative: `review` says where
+a person reads the answers and decides, a page of `digline view`, and its
+address at the view's default port. Say it to the person."""
+
+RECORD_COMPARE = """\
+A suite's recorded answers by case and by setup: which setups the recordings
+were made under, which answers came back under each and how many times, for an
+episode how many model calls it made and which models its calls name, and with
+two setups and `show_setup`, the keys they differ on, never the values.
+Nothing is judged: no answer is better than another.
+
+Equivalent on the command line: `digline record compare --tenant <tenant>
+--suite <suite> --json`, with `--setup A B --show-setup` for `setups` and
+`show_setup`. One difference, declared: here a case and an answer are named by
+their number in this answer, `case 1`, `answer 2`, where the command prints
+the digest of the input and of the text. A digest of a short answer is the
+answer, so it does not leave; the numbers say which answers are equal.
+
+This is a reading and not a gate. What a new setup changed is for the person
+to read, not for a run to settle."""
+
+SUGGEST = """\
+A first suite, proposed from what the suite's recordings, reviewed answers and
+runs hold: the checks every recording holds, the limits the runs measured or a
+placeholder, the judge, a counterexample and a calibration skeleton, as facts.
+`suite` is a suite file inside this repository; for a suite that does not
+exist yet, `name`, with `tenant` and `repository`, `private` or `public`, which
+is the person's to say: ask.
+
+Equivalent on the command line: `command` in the answer, which writes
+`suite.proposed.toml`. This tool writes nothing: the file is the repository's,
+and no tool here writes into it. Run the command, or give it to the person.
+
+No assistant is asked here: what an assistant costs is said before its call,
+and a tool has no before. `assistant.command` is the command with `--model`,
+for the person to run. The proposal is never a verdict and marks nothing, and
+the commit of whatever is adopted from it is the person's."""
+
 DESCRIPTIONS: dict[str, str] = {
     "list_runs": LIST_RUNS,
     "get_run": f"{GET_RUN}\n\n{_NOTE}",
@@ -198,4 +287,9 @@ DESCRIPTIONS: dict[str, str] = {
     "diff": f"{DIFF}\n\n{_NOTE}",
     "explain": f"{EXPLAIN}\n\n{_NOTE}",
     "run": RUN,
+    "where": WHERE,
+    "record_status": RECORD_STATUS,
+    "record_listing": RECORD_LISTING,
+    "record_compare": RECORD_COMPARE,
+    "suggest": SUGGEST,
 }

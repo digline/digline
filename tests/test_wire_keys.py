@@ -110,6 +110,14 @@ from digline.wire.recorder import (
     TenantRecorder,
     recorder_status_json,
 )
+from digline.wire.recordings import Listed, ListedGroup, Shape, import_listing_json
+from digline.wire.suggest import (
+    ProposedCheck,
+    SuggestGroup,
+    Suggestion,
+    suggest_json,
+)
+from digline.wire.where import Where, where_json
 
 CREATED = "2026-01-01T00:00:00+00:00"
 LATER = "2026-01-02T00:00:00+00:00"
@@ -691,7 +699,9 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
                 vars={"q": "x"},
                 kind="call",
                 setups=(
-                    ComparedSetup(setup="a" * 64, answers=(answer,)),
+                    ComparedSetup(
+                        setup="a" * 64, answers=(answer,), calls=(2,), models=("m",)
+                    ),
                     ComparedSetup(
                         setup="b" * 64,
                         answers=(
@@ -770,6 +780,131 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "recorder_status_json",
         "record_status",
         recorder_status_json([recording, absent]),
+    )
+
+    # The first verbs. `where` in a state that reads shapes and one that
+    # reads a run; the listing of a suite with both forms in force; and the
+    # facts of a proposal for a suite that exists and one that does not.
+    episode = Shape(episode=True, kind="text", actors=("model",), finish="end_turn")
+    yield (
+        "where_json",
+        "where",
+        where_json(
+            Where(
+                "no_suite_yet",
+                "acme",
+                count=2,
+                suite="qa",
+                shapes=((episode, 2),),
+                capture=False,
+            ),
+            suite_arg="suite.py",
+            root=[],
+        ),
+    )
+    yield (
+        "where_json run",
+        "where",
+        where_json(
+            Where(
+                "nothing_to_do",
+                "acme",
+                count=3,
+                suite="qa",
+                run_key="k",
+                exit_code=0,
+                last_import=CREATED,
+            ),
+            suite_arg=None,
+            root=["--root", "x"],
+        ),
+    )
+    listed = Listed(
+        tenant="acme",
+        suite="qa",
+        cases_file="captured.json",
+        repository="private",
+        check="llm_rubric",
+        taken_from=None,
+        setups={False: "a" * 64, True: None},
+        samples=2,
+        deterministic_output=False,
+        groups=(
+            ListedGroup(
+                shape=episode,
+                setup="a" * 64,
+                answers=2,
+                recordings=3,
+                waiting=1,
+                good=1,
+                bad=0,
+                refused={"already_in_the_file": 1},
+            ),
+        ),
+        recordings=3,
+        orphans=0,
+        detached=0,
+        interrupted=0,
+        oversize=0,
+        unreadable=0,
+        examined_through=CREATED,
+    )
+    yield (
+        "import_listing_json",
+        "import_listing",
+        import_listing_json(listed, review=["digline", "view", "--suite", "s.py"]),
+    )
+    proposal = Suggestion(
+        tenant="acme",
+        suite="qa",
+        repository="private",
+        form="suite.toml",
+        proposal="suite.proposed.toml",
+        written=False,
+        setups={False: ("aaaaaaaa",), True: ("bbbbbbbb", "cccccccc")},
+        judged="llm_rubric",
+        judge_declared=False,
+        plugins=("anthropic",),
+        checks=(
+            ProposedCheck(
+                number=1, type="length", name="length", why="w", placeholders=1
+            ),
+        ),
+        already=("is_json",),
+        runs=1,
+        unread=0,
+        empty=1,
+        placeholders=1,
+        suite_file="suite.toml",
+        adopted=(12,),
+        noes=1,
+        cases_file="captured.json",
+        groups=(SuggestGroup(shape=episode, answers=2, recordings=3, waiting=1),),
+        unassigned=2,
+    )
+    yield (
+        "suggest_json",
+        "suggest",
+        suggest_json(proposal, command="digline suggest", with_model="m"),
+    )
+    yield (
+        "suggest_json nothing",
+        "suggest",
+        suggest_json(
+            Suggestion(
+                tenant="acme",
+                suite="qa",
+                repository="private",
+                form=None,
+                proposal="suite.proposed.toml",
+                written=False,
+                nothing=True,
+                recorder_on=True,
+                recorded_suites=("other",),
+            ),
+            command="digline suggest",
+            with_model="m",
+        ),
     )
 
 

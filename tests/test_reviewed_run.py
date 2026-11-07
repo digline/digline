@@ -427,13 +427,13 @@ def test_its_delta_is_kept_and_counted_nowhere() -> None:
     [
         (
             (reviewed("no-good", GOOD, good=False),),
-            "The judge passed the reviewed answer no-good for llm_rubric, which a "
-            "person said no to",
+            "The judge contradicted a person on 1 reviewed answer, and the case "
+            "fails: no-good for llm_rubric, passed where the person said no.",
         ),
         (
             (reviewed("yes-bad", BAD, good=True),),
-            "The judge failed the reviewed answer yes-bad for llm_rubric, which a "
-            "person said yes to",
+            "The judge contradicted a person on 1 reviewed answer, and the case "
+            "fails: yes-bad for llm_rubric, failed where the person said yes.",
         ),
         (
             (
@@ -441,8 +441,10 @@ def test_its_delta_is_kept_and_counted_nowhere() -> None:
                 reviewed("yes-bad", BAD, good=True),
                 reviewed("yes-bad-2", BAD, good=True),
             ),
-            "contradicted a person on 3 reviewed answers: it passed 1 the person "
-            "said no to and failed 2 the person said yes to",
+            "The judge contradicted a person on 3 reviewed answers, and each of "
+            "those cases fails: no-good for llm_rubric, passed where the person "
+            "said no; yes-bad for llm_rubric, failed where the person said yes; "
+            "yes-bad-2 for llm_rubric, failed where the person said yes.",
         ),
     ],
     ids=["passed-a-no", "failed-a-yes", "both"],
@@ -469,7 +471,7 @@ def test_an_agreeing_judge_adds_nothing_to_the_sentence() -> None:
 def test_the_italian_sentence_says_it_too() -> None:
     found = run(reviewed("no-good", GOOD, good=False))
     head = headline(compare(found, found), found, found, locale="it", declared=None)
-    assert "a cui una persona ha detto no" in head.sentence
+    assert "promossa dove la persona ha detto no" in head.sentence
 
 
 def test_the_report_shows_a_section_open_where_the_judge_contradicted() -> None:
@@ -484,7 +486,7 @@ def test_the_report_shows_a_section_open_where_the_judge_contradicted() -> None:
     assert reviewed_section(run(), "en", reasons=False) == ""
     page = render_run_html(run(reviewed("no-good", GOOD, good=False)), locale="en")
     assert "What the judge said of the reviewed answers" in page
-    assert "which a person said no to" in page
+    assert "no-good for llm_rubric, passed where the person said no" in page
 
 
 def test_explain_tallies_the_contradictions() -> None:
@@ -703,7 +705,10 @@ def test_digline_run_judges_it_and_report_exits_by_it(
         )
         assert refused.returncode == EXIT_USAGE, refused.stderr
         assert "cap-1 (failed a yes)" not in refused.stderr
-        assert "contradicted a person about (cap-1 (passed a no))" in refused.stderr
+        assert (
+            "the judge contradicted a person on 1 reviewed answer, by answer "
+            "cap-1 (passed a no)." in refused.stderr
+        ), refused.stderr
         assert not list((tmp_path / ".digline" / "acme").rglob("baselines/*.json"))
 
 
@@ -715,8 +720,11 @@ def test_promotion_refuses_a_run_the_judge_contradicted_a_person_in() -> None:
     )
     refusals = refusals_for(against, against.config_hash, declared=None)
     [refusal] = [r for r in refusals if isinstance(r, ContradictedRunError)]
-    assert "no-good (passed a no), yes-bad (failed a yes)" in str(refusal)
-    assert "a baseline where the judge contradicts the person is not a baseline" in (
+    assert (
+        "the judge contradicted a person on 2 reviewed answers, by answer "
+        "no-good (passed a no), yes-bad (failed a yes)." in str(refusal)
+    ), str(refusal)
+    assert "a baseline where a check contradicts the person is not a baseline" in (
         str(refusal)
     )
     agreeing = run(*AGREES)

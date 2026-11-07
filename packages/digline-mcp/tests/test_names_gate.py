@@ -78,7 +78,10 @@ from digline.core import (
     run_to_json,
     split_grouped_name,
 )
+from digline.core.recording import Recording, setup_digest_of
+from digline.core.run import RecordedResponse, RecordedStep
 from digline.report import diff as diff_report
+from digline.store.file_store import FileResultStore, RecordingWriter
 from digline_mcp.server import Names, build_server
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -92,6 +95,10 @@ _TIME = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.]+(?:Z|[+-][0-9:]+)")
 _RUN_KEY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9-]+-[0-9a-f]{16}")
 _VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+\S*")
 _WORD = re.compile(r"[a-z][a-z_]*")
+_SETUP = re.compile(r"[0-9a-f]{8}")
+_PAGE = re.compile(r"[a-z-]+\.md")
+_ANCHOR = re.compile(r"[a-z0-9-]*")
+_URL = re.compile(r"https://digline\.dev/product/[a-z-]+/(#[a-z0-9-]+)?")
 
 
 class Gate:
@@ -195,6 +202,49 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.shape[].assertion_id": ("a", digest),
         "$.facts[].assertion_id": ("a", digest),
         "$.facts[].shape.assertion_id": ("a", digest),
+        # (a) the first verbs' forms (ADR 0011 §1, as noted 2026-11-06): a
+        # case and an answer by their number in the answer, a setup by its
+        # eight characters, a page of the documentation
+        "$.cases[].id": ("a", gate.form(re.compile(r"case [0-9]+"))),
+        "$.cases[].setups[].answers[].answer": (
+            "a",
+            gate.form(re.compile(r"answer [0-9]+")),
+        ),
+        "$.cases[].setups[].answers[].first_at": ("a", time),
+        "$.cases[].setups[].answers[].last_at": ("a", time),
+        "$.cases[].setups[].setup": ("a", gate.form(_SETUP)),
+        "$.pair[]": ("a", gate.form(_SETUP)),
+        "$.setups[]": ("a", gate.form(_SETUP)),
+        "$.groups[].setup": ("a", gate.form(_SETUP)),
+        "$.setups.episodes": ("a", gate.form(_SETUP)),
+        "$.setups.single_calls": ("a", gate.form(_SETUP)),
+        "$.setups.episodes[]": ("a", gate.form(_SETUP)),
+        "$.setups.single_calls[]": ("a", gate.form(_SETUP)),
+        "$.examined_through": ("a", time),
+        "$.next.docs[].page": ("a", gate.form(_PAGE)),
+        "$.next.docs[].anchor": ("a", gate.form(_ANCHOR)),
+        "$.next.docs[].url": ("a", gate.form(_URL)),
+        "$.form": ("a", gate.form(re.compile(r"suite\.(toml|py)"))),
+        # (a) the first verbs' words: a kind, an actor, a finish, a state
+        "$.cases[].kind": ("a", gate.word()),
+        "$.setup_keys.keys[].side": ("a", gate.word()),
+        "$.declaration.repository": ("a", gate.word()),
+        "$.repository": ("a", gate.word()),
+        # An actor and a check's type are digline's vocabulary by construction,
+        # and words a configuration can also hold: `model` is an actor and a
+        # configuration key the table mints. Held to the form alone.
+        "$.groups[].shape.actors[]": ("a", gate.form(_WORD)),
+        "$.groups[].shape.finish": ("a", gate.word()),
+        "$.groups[].shape.kind": ("a", gate.word()),
+        "$.groups[].actors[]": ("a", gate.form(_WORD)),
+        "$.groups[].finish": ("a", gate.word()),
+        "$.groups[].kind": ("a", gate.word()),
+        "$.shapes[].actors[]": ("a", gate.form(_WORD)),
+        "$.shapes[].finish": ("a", gate.word()),
+        "$.shapes[].kind": ("a", gate.word()),
+        "$.state": ("a", gate.word()),
+        "$.checks[].type": ("a", gate.form(_WORD)),
+        "$.tenants[].switch.state": ("a", gate.word()),
         # (a) digline's words
         "$.results[].verdicts[].status": ("a", gate.word()),
         "$.aggregate[].status": ("a", gate.word()),
@@ -231,6 +281,8 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.sides.left.environment": ("b", gate.anything),
         "$.sides.right.environment": ("b", gate.anything),
         "$.spans[].environments[]": ("b", gate.anything),
+        "$.tenants[].tenant": ("b", gate.anything),
+        "$.tenants[].recordings.suites[].suite": ("b", gate.anything),
         # (c) tokens this table minted
         "$.results[].case_id": ("c", gate.token),
         "$.results[].verdicts[].assertion": ("c", gate.check),
@@ -251,6 +303,13 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.target_config_deltas[].field": ("a|c", gate.config_key),
         "$.target_config_deltas[].before": ("c", gate.token),
         "$.target_config_deltas[].after": ("c", gate.token),
+        # (c) the first verbs' names: a setup's key and model, a check
+        "$.setup_keys.keys[].key": ("a|c", gate.config_key),
+        "$.cases[].setups[].models[]": ("c", gate.token),
+        "$.declaration.check": ("c", gate.check),
+        "$.judge.check": ("c", gate.check),
+        "$.checks[].name": ("c", gate.check),
+        "$.already[]": ("c", gate.check),
         # (p) prose composed from projected values
         "$.note": ("p", gate.prose),
         "$.sentence": ("p", gate.prose),
@@ -258,6 +317,28 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.sides.left.note": ("p", gate.prose),
         "$.sides.right.note": ("p", gate.prose),
         "!refusal": ("p", gate.prose),
+        # (p) the first verbs' sentences and commands, composed from the
+        # suite's file as it was named and from projected values
+        "$.next.command": ("p", gate.prose),
+        # The next step in words: a state's sentence, from counts, the
+        # tenant and the suite's name, which stay in clear. (P-1582)
+        "$.next.say": ("p", gate.prose),
+        "$.review.sentence": ("p", gate.prose),
+        "$.review.command": ("p", gate.prose),
+        "$.review.address": ("p", gate.prose),
+        "$.command": ("p", gate.prose),
+        # The command with `--model provider/model`, digline's placeholder for a
+        # coordinate, whose words a configuration can hold: the prose is what
+        # precedes it.
+        "$.assistant.command": (
+            "p",
+            lambda text: gate.prose(text.removesuffix(" --model provider/model")),
+        ),
+        "$.assistant.sentence": ("p", gate.prose),
+        "$.proposal": ("p", gate.prose),
+        "$.adopted.file": ("p", gate.prose),
+        "$.tenants[].switch.path": ("p", gate.prose),
+        "$.tenants[].recordings.path": ("p", gate.prose),
         # A refusal's fields. `role` is digline's word for the document a
         # refusal could not read. (ADR 0054 §8; #742)
         "!refusal.role": ("a", gate.word()),
@@ -344,6 +425,90 @@ suite = replace(example, cases=CASES, run_assertions=AGGREGATES)
 """
 
 
+#: The widened suite with a capture declaration, which the listing and
+#: `suggest` read: a second file, so the suite every other tool reads is the
+#: one it was. (ADR 0011 §1, as noted 2026-11-06)
+CAPTURED_SPEC = "captured_suite.py"
+
+
+def captured(threshold: float = 0.5) -> str:
+    """The widened suite, built the same way, with a capture declaration."""
+    return (
+        widened(threshold)
+        .replace(
+            "from example_suite import suite as example\n",
+            "from example_suite import suite as example\n"
+            "from digline.run import CaptureSource\n",
+        )
+        .replace(
+            "run_assertions=AGGREGATES)",
+            "run_assertions=AGGREGATES,\n"
+            "    capture=CaptureSource(\n"
+            '        cases_file="captured.json", repository="private", '
+            'check="llm_rubric"\n'
+            "    ),\n)",
+        )
+    )
+
+
+def recorded(repo: Path) -> None:
+    """What the application recorded for the suite: single calls under two
+    setups, which name the fixture's model and another, and an episode whose
+    call names the fixture's model. The setups' keys and models are names the
+    projection tokenises; the inputs and answers are text no answer holds."""
+    writer = RecordingWriter(FileResultStore(repo))
+    for number, model in enumerate(("claude-haiku-4-5", "claude-sonnet-4-5"), 1):
+        setup: dict[str, object] = {"model": model, "temperature": number / 10}
+        writer.write(
+            Recording(
+                source_tenant="bookshop",
+                app="shop",
+                suite="replies",
+                case={"question": f"RECORDED-INPUT {number}"},
+                setup=setup,
+                setup_digest=setup_digest_of(setup),
+                response=RecordedResponse(
+                    output=f"RECORDED-ANSWER {number}",
+                    kind="text",
+                    input=f"RECORDED-INPUT {number}",
+                ),
+                recorded_at=f"2026-11-06T09:0{number}:00+00:00",
+            )
+        )
+    child: dict[str, object] = {"model": "claude-haiku-4-5"}
+    own = "e" * 32
+    for recording in (
+        Recording(
+            source_tenant="bookshop",
+            app="shop",
+            suite="replies",
+            case={"question": "RECORDED-INPUT 3"},
+            setup={"child_setups": [setup_digest_of(child)]},
+            setup_digest="e" * 16,
+            response=RecordedResponse(
+                output="RECORDED-ANSWER 3",
+                kind="text",
+                input="RECORDED-INPUT 3",
+                steps=(RecordedStep(index=0, actor="model", finish="end_turn"),),
+            ),
+            id=own,
+            recorded_at="2026-11-06T09:03:00+00:00",
+        ),
+        Recording(
+            source_tenant="bookshop",
+            app="shop",
+            suite="replies",
+            case={"question": "RECORDED-INPUT 3"},
+            setup=child,
+            setup_digest=setup_digest_of(child),
+            response=RecordedResponse(output="calling", kind="text"),
+            episode=own,
+            recorded_at="2026-11-06T09:03:01+00:00",
+        ),
+    ):
+        writer.write(recording)
+
+
 def widened(threshold: float = 0.5) -> str:
     """The thin suite, its aggregate's threshold given."""
     return _WIDENED.replace("{threshold}", repr(threshold))
@@ -383,6 +548,8 @@ def build_repository(tmp: Path, *, example: Path = EXAMPLE) -> tuple[Path, str, 
                 keys[0],
             )
             assert promoted.returncode == 0, promoted.stderr
+    (repo / CAPTURED_SPEC).write_text(captured(), encoding="utf-8")
+    recorded(repo)
     return repo, keys[0], keys[1]
 
 
@@ -401,6 +568,21 @@ def drive(
         "diff": {"suite": SPEC, "run1": first, "run2": second},
         "explain": {"suite": SPEC},
         "run": {"suite": SPEC},
+        # The first verbs, over the recordings `recorded` wrote.
+        "where": {"tenant": "bookshop", "suite": SPEC},
+        "record_status": {"tenant": "bookshop"},
+        "record_listing": {"suite": CAPTURED_SPEC},
+        "record_compare": {
+            "suite": SPEC,
+            # The episode's setup beside a single call's: the episode carries
+            # its call's model, and the two differ on keys.
+            "setups": [
+                "e" * 8,
+                setup_digest_of({"model": "claude-sonnet-4-5", "temperature": 0.2})[:8],
+            ],
+            "show_setup": True,
+        },
+        "suggest": {"suite": CAPTURED_SPEC},
     }
     names = "clear" if table is None else "project"
     answers: dict[str, list[tuple[str, str]]] = {}

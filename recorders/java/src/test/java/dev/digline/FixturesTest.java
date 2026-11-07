@@ -67,6 +67,23 @@ class FixturesTest {
         assertEquals(List.of(), wrong);
     }
 
+    @Test
+    void aTieAtTheSixthPlaceGoesToTheEvenDigitAsPythonsRoundTakesIt() {
+        // floats.json holds no exact tie, so it cannot tell half to even from
+        // half up. A double is a tie at the sixth place only at an odd multiple
+        // of 1/128; Python 3.14's round(value, 6), read on 2026-11-06, gave
+        // these, which Node's fixtures test holds too.
+        Map<Double, String> ties = new java.util.LinkedHashMap<>();
+        ties.put(0.0078125, "0.007812");
+        ties.put(0.0234375, "0.023438");
+        ties.put(-0.0078125, "-0.007812");
+        ties.put(1.0078125, "1.007812");
+        for (Map.Entry<Double, String> tie : ties.entrySet()) {
+            assertEquals(tie.getValue(), DiglineRecorder.pythonRepr(DiglineRecorder.round(tie.getKey())),
+                    String.valueOf(tie.getKey()));
+        }
+    }
+
     private static void check(List<String> wrong, List<String> row, int at, String what, String java) {
         if (!row.get(at).equals(java)) {
             wrong.add(row.get(0) + " " + what + ": Python " + row.get(at) + ", Java " + java);

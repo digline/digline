@@ -1459,6 +1459,21 @@ _REVIEWED = "ADR 0059 §1; reviewed answers run, schema 23"
 #: where a band was left, so every other fact is byte for byte what it was.
 _BANDS = "ADR 0024 §4.5; the reading of a lost band, beside the count"
 
+#: The first verbs on the command line and over MCP (ADR 0011 §1, as noted
+#: 2026-11-06): `digline where --json`, `digline record import --json`, the
+#: facts of `digline suggest` its MCP tool returns, and an episode's shape on
+#: `digline record compare --json`. Counts, shapes, digests of setups and
+#: digline's words, never a recorded word (fixed decision 9).
+_FIRST_VERBS = "ADR 0011 §1 and ADR 0023 §9, as noted 2026-11-06; the first verbs"
+
+#: A shape of an output, as the listing groups by it.
+_SHAPE: Mapping[str, _Key] = {
+    "episode": _BOOL,
+    "kind": _STR_OR_NULL,
+    "actors": _STRINGS,
+    "finish": _STR_OR_NULL,
+}
+
 #: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
 #: entry each, with the issue or ADR that added it. Appended to, never edited:
 #: changing an entry's types is a change a consumer can see, and the rule for
@@ -1636,6 +1651,187 @@ _ADDED: tuple[_AddedKey, ...] = (
         "stale_gate_markers",
         _k(_arr("string", "null")),
         _GATE,
+    ),
+    # An episode's shape beside each setup: the model calls its episodes made,
+    # a count, and the models its calls name, values of the configuration.
+    _AddedKey("record_compare.setup", "calls", _k(_arr("integer")), _FIRST_VERBS),
+    _AddedKey("record_compare.setup", "models", _STRINGS, _FIRST_VERBS),
+    *_shape_added(
+        "where",
+        {
+            "output_version": _INT,
+            "tenant": _STR,
+            "suite": _STR_OR_NULL,
+            "state": _STR,
+            "count": _INT,
+            "shapes": _k(_arr(_Obj("where.shape"))),
+            "run_key": _STR_OR_NULL,
+            "run_exit_code": _k("integer", "null"),
+            "last_import": _STR_OR_NULL,
+            "capture": _k("boolean", "null"),
+            "next": _k(_Obj("where.next")),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added("where.shape", {**_SHAPE, "recordings": _INT}, _FIRST_VERBS),
+    *_shape_added(
+        "where.next",
+        {
+            "say": _STR,
+            "command": _STR_OR_NULL,
+            "docs": _k(_arr(_Obj("where.doc"))),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "where.doc", {"page": _STR, "anchor": _STR, "url": _STR}, _FIRST_VERBS
+    ),
+    *_shape_added(
+        "import_listing",
+        {
+            "output_version": _INT,
+            "tenant": _STR,
+            "suite": _STR,
+            "declaration": _k(_Obj("import_listing.declaration")),
+            "setups": _k(_Obj("import_listing.setups")),
+            "samples": _INT,
+            "deterministic_output": _BOOL,
+            "groups": _k(_arr(_Obj("import_listing.group"))),
+            "recordings": _INT,
+            "not_shown": _k(_Obj("import_listing.not_shown")),
+            "examined_through": _STR_OR_NULL,
+            "review": _k(_Obj("import_listing.review")),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "import_listing.declaration",
+        {
+            "cases_file": _STR_OR_NULL,
+            "repository": _STR,
+            "check": _STR_OR_NULL,
+            "taken_from": _STR_OR_NULL,
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "import_listing.setups",
+        {"single_calls": _STR_OR_NULL, "episodes": _STR_OR_NULL},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "import_listing.group",
+        {
+            "shape": _k(_Obj("import_listing.shape")),
+            "setup": _STR_OR_NULL,
+            "answers": _INT,
+            "recordings": _INT,
+            "waiting": _INT,
+            "good": _INT,
+            "bad": _INT,
+            "refused": _k(_Obj("import_listing.refused")),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added("import_listing.shape", _SHAPE, _FIRST_VERBS),
+    *_shape_added(
+        "import_listing.refused",
+        {
+            "already_in_the_file": _INT,
+            "earlier_setups": _INT,
+            "no_input": _INT,
+            "conversation": _INT,
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "import_listing.not_shown",
+        {
+            "orphans": _INT,
+            "detached": _INT,
+            "interrupted": _INT,
+            "oversize": _INT,
+            "unreadable": _INT,
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "import_listing.review",
+        {"sentence": _STR, "command": _STR, "address": _STR},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest",
+        {
+            "output_version": _INT,
+            "tenant": _STR,
+            "suite": _STR,
+            "repository": _STR,
+            "form": _STR_OR_NULL,
+            "proposal": _STR,
+            "written": _BOOL,
+            "command": _STR,
+            "nothing": _BOOL,
+            "recorder_on": _BOOL,
+            "recorded_suites": _STRINGS,
+            "setups": _k(_Obj("suggest.setups")),
+            "judge": _k(_Obj("suggest.judge")),
+            "checks": _k(_arr(_Obj("suggest.check"))),
+            "already": _STRINGS,
+            "runs": _k(_Obj("suggest.runs")),
+            "placeholders": _INT,
+            "adopted": _k(_Obj("suggest.adopted")),
+            "calibration": _k(_Obj("suggest.calibration")),
+            "counterexample": _k(_Obj("suggest.counterexample")),
+            "groups": _k(_arr(_Obj("suggest.group"))),
+            "unassigned": _INT,
+            "assistant": _k(_Obj("suggest.assistant")),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.setups",
+        {"single_calls": _STRINGS, "episodes": _STRINGS},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.judge",
+        {"check": _STR, "declared": _BOOL, "plugins": _STRINGS},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.check",
+        {"number": _INT, "type": _STR, "name": _STR, "placeholders": _INT},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.runs", {"read": _INT, "unread": _INT, "empty": _INT}, _FIRST_VERBS
+    ),
+    *_shape_added(
+        "suggest.adopted",
+        {"file": _STR_OR_NULL, "lines": _k(_arr("integer"))},
+        _FIRST_VERBS,
+    ),
+    *_shape_added("suggest.calibration", {"proposed": _BOOL}, _FIRST_VERBS),
+    *_shape_added(
+        "suggest.counterexample",
+        {"reviewed_noes": _INT, "cases_file": _STR_OR_NULL, "constructed": _BOOL},
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.group",
+        {
+            **_SHAPE,
+            "answers": _INT,
+            "recordings": _INT,
+            "waiting": _k("integer", "null"),
+        },
+        _FIRST_VERBS,
+    ),
+    *_shape_added(
+        "suggest.assistant",
+        {"asked": _BOOL, "sentence": _STR, "command": _STR},
+        _FIRST_VERBS,
     ),
 )
 

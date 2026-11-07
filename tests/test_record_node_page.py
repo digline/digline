@@ -1,10 +1,15 @@
-"""`docs/record-node.md` says only what was run. (ADR 0062 §5)
+"""`docs/record-node.md` says only what was run. (ADR 0062 §4, as amended
+2026-11-06, and §5)
 
-The page quotes the lines the CI job `through-the-proxy` runs, so each
-quoted line of JavaScript is held to `recorders/node/through-the-proxy.mjs`,
-and the variable the page sets is held to the script that sets it. And what
-the page names of digline is held to digline: each `digline` command and its
-flags to the parser, each `X-Digline-*` header to what the proxy reads.
+The page has two parts. The first quotes the lines of the recorder in the
+process, which the CI job `recorder-node` runs: each of its JavaScript blocks,
+in order, is one of `recorders/node/page.test.mjs`'s, between a `// page:`
+line and an `// end` line. The second quotes the lines the CI job
+`through-the-proxy` runs, so each of its lines of JavaScript is held to
+`recorders/node/through-the-proxy.mjs`, and the variable the page sets is held
+to the script that sets it. And what the page names of digline is held to
+digline: each `digline` command and its flags to the parser, each
+`X-Digline-*` header to what the proxy reads.
 """
 
 from __future__ import annotations
@@ -21,16 +26,38 @@ PAGE = (ROOT / "docs" / "record-node.md").read_text(encoding="utf-8")
 SCRIPT = (ROOT / "recorders" / "node" / "through-the-proxy.mjs").read_text(
     encoding="utf-8"
 )
+PAGE_TEST = (ROOT / "recorders" / "node" / "page.test.mjs").read_text(encoding="utf-8")
+#: Where the page's second part, the proxy's, begins.
+PROXY_PART = "\n## Through the proxy\n"
 JOB = (ROOT / "recorders" / "through-the-proxy.sh").read_text(encoding="utf-8")
 PROXY = (ROOT / "src" / "digline" / "host" / "proxy.py").read_text(encoding="utf-8")
 
 
-def blocks(language: str) -> list[str]:
-    return re.findall(rf"```{language}\n(.*?)```", PAGE, flags=re.S)
+def blocks(language: str, part: str = PAGE) -> list[str]:
+    return re.findall(rf"```{language}\n(.*?)```", part, flags=re.S)
+
+
+def _lines(block: str) -> list[str]:
+    return [line.strip() for line in block.strip("\n").splitlines()]
+
+
+def test_every_block_of_the_recorder_is_one_the_page_test_runs() -> None:
+    """A line goes on the page only once it was run (ADR 0062 §5): each block
+    of the first part, in order, is one of `page.test.mjs`'s, compared line by
+    line, indentation aside, as `docs/record-java.md` is to `PageTest`."""
+    first = PAGE.split(PROXY_PART, 1)[0]
+    page = blocks("js", first)
+    run = re.findall(r"// page:\n(.*?)\n[ ]*// end", PAGE_TEST, re.S)
+    assert page, "the page quotes no JavaScript of the recorder"
+    assert [_lines(block) for block in page] == [_lines(block) for block in run]
 
 
 def test_every_line_of_javascript_on_the_page_is_a_line_the_job_runs() -> None:
-    quoted = [line for block in blocks("js") for line in block.splitlines() if line]
+    assert PROXY_PART in PAGE, "the page has no part for the proxy"
+    second = PAGE.split(PROXY_PART, 1)[1]
+    quoted = [
+        line for block in blocks("js", second) for line in block.splitlines() if line
+    ]
     assert quoted, "the page quotes no JavaScript: this would prove nothing"
     script = SCRIPT.splitlines()
     missing = [line for line in quoted if line not in script]
@@ -92,5 +119,5 @@ def test_the_versions_the_page_says_are_the_ones_the_job_installs() -> None:
         (ROOT / "recorders" / "node" / "package.json").read_text(encoding="utf-8")
     )["dependencies"]
     said = " ".join(PAGE.split())
-    for package in ("openai", "@anthropic-ai/sdk"):
+    for package in ("openai", "@anthropic-ai/sdk", "@aws-sdk/client-bedrock-runtime"):
         assert f"{package} {pinned[package]}" in said, package

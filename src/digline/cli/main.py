@@ -47,7 +47,6 @@ from digline.core import (
     Run,
     Written,
     compare,
-    contradicted,
     diff,
     key_of,
     nothing_judged,
@@ -68,6 +67,7 @@ from digline.host import (
     import_listing,
     imported_since,
     instant,
+    listed,
     listing_lines,
     load_suite,
     load_target,
@@ -98,6 +98,7 @@ from digline.host import (
     unignored,
     unignored_notes,
     utc_now_iso,
+    where,
     written_lines,
 )
 from digline.host.gate import STALE_SECONDS
@@ -105,7 +106,6 @@ from digline.report import (
     against_line,
     artifact_lines,
     config_lines,
-    contradicted_said,
     errored_verdicts,
     explain_text,
     headline,
@@ -117,6 +117,7 @@ from digline.report import (
     summary_lines,
 )
 from digline.report import diff as diff_report
+from digline.report.pages import VIEW_PORT
 from digline.run import (
     ReplayError,
     Suite,
@@ -148,6 +149,7 @@ from digline.wire import (
     TenantRecorder,
     ahead_note,
     compare_json,
+    contradiction_notes,
     diff_json,
     episode_shape,
     exit_code,
@@ -158,6 +160,14 @@ from digline.wire import (
     run_exit_code,
     run_json,
     usage_lines,
+)
+from digline.wire.recordings import import_listing_json
+from digline.wire.where import (
+    WHERE_DOCS,
+    docs_url,
+    where_command,
+    where_json,
+    where_said,
 )
 
 __all__ = [
@@ -401,7 +411,9 @@ def cmd_run(args: argparse.Namespace) -> int:
                     measured.plan,
                     resumed=resume is not None,
                     usage=measured.run.usage,
-                    notes=notes,
+                    # And the contradiction the terminal says beside the bill,
+                    # from the same function. (P-1582)
+                    notes=(*notes, *contradiction_notes(measured.run)),
                     errored_checks=errored,
                     unpriced=measured.unpriced,
                 )
@@ -431,11 +443,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         # exits 0, and report, explain and compare exit 1 on it, so the person
         # who ran the command hears it here first. The `next:` line below then
         # names explain, because promote refuses such a run. (ADR 0059 §1)
-        against = contradicted(measured.run)
-        if against:
-            # Who contradicted, the judge or a check on the steps, in the
-            # sentence `explain` opens with. (ADR 0059 §1, amended 2026-11-05)
-            say(f"digline: {contradicted_said(against, 'en')}.", err=True)
+        # Who contradicted, the judge or a check on the steps, in the sentence
+        # `explain` opens with, and the one `--json` and MCP carry in `notes`.
+        # (ADR 0059 §1, amended 2026-11-05)
+        for note in contradiction_notes(measured.run):
+            say(f"digline: {note}.", err=True)
         # Only the key on stdout, so a shell can capture it:
         #   KEY=$(digline run --suite …)
         say(measured.ref.key)
@@ -525,7 +537,8 @@ def _next_command(
 
     **Nor where the run's own exit is not 0** (`run_exit_code`): the caller
     passes `promotable` false then, and `contradicted` where that exit is a
-    judge that contradicted a person, which `explain` names.
+    check that contradicted a person, the judge or one on the steps, which
+    `explain` names.
     """
     if baseline_found and args.accepting_baseline_schema is not None:
         words = ["digline", "migrate", "--suite", args.suite]
@@ -540,7 +553,7 @@ def _next_command(
     else:
         words = ["digline", "explain", "--suite", args.suite, "--run", "latest"]
         does = (
-            "reads this run back; the judge contradicted a person"
+            "reads this run back; a check contradicted a person"
             if contradicted
             else "reads this run back; promote would refuse it"
         )
@@ -1414,7 +1427,7 @@ def cmd_record(args: argparse.Namespace) -> int:
         "redact": ("on",),
         "ceiling": ("on",),
         "interval": ("on",),
-        "json": ("status", "compare"),
+        "json": ("import", "status", "compare"),
         "good": ("import",),
         "bad": ("import",),
         "by": ("import",),
@@ -1469,8 +1482,8 @@ def cmd_record(args: argparse.Namespace) -> int:
             "  development: what the file leaves out is a default; an "
             "application that resolves its tenant per request is production "
             "(wrap(tenant=callable) in Python, DiglineRecorder.production in "
-            "Java; the proxy's --tenant is never production), and refuses this "
-            "file unless it declares sample, redact and ceiling"
+            "Java and Node; the proxy's --tenant is never production), and "
+            "refuses this file unless it declares sample, redact and ceiling"
         )
     return EXIT_OK
 
@@ -1596,11 +1609,20 @@ def cmd_record_import(args: argparse.Namespace) -> int:
     Without `--good` or `--bad` it lists and writes nothing. With them, and
     `--by`, it writes the answers named, each as a reviewed answer, and stops:
     no commit, no run, no promotion. There is no dialogue, no default and no
-    preselection, and nothing serves it to an agent. What is read and said is
-    the host's; this lays it out. (ADR 0058 §4, ADR 0059)
+    preselection. With `--json` it lists for a program, counts and shapes
+    with no recorded word, and writes nothing: a yes or a no is never a
+    program's. What is read and said is the host's; this lays it out.
+    (ADR 0058 §4, ADR 0059; ADR 0023 §9, as noted 2026-11-06)
     """
     if args.tenant is None or args.suite is None:
         raise UsageError("`digline record import` needs --tenant and --suite")
+    if args.json and (args.good or args.bad or args.by is not None):
+        raise UsageError(
+            "--json lists and writes nothing, so it is refused with --good, "
+            "--bad and --by: a yes or a no about an answer is a person's, "
+            "given by reading the answer, and a listing for a program has no "
+            "answer in it to read. Leave out --json to write them"
+        )
     suite, loaded = _record_suite(args)
     found = import_listing(
         Path(args.root), suite, loaded.module, args.tenant, taken_from=args.taken_from
@@ -1611,6 +1633,20 @@ def cmd_record_import(args: argparse.Namespace) -> int:
         )
         for line in written_lines(found, written):
             say(line)
+        return EXIT_OK
+    if args.json:
+        flags = [] if args.root in ("", ".") else ["--root", args.root]
+        emit(
+            json.dumps(
+                import_listing_json(
+                    listed(found),
+                    review=["digline", "view", "--suite", args.suite, *flags],
+                ),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return EXIT_OK
     for line in listing_lines(found):
         say(line)
@@ -1753,6 +1789,50 @@ def _names_a_suite(spec: str) -> bool:
         or "/" in spec
         or ":" in spec
     )
+
+
+def cmd_where(args: argparse.Namespace) -> int:
+    """Where the project is and the next step, read from `.digline/`: the
+    first of eleven states that holds, the counts that put it there, the
+    command for the next step and the page that says more. Not a gate: it
+    exits 0 whenever it could read the store. (`digline.host.where`)"""
+    root = Path(args.root)
+    suite: Suite | None = None
+    module = None
+    if args.suite is not None:
+        suite, loaded = load_suite(args.suite, root=root)
+        _check_perimeter(suite, args.tenant, None)
+        module = loaded.module
+    found = where(root, args.tenant, suite=suite, module=module)
+    flags = [] if args.root in ("", ".") else ["--root", args.root]
+    if args.json:
+        emit(
+            json.dumps(
+                where_json(found, suite_arg=args.suite, root=flags),
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return EXIT_OK
+    values = {
+        "count": found.count,
+        "suite": found.suite or "",
+        "tenant": found.tenant,
+        "exit_code": found.exit_code,
+        "last_import": found.last_import or phrase(args.locale, "view.where.never"),
+    }
+    say(phrase(args.locale, f"view.where.{found.state}.title", **values))
+    # The sentence `--json` carries as `next.say`, from the same function.
+    say(where_said(found, suite_named=suite is not None, locale=args.locale))
+    for shape, count in found.shapes:
+        say(f"  {shape.says()} · {count}")
+    command = where_command(found, args.suite, flags)
+    if command:
+        say(f"{phrase(args.locale, 'view.where.command')}: {shlex.join(command)}")
+    for page, anchor in WHERE_DOCS[found.state]:
+        say(f"{phrase(args.locale, 'view.where.docs')}: {docs_url(page, anchor)}")
+    return EXIT_OK
 
 
 def cmd_suggest(args: argparse.Namespace) -> int:
@@ -2319,7 +2399,7 @@ def build_parser() -> argparse.ArgumentParser:
     # tenant's pages, *Where you are* first, which say the first steps before
     # any suite exists.
     common(view_p, suite_required=False)
-    view_p.add_argument("--port", type=int, default=7373, help="bind port")
+    view_p.add_argument("--port", type=int, default=VIEW_PORT, help="bind port")
     view_p.add_argument("--target", help=TARGET_HELP)
     view_p.add_argument(
         "--allow-promote",
@@ -2435,7 +2515,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help=(
-            "status and compare: emit what the lines are rendered from; for "
+            "import, status and compare: emit what the lines are rendered "
+            "from; for import, the listing alone, counts and shapes; for "
             "compare, digests and never the recorded text"
         ),
     )
@@ -2539,6 +2620,29 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     rec_p.set_defaults(func=cmd_record)
+
+    where_p = subparsers.add_parser(
+        "where",
+        help="where the project is, and the command for the next step",
+    )
+    where_p.add_argument(
+        "--tenant", required=True, help="the tenant whose .digline/ is read"
+    )
+    where_p.add_argument(
+        "--suite",
+        help=(
+            "path/to/suite.py, path/to/suite.toml or module:attribute; without "
+            "it, only the states read from the recordings can hold"
+        ),
+    )
+    where_p.add_argument("--root", default=".", help="directory holding .digline/")
+    where_p.add_argument(
+        "--json",
+        action="store_true",
+        help="the same reading for a program: the state, its counts, the next step",
+    )
+    terminal_locale(where_p)
+    where_p.set_defaults(func=cmd_where)
 
     sug_p = subparsers.add_parser(
         "suggest",
