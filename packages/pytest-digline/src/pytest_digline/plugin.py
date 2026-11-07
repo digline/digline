@@ -32,8 +32,8 @@ import os
 import sys
 import traceback
 import warnings
-from collections.abc import Generator, Iterator, Sequence
-from dataclasses import dataclass
+from collections.abc import Generator, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Any
 
@@ -431,6 +431,13 @@ class _Opened:
     #: its score did against the reference. Read off the run alone, by the
     #: core's own function. (ADR 0059 §1)
     contradicted: frozenset[str] = frozenset()
+    #: Which way each check contradicted the person, by case and check, so a
+    #: failing row says the contradiction rather than how it moved against
+    #: the reference, which for a reviewed answer is not what fails it.
+    #: (ADR 0059 §1; P-1582)
+    against: Mapping[tuple[str, str], str] = field(
+        default_factory=lambda: dict[tuple[str, str], str]()
+    )
 
 
 def _open(
@@ -537,6 +544,7 @@ def _opened(
     baseline = need_baseline(store, suite)
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale=LOCALE, declared=suite.declared())
+    found = contradicted(run)
     return _Opened(
         path=path,
         suite=suite,
@@ -547,7 +555,8 @@ def _opened(
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
         note=resolved.note,
-        contradicted=frozenset(c.case_id for c in contradicted(run)),
+        contradicted=frozenset(c.case_id for c in found),
+        against={(c.case_id, c.check): c.direction for c in found},
     )
 
 
@@ -805,13 +814,20 @@ class Check(pytest.Item):
         sentence here instead would be a fourth prose rendering of one
         comparison, bound to the other three by nothing.
         """
-        from digline.report import calibration_fact, check_line, visible
+        from digline.report import calibration_fact, check_line, phrase, visible
 
         where = f"{self.delta.case_id or RUN_SCOPE} · {self.delta.assertion}"
         lost = self._lost()
+        # A reviewed answer's row fails on the person's verdict, never on a
+        # movement against the reference: said as the contradiction, and not
+        # as *"Checked here, not present in the reference"* where the case is
+        # new. (ADR 0059 §1; P-1582)
+        went = self.opened.against.get((self.delta.case_id, self.delta.assertion))
         line = (
             calibration_fact(lost, LOCALE)
             if lost
+            else phrase(LOCALE, f"detail.reviewed.{went}", check=self.delta.assertion)
+            if self.delta.reviewed and went is not None
             else check_line(self.delta, locale=LOCALE, coincides=self.opened.coincides)
         )
         parts = [f"digline: {where}", f"  {line}"]

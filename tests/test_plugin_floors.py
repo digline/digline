@@ -349,6 +349,9 @@ INTRODUCED: dict[str, str] = {
     "suggest_new": "1.1.0",
     "where": "1.1.0",
     "where_json": "1.1.0",
+    # digline-mcp's `run` says a contradiction in `notes`, as `digline run`
+    # says it beside the bill. (P-1582)
+    "contradiction_notes": "1.1.0",
     # In `digline.core.__all__` from 0.35.0 (`git log -S` and `git describe
     # --contains`): digline-mcp keeps digline's own configuration keys in
     # clear under `--names project`, as a run's projection does.
@@ -513,6 +516,10 @@ UNRELEASED: dict[tuple[str, str, str], str] = {
     # and never by its movement. (ADR 0059 §1)
     ("digline.core.compare", "AssertionDelta", "reviewed"): "#903",
     ("digline.core.reviewed", "Contradiction", "case_id"): "#903",
+    # And its FAILURES line says the contradiction, by check and direction.
+    # (P-1582)
+    ("digline.core.reviewed", "Contradiction", "check"): "P-1582",
+    ("digline.core.reviewed", "Contradiction", "direction"): "P-1582",
     # digline-bedrock hands each InvokeModel stream chunk to the Messages
     # reading `digline-anthropic` gives it, typed as the core's StreamReading.
     # (P-1543)

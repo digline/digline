@@ -1676,7 +1676,11 @@ _ADDED: tuple[_AddedKey, ...] = (
     *_shape_added("where.shape", {**_SHAPE, "recordings": _INT}, _FIRST_VERBS),
     *_shape_added(
         "where.next",
-        {"command": _STR_OR_NULL, "docs": _k(_arr(_Obj("where.doc")))},
+        {
+            "say": _STR,
+            "command": _STR_OR_NULL,
+            "docs": _k(_arr(_Obj("where.doc"))),
+        },
         _FIRST_VERBS,
     ),
     *_shape_added(
