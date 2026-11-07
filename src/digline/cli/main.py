@@ -1475,8 +1475,8 @@ def cmd_record(args: argparse.Namespace) -> int:
             "  development: what the file leaves out is a default; an "
             "application that resolves its tenant per request is production "
             "(wrap(tenant=callable) in Python, DiglineRecorder.production in "
-            "Java; the proxy's --tenant is never production), and refuses this "
-            "file unless it declares sample, redact and ceiling"
+            "Java and Node; the proxy's --tenant is never production), and "
+            "refuses this file unless it declares sample, redact and ceiling"
         )
     return EXIT_OK
 

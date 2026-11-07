@@ -710,8 +710,8 @@ def test_record_on_says_what_production_is_in_every_language(
     out = " ".join(capsys.readouterr().out.split())
     assert (
         "an application that resolves its tenant per request is production "
-        "(wrap(tenant=callable) in Python, DiglineRecorder.production in Java; "
-        "the proxy's --tenant is never production)"
+        "(wrap(tenant=callable) in Python, DiglineRecorder.production in Java "
+        "and Node; the proxy's --tenant is never production)"
     ) in out
     assert "names its tenant with a function" not in out
 
