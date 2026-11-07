@@ -15,9 +15,11 @@ for a tool, Anthropic streams a summary, Bedrock streams an apology with
 `converseStream`, and OpenAI writes a subject line.
 
 Everything on this page was run, on 2026-11-07, with digline installed from
-this repository at `37d5c1dd`, Node 22.22.0, openai 7.50.0,
-@anthropic-ai/sdk 1.4.0 and @aws-sdk/client-bedrock-runtime 3.1163.0. **No
-call reached a provider or a model.** A stand-in on 127.0.0.1,
+this repository at `37d5c1dd`, except the block of `digline record on`, run
+again at `be52d283` (#953) once its last line named Node. It ran on Node
+22.22.0, with openai 7.50.0, @anthropic-ai/sdk 1.4.0 and
+@aws-sdk/client-bedrock-runtime 3.1163.0. **No call reached a provider or a
+model.** A stand-in on 127.0.0.1,
 `recorders/node/test/stand-in.mjs` in digline's repository, answered the
 application and the judge, and every answer, score and token count below is
 the stand-in's. Each SDK was pointed at it by the variable it
@@ -149,7 +151,7 @@ async function subject(ticket) {
 $ digline record on --tenant acme
 recording on for tenant 'acme': …/desk/.digline/acme/recorder.toml
   values: on true, sample 1.0 (default), redact none (default), ceiling 104857600 bytes (default), interval 5.0 s (default)
-  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
+  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java and Node; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
 ```
 
 ```console
