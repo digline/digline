@@ -13,8 +13,10 @@ answered into a suite that gates it. The agent reads and measures through
 `digline-mcp`; the person decides.
 
 Everything on this page was run, on 2026-11-07, with digline, `digline-mcp`
-and `digline-anthropic` installed from this repository at `37d5c1dd`, the
-`mcp` SDK 2.3.0 and `anthropic` 2.4.0. **No call reached a model.** A
+and `digline-anthropic` installed from this repository at `1b5cf083`, the
+`mcp` SDK 2.3.0 and `anthropic` 2.4.0. It was first run at `37d5c1dd`, and
+run again at `1b5cf083`, where `where` says the next step in words and
+`run`'s `notes` say a contradiction; what it shows is the second run. **No call reached a model.** A
 stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
 stand-in's. **No IDE was driven**: the tool calls were made by a client of the
@@ -51,7 +53,7 @@ def category(ticket: str) -> str:
 $ digline record on --tenant acme
 recording on for tenant 'acme': …/helpdesk/.digline/acme/recorder.toml
   values: on true, sample 1.0 (default), redact none (default), ceiling 104857600 bytes (default), interval 5.0 s (default)
-  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
+  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java and Node; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
 ```
 
 It answered four tickets, with `ANTHROPIC_BASE_URL` at the stand-in:
@@ -115,6 +117,7 @@ with the tenant alone, `{"tenant": "acme"}`, it answered:
   "last_import": null,
   "capture": null,
   "next": {
+    "say": "The recordings name suite category, and no suite declares where its captured cases go, so nothing reads them as cases. Write the suite with a capture declaration, or let an agent propose one by digline's method.",
     "command": null,
     "docs": [
       {
@@ -133,8 +136,9 @@ with the tenant alone, `{"tenant": "acme"}`, it answered:
 ```
 
 Four recordings name suite `category`, and no suite reads them. There is no
-command for the next step, `"command": null`: the step is a suite, which the
-two pages describe. The command line says it in a sentence:
+command for the next step, `"command": null`, because the step is a suite to
+write. `next.say` says it, in the sentence the command line prints under its
+title:
 
 ```console
 $ digline where --tenant acme
@@ -388,7 +392,7 @@ every case is a reviewed answer, which is asked its judged check alone.
 
 ```console
 $ digline promote --suite suite.toml --run latest --replacing none
-tenant 'acme' · category baseline set to 2026-11-07T10-32-13-683237-00-00-5540731bb0925c86
+tenant 'acme' · category baseline set to 2026-11-07T14-18-35-151704-00-00-5540731bb0925c86
 ```
 
 A second `run`, then `compare`, answered *"Nothing got worse compared with
@@ -415,9 +419,11 @@ refusal, now for 5 answers judged 45 times. Of its answer:
 
 ```json
 {
-  "key": "2026-11-07T10-33-32-981503-00-00-5540731bb0925c86",
+  "key": "2026-11-07T14-18-40-132240-00-00-5540731bb0925c86",
   "sentence": "tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric",
-  "notes": [],
+  "notes": [
+    "the judge contradicted a person on 1 reviewed answer"
+  ],
   "errored_checks": 0,
   "usage": {
     "judge": {
@@ -430,8 +436,9 @@ refusal, now for 5 answers judged 45 times. Of its answer:
 }
 ```
 
-The run's answer does not say that the judge contradicted the person: `notes`
-is empty. `compare` does. Of its answer:
+Its `notes` say what `digline run` says on standard error beside the bill:
+the judge contradicted a person. Which answer, and which way, `compare`
+says. Of its answer:
 
 ```json
 {
@@ -491,8 +498,8 @@ it was not. Which of the two is wrong, the rubric or the yes, is the
 person's to say. Until it is said, the run is not a reference:
 
 ```console
-$ digline promote --suite suite.toml --run latest --replacing 2026-11-07T10-32-13-683237-00-00-5540731bb0925c86
-digline: ContradictedRunError: run 2026-11-07T10-33-32-981503-00-00-5540731bb0925c86: the judge contradicted a person on 1 reviewed answer, by answer cap-9886a52f697cd007-1d630127 (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
+$ digline promote --suite suite.toml --run latest --replacing 2026-11-07T14-18-35-151704-00-00-5540731bb0925c86
+digline: ContradictedRunError: run 2026-11-07T14-18-40-132240-00-00-5540731bb0925c86: the judge contradicted a person on 1 reviewed answer, by answer cap-9886a52f697cd007-1d630127 (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
 ```
 
 ## What you get, and what stays out
@@ -501,9 +508,8 @@ digline: ContradictedRunError: run 2026-11-07T10-33-32-981503-00-00-5540731bb092
   answers above, from `where`, `suggest`, `record_listing`, `run`, `get_run`,
   `compare` and `explain`, holds a ticket or an answer the application gave.
   Searched for *refund*, *delivery*, *password*, *shoes*, *parcel*, *gift* and
-  *receipt*, the thirteen structured answers the agent received held none of
-  them, and `captured.json` held them on seven lines. Cases are named by
-  their id.
+  *receipt*, the eleven answers and three refusals the agent received held
+  none of them, and the recordings held them. Cases are named by their id.
 - **No tool calls a model of its own accord.** `suggest` asks no assistant and
   says so; the command with `--model` is the person's. `run` calls the judge
   the suite declares, and only after the agent has said back the number of

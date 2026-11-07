@@ -113,6 +113,8 @@ class Story:
             json.loads(body) for lang, body in blocks if lang == "json"
         ]
         self.python = [body for lang, body in blocks if lang == "python"]
+        #: Every answer and refusal the agent received, in order.
+        self.received: list[Answer] = []
 
     def session(self, command: str) -> Session:
         """The next `console` session, which must be `command`'s."""
@@ -158,7 +160,9 @@ class Story:
         return printed
 
     def tool(self, tool: str, arguments: dict[str, Any]) -> Answer:
-        return call(self.project, tool, arguments)
+        answer = call(self.project, tool, arguments)
+        self.received.append(answer)
+        return answer
 
     def answer(self, ticket: str) -> str:
         """The application, the page's Python block, asked one ticket."""
@@ -319,6 +323,17 @@ def test_the_story_runs_as_the_page_says(story: Story) -> None:
     # Nothing of the page was left out of the replay.
     assert story.sessions == []
     assert story.json == []
+
+    # The page's last section: eleven answers and three refusals, and none of
+    # them holds a word of a ticket or of a category.
+    refusals = [said for refused, said in story.received if refused]
+    answers = [said for refused, said in story.received if not refused]
+    assert (len(answers), len(refusals)) == (11, 3)
+    assert "the eleven answers and three refusals the agent received" in text
+    words = ("refund", "delivery", "password", "shoes", "parcel", "gift", "receipt")
+    for said in [*answers, *refusals]:
+        dumped = json.dumps(said).lower()
+        assert not [word for word in words if word in dumped], said
 
 
 def test_no_answer_holds_a_ticket_and_the_recordings_do(story: Story) -> None:
