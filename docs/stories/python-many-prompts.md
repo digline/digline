@@ -312,8 +312,11 @@ how many recordings gave the same answer, and two choices, `--good` and
 `--bad`. Under them are a field for your name and one button, *Write the
 answers named*. For `screening`, two yeses and a no, the no for the answer
 that called two years of Java and Spring a fit, written under the name *Ada
-Lovelace*, wrote three cases to `eval/screening/captured.json`. The command
-the page prints under the button, with the same choices written out, is:
+Lovelace*, wrote three cases to `eval/screening/captured.json`. The form was
+sent as the button sends it, by a client that runs no script. Under the
+button the page prints `digline record import --tenant acme --suite
+eval/screening/suite.toml`, and says the command follows the form where its
+script runs. With the same choices written out, it is:
 
 ```console
 $ digline record import --tenant acme --suite eval/screening/suite.toml --good cap-3999ce78477dd215-225602d6 --good cap-99aa0a266644cff8-1d469d1f --bad cap-450165eceed21c10-9bda3cec --by 'Ada Lovelace'
