@@ -1,58 +1,37 @@
 // A fake provider on 127.0.0.1 for the hooks' tests: OpenAI's Chat
 // Completions, Anthropic's Messages and Bedrock's runtime, each answering
-// with the reply of a wire fixture in recorders/fixtures/wire/. Nothing here
-// calls a provider.
+// with the reply of a wire fixture in recorders/fixtures/wire/, and Bedrock's
+// streams with the bytes of recorders/fixtures/eventstream/, which digline's
+// Python framed. Nothing here calls a provider.
 
 import * as fs from "node:fs";
 import http from "node:http";
 import http2 from "node:http2";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as zlib from "node:zlib";
 
-const WIRE = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures", "wire");
+const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "fixtures");
+const WIRE = path.join(FIXTURES, "wire");
 
 /** A wire fixture, as JSON. */
 export function wire(name) {
   return JSON.parse(fs.readFileSync(path.join(WIRE, `${name}.json`), "utf8"));
 }
 
-/** One frame of an AWS event stream, with its two checksums. */
-function frame(type, payload) {
-  const headers = [];
-  for (const [key, value] of [
-    [":message-type", "event"],
-    [":event-type", type],
-    [":content-type", "application/json"],
-  ]) {
-    const nameBytes = Buffer.from(key, "utf8");
-    const valueBytes = Buffer.from(value, "utf8");
-    const length = Buffer.alloc(2);
-    length.writeUInt16BE(valueBytes.length);
-    headers.push(Buffer.from([nameBytes.length]), nameBytes, Buffer.from([7]), length, valueBytes);
-  }
-  const headerBytes = Buffer.concat(headers);
-  const body = Buffer.from(JSON.stringify(payload), "utf8");
-  const total = 12 + headerBytes.length + body.length + 4;
-  const prelude = Buffer.alloc(8);
-  prelude.writeUInt32BE(total, 0);
-  prelude.writeUInt32BE(headerBytes.length, 4);
-  const preludeCrc = Buffer.alloc(4);
-  preludeCrc.writeUInt32BE(zlib.crc32(prelude));
-  const message = Buffer.concat([prelude, preludeCrc, headerBytes, body]);
-  const messageCrc = Buffer.alloc(4);
-  messageCrc.writeUInt32BE(zlib.crc32(message));
-  return Buffer.concat([message, messageCrc]);
+/** An event stream of recorders/fixtures/eventstream/, as bytes. */
+export function eventStream(name) {
+  return fs.readFileSync(path.join(FIXTURES, "eventstream", `${name}.bin`));
 }
 
 /**
  * The provider. `plan` holds the statuses to answer before the fixture's
  * reply, one per request, so a test can make the SDK retry or fail; `asked`
  * keeps each request's path and body; `hold` makes a stream send its first
- * event and wait until the client goes.
+ * event and wait until the client goes; `stream` names the event stream a
+ * Bedrock stream answers with, the wire fixture's where it is not set.
  */
 export async function provider(options = {}) {
-  const state = { plan: [], asked: [], hold: false };
+  const state = { plan: [], asked: [], hold: false, stream: null };
   // HTTP/2 in cleartext, with prior knowledge, where asked: what the Bedrock
   // client's default handler speaks.
   const create = options.http2 ? http2.createServer : http.createServer;
@@ -88,13 +67,16 @@ export async function provider(options = {}) {
       if (where.endsWith("/invoke")) {
         return json(response, where.includes("anthropic") ? wire("bedrock-invoke").reply : { outputText: "titan" });
       }
-      if (where.endsWith("/converse-stream")) {
+      if (where.endsWith("/converse-stream") || where.endsWith("/invoke-with-response-stream")) {
+        const name = state.stream ?? (where.endsWith("/converse-stream") ? "bedrock-stream" : "bedrock-invoke-stream");
+        const bytes = eventStream(name);
         response.writeHead(200, { "content-type": "application/vnd.amazon.eventstream" });
-        for (const event of wire("bedrock-stream").events) {
-          const [type] = Object.keys(event);
-          response.write(frame(type, event[type]));
+        if (state.hold) {
+          // The first event, whole, then nothing until the client goes.
+          response.write(bytes.subarray(0, bytes.readUInt32BE(0)));
+          return;
         }
-        response.end();
+        response.end(bytes);
         return;
       }
       response.writeHead(404);

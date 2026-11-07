@@ -394,9 +394,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   through `AsyncLocalStorage`. `diglineFetch` is the `fetch` given to the
   OpenAI and Anthropic SDKs, for Chat Completions and Messages, whole and
   streamed. `diglineAws` is a middleware of Bedrock's runtime client, for
-  Converse and InvokeModel with an Anthropic model, whose streams pass
-  unrecorded and counted for now. A reply is recorded only where it is 2xx,
-  and the application's call never fails because of the recorder. The CI job
+  Converse and InvokeModel with an Anthropic model, single and streamed: AWS's
+  event stream is read by `eventstream.mjs`, with no package, and a stream
+  whose checksum does not match, or that carries an exception, is counted
+  *stream error*, as the proxy counts it. A reply is recorded only where it
+  is 2xx, and the application's call never fails because of the recorder. The CI job
   `recorder-node` holds it to the fixtures Java's recorder is held to and
   imports what it writes with digline alone, and `through-the-proxy` holds
   that the same request gives the same digest through it as through the

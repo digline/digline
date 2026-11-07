@@ -453,6 +453,9 @@ fake provider on 127.0.0.1:
   reads the reply's bytes before the SDK does: Converse, and InvokeModel with
   an Anthropic model. Their streams pass unrecorded, and counted, until a
   second pull request decodes AWS's event stream.
+  *2026-11-06 (P-1574): the second pull request reads them, ConverseStream
+  and InvokeModelWithResponseStream, through `eventstream.mjs`; a checksum
+  that does not match is counted* stream error, *as the proxy counts it.*
 - **`DiglineRecorder`**, the writer, in `recorders/node/digline/`, Node alone,
   with the suite, the episode and the attach held by `AsyncLocalStorage`
   rather than by a thread.

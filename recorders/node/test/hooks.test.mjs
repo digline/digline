@@ -16,6 +16,7 @@ import {
   ConverseCommand,
   ConverseStreamCommand,
   InvokeModelCommand,
+  InvokeModelWithResponseStreamCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import { NodeHttpHandler } from "@smithy/node-http-handler";
 import OpenAI from "openai";
@@ -25,7 +26,8 @@ import { chat, chatStreamed, diglineFetch } from "../digline/fetch.mjs";
 import * as messages from "../digline/messages.mjs";
 import { DiglineRecorder, StartError, attach, object, parse, singleDocument, suite } from "../digline/recorder.mjs";
 import { diglineAws } from "../digline/aws.mjs";
-import { provider, wire } from "./provider.mjs";
+import { decode } from "../digline/eventstream.mjs";
+import { eventStream, provider, wire } from "./provider.mjs";
 
 let fake;
 
@@ -81,15 +83,20 @@ function anthropic(recorder) {
 }
 
 function bedrock(recorder) {
-  const client = new BedrockRuntimeClient({
+  const client = bareBedrock();
+  client.middlewareStack.use(diglineAws(recorder));
+  return client;
+}
+
+/** The same client, with no hook. */
+function bareBedrock() {
+  return new BedrockRuntimeClient({
     region: "us-east-1",
     endpoint: fake.url,
     credentials: { accessKeyId: "a", secretAccessKey: "s" },
     requestHandler: new NodeHttpHandler(),
     maxAttempts: 2,
   });
-  client.middlewareStack.use(diglineAws(recorder));
-  return client;
 }
 
 /** The last request the provider received, its body read as digline reads it. */
@@ -344,19 +351,161 @@ test("Bedrock's InvokeModel with an Anthropic model is Messages, another family 
   assert.deepEqual(recorder.counts().not_recorded, { "model family not recorded": 2 });
 });
 
-test("Bedrock's streams pass unrecorded and counted, and the SDK reads them", async () => {
-  const made = root();
-  const recorder = DiglineRecorder.development(made, "acme", "node");
+/** A ConverseStream of the wire fixture, read by the application to its end; its text. */
+async function converseStream(recorder) {
   const fixture = wire("bedrock-stream");
-  const answer = await bedrock(recorder).send(new ConverseStreamCommand({ modelId: fixture.model_id, ...fixture.request }));
+  const client = recorder === null ? bareBedrock() : bedrock(recorder);
+  const answer = await suite("triage", () =>
+    client.send(new ConverseStreamCommand({ modelId: fixture.model_id, ...fixture.request })),
+  );
   let text = "";
   for await (const event of answer.stream) {
     text += event.contentBlockDelta?.delta?.text ?? "";
   }
-  assert.equal(text, "Looking it up.");
-  assert.equal(written(made).length, 0);
-  assert.deepEqual(recorder.counts().not_recorded, { "stream not recorded": 1 });
+  return text;
+}
+
+/** What the SDK throws to the application for a stream: with the hook, or with none where `recorder` is `null`. */
+async function thrown(recorder, name) {
+  fake.stream = name;
+  try {
+    await converseStream(recorder);
+  } catch (failed) {
+    return `${failed.name}: ${failed.message}`;
+  } finally {
+    fake.stream = null;
+  }
+  return null;
+}
+
+test("Bedrock's ConverseStream is recorded at its end, as the map reads its bytes", async () => {
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  assert.equal(await converseStream(recorder), "Looking it up.", "the SDK still reads the stream");
+  await settled(recorder, 1);
+  const [document] = written(made);
+  const fixture = wire("bedrock-stream");
+  const asked = object({ modelId: fixture.model_id, ...lastAsked() });
+  compared(document, aws.streamed(asked, decode(eventStream("bedrock-stream")).events, 0));
+  assert.equal(document.response.output, "Looking it up.");
+  assert.equal(document.response.tool_calls[0].tool, "lookup");
 });
+
+test("Bedrock's InvokeModelWithResponseStream with an Anthropic model is Messages, its chunks decoded", async () => {
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  const fixture = wire("bedrock-invoke-stream");
+  const client = bedrock(recorder);
+  const answer = await suite("triage", () =>
+    client.send(
+      new InvokeModelWithResponseStreamCommand({
+        modelId: fixture.model_id,
+        contentType: "application/json",
+        body: JSON.stringify(fixture.request),
+      }),
+    ),
+  );
+  const types = [];
+  for await (const event of answer.body) {
+    types.push(JSON.parse(Buffer.from(event.chunk.bytes).toString("utf8")).type);
+  }
+  assert.equal(types.at(-1), "message_stop", "the SDK still hands each chunk over");
+  await settled(recorder, 1);
+  const [document] = written(made);
+  const asked = object({ modelId: fixture.model_id, ...lastAsked() });
+  compared(document, messages.streamed(asked, aws.chunks(decode(eventStream("bedrock-invoke-stream")).events), 0));
+  assert.equal(document.response.output, "Looking it up.");
+
+  // Another family's stream is not read, and reaches the SDK as it came.
+  const other = await client.send(
+    new InvokeModelWithResponseStreamCommand({ modelId: "amazon.titan-text-express-v1", contentType: "application/json", body: "{}" }),
+  );
+  let chunks = 0;
+  for await (const _ of other.body) {
+    chunks++;
+  }
+  assert.equal(chunks, types.length);
+  assert.deepEqual(recorder.counts().not_recorded, { "model family not recorded": 1 });
+});
+
+test("Bedrock's ConverseStream is recorded over HTTP/2, the client's default", async () => {
+  const fakeHttp2 = await provider({ http2: true });
+  try {
+    const made = root();
+    const recorder = DiglineRecorder.development(made, "acme", "node");
+    const client = new BedrockRuntimeClient({
+      region: "us-east-1",
+      endpoint: fakeHttp2.url,
+      credentials: { accessKeyId: "a", secretAccessKey: "s" },
+    });
+    client.middlewareStack.use(diglineAws(recorder));
+    const fixture = wire("bedrock-stream");
+    const answer = await suite("triage", () =>
+      client.send(new ConverseStreamCommand({ modelId: fixture.model_id, ...fixture.request })),
+    );
+    let text = "";
+    for await (const event of answer.stream) {
+      text += event.contentBlockDelta?.delta?.text ?? "";
+    }
+    assert.equal(text, "Looking it up.");
+    await settled(recorder, 1);
+    const [document] = written(made);
+    const asked = object({ modelId: fixture.model_id, ...parse(fakeHttp2.asked.at(-1).body) });
+    compared(document, aws.streamed(asked, decode(eventStream("bedrock-stream")).events, 0));
+  } finally {
+    await fakeHttp2.close();
+  }
+});
+
+test("a Bedrock stream the application stops reading is counted abandoned", async () => {
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  const fixture = wire("bedrock-stream");
+  // The SDK stops reading a stream when its call is aborted: a `break` out of
+  // the loop leaves the connection open, and nothing ends until it does.
+  const stop = new AbortController();
+  fake.hold = true;
+  try {
+    const answer = await suite("triage", () =>
+      bedrock(recorder).send(new ConverseStreamCommand({ modelId: fixture.model_id, ...fixture.request }), {
+        abortSignal: stop.signal,
+      }),
+    );
+    for await (const _ of answer.stream) {
+      stop.abort();
+      break;
+    }
+  } finally {
+    fake.hold = false;
+  }
+  await settled(recorder, 1);
+  assert.equal(written(made).length, 0);
+  assert.deepEqual(recorder.counts().not_recorded, { "stream abandoned": 1 });
+});
+
+test("a Bedrock stream that ends inside an event is abandoned, never read as whole", async () => {
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  const app = await thrown(recorder, "abandoned");
+  assert.equal(app, await thrown(null, "abandoned"));
+  await settled(recorder, 1);
+  assert.equal(written(made).length, 0);
+  assert.deepEqual(recorder.counts().not_recorded, { "stream abandoned": 1 });
+});
+
+for (const name of ["bad-crc", "bad-prelude", "exception"]) {
+  test(`a Bedrock stream that does not check is refused and counted, and never thrown by the hook: ${name}`, async () => {
+    const made = root();
+    const recorder = DiglineRecorder.development(made, "acme", "node");
+    const app = await thrown(recorder, name);
+    // What the application meets is the SDK's, as without the hook.
+    assert.notEqual(app, null, "the SDK refuses these bytes itself");
+    assert.equal(app, await thrown(null, name));
+    await settled(recorder, 1);
+    assert.equal(written(made).length, 0);
+    assert.deepEqual(recorder.counts().not_recorded, { "stream error": 1 });
+  });
+}
 
 test("a Bedrock retry after an error is one call", async () => {
   const made = root();

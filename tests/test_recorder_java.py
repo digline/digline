@@ -61,9 +61,9 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
             del sys.modules[name]
 
 
-def _expected() -> dict[str, str]:
+def _expected() -> dict[str, str | bytes]:
     made = runpy.run_path(str(FIXTURES / "make.py"))
-    return cast(Callable[[], dict[str, str]], made["expected"])()
+    return cast(Callable[[], dict[str, str | bytes]], made["expected"])()
 
 
 def test_every_fixture_is_what_diglines_python_makes_of_it() -> None:
@@ -75,7 +75,12 @@ def test_every_fixture_is_what_diglines_python_makes_of_it() -> None:
     )
     assert on_disk == sorted(expected)
     for name, text in expected.items():
-        assert (FIXTURES / name).read_text(encoding="utf-8") == text, (
+        on_file = (
+            (FIXTURES / name).read_bytes()
+            if isinstance(text, bytes)
+            else (FIXTURES / name).read_text(encoding="utf-8")
+        )
+        assert on_file == text, (
             f"recorders/fixtures/{name} is not what digline makes of it now: run "
             "`uv run python recorders/fixtures/make.py`, and the Java tests are held "
             "to the new answer"

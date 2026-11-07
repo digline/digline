@@ -1,7 +1,8 @@
 /*
  * digline's recorder for Node: the hook for the AWS SDK for JavaScript v3,
- * for Bedrock's Converse, and InvokeModel with an Anthropic model, whose body
- * is Anthropic's Messages.
+ * for Bedrock's Converse and ConverseStream, and InvokeModel and
+ * InvokeModelWithResponseStream with an Anthropic model, whose body is
+ * Anthropic's Messages.
  *
  * RECORDING_VERSION 1, written to the contract as it stood on 2026-11-06:
  * https://github.com/digline/digline/blob/main/docs/recording-format.md
@@ -11,6 +12,7 @@
 
 import { Readable } from "node:stream";
 
+import { decode } from "./eventstream.mjs";
 import * as messages from "./messages.mjs";
 import {
   Call,
@@ -19,6 +21,7 @@ import {
   asObject,
   clock,
   compact,
+  count,
   finishOf,
   isObject,
   name,
@@ -31,8 +34,8 @@ import {
 
 /**
  * A plugin for a Bedrock runtime client that records its Converse calls,
- * and its InvokeModel calls with an Anthropic model, through a
- * `DiglineRecorder`:
+ * and its InvokeModel calls with an Anthropic model, single or streamed,
+ * through a `DiglineRecorder`:
  *
  *     const bedrock = new BedrockRuntimeClient({});
  *     bedrock.middlewareStack.use(diglineAws(recorder));
@@ -40,9 +43,12 @@ import {
  * It sits after the SDK's deserializer, so it reads the reply's bytes before
  * the SDK does and hands the SDK the same bytes. A reply is read only where
  * its status is 2xx: a retry after an error is one call, recorded once.
- * ConverseStream and InvokeModelWithResponseStream pass unrecorded, and are
- * counted *stream not recorded*. InvokeModel with another family is counted
- * by its reason and said once a family on standard error.
+ * A stream is read as the application reads it, a copy kept of each piece the
+ * SDK takes, and recorded when the application has read it to its end; one
+ * it stops reading before is counted *stream abandoned*, and one whose bytes
+ * do not check, or that carries an exception, *stream error*. InvokeModel
+ * with another family is counted by its reason and said once a family on
+ * standard error, and its body, streamed or not, is not read.
  *
  * It never fails the call: a request or a reply it cannot read is counted,
  * and the reply reaches the SDK as the server sent it.
@@ -77,9 +83,14 @@ const FINISH = {
 const NOT_SETUP = new Set(["messages", "requestMetadata"]);
 
 /** The operations read, by the command's name, and InvokeModel's name in digline's words. */
-const READ = { ConverseCommand: null, InvokeModelCommand: "invoke_model" };
+const READ = {
+  ConverseCommand: null,
+  ConverseStreamCommand: null,
+  InvokeModelCommand: "invoke_model",
+  InvokeModelWithResponseStreamCommand: "invoke_model_with_response_stream",
+};
 
-/** The operations that stream: passed, and counted, until their reading lands. */
+/** The operations whose reply is an event stream. */
 const STREAMED = new Set(["ConverseStreamCommand", "InvokeModelWithResponseStreamCommand"]);
 
 /**
@@ -112,10 +123,6 @@ function watch(recorder, command, request) {
   if (!recorder.on()) {
     return null;
   }
-  if (STREAMED.has(command)) {
-    recorder.miss("stream not recorded");
-    return null;
-  }
   if (!Object.hasOwn(READ, command)) {
     return null;
   }
@@ -132,14 +139,15 @@ function watch(recorder, command, request) {
     recorder.miss("not JSON", at);
     return null;
   }
-  return new Watched(recorder, READ[command], sent, at);
+  return new Watched(recorder, READ[command], STREAMED.has(command), sent, at);
 }
 
 /** One call under way: where it was made, when, and what was sent. */
 class Watched {
-  constructor(recorder, invoke, sent, at) {
+  constructor(recorder, invoke, streamed, sent, at) {
     this.recorder = recorder;
     this.invoke = invoke;
+    this.streamed = streamed;
     this.sent = sent;
     this.at = at;
     this.started = clock();
@@ -164,6 +172,10 @@ class Watched {
         return out;
       }
     }
+    if (this.streamed && eventStream(response.headers) && response.body) {
+      response.body = this.#kept(response.body);
+      return out;
+    }
     // The bytes are read here, whole, and handed on as they came: a failure
     // to read them is the call's, as it would be without the hook.
     const bytes = await bodyOf(response.body);
@@ -178,6 +190,109 @@ class Watched {
     }
     return out;
   }
+
+  /**
+   * The stream, as one that passes on each piece the SDK takes and keeps a
+   * copy: only what the application reads is read, so a stream it stops
+   * reading is not read to its end on its behalf.
+   */
+  #kept(source) {
+    const pieces = source[Symbol.asyncIterator]();
+    const kept = [];
+    let done = false;
+    const end = (whole) => {
+      if (!done) {
+        done = true;
+        this.#ended(Buffer.concat(kept), whole);
+      }
+    };
+    return new Readable({
+      read() {
+        pieces.next().then(
+          (step) => {
+            if (step.done) {
+              end(true);
+              this.push(null);
+              return;
+            }
+            const piece = typeof step.value === "string" ? Buffer.from(step.value, "utf8") : Buffer.from(step.value);
+            kept.push(piece);
+            this.push(piece);
+          },
+          (failed) => {
+            end(false);
+            this.destroy(failed);
+          },
+        );
+      },
+      destroy(failed, callback) {
+        end(false);
+        Promise.resolve()
+          .then(() => pieces.return?.())
+          .then(
+            () => callback(failed),
+            () => callback(failed),
+          );
+      },
+    });
+  }
+
+  /**
+   * The stream, as the application read it: at its end, or when it stopped
+   * reading. A stream stopped before its end was abandoned, unless what was
+   * read already carries the end: Converse's `metadata`, the Messages
+   * `message_stop` InvokeModel's chunks carry. Bytes that end inside an event
+   * did not reach the end, whoever stopped.
+   */
+  #ended(bytes, whole) {
+    let read;
+    try {
+      read = decode(bytes);
+    } catch {
+      this.recorder.miss("stream error", this.at);
+      return;
+    }
+    try {
+      const elapsed = clock() - this.started;
+      const found = this.invoke !== null ? chunks(read.events) : read.events;
+      const last =
+        this.invoke !== null
+          ? found.some((event) => isObject(event) && event.type === "message_stop")
+          : found.some((event) => isObject(event) && "metadata" in event);
+      if (!last && (!whole || read.cut)) {
+        this.recorder.miss("stream abandoned", this.at);
+        return;
+      }
+      const call = this.invoke !== null ? messages.streamed(this.sent, found, elapsed) : streamed(this.sent, found, elapsed);
+      this.recorder.recordAt(call, this.at);
+    } catch {
+      this.recorder.miss("map", this.at);
+    }
+  }
+}
+
+/** Whether a reply's headers say its body is an AWS event stream. */
+function eventStream(headers) {
+  for (const [key, value] of Object.entries(headers ?? {})) {
+    if (key.toLowerCase() === "content-type" && String(value).includes("eventstream")) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * InvokeModelWithResponseStream's events, each a `chunk` whose `bytes`
+ * carry a Messages event in base64: the Messages events, decoded.
+ */
+export function chunks(events) {
+  const found = [];
+  for (const event of events) {
+    if (isObject(event) && isObject(event.chunk) && typeof event.chunk.bytes === "string") {
+      found.push(parse(Buffer.from(event.chunk.bytes, "base64").toString("utf8")));
+    }
+  }
+  return found;
 }
 
 async function bodyOf(body) {
@@ -271,6 +386,76 @@ export function call(request, reply, latencyMs) {
     finishOf(truthy(stop) ? String(stop) : null, FINISH),
     toolCalls(content),
   );
+}
+
+/** One call, streamed: its events folded into the Converse reply the plugin builds. */
+export function streamed(request, events, latencyMs) {
+  let role = "assistant";
+  const held = new Map();
+  let stop = null;
+  let usage_ = null;
+  for (const raw of events) {
+    if (!isObject(raw)) {
+      continue;
+    }
+    if (isObject(raw.messageStart)) {
+      role = String(raw.messageStart.role ?? "assistant");
+    } else if (isObject(raw.contentBlockStart)) {
+      const start = raw.contentBlockStart;
+      const begun = isObject(start.start) ? start.start.toolUse : undefined;
+      if (begun !== undefined && begun !== null) {
+        const use = asObject(begun);
+        use.input = "";
+        held.set(index(start.contentBlockIndex), object({ toolUse: use }));
+      }
+    } else if (isObject(raw.contentBlockDelta)) {
+      const delta = raw.contentBlockDelta;
+      const at = index(delta.contentBlockIndex);
+      const change = isObject(delta.delta) ? delta.delta : object();
+      if (!held.has(at)) {
+        held.set(at, object());
+      }
+      const block = held.get(at);
+      if ("text" in change) {
+        block.text = String(block.text ?? "") + String(change.text);
+      } else if ("toolUse" in change) {
+        const use = isObject(block.toolUse) ? block.toolUse : object({ input: "" });
+        const more = asObject(change.toolUse).input ?? "";
+        use.input = String(use.input ?? "") + String(more);
+        block.toolUse = use;
+      }
+    } else if (isObject(raw.messageStop)) {
+      stop = raw.messageStop.stopReason ?? null;
+    } else if (isObject(raw.metadata)) {
+      usage_ = raw.metadata.usage ?? null;
+    }
+  }
+  const content = [];
+  for (const at of [...held.keys()].sort((a, b) => a - b)) {
+    const block = held.get(at);
+    if (isObject(block.toolUse)) {
+      const use = block.toolUse;
+      const written = truthy(use.input) ? use.input : "{}";
+      use.input = typeof written === "string" ? parse(written) : written;
+      content.push(object({ toolUse: use }));
+    } else if ("text" in block) {
+      content.push(object({ text: block.text }));
+    }
+  }
+  const reply = object({ output: object({ message: object({ role, content }) }), stopReason: stop });
+  if (usage_ !== null) {
+    reply.usage = usage_;
+  }
+  return call(request, reply, latencyMs);
+}
+
+/** A content block's index, as a number. */
+function index(value) {
+  const at = count(value);
+  if (at === null) {
+    throw new TypeError("a content block with no index");
+  }
+  return Number(at);
 }
 
 function blocks(reply) {

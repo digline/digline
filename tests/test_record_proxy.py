@@ -61,6 +61,16 @@ from digline.recorder import RecordingMap, RecordingWire
 
 SDKS = ("anthropic", "openai", "httpx2")
 
+#: Bedrock's two streams, the bytes digline's Python framed in
+#: `recorders/fixtures/eventstream/`, by the last segment of the path.
+EVENT_STREAMS = {
+    "converse-stream": "bedrock-stream.bin",
+    "invoke-with-response-stream": "bedrock-invoke-stream.bin",
+}
+EVENT_STREAM_FIXTURES = (
+    Path(__file__).resolve().parent.parent / "recorders" / "fixtures" / "eventstream"
+)
+
 #: What Gemini's OpenAI-compatible endpoint answers, in its shape: no `id`,
 #: no `system_fingerprint`. Not read from the service: the shape a compatible
 #: endpoint may answer in, fewer fields than OpenAI's.
@@ -104,8 +114,10 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
 class Upstream:
     """OpenAI and Anthropic, faked: each request kept, each reply by the
     request's `model`: `error` a 500, `sleep` too late, `slow` a stream that
-    takes its time. `port` 0 takes a free one; `tests/proxy_upstream.py` runs
-    it as a process on a port it names, for the CI job `through-the-proxy`."""
+    takes its time. Bedrock's two streams, too, each the same bytes of
+    `EVENT_STREAMS` whatever was asked. `port` 0 takes a free one;
+    `tests/proxy_upstream.py` runs it as a process on a port it names, for the
+    CI job `through-the-proxy`."""
 
     def __init__(self, port: int = 0) -> None:
         self.seen: list[tuple[str, dict[str, str]]] = []
@@ -124,6 +136,17 @@ class Upstream:
                 owner.seen.append(
                     (self.path, {k.lower(): v for k, v in self.headers.items()})
                 )
+                streamed = EVENT_STREAMS.get(self.path.rsplit("/", 1)[-1])
+                if streamed is not None:
+                    data = (EVENT_STREAM_FIXTURES / streamed).read_bytes()
+                    self.send_response(200)
+                    self.send_header(
+                        "Content-Type", "application/vnd.amazon.eventstream"
+                    )
+                    self.send_header("Content-Length", str(len(data)))
+                    self.end_headers()
+                    self.wfile.write(data)
+                    return
                 model = body.get("model")
                 if model == "error":
                     self._json(500, {"type": "error", "error": {"message": "boom"}})
