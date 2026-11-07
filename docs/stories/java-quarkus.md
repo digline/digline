@@ -118,13 +118,15 @@ redact = "none", the one this release implements); no declared sampling
 recordings (write ceiling = N, in bytes). In production all three are
 declared (ADR 0058 §10)"*.
 
-**Switch it on, and run the application**, from the project's root:
+**Switch it on, and run the application**, from the project's root. The
+first block was run again on 2026-11-07, with digline at `1b5cf083`, after
+the sentence on production came to name Node:
 
 ```console
 $ digline record on --tenant acme
 recording on for tenant 'acme': …/triage/.digline/acme/recorder.toml
   values: on true, sample 1.0 (default), redact none (default), ceiling 104857600 bytes (default), interval 5.0 s (default)
-  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
+  development: what the file leaves out is a default; an application that resolves its tenant per request is production (wrap(tenant=callable) in Python, DiglineRecorder.production in Java and Node; the proxy's --tenant is never production), and refuses this file unless it declares sample, redact and ceiling
 ```
 
 ```console
