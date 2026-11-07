@@ -25,9 +25,15 @@ ROOT = Path(__file__).resolve().parents[1]
 _BLOCK = re.compile(r"^```console\n(.*?)^```", re.S | re.M)
 
 
+def _pages() -> list[Path]:
+    """The pages under `docs/`, and the stories under `docs/stories/`."""
+    docs = ROOT / "docs"
+    return sorted([*docs.glob("*.md"), *docs.glob("stories/*.md")])
+
+
 def _blocks_without_a_command() -> list[tuple[str, int, str]]:
     found: list[tuple[str, int, str]] = []
-    for page in sorted((ROOT / "docs").glob("*.md")):
+    for page in _pages():
         text = page.read_text(encoding="utf-8")
         for match in _BLOCK.finditer(text):
             first = match.group(1).split("\n", 1)[0]

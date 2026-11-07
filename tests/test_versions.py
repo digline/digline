@@ -390,6 +390,27 @@ RECORDED: dict[str, dict[str, str]] = {
             "tests/test_record_node_page.py"
         ),
     },
+    "docs/stories/node.md": {
+        "22.22.0": (
+            "'Node 22.22.0': the Node the story was run on, on 2026-11-07, not a "
+            "digline version"
+        ),
+        "7.50.0": (
+            "'openai 7.50.0': the version of Node's openai SDK the story was run "
+            "with, not a digline version, held equal to "
+            "recorders/node/package.json by tests/test_story_node.py"
+        ),
+        "1.4.0": (
+            "'@anthropic-ai/sdk 1.4.0': the version of Node's Anthropic SDK the "
+            "story was run with, not a digline version, held equal to "
+            "recorders/node/package.json by tests/test_story_node.py"
+        ),
+        "3.1163.0": (
+            "'@aws-sdk/client-bedrock-runtime 3.1163.0': the version of Node's "
+            "Bedrock client the story was run with, not a digline version, held "
+            "equal to recorders/node/package.json by tests/test_story_node.py"
+        ),
+    },
     "docs/record.md": {
         "1.0.3": (
             "'On 1.0.3, digline record and digline.recorder do not exist' — the "
