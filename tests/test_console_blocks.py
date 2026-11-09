@@ -28,9 +28,9 @@ _BLOCK = re.compile(r"^```console\n(.*?)^```", re.S | re.M)
 
 
 def _pages() -> list[Path]:
-    """The pages under `docs/`, and the stories under `docs/stories/`."""
+    """The pages under `docs/`, and the walkthroughs under `docs/walkthroughs/`."""
     docs = ROOT / "docs"
-    return sorted([*docs.glob("*.md"), *docs.glob("stories/*.md")])
+    return sorted([*docs.glob("*.md"), *docs.glob("walkthroughs/*.md")])
 
 
 def _blocks_without_a_command() -> list[tuple[str, int, str]]:
@@ -55,23 +55,23 @@ def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
     )
 
 
-#: The pages under `docs/stories/`, one control each.
-STORIES = (
-    "java-quarkus.md",
-    "python-many-prompts.md",
+#: The pages under `docs/walkthroughs/`, one control each.
+WALKTHROUGHS = (
+    "java-quarkus-bedrock.md",
+    "python-three-prompts.md",
     "node.md",
-    "from-the-ide-with-mcp.md",
+    "from-the-ide-over-mcp.md",
     "an-agent.md",
 )
 
 
-@pytest.mark.parametrize("page", STORIES)
-def test_the_walk_reads_the_stories_too(page: str) -> None:
-    """The control for `docs/stories/`: a page there whose console block
+@pytest.mark.parametrize("page", WALKTHROUGHS)
+def test_the_walk_reads_the_walkthroughs_too(page: str) -> None:
+    """The control for `docs/walkthroughs/`: a page there whose console block
     lost its `$ ` line is one the walk reports."""
-    story = ROOT / "docs" / "stories" / page
-    assert story in _pages()
-    assert _BLOCK.search(story.read_text(encoding="utf-8"))
+    page_path = ROOT / "docs" / "walkthroughs" / page
+    assert page_path in _pages()
+    assert _BLOCK.search(page_path.read_text(encoding="utf-8"))
 
 
 def test_the_walk_finds_console_blocks_at_all() -> None:

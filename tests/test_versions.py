@@ -116,7 +116,7 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
-    "docs/stories/an-agent.md": {
+    "docs/walkthroughs/an-agent.md": {
         "2.4.0": (
             "'anthropic 2.4.0': the Python SDK for Anthropic the story was run "
             "with, on 2026-11-09, not a digline version; written by hand, and no "
@@ -397,7 +397,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "tests/test_record_node_page.py"
         ),
     },
-    "docs/stories/java-quarkus.md": {
+    "docs/walkthroughs/java-quarkus-bedrock.md": {
         "2.57.8": (
             "'the SDK 2.57.8': the AWS SDK for Java v2 the story was run with, on "
             "2026-11-06, not a digline version; written by hand, and no test "
@@ -409,14 +409,14 @@ RECORDED: dict[str, dict[str, str]] = {
             "version"
         ),
     },
-    "docs/stories/python-many-prompts.md": {
+    "docs/walkthroughs/python-three-prompts.md": {
         "2.6.0": (
             "'anthropic 2.6.0': the Python SDK for Anthropic the story was run "
             "with, on 2026-11-07, not a digline version; written by hand, and no "
             "test holds it"
         ),
     },
-    "docs/stories/node.md": {
+    "docs/walkthroughs/node.md": {
         "22.22.0": (
             "'Node 22.22.0': the Node the story was run on, on 2026-11-07, not a "
             "digline version"
@@ -437,7 +437,7 @@ RECORDED: dict[str, dict[str, str]] = {
             "equal to recorders/node/package.json by tests/test_story_node.py"
         ),
     },
-    "docs/stories/from-the-ide-with-mcp.md": {
+    "docs/walkthroughs/from-the-ide-over-mcp.md": {
         "0.8.1": (
             "the digline-mcp on PyPI when the story was run, with eight tools, "
             "under the notice that turns false when digline 1.1.0 and a "

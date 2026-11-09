@@ -1,4 +1,4 @@
-// The stand-in docs/stories/node.md was run against: OpenAI's Chat
+// The stand-in docs/walkthroughs/node.md was run against: OpenAI's Chat
 // Completions, Anthropic's Messages, streamed or not, and Bedrock's Converse
 // and ConverseStream, on 127.0.0.1. The application's answers, the judge's
 // scores and every token count on that page are this file's. Nothing here

@@ -22,7 +22,7 @@ import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
 
 /**
- * The Java blocks of `docs/stories/java-quarkus.md`, as written, against the
+ * The Java blocks of `docs/walkthroughs/java-quarkus-bedrock.md`, as written, against the
  * fake Bedrock on the port the build's environment names. Each block stands
  * here between a `// page:` line and an `// end` line, and
  * `tests/test_story_java_quarkus.py` holds every block of the page to one of

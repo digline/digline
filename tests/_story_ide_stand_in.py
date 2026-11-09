@@ -1,4 +1,4 @@
-"""The stand-in for Anthropic that `docs/stories/from-the-ide-with-mcp.md` ran
+"""The stand-in for Anthropic that `docs/walkthroughs/from-the-ide-over-mcp.md` ran
 against: the application's categories and the judge's scores, from tables.
 
 It speaks the Messages API on 127.0.0.1, so the real `anthropic` client reaches

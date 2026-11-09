@@ -1,4 +1,4 @@
-"""`docs/stories/from-the-ide-with-mcp.md`, held to what was run.
+"""`docs/walkthroughs/from-the-ide-over-mcp.md`, held to what was run.
 
 The page is replayed here, in its order, against the stand-in it ran against
 (`tests/_story_ide_stand_in.py`) and with the client it made its tool calls
@@ -43,7 +43,7 @@ from tests._story_ide_stand_in import ANSWERS, serve
 from doc_fences import BLOCK_RE
 
 REPO = Path(__file__).resolve().parents[1]
-PAGE = REPO / "docs" / "stories" / "from-the-ide-with-mcp.md"
+PAGE = REPO / "docs" / "walkthroughs" / "from-the-ide-over-mcp.md"
 TEXT = PAGE.read_text(encoding="utf-8")
 MARK = "> **Arrives with digline 1.1.**"
 

@@ -1,4 +1,4 @@
-"""`docs/stories/an-agent.md`, held to what was run.
+"""`docs/walkthroughs/an-agent.md`, held to what was run.
 
 Its Python blocks are held the way `docs/guide.md`'s are (`tests/test_guide.py`):
 every block is a whole file, and every file is run or imported. Here they are
@@ -29,7 +29,7 @@ from tests._story_agent_stand_in import serve
 from doc_fences import BLOCK_RE, FILENAME_RE
 
 REPO = Path(__file__).resolve().parents[1]
-PAGE = REPO / "docs" / "stories" / "an-agent.md"
+PAGE = REPO / "docs" / "walkthroughs" / "an-agent.md"
 TEXT = PAGE.read_text(encoding="utf-8")
 MARK = "> **Arrives with digline 1.1.**"
 #: The line of `agent.py` that hands the model's reply back as the SDK gave it.

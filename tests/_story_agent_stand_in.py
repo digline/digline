@@ -1,4 +1,4 @@
-"""The stand-in for Anthropic that `docs/stories/an-agent.md` ran against: the
+"""The stand-in for Anthropic that `docs/walkthroughs/an-agent.md` ran against: the
 agent's model and the judge, answered from tables.
 
 It speaks the Messages API on 127.0.0.1, so the real `anthropic` client reaches

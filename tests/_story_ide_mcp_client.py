@@ -1,4 +1,4 @@
-"""The MCP client `docs/stories/from-the-ide-with-mcp.md` made its calls with, in
+"""The MCP client `docs/walkthroughs/from-the-ide-over-mcp.md` made its calls with, in
 place of an IDE.
 
 It starts the one server the project's `.mcp.json` declares, over stdio, from

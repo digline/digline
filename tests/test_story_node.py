@@ -1,4 +1,4 @@
-"""`docs/stories/node.md`, held to what was run.
+"""`docs/walkthroughs/node.md`, held to what was run.
 
 Every sentence of the story is a thing that was run, and its JavaScript
 blocks are held the way `docs/record-node.md`'s are
@@ -20,7 +20,7 @@ from tests.test_console_blocks import (
 )
 
 REPO = Path(__file__).resolve().parents[1]
-PAGE = REPO / "docs" / "stories" / "node.md"
+PAGE = REPO / "docs" / "walkthroughs" / "node.md"
 STORY_TEST = REPO / "recorders" / "node" / "test" / "story.test.mjs"
 MARK = "> **Arrives with digline 1.1.**"
 

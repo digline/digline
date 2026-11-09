@@ -1,4 +1,4 @@
-// The lines docs/stories/node.md quotes, run. Each JavaScript block of the
+// The lines docs/walkthroughs/node.md quotes, run. Each JavaScript block of the
 // story, in order, is one of the blocks here between a `// page:` line and an
 // `// end` line, and tests/test_story_node.py holds them equal, indentation
 // aside. The clients find the stand-in the story was run against,

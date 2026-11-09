@@ -83,7 +83,7 @@
       <scope>test</scope>
     </dependency>
     <!--
-      The annotations of docs/stories/java-quarkus.md's bean, and nothing that
+      The annotations of docs/walkthroughs/java-quarkus-bedrock.md's bean, and nothing that
       runs them: StoryTest compiles the page's Quarkus code as written and
       calls it by hand. The container itself is the story's to run.
     -->

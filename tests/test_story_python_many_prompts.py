@@ -1,4 +1,4 @@
-"""`docs/stories/python-many-prompts.md`, held to what was run.
+"""`docs/walkthroughs/python-three-prompts.md`, held to what was run.
 
 Its Python blocks are held the way `docs/guide.md`'s are (`tests/test_guide.py`):
 every block is a whole file, and every file is run or imported. Here they are
@@ -29,7 +29,7 @@ from tests._story_python_stand_in import serve
 from doc_fences import BLOCK_RE, FILENAME_RE
 
 REPO = Path(__file__).resolve().parents[1]
-PAGE = REPO / "docs" / "stories" / "python-many-prompts.md"
+PAGE = REPO / "docs" / "walkthroughs" / "python-three-prompts.md"
 TEXT = PAGE.read_text(encoding="utf-8")
 MARK = "> **Arrives with digline 1.1.**"
 

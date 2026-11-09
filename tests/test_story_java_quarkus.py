@@ -1,4 +1,4 @@
-"""`docs/stories/java-quarkus.md`, held to what was run.
+"""`docs/walkthroughs/java-quarkus-bedrock.md`, held to what was run.
 
 Every sentence of the story is a thing that was run, and its Java blocks are
 held the way `docs/record-java.md`'s are (`tests/test_recorder_java.py`):
@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
-PAGE = REPO / "docs" / "stories" / "java-quarkus.md"
+PAGE = REPO / "docs" / "walkthroughs" / "java-quarkus-bedrock.md"
 STORY_TEST = REPO / "recorders/java/src/test/java/dev/digline/StoryTest.java"
 MARK = "> **Arrives with digline 1.1.**"
 

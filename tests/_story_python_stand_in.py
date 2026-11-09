@@ -1,4 +1,4 @@
-"""The stand-in for Anthropic that `docs/stories/python-many-prompts.md` ran
+"""The stand-in for Anthropic that `docs/walkthroughs/python-three-prompts.md` ran
 against: the application's three prompts and the judge, answered from tables.
 
 It speaks the Messages API on 127.0.0.1, so the real `anthropic` client reaches
