@@ -37,7 +37,6 @@ from doc_fences import BLOCK_RE, FILENAME_RE
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "docs" / "walkthroughs" / "an-agent.md"
 TEXT = PAGE.read_text(encoding="utf-8")
-MARK = "> **Arrives with the next digline-anthropic.**"
 #: The line of `agent.py` that hands the model's reply back as the SDK gave it.
 PLAIN = 'messages.append({"role": "assistant", "content": reply.content})'
 
@@ -58,14 +57,6 @@ def test_the_page_opens_on_a_lede_of_one_sentence() -> None:
     lede, _ = _opening(TEXT)
     assert lede and not lede.startswith((">", "#", "-", "`")), lede
     assert lede.count(". ") == 0 and lede.endswith("."), lede
-
-
-def test_the_mark_follows_the_lede() -> None:
-    """Until the next digline-anthropic is on PyPI the page needs it from this
-    repository, and the mark under the lede says so. That release's pull
-    request takes it out (RELEASING.md, *Owed to the next version*)."""
-    _, after = _opening(TEXT)
-    assert after.startswith(MARK), after[:80]
 
 
 def test_every_python_block_is_a_file_the_story_runs() -> None:
