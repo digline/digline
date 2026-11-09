@@ -109,8 +109,7 @@ def handle(ticket: str) -> str:
                 answer = reply.content[0].text
                 ep.output(answer)
                 return answer
-            content = [block.to_dict() for block in reply.content]
-            messages.append({"role": "assistant", "content": content})
+            messages.append({"role": "assistant", "content": reply.content})
             results = [
                 {
                     "type": "tool_result",
@@ -127,12 +126,17 @@ def handle(ticket: str) -> str:
 `ep.output(...)` is the turn's answer
 ([an episode](../record.md#a-turn-of-an-agent-episode)).
 
-**The model's reply goes back as plain data**, `block.to_dict()`. Handed
-back as the SDK's own objects, `reply.content` as it is, the next call
-carried something a recording cannot hold: run that way, `digline record
-status` said `not recorded: not JSON 2`, the second call of each turn that
-used a tool, and each of those turns was written with one model step where
-it took two.
+**The model's reply goes back as it came**, `reply.content`, the SDK's own
+objects. The wrapper writes each of them as the SDK sends it, so every call
+of the turn is recorded. With digline at `1b5cf083` it did not: the next
+call carried something a recording could not hold, `digline record status`
+said `not recorded: not JSON 2`, the second call of each turn that used a
+tool, and each of those turns was written with one model step where it took
+two. The page was run then with the reply dumped by hand,
+`block.to_dict()`. This agent was run again on 2026-11-09, with digline at
+`d770ae2a`, through every ticket below: its thirteen recordings are the
+ones the page was made from, but for their moments, the episodes' ids and
+the latencies, and the two `record status` blocks came out the same.
 
 **The day's tickets:**
 

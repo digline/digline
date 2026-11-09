@@ -32,8 +32,8 @@ REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "docs" / "stories" / "an-agent.md"
 TEXT = PAGE.read_text(encoding="utf-8")
 MARK = "> **Arrives with digline 1.1.**"
-#: The line of `agent.py` that hands the model's reply back as plain data.
-PLAIN = "content = [block.to_dict() for block in reply.content]"
+#: The line of `agent.py` that hands the model's reply back as the SDK gave it.
+PLAIN = 'messages.append({"role": "assistant", "content": reply.content})'
 
 
 def test_the_story_carries_the_mark_under_its_title() -> None:
@@ -148,28 +148,26 @@ def test_the_story_records_what_it_says(tmp_path: Path) -> None:
     ]
 
 
-def test_the_sdks_own_objects_are_not_recorded(tmp_path: Path) -> None:
-    """The page says that `reply.content` handed back as it is makes the next
-    call of each turn that used a tool unrecordable, `not JSON 2`. The page's
-    `agent.py` with that one line put back, and `traffic.py`, say so."""
+def test_the_sdks_own_objects_are_recorded(tmp_path: Path) -> None:
+    """The page's agent hands `reply.content` back as the SDK gave it, and
+    says the wrapper records it: `traffic.py` leaves nothing `not recorded`,
+    and the five calls of the page's status. (P-1588)"""
     files = python_files(TEXT)
-    assert files["agent.py"].count(PLAIN) == 1
-    for name in ("tools.py", "traffic.py"):
+    assert PLAIN in files["agent.py"]
+    assert "to_dict" not in files["agent.py"]
+    for name in ("tools.py", "agent.py", "traffic.py"):
         (tmp_path / name).write_text(files[name], encoding="utf-8")
-    (tmp_path / "agent.py").write_text(
-        files["agent.py"].replace(PLAIN, "content = reply.content"), encoding="utf-8"
-    )
     server = serve()
     env = _environment(server.server_port)
     try:
-        assert (
-            _run(_cli("record", "on", "--tenant", "acme"), tmp_path, env).returncode
-            == 0
-        )
+        on = _run(_cli("record", "on", "--tenant", "acme"), tmp_path, env)
+        assert on.returncode == 0
         done = _run([sys.executable, "traffic.py"], tmp_path, env)
         assert done.returncode == 0, done.stderr
     finally:
         server.shutdown()
     status = _run(_cli("record", "status", "--tenant", "acme"), tmp_path, env)
-    assert "    not recorded: not JSON 2" in status.stdout.splitlines()
-    assert "`not recorded: not JSON 2`" in " ".join(TEXT.split())
+    assert "not recorded" not in status.stdout
+    assert "  suite support: 5 calls, 5 inside episodes, 0 orphans, 3 episodes;" in (
+        status.stdout
+    )
