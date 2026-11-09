@@ -76,6 +76,7 @@ from digline.host.importing import answer_id, closing_lines, group_line, setup_l
 from digline.report import Locale
 from digline.report.pages import (
     answer_address,
+    proposal_address,
     recorder_address,
     recordings_address,
     setups_address,
@@ -759,6 +760,8 @@ def views(served: Served) -> list[str]:
         recorder_address("acme") + "?locale=it",
         where_address("acme", "triage"),
         where_address("acme", "triage") + "?locale=it",
+        proposal_address("acme", "triage"),
+        proposal_address("acme", "triage") + "?locale=it",
     ]
 
 

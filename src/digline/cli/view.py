@@ -86,15 +86,22 @@ from digline.cli.output import flush, say
 from digline.core import RefusedError, key_of
 from digline.host import (
     REFUSALS,
+    ProposalFile,
     SuiteRuns,
+    UsageError,
+    found_proposal,
     import_elect,
     import_listing,
     imported_since,
     left_out_parts,
     promote_priced,
     promotion_refusal,
+    proposal_places,
+    read_proposal,
     record_compare,
     recorder_status,
+    suggest_lines,
+    suite_file_of,
     suite_runs,
     suites_of,
     switch_off,
@@ -823,6 +830,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_recorder(locale, path)
             elif path.startswith("/where/"):
                 self._screen_where(locale, path)
+            elif path.startswith("/proposal/"):
+                self._screen_proposal(locale, path)
             elif path in STATIC:
                 self._static(path)
             elif path.startswith(EXTENSION_PREFIX):
@@ -1173,6 +1182,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_tenant_where(locale)
             elif path.startswith("/recorder/"):
                 self._screen_recorder(locale, path)
+            elif path.startswith("/proposal/"):
+                self._screen_proposal(locale, path)
             elif path in STATIC:
                 self._static(path)
             else:
@@ -1227,7 +1238,13 @@ class ViewHandler(BaseHTTPRequestHandler):
                 f"{self.suite.tenant!r}'s, not {tenant!r}'s",
             )
             return
-        found = where(Path(self.root), tenant, suite=self.suite, module=self.module)
+        found = where(
+            Path(self.root),
+            tenant,
+            suite=self.suite,
+            module=self.module,
+            suite_file=suite_file_of(self.suite_arg, self.module),
+        )
         self._page(
             recorder_pages.where_page(
                 found,
@@ -1238,6 +1255,67 @@ class ViewHandler(BaseHTTPRequestHandler):
                 writes=self._switch_flags(tenant),
             ),
             here="where",
+            locale=locale,
+        )
+
+    def _screen_proposal(self, locale: Locale, path: str) -> None:
+        """`/proposal/<tenant>/<suite>/`: the proposal `digline suggest` wrote
+        for the suite, read only, from `digline.host.proposal`, where suggest
+        writes it: beside the suite's file on a server started with one, in
+        the store's root and the server's directory on one started without.
+        GET alone: no route of the page writes it, and no button asks a
+        model. (ADR 0063, the read-only view ruled 2026-11-09)"""
+        parts = self._segments(path, "/proposal/", 2)
+        if parts is None or parts[2]:
+            self._error(404, f"no such page: {path}")
+            return
+        named, name, _ = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None:
+            return
+        if tenant != self.tenant:
+            # Another tenant's proposal is another perimeter's file (decision 8).
+            self._error(404, f"no such page: this server serves tenant {self.tenant!r}")
+            return
+        if self._suite is not None:
+            if not self._this_suite(name):
+                return
+            suite_arg: str | None = self.suite_arg
+            suite_file: Path | None = suite_file_of(self.suite_arg, self.module)
+        else:
+            try:
+                checked_name(name, "suite")
+            except PathRefusedError as exc:
+                self._error(400, str(exc))
+                return
+            suite_arg, suite_file = None, None
+        root = Path(self.root or ".")
+        places = proposal_places(suite_file, root, Path.cwd())
+        at = found_proposal(places, name)
+        found: ProposalFile | None = None
+        invalid: str | None = None
+        if at is not None:
+            try:
+                found = read_proposal(at)
+            except UsageError as exc:
+                invalid = str(exc)
+        self._page(
+            recorder_pages.proposal_page(
+                found,
+                suite=name,
+                places=[str(place) for place in places],
+                lines=suggest_lines(
+                    found,
+                    suite_arg=suite_arg,
+                    suite=name,
+                    tenant=tenant,
+                    root=self._root_flags(),
+                ),
+                shown_path=None if at is None else str(at),
+                invalid=invalid,
+                locale=locale,
+            ),
+            here="proposal",
             locale=locale,
         )
 

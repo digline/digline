@@ -327,6 +327,23 @@ first and it is never the judge, so no verdict depends on it.
 - **Choosing cases, or answers to review**, which amends ADR 0023 §4 and ADR
   0059 §3.
 - **The read-only view** at the page.
+
+  *Ruled 2026-11-09, by Alessandro Prandini (P-1597, P-1598):* **the page
+  shows the proposal, read only, in 1.1.** A view of digline's own,
+  `/proposal/<tenant>/<suite>/`, reads `suite.proposed.toml` where `suggest`
+  writes it: beside the suite's file, or, for a suite that does not exist
+  yet, in the store's root and the server's directory, with no walk of the
+  tree. It reads the values with the reader a suite file is read with,
+  `read_toml`, and not through `load_suite`, which refuses the file by its
+  name (§3): the view reads a proposal on purpose, and loads no suite. What
+  `tomllib` drops, the comments, is read from the text: why each check is
+  there, each placeholder, each value the assistant wrote and no run
+  measured. Under it, the command that writes one, without and with
+  `--model`, shown and never run, since §4's cost is said before the call.
+  It takes no POST, and reads no recording. `digline where` names the file
+  in `no_suite_yet`, by its path relative to the root, in its sentence, its
+  `--json` (`proposal`) and its page, and the MCP server's `where` with it.
+  §3 stands as written: no command of digline reads the file as a suite.
 - **`--json` and an MCP tool**, beyond §6's rule for them.
 
   *Noted 2026-11-06, by Alessandro Prandini's ruling (P-1567):* **an MCP tool

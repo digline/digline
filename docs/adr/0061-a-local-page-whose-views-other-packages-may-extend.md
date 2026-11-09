@@ -125,6 +125,13 @@ screens, and serves them on the same server:
   writes, the size and the ceiling, from `recorder_status`;
 - **the latest report**, which is the screen `view` already serves.
 
+*Added 2026-11-09 (ADR 0063, as ruled that day, P-1598):* the page also
+reads **the proposal `digline suggest` wrote**, `suite.proposed.toml`, read
+only, on a view of digline's own, `/proposal/<tenant>/<suite>/`. It adds no
+write: §2's two stay the only two, and the view takes no POST. ADR 0037 §6
+holds there as at the import: the checks are in the file's order, and
+nothing is ranked or chosen.
+
 **Every view calls the function the command calls, and renders what it
 returns.** A page and a command that compute the same fact twice are two
 places that can disagree, and the one that is wrong is the one nobody runs.

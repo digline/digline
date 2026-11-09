@@ -114,7 +114,8 @@ suite. From the fourth on, the page lists the suites the tenant's store holds,
 each with its recordings and runs, and the command that serves one,
 `digline view --suite` and its file: a store files a suite by its name, and the
 file that declares it is yours. The recorder's page is served too, with its
-switch under `--allow-record`. `--allow-promote` is refused, because a
+switch under `--allow-record`, and the proposal of a suite that does not
+exist yet, [below](#the-recorders-views). `--allow-promote` is refused, because a
 promotion is a suite's run. Every other page is a suite's, and says so.
 
 **A server with `--suite` reads the suite again when it changes.** A
@@ -131,7 +132,7 @@ no longer loads is said on the page, as the command would say it.
 | *Nothing recorded yet* | no recording, and the suite has never run | the three lines that start recording, for Python, Java, Node or any other language, quoted from [`record.md`](record.md), [digline for Java](record-java.md) and [digline for Node](record-node.md) |
 | *Recording is off* | the switch says off, every recording has been imported, and the suite has never run | `digline record on`; a button only with `--allow-record` |
 | *N calls named no suite* | every recording named no suite | the suite at the call site, or `--from _unassigned` |
-| *N recordings in S, no suite yet* | the suite has recordings and no capture declaration | the recordings counted by the shape of their output, and [an agent's proposal](proposing-a-suite.md) or [the capture declaration](declarative.md#capture) |
+| *N recordings in S, no suite yet* | the suite has recordings and no capture declaration | the recordings counted by the shape of their output, and [an agent's proposal](proposing-a-suite.md) or [the capture declaration](declarative.md#capture); where `digline suggest` wrote a proposal nobody adopted, its path and the Proposal view |
 | *N since the last import* | recordings after the last import, or never imported | the Recordings view |
 | *The suite has never run* | no run | `digline run`, shown and never run |
 | *The judge disagrees with a person on N* | the newest run has a contradicted reviewed answer or a calibration case outside its band | [Calibrating a judge](calibration.md), `digline explain` |
@@ -161,7 +162,9 @@ The page that says more: https://digline.dev/product/record/
 
 `--tenant` is mandatory; with `--suite`, the states about its runs can hold
 too, and the suite's tenant is checked against it. `--json` is the same
-reading for a program: the state, its count, the shapes of `no_suite_yet`,
+reading for a program: the state, its count, the shapes of `no_suite_yet`
+and, in that state alone, `proposal`, the path of a proposal nobody adopted
+relative to the root or `null`,
 the newest run's key and exit code where the state read one, the last import,
 the next step's command and the pages. The MCP server's `where` returns it,
 equal field for field ([digline over MCP](mcp.md)). It exits 0 whenever it
@@ -169,7 +172,7 @@ could read the store: it is a reading, not a gate.
 
 ## The recorder's views
 
-Three more views sit beside the screens, in the menu of every page, for the
+Four more views sit beside the screens, in the menu of every page, for the
 suite the server was started with and its tenant. Each calls the function its
 command calls and renders what it returns, so a page and a command cannot say
 two different things about the same recordings.
@@ -210,9 +213,24 @@ file, and only the suite says where it is. Then the switch, its values, each
 marked declared or default, where the recorder writes, and the recordings by
 suite.
 
+**Proposal** (`/proposal/<tenant>/<suite>/`) — the file
+[`digline suggest`](suggest.md) wrote, `suite.proposed.toml`, read and never
+loaded as a suite: what it declares, each check in the file's order with why
+it is there, each value with its mark (*a placeholder: yours to write*, or
+*from the assistant, not measured*), the counterexample and the calibration
+skeleton. Under them, the command that writes one, without and with
+`--model`, shown and never run, because what a model costs is said before
+its call; and, where the file is there, that `suggest` does not overwrite it.
+It is looked for where `suggest` writes it: beside the suite's file, or, for
+a suite that does not exist yet, in the store's root and the directory the
+server runs in, never further. Where there is none, the page says where it
+looked. It reads the file alone, no recording, and writes nothing: it takes
+no POST. ([ADR 0063](adr/0063-suggest-a-first-suite-proposed-and-never-marked.md),
+*Not decided here*, as ruled 2026-11-09)
+
 A refusal reaches the page as the command prints it: another tenant's
 recordings, a `setup` given once, a tenant name that is not a name. A suite
-other than the server's is no page. **Without `--allow-record` the three views
+other than the server's is no page. **Without `--allow-record` the four views
 read and write nothing**, and a page that would write says where the writes
 are. With it, the recordings and the recorder carry the two writes
 [below](#-allow-record).

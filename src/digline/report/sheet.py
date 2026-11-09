@@ -223,6 +223,10 @@ input:focus-visible, button:focus-visible, select:focus-visible, a:focus-visible
 .votes { color: var(--faint); font-size: .75rem; font-variant-numeric: tabular-nums;
          margin-top: .15rem; }
 td.absent { color: var(--faint); font-style: italic; }
+/* A proposal's marks: a placeholder is the person's to write, and a value the
+   assistant wrote was measured by no run. (ADR 0063) */
+td.placeholder { color: var(--warn); font-weight: 600; }
+td.assisted { color: var(--faint); font-style: italic; }
 .commit code { color: var(--text); }
 pre.snippet { background: var(--sunken); border: 1px dashed var(--line-strong);
               border-radius: .375rem; padding: .75rem 1rem; overflow-x: auto;

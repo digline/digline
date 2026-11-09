@@ -64,6 +64,7 @@ __all__ = [
     "locale_of",
     "nav",
     "phrase",
+    "proposal_address",
     "recorder_address",
     "recordings_address",
     "run_page",
@@ -147,6 +148,12 @@ def recorder_address(tenant: str) -> str:
     return f"/recorder/{_segment(tenant)}/"
 
 
+def proposal_address(tenant: str, suite: str) -> str:
+    """Where the proposal `digline suggest` wrote for a suite is shown, read
+    only. (ADR 0063, the read-only view ruled 2026-11-09)"""
+    return f"/proposal/{_segment(tenant)}/{_segment(suite)}/"
+
+
 def where_address(tenant: str, suite: str) -> str:
     """Where the view of what comes next is shown, for a suite of a tenant."""
     return f"/where/{_segment(tenant)}/{_segment(suite)}/"
@@ -204,6 +211,7 @@ def with_screens(
     for name, href in (
         ("recordings", recordings_address(tenant, suite)),
         ("setups", setups_address(tenant, suite)),
+        ("proposal", proposal_address(tenant, suite)),
         ("recorder", recorder_address(tenant)),
     ):
         mark = ' class="here"' if name == here else ""
