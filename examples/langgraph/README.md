@@ -1,9 +1,10 @@
 # My agent calls the right tools, but with the right arguments?
 
-A LangGraph dispatch agent with two tools — look an order up, refund its
-shipping — and digline holding **the trajectory** against a baseline committed
-here. The target is **a function**: digline imports `app.py` and invokes the
-graph in process. No server, no HTTP, no port.
+A LangGraph dispatch agent with three tools — look an order up, refund its
+shipping, cancel an order not yet delivered — and digline holding **the
+trajectory** against a baseline committed here. The target is **a function**:
+digline imports `app.py` and invokes the graph in process. No server, no HTTP,
+no port.
 
 Tested against **langgraph 1.2.11** and **langchain 1.4.0**.
 
@@ -25,10 +26,34 @@ and refund the figure the lookup returned** — not the one the customer stated.
 An agent that skips the lookup writes a perfectly good sentence and moves real
 money against a number it invented, and no assertion on the text can see it.
 
-So four checks, in `suite.py`:
+So eight checks, in `suite.py`. Four are on the steps the agent took:
 
 ````python
-ToolsCalled(expected=["lookup", "refund"])
+Before(first="lookup", then="refund")
+Subsequence(tools=["lookup", "refund"])
+Never(tool="cancel_order")
+MaxSteps(limit=3, count="model")
+````
+
+- **`Before`** is the policy: no `refund` without a `lookup` before it. It
+  passes where `refund` was never called, so alone it cannot see an agent that
+  did nothing.
+- **`Subsequence`** is the job: a `lookup`, then a `refund`, anything between.
+  A second lookup before refunding is care, which `ToolsCalled`'s whole
+  sequence would report as a regression.
+- **`Never`** is the tool the agent is given and must not use here. Every case
+  is a delivery that already happened, and a late one is refunded, never
+  cancelled.
+- **`MaxSteps`** bounds the turns of the model at three, the number the
+  baseline measured in every case: ask for the lookup, ask for the refund,
+  answer. A fourth is the agent going round again.
+
+The target reports its steps itself, under `steps` in `Response.metadata`: a
+`model` step per turn, then a `tool` step per call. `MaxSteps` reads them alone.
+
+And four on what was passed and what was said:
+
+````python
 ToolCalledWith(tool="lookup", arguments={"order_id": "4711"})
 ToolCalledWith(
     tool="refund", arguments={"order_id": "4711", "amount_eur": 4.9}, match="subset"
@@ -58,21 +83,26 @@ invented ones. Then this suite says:
 
 ```
 2 checks got worse compared with the reference. 3 of 4 cases judged, 1 could not be. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
+tenant 'northwind', against baseline 2026-11-09T07-34-31-601146-00-00-8272c672a481d6f2
 
-  amount-asserted-by-the-customer · tool_called_with · Went from passing to failing (1.000000 → 0.000000).
-  amount-asserted-by-the-customer · contains · Went from passing to failing (1.000000 → 0.000000).
-  decoy-number · tools_called · The check could not run.
-  decoy-number · tool_called_with · The check could not run.
-  decoy-number · tool_called_with · The check could not run.
-  decoy-number · contains · The check could not run.
+amount-asserted-by-the-customer · tool_called_with · Went from passing to failing (1.000000 → 0.000000).
+amount-asserted-by-the-customer · contains · Went from passing to failing (1.000000 → 0.000000).
+decoy-number · max_steps · The check could not run.
+decoy-number · before · The check could not run.
+decoy-number · never · The check could not run.
+decoy-number · tool_called_with · The check could not run.
+decoy-number · tool_called_with · The check could not run.
+decoy-number · subsequence · The check could not run.
+decoy-number · contains · The check could not run.
 ```
 
 Two different outcomes, and the difference is the point.
 
 **`amount-asserted-by-the-customer` fails.** The agent refunded 9.90 because the
 customer said so. The trajectory is otherwise perfect — right tools, right
-order, right order id — and the sentence it wrote reads impeccably. Only
-`tool_called_with` on the *refund* sees it.
+order, right order id, so the four checks on the steps stay green — and the
+sentence it wrote reads impeccably. Only `tool_called_with` on the *refund*
+sees it.
 
 **`decoy-number` could not be judged at all.** Taking `12.50` as the order id
 made `refund` raise, the exception came back out of the graph, and digline
@@ -111,14 +141,15 @@ One line in `suite.py`:
 LIVE = os.environ.get("DIGLINE_LIVE") == "1"
 ```
 
-Set it and the same graph, with the same two tools, runs on
+Set it and the same graph, with the same three tools, runs on
 `init_chat_model("anthropic:claude-haiku-4-5")`.
 
 Unset, be honest about what you have: the stand-in replays a script and **never
-reads the prompt**. On the default path the prompt is not under test — the graph
-around it is. That the agent wires two tools, that the loop terminates, that the
-trajectory still has the shape the checks read: those are exactly the things a
-langgraph upgrade breaks, and they are worth a gate that costs nothing.
+reads the prompt**. On the default path the prompt is not under test — the
+graph around it is. That the agent wires three tools, that the loop terminates
+in three turns, that the trajectory still has the shape the checks read: those
+are exactly the things a langgraph upgrade breaks, and they are worth a gate
+that costs nothing.
 
 The two paths are two systems. Each keeps its own baseline; do not promote one
 over the other.
@@ -145,7 +176,7 @@ that needed no pin.
 ```console
 $ uv run digline run --suite suite.py
 $ uv run digline report --suite suite.py --run latest --locale en --out report.html
-$ uv run digline promote --suite suite.py --run latest --replacing 2026-09-13T09-10-05-244767-00-00-50f6e691ce7e15cb
+$ uv run digline promote --suite suite.py --run latest --replacing 2026-11-09T07-34-31-601146-00-00-8272c672a481d6f2
 ```
 
 `--replacing` names the baseline this promotion replaces: here, the one
@@ -178,7 +209,7 @@ comparing a run with itself and passes whatever happened.
 
 - **`uv` and Python 3.12+ on the CI runner.** One `uv sync`, cached. langgraph
   and its dependency tree are the heavy part — 43 packages — not digline.
-- **One Python file in review.** `suite.py` is about a hundred and twenty lines,
+- **One Python file in review.** `suite.py` is about a hundred and thirty lines,
   over half of them comments saying why each check is there, and somebody on the
   team has to be able to read it. That is the real cost and it is not zero.
 - **The stand-in's script.** Two turns per case in `fake.py`. No stand-in in

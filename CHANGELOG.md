@@ -541,6 +541,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   and the models its calls named; `--show-setup` shows `child_setups` one per
   line, each with its model. `--json` is unchanged.
 
+### Examples
+
+- **`examples/langgraph` shows the four checks on the steps.** The order the
+  agent keeps was `ToolsCalled`, the whole sequence; it is now `Before` for
+  the policy, no refund without a lookup before it, and `Subsequence` for the
+  job, a lookup then a refund with anything between. The agent is given a
+  third tool, `cancel_order`, that `Never` holds no case calls, and
+  `MaxSteps(limit=3, count="model")` bounds its turns at the three the
+  baseline measured in every case. The target reports its steps beside its
+  calls, and the baseline is promoted again: six runs on the scripted model
+  gave one set of verdicts.
+
 ### Security
 
 - **A name becomes a path through one function**, `joined_inside`, which

@@ -2,9 +2,9 @@
 
 No server and no HTTP: the target is a plain function that invokes the graph the
 application already has. What is under test is the **trajectory** — which tools
-the agent called, in what order, and with what arguments — because that is where
-this agent's behaviour lives. The answer text is a sentence about money that has
-already moved.
+the agent called, in what order, with what arguments, what it never called and
+in how many turns — because that is where this agent's behaviour lives. The
+answer text is a sentence about money that has already moved.
 
 Two paths, one switch. By default the graph runs on a scripted stand-in, so this
 needs no key and answers the same way every time; that is what CI runs.
@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 from time import perf_counter
 
-from digline.core import Contains, ToolCalledWith, ToolsCalled
+from digline.core import Before, Contains, MaxSteps, Never, Subsequence, ToolCalledWith
 from digline.run import Case, Response, Suite
 from langchain_core.language_models import BaseChatModel
 
@@ -60,12 +60,14 @@ def target(case: Case) -> Response:
     which is fixed decision 9 behaving correctly rather than a workaround.
 
     The trajectory rides in `Response.metadata`, where the trajectory assertions
-    read it. That bag is not persisted; what reaches the run file is what an
-    assertion measured out of it.
+    read it: the names under `tools`, the calls under `tool_calls`, and the
+    same calls as steps, with a step per turn of the model, under `steps`.
+    That bag is not persisted; what reaches the run file is what an assertion
+    measured out of it.
     """
     request = str(case.vars["request"])
     started = perf_counter()
-    final, calls = app.answer(request, _model(request))
+    final, calls, steps = app.answer(request, _model(request))
     # A duration is not a clock, so measuring one here is allowed. No
     # `LatencyBudget` on this path all the same: a ceiling a scripted model can
     # never touch is a check that is green by construction.
@@ -76,6 +78,7 @@ def target(case: Case) -> Response:
         metadata={
             "tools": [call["tool"] for call in calls],
             "tool_calls": calls,
+            "steps": steps,
         },
     )
 
@@ -85,11 +88,24 @@ suite = Suite(
     environment="staging",
     name="dispatch",
     assertions=[
-        # The policy, and the one check that is about *how* the answer was
-        # produced. Look it up, then refund it: an agent that refunds first has
-        # moved money against a figure nobody verified, and every check below
-        # would still be green.
-        ToolsCalled(expected=["lookup", "refund"]),
+        # The policy: no refund without a lookup before it. An agent that
+        # refunds first has moved money against a figure nobody verified, and
+        # every check on the arguments would still be green. It passes where
+        # `refund` was never called, which is the next check's business.
+        Before(first="lookup", then="refund"),
+        # The job: it looked the order up and then refunded it, whatever it did
+        # between. Not the whole sequence, as `ToolsCalled` would ask: a second
+        # lookup before refunding is the agent being careful, not a regression.
+        Subsequence(tools=["lookup", "refund"]),
+        # The tool the agent is given and must not use here. Every case is a
+        # delivery that already happened, and a late delivery is refunded,
+        # never cancelled: `cancel_order` would answer the customer and lose
+        # the order.
+        Never(tool="cancel_order"),
+        # The bound on a loop, measured rather than chosen: the baseline
+        # records three turns of the model in every case — ask for the lookup,
+        # ask for the refund, answer. A fourth is an agent going round again.
+        MaxSteps(limit=3, count="model"),
         # The id came out of the request. The `decoy-number` case puts a second
         # number in the sentence, and an agent that passes 12.50 as an order id
         # fails here and nowhere else.
