@@ -549,6 +549,10 @@ nothing. No public name is removed or renamed and no exit code changes.
   store, restates it in the same form); and the view's bar finds the runs'
   link in linear time, where a page of many lookalike links took quadratic
   time.
+- **`digline record proxy` with no `--root` starts.** `joined_inside`
+  held its paths as written, so under the default root, `.`, it refused
+  every one, `.digline/acme/recordings is not inside .`, exit `70`. It now
+  holds them as absolute paths and returns them as written, in both copies.
 
 ## digline-mcp — unreleased
 
