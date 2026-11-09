@@ -74,6 +74,7 @@ from digline.host.importing import (
     setups_recorded,
     split_recordings,
 )
+from digline.host.proposal import proposed_for
 from digline.host.recording import recorder_status
 from digline.host.toml_suite import PROPOSAL, read_cases
 from digline.recorder import UNASSIGNED
@@ -310,7 +311,7 @@ def _propose(
     nothing is written and no assistant is asked: what the MCP server
     returns. (ADR 0011 §1, as noted 2026-11-06)"""
     if write and target.exists():
-        whose = _proposed_for(target)
+        whose = proposed_for(target)
         raise RefusedError(
             f"{target} is already there"
             + (f": {PROPOSAL} here is the proposal for {whose!r}" if whose else "")
@@ -549,30 +550,6 @@ def _lines(found: Suggestion, told: Sequence[str]) -> list[str]:
     lines.extend(_examined(found))
     lines.extend(_unassigned(found))
     return lines
-
-
-#: The first line `_toml` writes, which names the suite as JSON writes it.
-_FIRST_LINE = re.compile(
-    r'^# \S+, written by `digline suggest` for suite ("(?:[^"\\]|\\.)*")'
-)
-
-
-def _proposed_for(target: Path) -> str | None:
-    """The suite a proposal already there was written for, read from its
-    first line, or `None` where that line is not the one digline writes."""
-    try:
-        with target.open(encoding="utf-8", errors="replace") as handle:
-            first = handle.readline()
-    except OSError:
-        return None
-    found = _FIRST_LINE.match(first)
-    if found is None:
-        return None
-    try:
-        name = json.loads(found.group(1))
-    except ValueError:
-        return None
-    return name[:40] if isinstance(name, str) else None
 
 
 def _silent(line: str) -> None:

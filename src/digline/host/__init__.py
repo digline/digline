@@ -84,6 +84,14 @@ from digline.host.promotion import (
     promotion_notes,
     promotion_refusal,
 )
+from digline.host.proposal import (
+    ProposalFile,
+    found_proposal,
+    proposal_places,
+    read_proposal,
+    suggest_lines,
+    suite_file_of,
+)
 from digline.host.reading import (
     Explained,
     Reported,
@@ -129,6 +137,12 @@ from digline.host.where import (
 )
 
 __all__ = [
+    "ProposalFile",
+    "found_proposal",
+    "proposal_places",
+    "read_proposal",
+    "suggest_lines",
+    "suite_file_of",
     "DIRTY_SUFFIX",
     "Explained",
     "LATEST",
