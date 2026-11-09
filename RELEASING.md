@@ -2458,6 +2458,56 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v1.1.1 — the release of what v1.1.0 tagged, with `measure()`'s 1.0 form
+  back, and every plugin PyPI serves working beside it.** Tagged on #972's
+  merge commit, `acad7d9a`, which was `origin/main`; the tag object is
+  `488d5474`, pushed at 15:43Z. `publish` (`42647542153`) read `completed`,
+  `success`, at 15:49:02Z, every job green on attempt 1. `docker-publish`
+  (`42647542012`) read `success` at 15:54:01Z.
+  - **The plugins**: *The core against every plugin PyPI serves* read all
+    five as **works**: digline-anthropic 0.8.0, digline-bedrock 0.7.0,
+    digline-mcp 0.8.1 (`<2,>=1.0.2`, the plugin that broke 1.1.0),
+    digline-openai 0.6.0 and pytest-digline 0.5.1.
+  - **The gate.** The `PyPI` job was created at 15:46:47Z and started at
+    15:46:57Z. This session did not read the run's `approvals` record:
+    `release-followup` (`42648435557`) ticked *the reviewer gate*, the publish
+    run records an `approved`, in #973. The session's poll, every 20 seconds,
+    never read the run as `waiting`, so the message asking for the click was
+    not sent before it.
+  - **The index**: the `pypi` job uploaded digline 1.1.1's wheel and sdist and
+    skipped the ten files of the five plugins already served. The upload
+    times PyPI records are 15:47:14Z and 15:47:15Z. The wait saw every pin
+    `after 0s`, and pytest-digline 0.5.1 `after 1s`. Read from outside at
+    15:55:22Z, `/pypi/digline/1.1.1/json` answers 200, with `9.9.9` at 404 as
+    the control read at 15:49:15Z. Its two files carry the SHA256 the upload
+    step printed, `1ea7f4d2…` for the wheel and `b01bc46c…` for the sdist.
+  - **The image**: `docker-publish`'s smoke build waited 240s for digline
+    1.1.1 to be served, from 15:43:51Z to 15:47:51Z. Its install read
+    `served` for the four pins and installed `digline-1.1.1` beside
+    digline-anthropic 0.8.0, digline-openai 0.6.0 and digline-bedrock 0.7.0.
+    The multi-arch build installed the same in the leg that ran. The other
+    leg was `CACHED`, so it proves nothing. `1.1.1`, `1.1` and `latest` read
+    one digest from GHCR at 15:55:13Z,
+    `sha256:1944bfae8ea1f83737183e21ed03067133266d086e90d6d0a17f7f26a2c40484`,
+    and `1.0.3` reads its own, `sha256:e9f5c8be…`, as the control. The image
+    carries the plugins at the versions served today. The plugin releases
+    owed at the cut reach it only with the next `v*` tag.
+  - **The capture (step 6)**: the capture ran, and the pair was present for
+    every pin. In the smoke build and in the multi-arch leg that ran, `wait`
+    and `pip` for `digline` agree on serial 43410489. The earlier reads at
+    serial 43011336 were before the upload. It had nothing to explain.
+  - **The examples (steps 3 and 5)**: the seven locks moved to 1.1.1 with
+    `--upgrade-package digline`, locked with uv 0.13.6 so that `revision = 5`
+    holds; only digline's lines move in each. The ten reports inside step 5's
+    perimeter were rendered against 1.1.1, each from a clean tree, each
+    naming its parent commit; `prompt-first` is held by judgement. `rag`'s
+    reads *What got worse (6)*, as on 1.0.3. The dispatch of `ci.yml` against
+    `main` follows the pull request that lands them. The locks of
+    `langchain`, `llamaindex` and `prompt-first` name digline-anthropic
+    0.8.0, and move again with the plugin releases owed at the cut.
+  - **Step 7**, digline-action's default image, is not in this entry. #973
+    and that repository's tags say where it stands.
+
 - **v1.1.0 — a workspace tag that never reached PyPI, stopped by the check
   that exists to stop it.** Tagged on #970's merge commit, `68487682`, which
   was `origin/main`, with `tools/tag_names.py "digline 1.1.0"` run on that
