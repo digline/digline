@@ -625,6 +625,13 @@ nothing. No public name is removed or renamed and no exit code changes.
 
 ## digline-anthropic — unreleased
 
+- **A reply handed back as the SDK gave it is recorded.** An agent that puts
+  `reply.content` into its next call's messages passes the SDK's own models,
+  which the map wrote as they came: the call was counted `not JSON` and not
+  recorded, and its turn was written one model step short. The map now
+  writes each model as the SDK sends it, and a value that is still not data
+  is counted, and said once on standard error, by the key it sits at and its
+  type, such as `messages[0].when holds a date`.
 - **A call recorded with `extra_body` has the setup it has off the wire**, as
   for `digline-openai` above, and with the same consequence: a setup that sent
   `extra_body` records under another digest than before. The stream readings

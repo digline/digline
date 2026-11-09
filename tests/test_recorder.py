@@ -438,7 +438,8 @@ def test_a_broken_writer_lets_the_call_through_and_counts(
 def test_a_value_json_cannot_carry_lets_the_call_through_and_counts(
     tmp_path: Path,
 ) -> None:
-    # The SDK sends a date as its ISO text; a recording refuses to rewrite it.
+    # The SDK sends a date as its ISO text; a recording refuses to rewrite it,
+    # and says where it sits and what it is, not "not JSON". (P-1588)
     client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
     reply = client.messages.create(
         model="claude-test",
@@ -451,7 +452,7 @@ def test_a_value_json_cannot_carry_lets_the_call_through_and_counts(
     assert reply.content[0].text == "Paris"  # pyright: ignore[reportAttributeAccessIssue]
     assert counts(client) == {
         "recorded": 0,
-        "not_recorded": {"not JSON": 1},
+        "not_recorded": {"messages[0].when holds a date": 1},
         "orphan": 0,
         "noted": {},
     }
