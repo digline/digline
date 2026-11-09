@@ -1,16 +1,18 @@
-"""The agent under test: two tools, and a policy about the order it uses them in.
+"""The agent under test: three tools, and a policy about how it uses them.
 
-A dispatch desk that can look an order up and refund its shipping. The rule the
-business cares about is not in the answer text at all — it is that the agent
-**looks the order up before it refunds it**, and refunds the figure the lookup
-returned rather than the one the customer asserted. An agent that skips the
-lookup writes a plausible sentence and moves real money against a number it
-invented.
+A dispatch desk that can look an order up, refund its shipping, and cancel an
+order that has not been delivered. The rule the business cares about is not in
+the answer text at all — it is that the agent **looks the order up before it
+refunds it**, refunds the figure the lookup returned rather than the one the
+customer asserted, and **never cancels a delivery that already happened**. An
+agent that skips the lookup writes a plausible sentence and moves real money
+against a number it invented.
 
-`answer()` returns the final text **and the trajectory**, as a projection:
-`(tool, arguments, result, status)` per call, in order. That shape is chosen and
-not incidental — see `suite.py` for why the raw message list is not what the
-baseline records.
+`answer()` returns the final text **and the trajectory**, twice over: as calls,
+`(tool, arguments, result, status)` per call in order, and as steps, one per
+turn of the model followed by one per tool call it asked for. That shape is
+chosen and not incidental — see `suite.py` for why the raw message list is not
+what the baseline records.
 """
 
 from __future__ import annotations
@@ -57,6 +59,15 @@ def refund(order_id: str, amount_eur: float) -> str:
     return f"refunded {amount_eur:.2f} EUR against order {order_id}"
 
 
+@tool
+def cancel_order(order_id: str) -> str:
+    """Cancel an order that has not been delivered yet."""
+    found = ORDERS.get(order_id)
+    if found is None:
+        raise ValueError(f"refusing to cancel unknown order {order_id}")
+    return f"cancelled order {order_id}, which was {found['status']}"
+
+
 #: Read from the file, never inlined here. `suite.py` declares that same path as
 #: the thing under test (ADR 0003), and a prompt hardcoded beside a declaration
 #: pointing at a file is a run recording an artifact nothing used.
@@ -68,7 +79,7 @@ def build(model: BaseChatModel) -> Any:
     moved to `langchain.agents` in v1, still imports, warns, and goes away in
     v2."""
     return create_agent(  # pyright: ignore[reportUnknownVariableType]
-        model=model, tools=[lookup, refund], system_prompt=SYSTEM
+        model=model, tools=[lookup, refund, cancel_order], system_prompt=SYSTEM
     )
 
 
@@ -114,8 +125,34 @@ def trajectory(messages: list[BaseMessage]) -> list[dict[str, object]]:
     return ordered
 
 
-def answer(request: str, model: BaseChatModel) -> tuple[str, list[dict[str, object]]]:
-    """Run the agent once. The final text, and how it got there."""
+def steps(messages: list[BaseMessage]) -> list[dict[str, object]]:
+    """The trajectory as steps: one `model` step per turn of the model, with how
+    the turn ended, then one `tool` step per call it asked for, in the order the
+    calls came back.
+
+    The shape digline reads under `steps` (ADR 0060 §2): `finish` is `tool_use`
+    on a turn that asked for a tool and `stop` on the turn that answered, and a
+    tool step carries its whole call as `trajectory()` gives it: tool,
+    arguments, result and status. digline records the calls under `tool_calls`
+    and those of the steps, and refuses the run where the two differ, so the
+    tool steps are built from the same `ToolMessage`s, in the same order.
+    """
+    calls = iter(trajectory(messages))
+    found: list[dict[str, object]] = []
+    for message in messages:
+        if isinstance(message, AIMessage):
+            finish = "tool_use" if message.tool_calls else "stop"
+            found.append({"index": len(found), "actor": "model", "finish": finish})
+        elif isinstance(message, ToolMessage):
+            found.append({"index": len(found), "actor": "tool", **next(calls)})
+    return found
+
+
+def answer(
+    request: str, model: BaseChatModel
+) -> tuple[str, list[dict[str, object]], list[dict[str, object]]]:
+    """Run the agent once. The final text, and how it got there: as calls, and
+    as steps."""
     state = build(model).invoke({"messages": [("user", request)]})
     messages = cast("list[BaseMessage]", state["messages"])
     final = next(
@@ -126,4 +163,4 @@ def answer(request: str, model: BaseChatModel) -> tuple[str, list[dict[str, obje
         ),
         "",
     )
-    return final, trajectory(messages)
+    return final, trajectory(messages), steps(messages)

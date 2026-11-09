@@ -510,8 +510,9 @@ def target(case: Case) -> Response:
 **Absent is not empty.** Without the key, the check that reads it errors on
 every case: a target that reports nothing is not a model that called nothing.
 `[]` is the model calling nothing. `examples/langgraph/suite.py` fills both keys
-this way. A declarative HTTP target derives the names from `tool_calls_path`
-alone ([`declarative.md`](declarative.md)).
+this way, and `steps` beside them for the four checks below. A declarative HTTP
+target derives the names from `tool_calls_path` alone
+([`declarative.md`](declarative.md)).
 
 ### Four checks on the steps
 
