@@ -1335,6 +1335,48 @@ def test_the_address_opens_one_browser(root: Path) -> None:
         assert first.ask("POST", recorder_address("acme"), "action=off").status == 303
 
 
+@pytest.mark.parametrize(
+    ("allow_record", "allow_promote", "act"),
+    [
+        (
+            True,
+            False,
+            "Write the recorder's switch and a suite's cases from the browser "
+            "that opened it",
+        ),
+        (False, True, "Promote from the browser that opened it"),
+        (
+            True,
+            True,
+            "Promote, or write the recorder's switch and a suite's cases, from "
+            "the browser that opened it",
+        ),
+    ],
+    ids=["record", "promote", "both"],
+)
+def test_the_second_opening_says_what_this_server_does(
+    root: Path, allow_record: bool, allow_promote: bool, act: str
+) -> None:
+    """A server started with `--allow-record` alone said *Promote from the
+    browser that opened it*, and does not promote. The sentence names what the
+    server does, and names promoting only where `--allow-promote` was given.
+    (P-1588)"""
+    with serving(root, allow_record=allow_record, allow_promote=allow_promote) as (
+        server,
+        launch,
+    ):
+        assert launch is not None
+        opened(server, launch)
+        second = server.ask("GET", f"/?launch={launch.key}")
+    said = unescape(second.body)
+    assert second.status == 403
+    assert (
+        "refused: this address has already been opened, and it opens one browser "
+        f"once. {act}, or stop digline view and start it again for a new address."
+    ) in said
+    assert ("Promote" in said) is allow_promote
+
+
 def test_promotion_alone_serves_no_write_of_the_recorder(root: Path) -> None:
     """`--allow-promote` without `--allow-record`: the key is there, and the
     recorder's routes are still absent, a 404, with no form drawn."""

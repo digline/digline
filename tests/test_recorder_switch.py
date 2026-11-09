@@ -767,9 +767,15 @@ def test_the_counts_outlive_the_process_and_status_reads_them(
     assert done.returncode == 0, done.stderr
     [status] = recorder_status(tmp_path, "acme")
     [triage] = status.suites
-    assert (triage.calls, dict(triage.not_recorded)) == (1, {"not JSON": 1})
+    # Counted by where the date sits and what it is. (P-1588; it was "not JSON")
+    assert (triage.calls, dict(triage.not_recorded)) == (
+        1,
+        {"messages[0].when holds a date": 1},
+    )
     assert main(["record", "status", "--root", str(tmp_path)]) == 0
-    assert "    not recorded: not JSON 1" in capsys.readouterr().out
+    assert (
+        "    not recorded: messages[0].when holds a date 1" in capsys.readouterr().out
+    )
 
 
 def test_record_status_counts_an_orphan(tmp_path: Path) -> None:
