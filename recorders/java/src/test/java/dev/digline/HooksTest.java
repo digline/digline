@@ -2,6 +2,7 @@ package dev.digline;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.anthropic.client.AnthropicClient;
@@ -33,6 +34,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeAsyncClient;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.services.bedrockruntime.model.BedrockRuntimeException;
 import software.amazon.awssdk.services.bedrockruntime.model.ContentBlock;
 import software.amazon.awssdk.services.bedrockruntime.model.ConversationRole;
 import software.amazon.awssdk.services.bedrockruntime.model.ConverseRequest;
@@ -426,6 +428,53 @@ class HooksTest {
         }
         assertEquals(List.of(), recordings());
         assertEquals(Map.of("map", 1L), recorder.counts().get("not_recorded"));
+    }
+
+    /** A provider that refuses every call with {@code status}, as Bedrock refused a key it did not accept. */
+    static Map<String, Object> refusing(String route, int status) {
+        Map<String, Object> wire = new LinkedHashMap<>();
+        wire.put("route", route);
+        wire.put("status", status);
+        wire.put("reply", Map.of("message", "The security token included in the request is invalid."));
+        return wire;
+    }
+
+    @Test
+    void aCallTheProviderRefusesIsCountedByItsStatusAndNotRecorded() throws IOException {
+        DiglineRecorder recorder = recorder();
+        try (FakeProvider provider = new FakeProvider(refusing("openai", 403))) {
+            assertThrows(com.openai.errors.PermissionDeniedException.class,
+                    () -> openai(provider, recorder).chat().completions().create(OPENAI_ASKED));
+        }
+        assertEquals(Map.of("provider error 403", 1L), recorder.counts().get("not_recorded"), "OpenAI");
+        try (FakeProvider provider = new FakeProvider(refusing("anthropic", 403))) {
+            assertThrows(com.anthropic.errors.PermissionDeniedException.class,
+                    () -> anthropic(provider, recorder).messages().create(ANTHROPIC_ASKED));
+        }
+        assertEquals(Map.of("provider error 403", 2L), recorder.counts().get("not_recorded"), "Anthropic");
+        try (FakeProvider provider = new FakeProvider(refusing("bedrock", 403));
+                BedrockRuntimeClient client = bedrock(provider, recorder)) {
+            BedrockRuntimeException refused = assertThrows(BedrockRuntimeException.class,
+                    () -> client.converse(ConverseRequest.builder().modelId(MODEL).messages(bedrockAsked()).build()));
+            assertEquals(403, refused.statusCode());
+        }
+        assertEquals(Map.of("provider error 403", 3L), recorder.counts().get("not_recorded"), "Bedrock");
+        try (FakeProvider provider = new FakeProvider(refusing("bedrock", 403));
+                BedrockRuntimeAsyncClient client = BedrockRuntimeAsyncClient.builder()
+                        .endpointOverride(URI.create(provider.url())).region(Region.US_EAST_1)
+                        .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("a", "b")))
+                        .overrideConfiguration(c -> c.addExecutionInterceptor(new DiglineAws(recorder)))
+                        .httpClientBuilder(NettyNioAsyncHttpClient.builder().protocol(Protocol.HTTP1_1))
+                        .build()) {
+            java.util.concurrent.CompletionException failed = assertThrows(
+                    java.util.concurrent.CompletionException.class, () -> client.converse(ConverseRequest
+                            .builder().modelId(MODEL).messages(bedrockAsked()).build()).join());
+            // The provider's refusal, and not a transport that never reached it.
+            assertEquals(403, ((BedrockRuntimeException) failed.getCause()).statusCode());
+        }
+        assertEquals(List.of(), recordings());
+        assertEquals(Map.of("provider error 403", 4L), recorder.counts().get("not_recorded"));
+        assertEquals(0L, recorder.counts().get("recorded"));
     }
 
     @Test

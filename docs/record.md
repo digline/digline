@@ -137,6 +137,10 @@ that stream by name, `messages.stream()`, `chat.completions.stream()` and
   a reply is not a reply. It is counted `stream abandoned`.
 - **An exception inside the stream** propagates as the SDK raised it, and is
   counted under its class's name, `APIStatusError` for example.
+- **A call the provider refuses**, with a 4xx or a 5xx, raises the SDK's
+  exception as it was raised and records nothing: there is no reply. It is
+  counted `provider error <status>`, `provider error 403` for a key the
+  provider does not accept, where the exception carries the status.
 - **Usage that arrives only on request** is never requested by the recorder:
   it does not change the request. OpenAI sends counts in a stream only with
   `stream_options={"include_usage": True}`. Without them the reply is recorded
@@ -435,7 +439,8 @@ same tools, in the same order: never on one it may not answer.
 a connection owns. A stream is passed on as it arrives and recorded at its
 end; one the application closes first is counted `stream abandoned` and not
 recorded, as in process. A reply that is not a 200 is passed on and not
-recorded. An upstream that does not answer within 600 seconds is a 504 that
+recorded; a refusal, 4xx or 5xx, is counted `provider error <status>`, as in
+process. An upstream that does not answer within 600 seconds is a 504 that
 says so.
 
 **What it does not see**: a call the application does not point at it, the

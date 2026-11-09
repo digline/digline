@@ -14,8 +14,8 @@ What is held here:
 - an episode from `X-Digline-Episode`, written once it is idle, with the case
   `X-Digline-Case` gives or its first call's, and the import says which;
 - a stream the application closes before its end is `stream abandoned`;
-- off, nothing is written; a 500 passes on as it came and is not recorded; an
-  upstream that does not answer is a 504 that says so; a route no plugin is
+- off, nothing is written; a 500 or a 403 passes on as it came, is not
+  recorded, and is counted `provider error <status>`; an upstream that does not answer is a 504 that says so; a route no plugin is
   installed for is a 502 that names the package;
 - an endpoint that answers in OpenAI's shape, at another path, as Gemini's
   OpenAI-compatible one does, is read by OpenAI's map;
@@ -113,7 +113,8 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
 
 class Upstream:
     """OpenAI and Anthropic, faked: each request kept, each reply by the
-    request's `model`: `error` a 500, `sleep` too late, `slow` a stream that
+    request's `model`: `error` a 500, `refused` a 403, `sleep` too late, `slow`
+    a stream that
     takes its time. Bedrock's two streams, too, each the same bytes of
     `EVENT_STREAMS` whatever was asked. `port` 0 takes a free one;
     `tests/proxy_upstream.py` runs it as a process on a port it names, for the
@@ -150,6 +151,12 @@ class Upstream:
                 model = body.get("model")
                 if model == "error":
                     self._json(500, {"type": "error", "error": {"message": "boom"}})
+                    return
+                if model == "refused":
+                    self._json(
+                        403,
+                        {"type": "error", "error": {"message": "not this key"}},
+                    )
                     return
                 if model == "sleep":
                     time.sleep(1.5)
@@ -510,9 +517,24 @@ def test_an_upstream_error_passes_on_as_it_came_and_is_not_recorded(
     assert raised.value.body == {"message": "boom"}
     proxy.stop()
     assert recordings(tmp_path, 0) == []
-    # Not read either: an error is not a call that ended, so it is not
-    # counted as one the map could not read.
-    assert counted(tmp_path) == {}
+    # Not read either: an error is not a call that ended, so it is counted by
+    # the provider's status and not as one the map could not read.
+    assert counted(tmp_path) == {"triage": {"provider error 500": 1}}
+
+
+def test_a_refused_key_passes_on_as_it_came_and_is_counted_403(
+    proxy: Proxy, tmp_path: Path
+) -> None:
+    import anthropic
+
+    with pytest.raises(anthropic.PermissionDeniedError) as raised:
+        an_anthropic(proxy.address, **SUITE).messages.create(
+            model="refused", max_tokens=10, messages=QUESTION
+        )
+    assert raised.value.status_code == 403
+    proxy.stop()
+    assert recordings(tmp_path, 0) == []
+    assert counted(tmp_path) == {"triage": {"provider error 403": 1}}
 
 
 def test_an_upstream_that_does_not_answer_is_a_504_that_says_so(

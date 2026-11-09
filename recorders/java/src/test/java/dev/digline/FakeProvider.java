@@ -14,7 +14,7 @@ import java.util.zip.CRC32;
 
 /**
  * A provider on 127.0.0.1 that answers every POST with one wire fixture, in
- * the provider's own shape: a JSON reply, server-sent events for OpenAI and
+ * the provider's own shape, with the fixture's {@code status} where it has one: a JSON reply, server-sent events for OpenAI and
  * Anthropic, or an AWS event stream for Bedrock. It keeps the last request's
  * body, which is what the SDK actually sent.
  */
@@ -86,7 +86,10 @@ final class FakeProvider implements AutoCloseable {
             type = "text/event-stream";
         }
         exchange.getResponseHeaders().add("Content-Type", type);
-        exchange.sendResponseHeaders(200, events == null ? body.length : 0);
+        // A fixture may say the provider refused the call: its reply is then
+        // the error's body, sent with that status.
+        int status = wire.get("status") instanceof Number refused ? refused.intValue() : 200;
+        exchange.sendResponseHeaders(status, events == null ? body.length : 0);
         try (OutputStream out = exchange.getResponseBody()) {
             if (events == null) {
                 out.write(body);

@@ -408,9 +408,14 @@ class _Handler(BaseHTTPRequestHandler):
                 )
             return
         if reply.status != 200:
-            # An error passes on as it came and is neither recorded nor
-            # counted, as an SDK's exception is not in process.
-            self.recorder.end(episode)
+            # An error passes on as it came and is not recorded. A refusal,
+            # 4xx or 5xx, is counted by its status, as in process.
+            if 400 <= reply.status <= 599:
+                self._missed(
+                    records, f"provider error {reply.status}", suite, app, episode
+                )
+            else:
+                self.recorder.end(episode)
             return
         self._record(
             cast(str, route),

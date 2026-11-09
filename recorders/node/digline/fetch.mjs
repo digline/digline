@@ -115,6 +115,9 @@ class Watched {
   }
 
   reply(response) {
+    if (this.sent !== null) {
+      this.recorder.refused(response.status, this.at);
+    }
     if (this.sent === null || response.status < 200 || response.status > 299 || response.body === null) {
       return response;
     }

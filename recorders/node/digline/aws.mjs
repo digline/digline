@@ -156,6 +156,7 @@ class Watched {
   async reply(out) {
     const response = out?.response;
     const status = response?.statusCode;
+    this.recorder.refused(status, this.at);
     if (typeof status !== "number" || status < 200 || status > 299) {
       return out;
     }
