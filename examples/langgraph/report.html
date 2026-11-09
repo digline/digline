@@ -211,6 +211,10 @@ input:focus-visible, button:focus-visible, select:focus-visible, a:focus-visible
 .votes { color: var(--faint); font-size: .75rem; font-variant-numeric: tabular-nums;
          margin-top: .15rem; }
 td.absent { color: var(--faint); font-style: italic; }
+/* A proposal's marks: a placeholder is the person's to write, and a value the
+   assistant wrote was measured by no run. (ADR 0063) */
+td.placeholder { color: var(--warn); font-weight: 600; }
+td.assisted { color: var(--faint); font-style: italic; }
 .commit code { color: var(--text); }
 pre.snippet { background: var(--sunken); border: 1px dashed var(--line-strong);
               border-radius: .375rem; padding: .75rem 1rem; overflow-x: auto;
@@ -292,7 +296,7 @@ body.wide table.keys td { white-space: normal; overflow-wrap: anywhere; }
 </head>
 <body>
 <h1>Evaluation report — dispatch</h1>
-<dl class="meta"><dt>Customer</dt><dd>northwind</dd><dt>Suite</dt><dd>dispatch</dd><dt>This run</dt><dd>staging — 2026-11-09T07:36:30.872329+00:00</dd><dt>Reference</dt><dd>staging — 2026-11-09T07:34:31.601146+00:00</dd><dt>Code version</dt><dd>f4c103b09a5f31a18c6d0e5bd3dfb064925cd7cf</dd><dt>Reference approved</dt><dd>2026-11-09T07:34:39.827756+00:00</dd><dt>Reference key</dt><dd>2026-11-09T07-34-31-601146-00-00-8272c672a481d6f2</dd></dl>
+<dl class="meta"><dt>Customer</dt><dd>northwind</dd><dt>Suite</dt><dd>dispatch</dd><dt>This run</dt><dd>staging — 2026-11-09T15:53:33.925731+00:00</dd><dt>Reference</dt><dd>staging — 2026-11-09T07:34:31.601146+00:00</dd><dt>Code version</dt><dd>a3e58449f81d46ce24443f77eb3f85d36a3389f6</dd><dt>Reference approved</dt><dd>2026-11-09T07:34:39.827756+00:00</dd><dt>Reference key</dt><dd>2026-11-09T07-34-31-601146-00-00-8272c672a481d6f2</dd></dl>
 <section class="answer fine">
 <p class="verdict">Did it get worse? No</p>
 <p>Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.</p>
