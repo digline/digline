@@ -425,7 +425,7 @@ digline: next: digline compare --suite eval/suite.toml --run latest  # says whet
 2026-11-09T07-34-16-759642-00-00-7aa9217a99f7b370
 ```
 
-The run exited `0`, and said what happened on standard error. The judge
+The run exited `0`, and named the contradiction. The judge
 passed the answer, as the person did; `before` did not, because the turn
 refunded an order it had not looked up.
 
@@ -481,8 +481,8 @@ It exited `64`, and the reference stayed the first run.
   `X-Digline-Episode`: the proxy writes the turn once no call has carried
   that value for 30 seconds, or the value given, and a turn off the wire is
   never interrupted. Measured with this stand-in through the proxy and
-  `--episode-idle 2`: the turn's two calls were counted as they were
-  made, and the episode only once two seconds had passed with no call.
+  `--episode-idle 2`: right after the turn's second call, `record status`
+  counted its two calls and no episode, and four seconds later the episode.
 - **A call made inside a turn from another thread is not one of its
   steps.** Measured with this agent's client, a call from a
   `ThreadPoolExecutor` worker or a `threading.Thread` inside an open episode
