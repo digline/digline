@@ -116,6 +116,13 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
+    "docs/walkthroughs/an-agent.md": {
+        "2.4.0": (
+            "'anthropic 2.4.0': the Python SDK for Anthropic the story was run "
+            "with, on 2026-11-09, not a digline version; written by hand, and no "
+            "test holds it"
+        ),
+    },
     "src/digline/core/projection.py": {
         "0.25.0": (
             "'(Delta-pass over 0.25.0, F-n)': the pass over the 0.25.0 release that "
@@ -389,6 +396,56 @@ RECORDED: dict[str, dict[str, str]] = {
             "held equal to recorders/node/package.json by "
             "tests/test_record_node_page.py"
         ),
+    },
+    "docs/walkthroughs/java-quarkus-bedrock.md": {
+        "2.57.8": (
+            "'the SDK 2.57.8': the AWS SDK for Java v2 the story was run with, on "
+            "2026-11-06, not a digline version; written by hand, and no test "
+            "holds it equal to recorders/java/pom.xml"
+        ),
+        "1.0.0": (
+            "'triage 1.0.0-SNAPSHOT': the version of the story's own Quarkus "
+            "application, in the startup line Quarkus printed, not a digline "
+            "version"
+        ),
+    },
+    "docs/walkthroughs/python-three-prompts.md": {
+        "2.6.0": (
+            "'anthropic 2.6.0': the Python SDK for Anthropic the story was run "
+            "with, on 2026-11-07, not a digline version; written by hand, and no "
+            "test holds it"
+        ),
+    },
+    "docs/walkthroughs/node.md": {
+        "22.22.0": (
+            "'Node 22.22.0': the Node the story was run on, on 2026-11-07, not a "
+            "digline version"
+        ),
+        "7.50.0": (
+            "'openai 7.50.0': the version of Node's openai SDK the story was run "
+            "with, not a digline version, held equal to "
+            "recorders/node/package.json by tests/test_story_node.py"
+        ),
+        "1.4.0": (
+            "'@anthropic-ai/sdk 1.4.0': the version of Node's Anthropic SDK the "
+            "story was run with, not a digline version, held equal to "
+            "recorders/node/package.json by tests/test_story_node.py"
+        ),
+        "3.1163.0": (
+            "'@aws-sdk/client-bedrock-runtime 3.1163.0': the version of Node's "
+            "Bedrock client the story was run with, not a digline version, held "
+            "equal to recorders/node/package.json by tests/test_story_node.py"
+        ),
+    },
+    "docs/walkthroughs/from-the-ide-over-mcp.md": {
+        "0.8.1": (
+            "the digline-mcp on PyPI when the story was run, with eight tools, "
+            "under the notice that turns false when digline 1.1.0 and a "
+            "digline-mcp with thirteen tools are published; RELEASING.md's row "
+            "owed to the next version removes it"
+        ),
+        "2.3.0": "the mcp SDK the story's client was run with, not a digline one",
+        "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "docs/record.md": {
         "1.0.3": (
@@ -1085,9 +1142,11 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "examples/langchain/README.md": {
         "1.3.18": "the langchain version the example was run against, not a "
-        "digline one. Pinned to the example's own lock by "
-        "tests/test_examples.py, which is where a third-party version belongs",
-        "1.6.1": "langchain-core, beside it, held by the same test",
+        "digline one. Held to the floor in the example's own pyproject.toml, "
+        "langchain>=1.3.18, by tests/test_examples.py, which is where a "
+        "third-party version belongs; the lock is read by neither",
+        "1.6.1": "langchain-core, beside it, written by hand: no test holds it, "
+        "since tests/test_examples.py reads the langchain floor alone",
     },
     "examples/langgraph/README.md": {
         "1.2.11": "the langgraph version the example was run against, not a "
