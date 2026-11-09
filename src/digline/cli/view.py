@@ -725,11 +725,27 @@ class ViewHandler(BaseHTTPRequestHandler):
         if outcome == "spent":
             # The case §11 exists for: the address read back out of a browser's
             # history, or opened a second time. It opens one browser, once.
+            # What the browser that opened it may do is what this server
+            # does: a server that does not promote says nothing of promoting.
+            # (P-1588; it said "Promote from the browser that opened it" on a
+            # server started with --allow-record alone)
+            if self.allow_promote and self.allow_record:
+                act = (
+                    "Promote, or write the recorder's switch and a suite's "
+                    "cases, from the browser that opened it"
+                )
+            elif self.allow_record:
+                act = (
+                    "Write the recorder's switch and a suite's cases from the "
+                    "browser that opened it"
+                )
+            else:
+                act = "Promote from the browser that opened it"
             self._error(
                 403,
                 "refused: this address has already been opened, and it opens "
-                "one browser once. Promote from the browser that opened it, or "
-                "stop digline view and start it again for a new address.",
+                f"one browser once. {act}, or stop digline view and start it "
+                "again for a new address.",
             )
             return True
         self.send_response(303)

@@ -26,6 +26,16 @@ the whole reply would have been, and then by `completion_of` like any other:
   `anthropic.Anthropic:messages.stream`. It returns a manager, and the stream
   its `with` gives accumulates itself: its final message is read when it ends.
 
+**The SDK's own objects in a request are recorded as the SDK sends them.**
+An agent that hands a reply back as it came, `reply.content` in the next
+call's messages, passes pydantic models where a recording holds data. The SDK
+sends each as `openapi_model_dump` does: `model_dump(exclude_unset=True,
+mode="json", by_alias=True)`, less the fields it names in `__api_exclude__`;
+the map writes the same, so the case is the call off the wire, and the
+model's step is recorded. A value that is still not data after that is
+declined by `refusal`, with its type and the key it sits at, not counted as
+*not JSON*.
+
 **Off the wire** (ADR 0062 §3), `WIRE` is what `digline record proxy` reads a
 Messages call with, declared under `digline.recording_wire` as `anthropic`.
 The reply's JSON, and each streamed event's, become the SDK's own types the
@@ -76,6 +86,71 @@ def as_sent(request: Mapping[str, Any]) -> dict[str, Any]:
     return sent
 
 
+def as_data(value: Any) -> Any:
+    """`value` with every pydantic model in it dumped as the SDK dumps one in
+    a request body (its `openapi_model_dump`), mappings and lists walked, and
+    anything else left as it is, for `refusal` to name. A model is the SDK's
+    own reply handed back; a date or a set is the application's value, and a
+    recording does not rewrite it (`tests/test_recorder.py`)."""
+    import pydantic
+
+    if isinstance(value, pydantic.BaseModel):
+        try:
+            dumped = value.model_dump(
+                exclude_unset=True,
+                mode="json",
+                by_alias=True,
+                exclude=getattr(value, "__api_exclude__", None),
+            )
+        except Exception as exc:  # noqa: BLE001 — named where it sits, by `refusal`
+            return _Undumped(
+                f"{type(value).__name__} whose dump raised {type(exc).__name__}"
+            )
+        return as_data(dumped)
+    if isinstance(value, Mapping):
+        return {
+            key: as_data(item) for key, item in cast(Mapping[Any, Any], value).items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [as_data(item) for item in cast(Sequence[Any], value)]
+    return value
+
+
+class _Undumped:
+    """A model whose dump raised, left where it was for `refusal` to name."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind = kind
+
+
+#: What a recording holds as data, beside mappings with text keys and lists.
+_DATA = (str, int, float, bool, type(None))
+
+
+def _not_data(value: Any, where: str) -> tuple[str, str] | None:
+    """The first place in `value` that is not data, and the type found
+    there, or `None`."""
+    if isinstance(value, Mapping):
+        for key, item in cast(Mapping[Any, Any], value).items():
+            if not isinstance(key, str):
+                return where, f"key of type {type(key).__name__}"
+            found = _not_data(item, f"{where}.{key}" if where else key)
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, list):
+        for index, item in enumerate(cast(list[Any], value)):
+            found = _not_data(item, f"{where}[{index}]")
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, _DATA):
+        return None
+    if isinstance(value, _Undumped):
+        return where, value.kind
+    return where, type(value).__name__
+
+
 class AnthropicRecording:
     """The map digline's recorder loads for `anthropic.Anthropic`."""
 
@@ -83,9 +158,33 @@ class AnthropicRecording:
         self, request: Mapping[str, Any]
     ) -> tuple[dict[str, object], dict[str, object]]:
         request = as_sent(request)
-        case: dict[str, object] = {"messages": request.get("messages")}
-        setup = {key: value for key, value in request.items() if key not in NOT_SETUP}
+        case: dict[str, object] = {"messages": as_data(request.get("messages"))}
+        setup = {
+            key: as_data(value)
+            for key, value in request.items()
+            if key not in NOT_SETUP
+        }
         return case, setup
+
+    def refusal(self, request: Mapping[str, Any]) -> Any:
+        """A call whose recorded part holds something that is not data once
+        the SDK's models are dumped: declined, and said by the key it sits at
+        and the type found there. `None` for a call that is all data."""
+        from digline.recorder import Refusal
+
+        case, setup = self.split(request)
+        found = _not_data({**case, **setup}, "")
+        if found is None:
+            return None
+        where, kind = found
+        return Refusal(
+            reason=f"{where} holds a {kind}",
+            family=f"anthropic {where} {kind}",
+            said=(
+                f"messages.create: {where} holds a {kind}, which a recording "
+                "cannot hold as data; the call was made, and not recorded"
+            ),
+        )
 
     def completion(self, reply: Any, request: Mapping[str, Any]) -> Completion:
         return completion_of(reply)

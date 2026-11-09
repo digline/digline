@@ -241,7 +241,10 @@ def joined_inside(root: Path, *parts: str) -> Path:
     """
     base = os.path.normpath(root)
     candidate = os.path.normpath(os.path.join(base, *parts))
-    if not candidate.startswith(base + os.sep):
+    # Held as absolute paths, so a root of "." holds ".digline/acme": the
+    # normalised relative forms share no prefix with "./". (#934's form
+    # refused every path under ".", and the proxy's default root is ".")
+    if not os.path.abspath(candidate).startswith(os.path.abspath(base) + os.sep):
         raise PathRefusedError(f"{candidate} is not inside {base}")
     return Path(candidate)
 

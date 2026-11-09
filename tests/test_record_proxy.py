@@ -909,3 +909,22 @@ def test_a_client_that_goes_is_one_line_and_its_call_is_counted(
         err.count("a client closed its connection before it sent a whole request") == 2
     )
     assert counted(tmp_path) == {"triage": {"client gone": 1}}
+
+
+def test_the_proxy_starts_on_the_root_a_command_line_gives_it(
+    tmp_path: Path, upstream: Upstream, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`digline record proxy --tenant acme`, with no `--root`, starts on ".",
+    and was refused at its first join, `.digline/acme/recordings is not
+    inside .`, exit 70. On "." it starts, and records under the directory it
+    was started in."""
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    monkeypatch.chdir(tmp_path)
+    running = proxying(Path("."), upstream)
+    try:
+        an_openai(f"{running.address}/v1", **SUITE).chat.completions.create(
+            model="gpt-4o-mini", messages=QUESTION
+        )
+    finally:
+        running.stop()
+    assert len(recordings(tmp_path)) == 1

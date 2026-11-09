@@ -51,7 +51,7 @@ from digline.host.authorship import (
 )
 from digline.host.errors import UsageError
 from digline.host.importing import unloaded_capture
-from digline.host.toml_suite import SUITE_SUFFIX, load_toml_suite
+from digline.host.toml_suite import PROPOSAL, SUITE_SUFFIX, load_toml_suite
 from digline.host.unasked import no_target
 from digline.report.render import visible
 from digline.run import CaptureSource, Suite, Target, check_target
@@ -602,6 +602,14 @@ def load_suite(spec: str, *, root: Path | None = None) -> tuple[Suite, Loaded]:
         path = Path(spec)
         if not path.is_file():
             raise UsageError(f"no such file: {path.resolve()} (from {spec!r})")
+        # By its name, before it is read: the proposal loads, and every command
+        # that took it stopped at its judge's placeholder, while `suggest`
+        # says no command reads it. (ADR 0063 §3; P-1588)
+        if path.name == PROPOSAL:
+            raise UsageError(
+                f"{spec!r} is a proposal: adopt its lines into your suite first. "
+                f"No command of digline reads {PROPOSAL} (ADR 0063 §3)"
+            )
         # `root` is the perimeter a data suite may read inside (ADR 0007 §6).
         # It reaches only the TOML form: a `.py` suite is code and can already
         # open anything, so a boundary there would be decoration. That is

@@ -107,9 +107,13 @@ class Material:
     prompt: str
     regime: str
     recordings: int
+    #: Left out at the bound of `MAX_RECORDINGS` and `MAX_CHARS`.
     recordings_left: int
     reviewed: int
     reviewed_left: int
+    #: Left out because they were recorded under a setup no longer in force:
+    #: a reason of its own, counted apart from the bound. (P-1588)
+    recordings_earlier: int = 0
 
 
 def assistant(coordinate: str, where: str) -> JudgeBase:
@@ -276,6 +280,7 @@ def material(
     chosen: list[dict[str, object]] = []
     spent = len(_text(document))
     newest = _newest_first(eligible)
+    earlier = len(eligible) - len(newest)
     for recording in newest:
         entry = _recorded(recording)
         size = len(_text(entry))
@@ -297,9 +302,10 @@ def material(
         prompt=_text(document),
         regime=regime,
         recordings=len(chosen),
-        recordings_left=len(eligible) - len(chosen),
+        recordings_left=len(newest) - len(chosen),
         reviewed=len(answers),
         reviewed_left=len(reviewed) - len(answers),
+        recordings_earlier=earlier,
     )
 
 

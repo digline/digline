@@ -75,7 +75,7 @@ from digline.host.importing import (
     split_recordings,
 )
 from digline.host.recording import recorder_status
-from digline.host.toml_suite import read_cases
+from digline.host.toml_suite import PROPOSAL, read_cases
 from digline.recorder import UNASSIGNED
 from digline.run.suite import Case, Suite
 from digline.store.file_store import FileResultStore, checked_name
@@ -91,9 +91,6 @@ SUITE_RULE = (
     "or .toml, or module:attribute; anything else is the name of a suite that "
     "does not exist yet, given with --tenant and --repository private|public"
 )
-
-#: The one file the command writes.
-PROPOSAL = "suite.proposed.toml"
 
 #: The capture file a suite that does not exist yet is proposed with.
 CAPTURED = "captured.json"
@@ -611,16 +608,20 @@ def _assist(
 
     lines = ["the assistant:"]
     if given.regime == "private":
-        left = given.recordings_left + given.reviewed_left
+        # Two reasons, counted apart: a setup no longer in force is not the
+        # bound, and was said as if it were. (P-1588)
+        bound = given.recordings_left + given.reviewed_left
+        earlier = given.recordings_earlier
         lines.append(
             f"  the regime: under private the assistant read the text: "
             f"{_many(given.recordings, 'recording')} and "
             f"{_many(given.reviewed, 'reviewed answer')}, the newest of the "
             "setups in force, each whole"
             + (
-                f"; {left} more left out at the bound of "
-                f"{MAX_RECORDINGS} recordings and {MAX_CHARS:,} characters"
-                if left
+                f"; left out: {earlier} under earlier setups; {bound} at the "
+                f"bound of {MAX_RECORDINGS} recordings and {MAX_CHARS:,} "
+                "characters"
+                if bound or earlier
                 else ""
             )
         )

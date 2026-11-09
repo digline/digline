@@ -71,7 +71,7 @@ from digline.store.protocol import (
 from digline.targets.pricing import UnknownModelError
 from digline.targets.registry import ProviderNotFound
 
-__all__ = ["NOT_REFUSALS", "REFUSALS"]
+__all__ = ["NOT_REFUSALS", "REFUSALS", "SAID_ALONE"]
 
 #: Every refusal digline raises deliberately, by layer. A subclass is listed
 #: beside its parent rather than left to be caught through it: the rule is that
@@ -128,6 +128,12 @@ REFUSALS: tuple[type[Exception], ...] = (
     # host
     UsageError,
 )
+
+#: The refusals a front end says as their sentence alone, without the class's
+#: name in front: the sentence is written for the person who ran the command,
+#: and a Python class name is not a word of theirs. Every other refusal still
+#: carries its name, which `docs/` quotes. (P-1588)
+SAID_ALONE: tuple[type[Exception], ...] = (ContradictedRunError,)
 
 #: The exception classes that are not refusals, by qualified name, each with the
 #: reason it never reaches a front end. By name rather than by type because one
