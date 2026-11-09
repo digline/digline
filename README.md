@@ -16,14 +16,18 @@ pip install digline
 
 ---
 
-**Did my change make it worse?**
+**Did my change make the agent, or the prompt, worse?**
 
-You changed a prompt, or a model, or a temperature. Run it twice and you
-get two different answers, so you cannot tell a regression from the
-model's own noise by reading a few outputs.
+An agent calls a model, chooses tools, calls again; an application
+calls a model with three prompts. You change one thing and run it
+twice: two different outputs, so reading a few of them cannot tell a
+regression from the model's own noise.
 
-digline freezes a run you approved as the reference, and tells you what
-moved against it.
+digline records what the agent or the prompt sends and receives,
+without changing your code, proposes a first suite from the
+recordings, and freezes a run you approved as the reference. Every
+later run is compared with it: answers, steps, the order of the tools,
+the cost. One suite per prompt, one verdict each.
 
 ```python
 from digline.core import Contains
@@ -67,6 +71,12 @@ tenant 'acme', against baseline 2026-10-31T13-26-55-593090-00-00-f849e1e676ebb53
 
 The reference is a file in your repo, reviewed like any other change. The
 answer is an exit code, so the same commands run in CI.
+
+Coming from an agent or an application that already exists? Five
+[walkthroughs](https://digline.dev/product/walkthroughs/?ref=github)
+take one from the first recorded call to a gate, every step run: an
+agent, from the IDE over MCP, Java on Quarkus with Bedrock, Node,
+Python with three prompts.
 
 ## Why digline
 
