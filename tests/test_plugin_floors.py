@@ -83,11 +83,11 @@ INTRODUCED: dict[str, str] = {
     # A call a recording map declines by a rule of its own, counted by its
     # reason: digline-bedrock's InvokeModel of another family (P-1543).
     "Refusal": "1.1.0",
-    # 0.35.0, the number the cut is expected to give the core release that
-    # carries #548 — not yet a release. digline-mcp's `--names project` loads
-    # its table with `load_name_table`, holds one answer to one table with
-    # `one_table`, and names a suite's checks and cases as a projection does;
-    # its floor is owed at the cut, in RELEASING.md's table. (ADR 0054)
+    # 0.35.0, the release that carries #548: in its tag and not in 0.34.0's.
+    # digline-mcp's `--names project` loads its table with `load_name_table`,
+    # holds one answer to one table with `one_table`, and names a suite's
+    # checks and cases as a projection does. Its floor was owed at the cut and
+    # raised in its own release; it names a later core today. (ADR 0054)
     "NameTable": "0.35.0",
     "load_name_table": "0.35.0",
     "one_table": "0.35.0",
@@ -102,12 +102,11 @@ INTRODUCED: dict[str, str] = {
     # digline-mcp catches it where a table answers a name wrongly while a
     # refusal is rendered for an agent. (ADR 0054 §8)
     "ProjectionRefusedError": "0.25.0",
-    # 0.34.0, the number the cut is expected to give the core release that
-    # carries #523 — not yet a release. Whether git would commit a tenant's
-    # run directory or its name table, and the sentence for each. digline-mcp
-    # logs them after its `run` tool writes, and pytest-digline prints them
-    # after `--digline-run` writes; both floors are owed at the cut already,
-    # in RELEASING.md's table, and these ride with them.
+    # 0.34.0, the release that carries #523: in its tag and not in 0.33.0's.
+    # Whether git would commit a tenant's run directory or its name table, and
+    # the sentence for each. digline-mcp logs them after its `run` tool writes,
+    # and pytest-digline prints them after `--digline-run` writes; both floors
+    # were owed at the cut and raised in each package's own release.
     "unignored": "0.34.0",
     "unignored_notes": "0.34.0",
     # 0.34.0 as well, for #621: pytest-digline refuses with it before

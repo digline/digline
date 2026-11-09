@@ -121,3 +121,31 @@ def test_the_versions_the_page_says_are_the_ones_the_job_installs() -> None:
     said = " ".join(PAGE.split())
     for package in ("openai", "@anthropic-ai/sdk", "@aws-sdk/client-bedrock-runtime"):
         assert f"{package} {pinned[package]}" in said, package
+
+
+MARK = "> **Arrives with digline 1.1.**"
+#: Where RELEASING.md's table *Owed to the next version* opens and closes, as
+#: `tests/test_plugin_floors.py` reads it.
+NEXT_OPENS = "**And the number each package owes: read *Owed to the next version*.**"
+NEXT_CLOSES = "Empty is the normal state here too."
+
+
+def test_the_mark_and_its_row_owed_to_the_next_version_go_together() -> None:
+    """Until 1.1.0 is on PyPI the page says it arrives with 1.1, and the cut
+    takes the mark out by the row RELEASING.md keeps for it (*Owed to the next
+    version*). A mark with no row is one the cut does not know to take out,
+    and a row with no mark is a debt already paid: either is a page cut
+    halfway, as `tests/test_recorder_java.py` holds for `docs/record-java.md`."""
+    releasing = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
+    start = releasing.find(NEXT_OPENS)
+    end = releasing.find(NEXT_CLOSES, start)
+    assert 0 <= start < end, "RELEASING.md no longer has *Owed to the next version*"
+    rows = [
+        line
+        for line in releasing[start:end].splitlines()
+        if line.startswith("| `") and "`docs/record-node.md`" in line
+    ]
+    marked = MARK in PAGE
+    assert marked == bool(rows), (marked, rows)
+    if marked:
+        assert '*"Arrives with digline 1.1."*' in rows[0], rows[0]
