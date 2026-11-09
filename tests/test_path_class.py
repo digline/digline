@@ -366,9 +366,8 @@ def test_a_relative_root_holds_what_is_under_it_in_both_copies(
         os.path.normpath(Path(root) / ".digline" / "acme" / "recordings")
     )
     assert not joined.is_absolute()
-    assert (
-        recorder._joined_inside(Path(root), ".digline", "acme", "recordings") == joined
-    )  # pyright: ignore[reportPrivateUsage]
+    copied = recorder._joined_inside(Path(root), ".digline", "acme", "recordings")  # pyright: ignore[reportPrivateUsage]
+    assert copied == joined
 
 
 @pytest.mark.parametrize("root", RELATIVE_ROOTS)
