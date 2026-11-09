@@ -336,6 +336,12 @@ client can be pointed at the proxy, and how, is not known here.
   has read it to its end. One closed before is counted *stream abandoned*.
   OpenAI's SDK stops reading at `[DONE]`, and Anthropic's at `message_stop`:
   either counts as the end.
+- **A refusal is counted, per attempt.** A reply that is not a 2xx is not
+  recorded; one the provider refuses, 4xx or 5xx, is counted
+  `provider error <status>`. Each hook sees each attempt the SDK makes, so a
+  call retried after a 500 and then answered is `provider error 500` beside
+  one recording. The Python wrapper sees the whole call, after the SDK's
+  retries, and counts only the refusal it raises.
 - **The counts.** The writer keeps no counts file, which is not part of the
   contract. `digline record status` says *not counted* for its process, and
   `recorder.counts()` gives the same counts in memory.

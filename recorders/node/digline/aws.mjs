@@ -42,7 +42,10 @@ import {
  *
  * It sits after the SDK's deserializer, so it reads the reply's bytes before
  * the SDK does and hands the SDK the same bytes. A reply is read only where
- * its status is 2xx: a retry after an error is one call, recorded once.
+ * its status is 2xx: a retry after an error is one call, recorded once. It
+ * sees each attempt, and counts each one Bedrock refuses, 4xx or 5xx, as
+ * `provider error <status>`; the Python wrapper sees the whole call and
+ * counts only the refusal boto3 raises.
  * A stream is read as the application reads it, a copy kept of each piece the
  * SDK takes, and recorded when the application has read it to its end; one
  * it stops reading before is counted *stream abandoned*, and one whose bytes

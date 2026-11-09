@@ -37,7 +37,10 @@ counted with its reason. A stream closed or dropped before its end counts
 *stream abandoned*, and a stream through a map that cannot read one counts
 *streaming*. An exception of the provider's SDK propagates as it is,
 and nothing is recorded; where it carries the HTTP status of a refusal, 4xx
-or 5xx, the call is counted *provider error <status>*.
+or 5xx, the call is counted *provider error <status>*. The wrapper sees the
+whole call, after the SDK's own retries, so a call retried and then answered
+counts nothing; the hooks in other languages and the proxy see each attempt,
+and count each refused one.
 
 **Two regimes, read from `tenant=`** (§4, §10). A name is **development**: one
 tenant, fixed. A function is **production**: the tenant is resolved at every

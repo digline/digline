@@ -1,6 +1,7 @@
 // Each hook on its SDK's real client, against the fake provider of
 // provider.mjs: what the hook wrote is what the readers make of the bytes
-// that crossed the wire, a reply that is not 2xx is never recorded, a
+// that crossed the wire, a reply that is not 2xx is never recorded and a
+// refused attempt is counted by its status, a
 // stream is recorded at its end and counted when it is abandoned, and the
 // application's call never fails because of the recorder.
 
@@ -160,7 +161,7 @@ test("a Messages call and a Messages stream are recorded as the map reads them",
   compared(second, messages.streamed(streamedAsked, sentEvents, 0));
 });
 
-test("a retry after an error is one call, and a reply that is not 2xx is none", async () => {
+test("a retry after an error is one call recorded, and each refused attempt is counted by its status", async () => {
   const made = root();
   const recorder = DiglineRecorder.development(made, "acme", "node");
   fake.plan.push(500);
@@ -174,7 +175,36 @@ test("a retry after an error is one call, and a reply that is not 2xx is none", 
   );
   await pause();
   assert.equal(written(made).length, 1);
-  assert.deepEqual(recorder.counts(), { noted: {}, not_recorded: {}, orphan: 0, recorded: 1 });
+  // The hook sees each attempt: the 500 the SDK retried, and the 400 it did
+  // not, each counted beside the one call recorded.
+  assert.deepEqual(recorder.counts(), {
+    noted: {},
+    not_recorded: { "provider error 400": 1, "provider error 500": 1 },
+    orphan: 0,
+    recorded: 1,
+  });
+});
+
+test("a call the provider refuses with a 403 is counted by its status and not recorded", async () => {
+  const made = root();
+  const recorder = DiglineRecorder.development(made, "acme", "node");
+  fake.plan.push(403);
+  await assert.rejects(() =>
+    suite("triage", () => openai(recorder).chat.completions.create(wire("openai-single").request)),
+  );
+  const fixture = wire("bedrock-single");
+  fake.plan.push(403);
+  await assert.rejects(() =>
+    suite("triage", () => bedrock(recorder).send(new ConverseCommand({ modelId: fixture.model_id, ...fixture.request }))),
+  );
+  await pause();
+  assert.equal(written(made).length, 0);
+  assert.deepEqual(recorder.counts(), {
+    noted: {},
+    not_recorded: { "provider error 403": 2 },
+    orphan: 0,
+    recorded: 0,
+  });
 });
 
 test("a stream the application stops reading is counted abandoned", async () => {
@@ -507,7 +537,7 @@ for (const name of ["bad-crc", "bad-prelude", "exception"]) {
   });
 }
 
-test("a Bedrock retry after an error is one call", async () => {
+test("a Bedrock retry after an error is one call recorded, its refused attempt counted", async () => {
   const made = root();
   const recorder = DiglineRecorder.development(made, "acme", "node");
   const fixture = wire("bedrock-single");
@@ -516,7 +546,12 @@ test("a Bedrock retry after an error is one call", async () => {
   await settled(recorder, 1);
   await pause();
   assert.equal(written(made).length, 1);
-  assert.deepEqual(recorder.counts(), { noted: {}, not_recorded: {}, orphan: 0, recorded: 1 });
+  assert.deepEqual(recorder.counts(), {
+    noted: {},
+    not_recorded: { "provider error 500": 1 },
+    orphan: 0,
+    recorded: 1,
+  });
 });
 
 test("production refuses a development file, and records under a production one", async () => {
