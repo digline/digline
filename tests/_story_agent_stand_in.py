@@ -17,7 +17,7 @@ import json
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, cast
 
 #: By ticket: the tool calls the model asks for, one reply each, in order,
 #: and the text it ends the turn with.
@@ -53,7 +53,8 @@ JUDGE_MARK = "You are grading the output of another system against a rubric."
 def _text(content: Any) -> str:
     if isinstance(content, str):
         return content
-    return "".join(part.get("text", "") for part in content if isinstance(part, dict))
+    parts = [cast(dict[str, Any], part) for part in content if isinstance(part, dict)]
+    return "".join(str(part.get("text", "")) for part in parts)
 
 
 def _results(messages: list[dict[str, Any]]) -> int:
