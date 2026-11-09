@@ -511,6 +511,7 @@ def build_server(
                 named_tenant,
                 suite=open_.loaded.suite,
                 module=open_.loaded.module,
+                suite_file=open_.path,
             )
         return where_json(found, suite_arg=suite, root=[])
 

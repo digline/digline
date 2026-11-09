@@ -113,6 +113,7 @@ __all__ = [
     "assistant_of",
     "check_of",
     "load_toml_suite",
+    "read_toml",
     "suggest_model",
 ]
 
@@ -195,7 +196,7 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
     Returns both because a TOML suite has no module for `--target` to look in:
     the target is declared in `[target]`, and that is the only one there is.
     """
-    document = _parse(path)
+    document = read_toml(path)
     where = path.name
     # The suite's own directory when no root is given: the tightest perimeter
     # that can be right, so a caller who has not thought about it is not
@@ -347,7 +348,7 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
 def suggest_model(path: Path) -> str | None:
     """The assistant a `suite.toml` declares under `[suggest]`, or `None`.
     Refused by the sentences the loader refuses it with. (ADR 0063 §4)"""
-    return _suggest(_parse(path), path.name)
+    return _suggest(read_toml(path), path.name)
 
 
 def _suggest(document: Mapping[str, object], where: str) -> str | None:
@@ -385,7 +386,12 @@ def check_of(entry: Mapping[str, object], where: str) -> Any:
 # --------------------------------------------------------------------------- #
 
 
-def _parse(path: Path) -> Mapping[str, object]:
+def read_toml(path: Path) -> Mapping[str, object]:
+    """The TOML document at `path`, read the one way a suite file is read:
+    its bytes, as UTF-8, then `tomllib`, each refusal a `UsageError` that
+    locates it. What it reads is a document and not a suite, so it refuses no
+    name: `digline view` reads a proposal through it on purpose, where
+    `load_suite` refuses one by its name (ADR 0063 §3)."""
     try:
         raw = path.read_bytes()
     except OSError as exc:
@@ -751,7 +757,7 @@ def _cases(path: Path, where: str) -> list[Case]:
                 named=False,
             )
         ) from exc
-    # The same refusal `_parse` gives the suite file, and for the same reason:
+    # The same refusal `read_toml` gives the suite file, and for the same reason:
     # the decoder is a builtin and quotes the byte, which here is a case's.
     # (ADR 0041 §4.2, ADR 0043 §6)
     except UnicodeDecodeError as exc:

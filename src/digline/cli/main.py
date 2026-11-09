@@ -92,6 +92,7 @@ from digline.host import (
     suggest_for,
     suggest_model,
     suggest_new,
+    suite_file_of,
     suite_runs,
     switch_off,
     switch_on,
@@ -1800,11 +1801,13 @@ def cmd_where(args: argparse.Namespace) -> int:
     root = Path(args.root)
     suite: Suite | None = None
     module = None
+    suite_file: Path | None = None
     if args.suite is not None:
         suite, loaded = load_suite(args.suite, root=root)
         _check_perimeter(suite, args.tenant, None)
         module = loaded.module
-    found = where(root, args.tenant, suite=suite, module=module)
+        suite_file = suite_file_of(args.suite, module)
+    found = where(root, args.tenant, suite=suite, module=module, suite_file=suite_file)
     flags = [] if args.root in ("", ".") else ["--root", args.root]
     if args.json:
         emit(
@@ -1850,10 +1853,7 @@ def cmd_suggest(args: argparse.Namespace) -> int:
             )
         suite, loaded = load_suite(args.suite, root=root)
         _check_perimeter(suite, args.tenant, None)
-        module_file = getattr(loaded.module, "__file__", None)
-        suite_file = (
-            Path(module_file) if module_file else Path(args.suite.split(":")[0])
-        )
+        suite_file = suite_file_of(args.suite, loaded.module)
         # `[suggest]` is read from a suite.toml alone, and `--model` wins over
         # it: the source is said beside the assistant. (ADR 0063 §4)
         declared = (

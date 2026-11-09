@@ -49,10 +49,12 @@ from digline.host.importing import (
     input_line,
     setup_line,
 )
+from digline.host.proposal import Mark, ProposalFile, ProposedBlock
 from digline.host.where import SuiteFound, record_lines
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
     answer_address,
+    proposal_address,
     recorder_address,
     recordings_address,
     screen,
@@ -79,6 +81,7 @@ __all__ = [
     "answer_page",
     "command_line",
     "import_fields",
+    "proposal_page",
     "switch_fields",
     "recorder_page",
     "recordings_page",
@@ -1069,6 +1072,18 @@ def where_page(
         body.append(_languages(found.tenant, suite, locale))
     if found.state == "no_suite_yet" and found.shapes:
         body.append(_shapes(found, locale))
+    if found.state == "no_suite_yet" and found.proposal is not None:
+        # The sentence says the proposal is there; the link opens it, read
+        # only. (ADR 0063, the read-only view ruled 2026-11-09)
+        written = phrase(
+            locale, "view.where.no_suite_yet.proposal", proposal=found.proposal
+        )
+        address = proposal_address(found.tenant, found.suite or suite or "")
+        body.append(
+            f"<p>{escape(written)} "
+            f'<a href="{escape(address)}?locale={locale}">'
+            f"{escape(phrase(locale, 'view.where.proposal.open'))}</a></p>\n"
+        )
     if found.state == "unassigned" and found.capture is not True:
         # The import refuses `--from _unassigned` for a suite that declares no
         # capture source: the declaration comes first, and the command after.
@@ -1120,3 +1135,158 @@ def where_page(
         title = phrase(locale, "view.title.where", suite=suite)
         label = suite
     return screen(title, "".join(body), locale=locale, suite=label, here="where")
+
+
+# -- the proposal ------------------------------------------------------------- #
+
+
+def _shown(value: object) -> str:
+    """A value as the file writes it: a string quoted, a table and a list as
+    JSON, a number and a boolean as they read."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return repr(value)
+    return json.dumps(value, ensure_ascii=False)
+
+
+#: The class each mark is drawn with, and the words it is said in.
+_MARK_CLASS = {
+    "placeholder": "placeholder",
+    "assistant": "assisted",
+    "draft": "assisted",
+}
+
+
+def _marked(mark: Mark | None, locale: Locale) -> str:
+    if mark is None:
+        return "<td></td>"
+    words = phrase(locale, f"view.proposal.mark.{mark.kind}")
+    return f'<td class="{_MARK_CLASS[mark.kind]}">{escape(words)}</td>'
+
+
+def _proposed(number: int, block: ProposedBlock, locale: Locale) -> str:
+    title = f"{number}. {block.type}" + (f" · {block.name}" if block.name else "")
+    parts = [f"<h3>{escape(title)}</h3>\n"]
+    if block.why:
+        parts.append(_p(" ".join(line.strip() for line in block.why)))
+    if block.said:
+        said = " ".join(line.strip() for line in block.said)
+        parts.append(
+            f'<p class="note">{escape(phrase(locale, "view.proposal.said"))}: '
+            f"{escape(said.removeprefix('the assistant: '))}</p>\n"
+        )
+    columns = "".join(
+        f"<th>{escape(phrase(locale, f'view.proposal.{name}'))}</th>"
+        for name in ("key", "value", "mark")
+    )
+    rows = "".join(
+        f"<tr><td><code>{escape(param.key)}</code></td>"
+        f"<td><code>{escape(_shown(param.value))}</code></td>"
+        f"{_marked(param.mark, locale)}</tr>"
+        for param in block.params
+    )
+    parts.append(
+        f"<table><thead><tr>{columns}</tr></thead><tbody>{rows}</tbody></table>\n"
+    )
+    return "".join(parts)
+
+
+def proposal_page(
+    found: ProposalFile | None,
+    *,
+    suite: str,
+    places: Sequence[str],
+    lines: tuple[Sequence[str], Sequence[str]],
+    shown_path: str | None,
+    invalid: str | None,
+    locale: Locale,
+) -> str:
+    """The proposal `digline suggest` wrote for `suite`, as the file holds it,
+    read only: what it declares, each check in the file's order with why it
+    is there and how each value is marked, the counterexample and the
+    calibration skeleton, then the command that writes one, without and with
+    `--model`, shown and never run. Nothing is ranked or chosen (ADR 0037 §6),
+    and no recording is read: the page is the file's text alone. With no file,
+    where it looked; with a file it could not read, why.
+    (ADR 0063, the read-only view ruled 2026-11-09)"""
+    body = [
+        f"<h1>{escape(phrase(locale, 'view.proposal.heading', suite=suite))}</h1>\n",
+        _p(phrase(locale, "view.proposal.lead"), "note"),
+    ]
+    if found is None and invalid is None:
+        body.append(_p(phrase(locale, "view.proposal.none", suite=suite)))
+        body.append(
+            "<ul>"
+            + "".join(f"<li><code>{escape(place)}</code></li>" for place in places)
+            + "</ul>\n"
+        )
+    if invalid is not None:
+        body.append(_p(phrase(locale, "view.proposal.invalid", error=invalid)))
+    if found is not None:
+        body.append(
+            f"<h2>{escape(phrase(locale, 'view.proposal.file'))}</h2>\n"
+            f"<p><code>{escape(shown_path or str(found.path))}</code></p>\n"
+        )
+        if found.header:
+            body.append(_p(" ".join(found.header), "note"))
+        body.append(f"<h2>{escape(phrase(locale, 'view.proposal.declaration'))}</h2>\n")
+        for table, values in found.declaration.items():
+            rows = "".join(
+                f"<tr><td><code>{escape(key)}</code></td>"
+                f"<td><code>{escape(_shown(value))}</code></td></tr>"
+                for key, value in values.items()
+            )
+            body.append(
+                f"<h3><code>[{escape(table)}]</code></h3>\n"
+                f"<table><tbody>{rows}</tbody></table>\n"
+            )
+        if found.notes:
+            body.append(
+                f"<h3>{escape(phrase(locale, 'view.proposal.notes'))}</h3>\n"
+                f'<pre class="snippet">{escape(chr(10).join(found.notes))}</pre>\n'
+            )
+        body.append(f"<h2>{escape(phrase(locale, 'view.proposal.checks'))}</h2>\n")
+        body.extend(
+            _proposed(number, block, locale)
+            for number, block in enumerate(found.checks, start=1)
+        )
+        for key, text in (
+            ("counterexample", found.counterexample),
+            ("calibration", found.calibration),
+        ):
+            if text is not None:
+                body.append(
+                    f"<h2>{escape(phrase(locale, f'view.proposal.{key}'))}</h2>\n"
+                    f'<pre class="snippet">{escape(text)}</pre>\n'
+                )
+        if found.unread:
+            body.append(
+                f"<h2>{escape(phrase(locale, 'view.proposal.unread'))}</h2>\n"
+                f'<pre class="snippet">{escape(chr(10).join(found.unread))}</pre>\n'
+            )
+    plain, with_model = lines
+    body.append(
+        f"<h2>{escape(phrase(locale, 'view.where.command'))}</h2>\n"
+        + _p(phrase(locale, "view.proposal.commands"))
+        + f'<pre class="snippet">{escape(shlex.join(plain))}</pre>\n'
+        + f'<pre class="snippet">{escape(shlex.join(with_model))}</pre>\n'
+    )
+    if found is not None or invalid is not None:
+        body.append(
+            _p(
+                phrase(
+                    locale,
+                    "view.proposal.overwrite",
+                    path=shown_path or (str(found.path) if found else ""),
+                ),
+                "note",
+            )
+        )
+    return screen(
+        phrase(locale, "view.title.proposal", suite=suite),
+        "".join(body),
+        locale=locale,
+        suite=suite,
+        here="proposal",
+    )

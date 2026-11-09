@@ -196,6 +196,17 @@ nothing. No public name is removed or renamed and no exit code changes.
   the cookie of the browser that opened the printed address. Under each
   button is the command that does the same thing. Without the flag there is
   no form, and a POST is a `404` (ADR 0061 §2, §4).
+- **`digline view` shows the proposal `digline suggest` wrote**, read only,
+  at `/proposal/<tenant>/<suite>/` and in the menu: what it declares, each
+  check in the file's order with why it is there, the placeholders marked as
+  such and a value the assistant wrote marked as not measured, the
+  counterexample and the calibration skeleton, and the command that writes
+  one, without and with `--model`, shown and never run. It is looked for
+  where `suggest` writes it, beside the suite's file or, for a suite that
+  does not exist yet, in the root and the server's directory, and takes no
+  POST. `digline where` names it in `no_suite_yet`, in its sentence and in
+  `--json` as `proposal`, a path relative to the root or `null`, and the MCP
+  server's `where` with it (ADR 0063, as ruled 2026-11-09).
 - **The recorder's three views in `digline view`**, in the menu of every
   screen: the recordings of the suite as `digline record import` lists them,
   each answer with the first 200 characters and a page for the whole of it;

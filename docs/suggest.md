@@ -246,6 +246,16 @@ nothing into your repository. It asks no assistant there: what one costs is
 said before its call, and a tool has no before, so the command with `--model`
 is in its answer for you to run ([digline over MCP](mcp.md)).
 
+## At the page
+
+`digline view` shows the file read only, on its *Proposal* view: what it
+declares, each check with why it is there, the placeholders marked as such and
+a value the assistant wrote marked as not measured, the counterexample and the
+calibration skeleton, and the command that writes one, without and with
+`--model`, to copy. No button asks a model: what one costs is said before its
+call. `digline where` names the file in the state `no_suite_yet`, by its path
+([`digline view`](view.md#the-recorders-views)).
+
 ## Not yet
 
-- A `--json`, and a view at the page.
+- A `--json`.

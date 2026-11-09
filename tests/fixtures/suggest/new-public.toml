@@ -2,8 +2,8 @@
 #
 # A proposal, not a suite: no command of digline reads this file. Adopt
 # its lines into your suite by hand, and the commit is yours. Nothing
-# here is a verdict and no answer was marked. Every value marked
-# `placeholder` fails until you write a measured one. (ADR 0063)
+# here is a verdict and no answer was marked. (ADR 0063)
+# A placeholder fails wherever its check has a verdict: write a measured one.
 
 [suite]
 tenant = "acme"

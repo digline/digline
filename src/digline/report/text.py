@@ -1000,6 +1000,46 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.nav.recordings": "Recordings",
         "view.nav.setups": "Across setups",
         "view.nav.recorder": "Recorder",
+        "view.nav.proposal": "Proposal",
+        "view.title.proposal": "Proposal — {suite}",
+        "view.where.no_suite_yet.proposal": (
+            "digline suggest wrote a proposal for it, not adopted yet: {proposal}."
+        ),
+        "view.where.proposal.open": "Read the proposal",
+        "view.proposal.heading": "The proposal digline suggest wrote for {suite}",
+        "view.proposal.lead": (
+            "A proposal, not a suite: no command of digline reads it, nothing in "
+            "it is a verdict, and no answer was marked. This page reads the file "
+            "and writes nothing; adopting its lines into your suite is yours."
+        ),
+        "view.proposal.file": "The file",
+        "view.proposal.declaration": "What it declares",
+        "view.proposal.notes": "What the file says beside it",
+        "view.proposal.checks": "The checks, in the file's order",
+        "view.proposal.key": "Key",
+        "view.proposal.value": "Value",
+        "view.proposal.mark": "Marked",
+        "view.proposal.mark.placeholder": "a placeholder: yours to write",
+        "view.proposal.mark.assistant": "from the assistant, not measured",
+        "view.proposal.mark.draft": "from the assistant: a draft, yours to read",
+        "view.proposal.said": "The assistant said",
+        "view.proposal.counterexample": "The counterexample",
+        "view.proposal.calibration": "The calibration skeleton",
+        "view.proposal.unread": "Lines this page could not place, as they stand",
+        "view.proposal.none": (
+            "No proposal for {suite} where digline suggest writes one. This page "
+            "looked in:"
+        ),
+        "view.proposal.invalid": "The file is there and could not be read: {error}",
+        "view.proposal.commands": (
+            "The command that writes one, without an assistant and with one. It "
+            "is shown and never run here: what a model costs is said before its "
+            "call."
+        ),
+        "view.proposal.overwrite": (
+            "digline suggest does not overwrite a proposal: move or delete {path} "
+            "first."
+        ),
         "view.writes.behind": (
             "This page writes nothing: the import and the recorder's switch "
             "are served only by digline view --allow-record."
@@ -2703,6 +2743,50 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.nav.recordings": "Registrazioni",
         "view.nav.setups": "Fra i setup",
         "view.nav.recorder": "Registratore",
+        "view.nav.proposal": "Proposta",
+        "view.title.proposal": "Proposta — {suite}",
+        "view.where.no_suite_yet.proposal": (
+            "digline suggest ha scritto una proposta, non ancora adottata: {proposal}."
+        ),
+        "view.where.proposal.open": "Leggi la proposta",
+        "view.proposal.heading": (
+            "La proposta che digline suggest ha scritto per {suite}"
+        ),
+        "view.proposal.lead": (
+            "Una proposta, non una suite: nessun comando di digline la legge, "
+            "niente in essa è un verdetto, e nessuna risposta è stata marcata. "
+            "Questa pagina legge il file e non scrive niente; adottarne le righe "
+            "nella tua suite tocca a te."
+        ),
+        "view.proposal.file": "Il file",
+        "view.proposal.declaration": "Cosa dichiara",
+        "view.proposal.notes": "Cosa dice il file accanto",
+        "view.proposal.checks": "I check, nell'ordine del file",
+        "view.proposal.key": "Chiave",
+        "view.proposal.value": "Valore",
+        "view.proposal.mark": "Marcato",
+        "view.proposal.mark.placeholder": "un segnaposto: tocca a te scriverlo",
+        "view.proposal.mark.assistant": "dall'assistente, non misurato",
+        "view.proposal.mark.draft": "dall'assistente: una bozza, da leggere",
+        "view.proposal.said": "L'assistente ha detto",
+        "view.proposal.counterexample": "Il controesempio",
+        "view.proposal.calibration": "Lo scheletro di calibrazione",
+        "view.proposal.unread": (
+            "Righe che questa pagina non ha saputo collocare, così come stanno"
+        ),
+        "view.proposal.none": (
+            "Nessuna proposta per {suite} dove digline suggest la scrive. Questa "
+            "pagina ha guardato in:"
+        ),
+        "view.proposal.invalid": "Il file c'è e non si è potuto leggere: {error}",
+        "view.proposal.commands": (
+            "Il comando che la scrive, senza assistente e con. Qui è mostrato e "
+            "mai eseguito: quanto costa un modello si dice prima della chiamata."
+        ),
+        "view.proposal.overwrite": (
+            "digline suggest non sovrascrive una proposta: sposta o cancella "
+            "{path} prima."
+        ),
         "view.writes.behind": (
             "Questa pagina non scrive niente: l'import e l'interruttore del "
             "registratore li serve solo digline view --allow-record."
