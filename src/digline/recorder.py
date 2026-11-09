@@ -36,7 +36,11 @@ function raising — the call's own result is returned, and a *not recorded* is
 counted with its reason. A stream closed or dropped before its end counts
 *stream abandoned*, and a stream through a map that cannot read one counts
 *streaming*. An exception of the provider's SDK propagates as it is,
-and nothing is recorded.
+and nothing is recorded; where it carries the HTTP status of a refusal, 4xx
+or 5xx, the call is counted *provider error <status>*. The wrapper sees the
+whole call, after the SDK's own retries, so a call retried and then answered
+counts nothing; the hooks in other languages and the proxy see each attempt,
+and count each refused one.
 
 **Two regimes, read from `tenant=`** (§4, §10). A name is **development**: one
 tenant, fixed. A function is **production**: the tenant is resolved at every
@@ -882,7 +886,12 @@ def _intercepted(
             return method(**kwargs)
         site = _call_site() if records and suite is None else None
         started = perf_counter()
-        reply = method(**kwargs)
+        try:
+            reply = method(**kwargs)
+        except BaseException as exc:
+            if records:
+                _refused(state, inside, known, suite, exc)
+            raise
         if _awaitable(reply):
             # An asynchronous client's call: what the application awaits is
             # the SDK's own awaitable, awaited here and handed on as it came.
@@ -993,9 +1002,15 @@ async def _awaited(
     """An asynchronous call: the SDK's reply, awaited, recorded and collected
     as a synchronous one is, and returned as it came. A streamed reply is the
     SDK's asynchronous stream, watched as the application reads it. An
-    exception of the SDK propagates as it was raised."""
+    exception of the SDK propagates as it was raised, counted where the
+    provider refused the call."""
     started = perf_counter()
-    reply = await pending
+    try:
+        reply = await pending
+    except BaseException as exc:
+        if records:
+            _refused(state, inside, known, suite, exc)
+        raise
     if streamed:
         _watch(
             state,
@@ -1030,6 +1045,48 @@ async def _awaited(
     if collected is not None:
         _collect(collected, mapped, request, reply, elapsed_ms)
     return reply
+
+
+def _provider_status(exc: BaseException) -> int | None:
+    """The HTTP status of the provider's refusal, 4xx or 5xx, where the SDK's
+    exception carries one: `status_code` on OpenAI's and Anthropic's, the
+    response's metadata on botocore's `ClientError`. `None` for anything else,
+    a connection that failed or a timeout, which no provider answered."""
+    try:
+        status = getattr(exc, "status_code", None)
+        if status is None:
+            response = getattr(exc, "response", None)
+            if isinstance(response, Mapping):
+                metadata = cast("Mapping[str, object]", response).get(
+                    "ResponseMetadata"
+                )
+                if isinstance(metadata, Mapping):
+                    status = cast("Mapping[str, object]", metadata).get(
+                        "HTTPStatusCode"
+                    )
+    except Exception:  # noqa: BLE001 — reading an exception never fails the call
+        return None
+    if type(status) is int and 400 <= status <= 599:
+        return status
+    return None
+
+
+def _refused(
+    state: _State,
+    inside: str | None,
+    known: str | None,
+    suite: object,
+    exc: BaseException,
+) -> None:
+    """A call the provider refused, counted `provider error <status>` and not
+    recorded: there is no reply to record. One whose exception carries no such
+    status is not counted, as before."""
+    status = _provider_status(exc)
+    if status is None:
+        return
+    reason = f"provider error {status}"
+    _joined(state, inside, reason, None)
+    _tally(state, known, suite, reason)
 
 
 def _ended(

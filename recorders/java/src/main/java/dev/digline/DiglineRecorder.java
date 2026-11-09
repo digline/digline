@@ -433,6 +433,18 @@ public final class DiglineRecorder {
         miss(reason, capture());
     }
 
+    /**
+     * A reply the hook saw that was not a 2xx: a refusal, 4xx or 5xx, is
+     * counted {@code provider error <status>} and not recorded, there being
+     * no reply to record. Any other status passes uncounted. A hook that sees
+     * each attempt the SDK makes counts each refused one.
+     */
+    void refused(int status, Captured at) {
+        if (status >= 400 && status <= 599) {
+            miss("provider error " + status, at);
+        }
+    }
+
     /** {@link #miss(String)}, for a call made where {@code at} was captured. */
     void miss(String reason, Captured at) {
         try {

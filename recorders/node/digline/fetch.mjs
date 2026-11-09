@@ -35,7 +35,9 @@ import {
  *
  * A request is read as digline's maps read it, and a reply only where its
  * status is 2xx: a retry the SDK makes after an error is one call, recorded
- * once. A stream is recorded when the application has read it to its end,
+ * once. The hook sees each attempt, and counts each one the provider refuses,
+ * 4xx or 5xx, as `provider error <status>`; the Python wrapper sees the
+ * whole call and counts only the refusal the SDK raises. A stream is recorded when the application has read it to its end,
  * and one it stops reading before is counted *stream abandoned*. Any other
  * request goes through untouched. `options.fetch` is the `fetch` it calls,
  * the global one where none is given.
@@ -115,6 +117,9 @@ class Watched {
   }
 
   reply(response) {
+    if (this.sent !== null) {
+      this.recorder.refused(response.status, this.at);
+    }
     if (this.sent === null || response.status < 200 || response.status > 299 || response.body === null) {
       return response;
     }

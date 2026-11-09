@@ -125,6 +125,9 @@ public final class DiglineAnthropic implements Interceptor {
         }
 
         HttpResponse reply(HttpResponse response) {
+            if (sent != null) {
+                recorder.refused(response.statusCode(), at);
+            }
             if (sent == null || response.statusCode() < 200 || response.statusCode() > 299) {
                 return response;
             }

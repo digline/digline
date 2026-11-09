@@ -15,7 +15,8 @@ What is held here:
   the tenant a function returns at each call;
 - a call that names no suite is `_unassigned` and carries its call site;
 - the application's call never fails because of the recorder, and an SDK's
-  exception propagates with nothing recorded;
+  exception propagates with nothing recorded, counted `provider error
+  <status>` where the provider refused the call;
 - off costs little per call, against a threshold stated below.
 """
 
@@ -508,7 +509,9 @@ def test_a_streamed_call_is_no_longer_streaming_not_recorded(tmp_path: Path) -> 
 
 
 @pytest.mark.usefixtures("on")
-def test_an_sdk_error_propagates_and_nothing_is_recorded(tmp_path: Path) -> None:
+def test_an_sdk_error_propagates_is_not_recorded_and_is_counted_by_its_status(
+    tmp_path: Path,
+) -> None:
     client = wrap(an_anthropic(status=400), app="support", tenant="acme", root=tmp_path)
     with pytest.raises(sdk("anthropic").BadRequestError):
         client.messages.create(
@@ -516,10 +519,11 @@ def test_an_sdk_error_propagates_and_nothing_is_recorded(tmp_path: Path) -> None
         )
     assert counts(client) == {
         "recorded": 0,
-        "not_recorded": {},
+        "not_recorded": {"provider error 400": 1},
         "orphan": 0,
         "noted": {},
     }
+    # Counted in memory; the counts file is written at the next tick, not here.
     assert not (tmp_path / ".digline").exists()
 
 

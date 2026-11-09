@@ -141,7 +141,11 @@ const recorder = DiglineRecorder.production(root, () => tenantOf(request), "supp
   family is read from the model id, a cross-region prefix (`us.`, `eu.`,
   `apac.`, `global.`) taken off first.
 - **A reply is read only where its status is 2xx.** A retry the SDK makes
-  after an error is one call, recorded once.
+  after an error is one call, recorded once. The hook sees each attempt, so
+  each one the provider refuses, 4xx or 5xx, is counted `provider error
+  <status>`: a call retried after a 500 and then answered is
+  `provider error 500` beside one recording. The Python wrapper sees the
+  whole call, after the SDK's retries, and counts only the refusal it raises.
 - **A stream is recorded when the application has read it to its end.** One it
   stops reading before is counted *stream abandoned*. OpenAI's SDK stops at
   `[DONE]`, and Anthropic's at `message_stop`: either counts as the end, and

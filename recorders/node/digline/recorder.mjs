@@ -1200,6 +1200,18 @@ export class DiglineRecorder {
    * Counts a call a hook could not read, by the stage that failed: what
    * digline's recorder counts as `map`, or `not JSON`.
    */
+  /**
+   * A reply the hook saw that was not a 2xx: a refusal, 4xx or 5xx, is
+   * counted `provider error <status>` and not recorded, there being no reply
+   * to record. Any other status passes uncounted. A hook that sees each
+   * attempt the SDK makes counts each refused one.
+   */
+  refused(status, at) {
+    if (Number.isInteger(status) && status >= 400 && status <= 599) {
+      this.miss(`provider error ${status}`, at);
+    }
+  }
+
   miss(reason, at = this.capture()) {
     try {
       this.#lookIfDue();

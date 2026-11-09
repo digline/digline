@@ -521,6 +521,11 @@ nothing. No public name is removed or renamed and no exit code changes.
   single call under an earlier setup, so an answer reads the same in a suite's
   listing and with `--from _unassigned` (ADR 0059 §3). The listing's head no
   longer names one setup.
+- **A call the provider refuses is counted `provider error <status>`**, 4xx or
+  5xx, and not recorded, by the Python wrapper (once per call), the proxy, and
+  the Java and Node hooks (once per attempt, so a retried 500 counts beside
+  the recording it led to); `digline record status` shows it among the calls
+  not recorded where the writer keeps counts.
 - **`digline record proxy --upstream` names the package** for a route whose
   plugin is not installed, as the start does; and a client that closes its
   connection is one line on standard error, never a traceback, its call

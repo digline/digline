@@ -233,6 +233,21 @@ public final class DiglineAws implements ExecutionInterceptor {
         });
     }
 
+    /**
+     * Each response the call received, sync or async, before its body is read:
+     * a refusal is counted here, the one place both clients pass for a reply
+     * that is not a 2xx. Once per attempt: a call the SDK retries after a 500
+     * and then gets answered counts {@code provider error 500} beside its
+     * recording. The Python wrapper sees the whole call instead.
+     */
+    @Override
+    public void afterTransmission(Context.AfterTransmission context, ExecutionAttributes attributes) {
+        Watched watched = attributes.getAttribute(WATCHED);
+        if (watched != null && !context.httpResponse().isSuccessful()) {
+            recorder.refused(context.httpResponse().statusCode(), watched.at);
+        }
+    }
+
     @Override
     public Optional<InputStream> modifyHttpResponseContent(Context.ModifyHttpResponse context,
             ExecutionAttributes attributes) {

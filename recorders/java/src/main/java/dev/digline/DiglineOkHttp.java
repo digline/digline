@@ -92,6 +92,9 @@ public final class DiglineOkHttp implements Interceptor {
         }
         long started = System.nanoTime();
         Response response = chain.proceed(request);
+        if (sent != null && !response.isSuccessful()) {
+            recorder.refused(response.code(), at);
+        }
         if (sent == null || !response.isSuccessful() || response.body() == null) {
             return response;
         }
