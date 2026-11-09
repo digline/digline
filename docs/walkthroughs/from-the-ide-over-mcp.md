@@ -120,6 +120,7 @@ with the tenant alone, `{"tenant": "acme"}`, it answered:
   "run_exit_code": null,
   "last_import": null,
   "capture": null,
+  "proposal": null,
   "next": {
     "say": "The recordings name suite category, and no suite declares where its captured cases go, so nothing reads them as cases. Write the suite with a capture declaration, or let an agent propose one by digline's method.",
     "command": null,
