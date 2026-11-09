@@ -73,6 +73,16 @@ dev = [
     "langgraph>=1.2.11,<2",
 ]
 
+[tool.uv]
+# The uv every lock here is written with, the one each `setup-uv` in the
+# workflows installs: decided 2026-11-09. A lock's `revision` is the format of
+# the uv that wrote it, so an unpinned uv moved it unasked
+# (tests/test_lock_revision.py). Another uv refuses to run in this project,
+# naming both versions; tests/test_uv_pin.py holds this and the workflows
+# equal. Install it with `uv self update 0.13.7`, or run it as
+# `uvx --from uv==0.13.7 uv`.
+required-version = "==0.13.7"
+
 [tool.uv.workspace]
 members = ["packages/*"]
 
