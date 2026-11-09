@@ -22,7 +22,12 @@ text that ends the turn. Every answer, tool call, score and token count below
 is the stand-in's. The SDK and the judge were pointed at it with
 `ANTHROPIC_BASE_URL`, which both read, and given `ANTHROPIC_API_KEY=fake`; on
 your machine the first is left out and the second is your key. Paths are
-shortened to `…`.
+shortened to `…`. Three outputs were run again, at `d746ec12`, after #958
+changed their words, against the same stand-in: the refusal of the last
+`promote`, and in the listing before the last yes the count of calls a turn
+attached and of the interrupted episodes. The run key and the time in them
+are those of the run the rest of the page shows, where the run again named
+its own.
 
 ## Day one: recording
 
@@ -302,7 +307,7 @@ stop*, the one about returns. **The page shows the shape of a turn's steps,
 not its tools**: each answer is a row with its id, how many calls it
 attached, when it was first recorded, its setup and its answer, and no row
 names `lookup_order` or its arguments. The turn that broke is counted under
-the list, *1 interrupted episodes*, and has no row.
+the list, *1 interrupted episode*, and has no row.
 
 Two yeses and a no, the no for the answer that gives 14 days to return a
 jacket where the shop gives 30, written under the name *Ada Lovelace*, wrote
@@ -401,12 +406,12 @@ group 1 · an episode, text, steps model → tool → model, finish stop · 3 an
 
 group 2 · an episode, text, steps model, finish stop · 1 answer from 1 recording
   setup in force for episodes: 8eca4da7
-  cap-c5fdedf6071b2f80-e1861177 · 2026-11-09T07:32:43.399852+00:00 · setup 8eca4da7 · 1 calls attached
+  cap-c5fdedf6071b2f80-e1861177 · 2026-11-09T07:32:43.399852+00:00 · setup 8eca4da7 · 1 call attached
     input:  {"ticket": "How long do I have to return a jacket?"}
     answer: You can return it within 14 days of delivery.
     already in the file, --bad
 
-4 answers in 2 groups, from 13 recordings of the suite; not cases: 0 orphans, 0 calls whose episode is not among the files, 1 interrupted episodes, 0 over the ceiling of a recording, 0 files that are not readable recordings
+4 answers in 2 groups, from 13 recordings of the suite; not cases: 0 orphans, 0 calls whose episode is not among the files, 1 interrupted episode, 0 over the ceiling of a recording, 0 files that are not readable recordings
 to write, name each answer with --good ID or --bad ID, and give --by NAME, your own name. An answer not named stays out
 ```
 
@@ -463,7 +468,7 @@ cannot become the reference while they disagree:
 
 ```console
 $ digline promote --suite eval/suite.toml --run latest --replacing 2026-11-09T07-33-58-931049-00-00-7aa9217a99f7b370
-digline: ContradictedRunError: run 2026-11-09T07-34-16-759642-00-00-7aa9217a99f7b370: a check on the steps contradicted a person on 1 reviewed answer: before, on case cap-1883cef159843149-84877bca, by answer cap-1883cef159843149-84877bca (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
+digline: run 2026-11-09T07-34-16-759642-00-00-7aa9217a99f7b370: a check on the steps contradicted a person on 1 reviewed answer: before, on case cap-1883cef159843149-84877bca, by answer cap-1883cef159843149-84877bca (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
 ```
 
 It exited `64`, and the reference stayed the first run.

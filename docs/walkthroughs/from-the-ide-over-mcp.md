@@ -16,7 +16,11 @@ Everything on this page was run, on 2026-11-07, with digline, `digline-mcp`
 and `digline-anthropic` installed from this repository at `1b5cf083`, the
 `mcp` SDK 2.3.0 and `anthropic` 2.4.0. It was first run at `37d5c1dd`, and
 run again at `1b5cf083`, where `where` says the next step in words and
-`run`'s `notes` say a contradiction; what it shows is the second run. **No call reached a model.** A
+`run`'s `notes` say a contradiction; what it shows is the second run. The
+line `promote` prints when it refuses the second day's run was run a third
+time, at `d746ec12`, after #958 took the class's name out of it, against the
+same stand-in; the run key in it is the second run's, where the third named
+its own. **No call reached a model.** A
 stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
 stand-in's. **No IDE was driven**: the tool calls were made by a client of the
@@ -499,7 +503,7 @@ person's to say. Until it is said, the run is not a reference:
 
 ```console
 $ digline promote --suite suite.toml --run latest --replacing 2026-11-07T14-18-35-151704-00-00-5540731bb0925c86
-digline: ContradictedRunError: run 2026-11-07T14-18-40-132240-00-00-5540731bb0925c86: the judge contradicted a person on 1 reviewed answer, by answer cap-9886a52f697cd007-1d630127 (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
+digline: run 2026-11-07T14-18-40-132240-00-00-5540731bb0925c86: the judge contradicted a person on 1 reviewed answer, by answer cap-9886a52f697cd007-1d630127 (failed a yes). The person's yes or no is the expected verdict, and a baseline where a check contradicts the person is not a baseline. Promote a run whose every check agreed with every person
 ```
 
 ## What you get, and what stays out
