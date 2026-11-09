@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 
 _BLOCK = re.compile(r"^```console\n(.*?)^```", re.S | re.M)
@@ -53,10 +55,15 @@ def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
     )
 
 
-def test_the_walk_reads_the_stories_too() -> None:
+#: The pages under `docs/stories/`, one control each.
+STORIES = ("java-quarkus.md", "python-many-prompts.md")
+
+
+@pytest.mark.parametrize("page", STORIES)
+def test_the_walk_reads_the_stories_too(page: str) -> None:
     """The control for `docs/stories/`: a page there whose console block
     lost its `$ ` line is one the walk reports."""
-    story = ROOT / "docs" / "stories" / "java-quarkus.md"
+    story = ROOT / "docs" / "stories" / page
     assert story in _pages()
     assert _BLOCK.search(story.read_text(encoding="utf-8"))
 
