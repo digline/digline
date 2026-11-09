@@ -87,6 +87,10 @@ class Where:
     #: Whether the suite declares a capture source: `--from _unassigned` is
     #: refused without one. `None` where no suite was given.
     capture: bool | None = None
+    #: In `no_suite_yet` alone: the proposal `digline suggest` wrote for the
+    #: suite and nobody adopted yet, relative to the store's root, or `None`
+    #: where none is where `suggest` writes one. A path, never its text.
+    proposal: str | None = None
 
 
 #: Where the documentation is read, on the site that publishes `docs/`.
@@ -156,7 +160,12 @@ def where_said(found: Where, *, suite_named: bool, locale: Locale) -> str:
         if found.state == "nothing_recorded" and not suite_named
         else f"view.where.{found.state}.say"
     )
-    return phrase(locale, key, **values)
+    said = phrase(locale, key, **values)
+    if found.state == "no_suite_yet" and found.proposal is not None:
+        said += " " + phrase(
+            locale, "view.where.no_suite_yet.proposal", proposal=found.proposal
+        )
+    return said
 
 
 def docs_url(page: str, anchor: str) -> str:
@@ -193,6 +202,10 @@ def where_json(
             "run_exit_code": found.exit_code,
             "last_import": found.last_import,
             "capture": found.capture,
+            # Additive, and in the one state that reads it: a proposal written
+            # and not adopted is a fact of `no_suite_yet`. (ADR 0063, ruled
+            # 2026-11-09)
+            **({"proposal": found.proposal} if found.state == "no_suite_yet" else {}),
             "next": {
                 "say": where_said(
                     found, suite_named=suite_arg is not None, locale="en"

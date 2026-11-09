@@ -412,6 +412,39 @@ def test_where_without_a_suite_is_the_command_line_s(tmp_path: Path) -> None:
     assert found == printed
 
 
+#: The first line `digline suggest` writes, which says whose proposal it is.
+PROPOSED = (
+    '# suite.proposed.toml, written by `digline suggest` for suite "triage" '
+    'of tenant "acme".\n'
+)
+
+
+@pytest.mark.parametrize(
+    ("named", "at"),
+    [(True, "suites/suite.proposed.toml"), (False, "suite.proposed.toml")],
+    ids=["beside the suite", "in the root, no suite"],
+)
+def test_where_names_a_proposal_over_this_server_as_on_the_command_line(
+    tmp_path: Path, named: bool, at: str
+) -> None:
+    """`proposal`, in `no_suite_yet`: the same path relative to the root on
+    both sides, beside the suite where one is named and in the root where
+    none is. (ADR 0063, the read-only view ruled 2026-11-09)"""
+    write_suite(tmp_path)
+    _no_suite_yet(tmp_path)
+    (tmp_path / at).write_text(PROPOSED, encoding="utf-8")
+    suite = ["--suite", SUITE] if named else []
+    printed = cli_json(tmp_path, "where", "--tenant", TENANT, *suite, "--json")
+    found = (
+        server_call(tmp_path, "where", tenant=TENANT, suite=SUITE)
+        if named
+        else server_call(tmp_path, "where", tenant=TENANT)
+    )
+    assert found["state"] == "no_suite_yet"
+    assert found["proposal"] == at
+    assert found == printed
+
+
 def test_where_refuses_a_tenant_the_suite_does_not_declare(root: Path) -> None:
     said = server_refusal(root, "where", tenant="other", suite=SUITE)
     assert "does not match the suite" in said

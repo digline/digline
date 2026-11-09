@@ -63,6 +63,7 @@ from digline.host.importing import (
     split_recordings,
 )
 from digline.host.listing import suite_runs
+from digline.host.proposal import found_proposal, proposal_places, relative_to_root
 from digline.host.recording import recorder_status
 from digline.recorder import UNASSIGNED
 from digline.run.suite import Suite
@@ -131,13 +132,24 @@ RECORD_LINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 
 def where(
-    root: Path, tenant: str, *, suite: Suite | None, module: ModuleType | None
+    root: Path,
+    tenant: str,
+    *,
+    suite: Suite | None,
+    module: ModuleType | None,
+    suite_file: Path | None = None,
+    cwd: Path | None = None,
 ) -> Where:
     """The first state that holds for `tenant` under `root`, and `suite` when
     one is given; the module docstring lists them. With no suite, only the
     states read from the recordings can hold, and the last is `no_suite_yet`
     for the first suite name the recordings carry, or `nothing_recorded`.
-    Reads, and writes nothing."""
+    Reads, and writes nothing.
+
+    In `no_suite_yet` it also says whether `digline suggest` wrote a proposal
+    for the suite: beside `suite_file` where there is one, in `root` and `cwd`
+    otherwise (`proposal_places`), the process's own directory where `cwd`
+    is not given."""
     store = FileResultStore(root)
     everything, _unreadable = read_recordings(store, tenant)
     named = sorted({r.suite for r in everything} - {UNASSIGNED})
@@ -173,6 +185,7 @@ def where(
             count=sum(1 for r in everything if r.suite == named[0]),
             suite=named[0],
             shapes=shape_counts(everything, named[0]),
+            proposal=_proposal(root, None, cwd, named[0]),
         )
     if mine and suite.capture is None:
         return Where(
@@ -181,6 +194,7 @@ def where(
             count=len(mine),
             suite=suite.name,
             shapes=shape_counts(everything, suite.name),
+            proposal=_proposal(root, suite_file, cwd, suite.name),
         )
     if waiting:
         return Where("to_import", tenant, count=waiting, suite=suite.name)
@@ -233,6 +247,15 @@ def where(
         run_key=key,
         exit_code=code,
     )
+
+
+def _proposal(
+    root: Path, suite_file: Path | None, cwd: Path | None, suite: str
+) -> str | None:
+    """The proposal written for `suite`, relative to `root`, or `None`."""
+    places = proposal_places(suite_file, root, cwd if cwd is not None else Path.cwd())
+    found = found_proposal(places, suite)
+    return None if found is None else relative_to_root(found, root)
 
 
 def _name(suite: Suite | None) -> str | None:

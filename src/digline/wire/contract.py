@@ -1686,6 +1686,15 @@ _ADDED: tuple[_AddedKey, ...] = (
     *_shape_added(
         "where.doc", {"page": _STR, "anchor": _STR, "url": _STR}, _FIRST_VERBS
     ),
+    # The proposal `digline suggest` wrote and nobody adopted, by its path
+    # relative to the root, in `no_suite_yet` alone: absent in every other
+    # state, `null` where there is none.
+    _AddedKey(
+        "where",
+        "proposal",
+        _k("string", "null", optional=True),
+        "ADR 0063, the read-only view ruled 2026-11-09",
+    ),
     *_shape_added(
         "import_listing",
         {
