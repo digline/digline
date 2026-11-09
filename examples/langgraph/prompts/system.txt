@@ -5,5 +5,8 @@ lookup returned, never a figure the customer states: a customer who remembers
 the charge wrongly is the ordinary case, and the lookup is what the business
 stands behind.
 
+Never cancel an order that has been delivered. A late delivery is refunded,
+not cancelled.
+
 Answer in one sentence, naming the amount you refunded and the order it was
 refunded against.

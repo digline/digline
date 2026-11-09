@@ -367,7 +367,7 @@ actually arrives with. Every one runs with no API key, carries its committed
 - [**My application is Java: can I use this?**](examples/external-app/) — `HttpTarget` against a service digline cannot import
 - [**My app is LangChain4j: what do I put in my repo?**](examples/langchain4j/) — the walkthrough: one endpoint, three files, the CI gate
 - [**My pipeline is LangChain: what changed when I upgraded it?**](examples/langchain/) — the chain called in process, `FakeListChatModel` in CI, one line to a real model
-- [**My agent calls the right tools, but with the right arguments?**](examples/langgraph/) — a LangGraph agent judged on its trajectory: `ToolsCalled` for the order, `ToolCalledWith` for the arguments, the tools real and the model scripted
+- [**My agent calls the right tools, but with the right arguments?**](examples/langgraph/) — a LangGraph agent judged on its trajectory: `Before` and `Subsequence` for the order, `Never` and `MaxSteps` on the steps, `ToolCalledWith` for the arguments, the tools real and the model scripted
 - [**My RAG is LlamaIndex: is it still answering from the right page?**](examples/llamaindex/) — a live query engine, retrieval measured by `Faithfulness` against the page each case declares
 - [**My team does not write Python: can we still gate a prompt?**](examples/quickstart-toml/) — a `suite.toml` and a `cases.json`, no code in the suite
 - [**My suite is green today: who watches it on Thursday?**](examples/operator/) — the operator loop: a scheduled re-run, draw told from drift, a declared policy that decides who is woken, and a probe proving each cycle that `promote` is still absent
