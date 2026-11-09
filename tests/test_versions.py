@@ -430,6 +430,16 @@ RECORDED: dict[str, dict[str, str]] = {
             "equal to recorders/node/package.json by tests/test_story_node.py"
         ),
     },
+    "docs/stories/from-the-ide-with-mcp.md": {
+        "0.8.1": (
+            "the digline-mcp on PyPI when the story was run, with eight tools, "
+            "under the notice that turns false when digline 1.1.0 and a "
+            "digline-mcp with thirteen tools are published; RELEASING.md's row "
+            "owed to the next version removes it"
+        ),
+        "2.3.0": "the mcp SDK the story's client was run with, not a digline one",
+        "2.4.0": "the anthropic SDK the story was run with, not a digline one",
+    },
     "docs/record.md": {
         "1.0.3": (
             "'On 1.0.3, digline record and digline.recorder do not exist' — the "
@@ -1125,9 +1135,11 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "examples/langchain/README.md": {
         "1.3.18": "the langchain version the example was run against, not a "
-        "digline one. Pinned to the example's own lock by "
-        "tests/test_examples.py, which is where a third-party version belongs",
-        "1.6.1": "langchain-core, beside it, held by the same test",
+        "digline one. Held to the floor in the example's own pyproject.toml, "
+        "langchain>=1.3.18, by tests/test_examples.py, which is where a "
+        "third-party version belongs; the lock is read by neither",
+        "1.6.1": "langchain-core, beside it, written by hand: no test holds it, "
+        "since tests/test_examples.py reads the langchain floor alone",
     },
     "examples/langgraph/README.md": {
         "1.2.11": "the langgraph version the example was run against, not a "

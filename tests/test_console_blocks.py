@@ -56,7 +56,11 @@ def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
 
 
 #: The pages under `docs/stories/`, one control each.
-STORIES = ("java-quarkus.md", "python-many-prompts.md")
+STORIES = (
+    "java-quarkus.md",
+    "python-many-prompts.md",
+    "from-the-ide-with-mcp.md",
+)
 
 
 @pytest.mark.parametrize("page", STORIES)
