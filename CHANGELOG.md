@@ -597,6 +597,12 @@ nothing. No public name is removed or renamed and no exit code changes.
   where` prints under its title, where `next.command` is `null` because the
   step is an edit, as `no_suite_yet`'s suite to write; `digline where --json`
   carries it too, so the two stay equal key for key.
+- **`where` names the proposal `digline suggest` wrote**, in `no_suite_yet`,
+  as `proposal`: a path relative to the root, beside the suite's file where a
+  suite is named and in the root where none is, or `null`. It is the same
+  key `digline where --json` carries, equal key for key (#962;
+  [ADR 0063](docs/adr/0063-suggest-a-first-suite-proposed-and-never-marked.md),
+  as ruled 2026-11-09).
 - **`run`'s `notes` say a contradiction**, as `digline run` says it on
   stderr beside the bill: *the judge contradicted a person on 1 reviewed
   answer*, or the checks on the steps by name and case. It was empty on such
