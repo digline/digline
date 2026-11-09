@@ -106,7 +106,12 @@ which no plugin is, so the suite refuses to load until you name one.
 the most model turns, the highest cost and latency, a check's lowest score.
 Where no run measured a limit, it is a **placeholder**: the strictest value
 the check accepts, marked `# placeholder` in the file. A placeholder fails
-until you write a measured number, and is never a default that passes. A
+until you write a measured number, and is never a default that passes. It
+fails where its check has a verdict: a reviewed answer of a single call is
+asked its judged check alone
+([ADR 0059](adr/0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md)
+§1), so on one the placeholders of `is_json`, `json_schema`, `never` and
+`latency_budget` produce no verdict. A
 threshold goes where the system measurably is, which takes several runs
 ([the guide](guide.md), chapters 4 and 5).
 

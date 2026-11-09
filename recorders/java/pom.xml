@@ -82,6 +82,31 @@
       <version>6.1.3</version>
       <scope>test</scope>
     </dependency>
+    <!--
+      The annotations of docs/stories/java-quarkus.md's bean, and nothing that
+      runs them: StoryTest compiles the page's Quarkus code as written and
+      calls it by hand. The container itself is the story's to run.
+    -->
+    <dependency>
+      <groupId>jakarta.enterprise</groupId>
+      <artifactId>jakarta.enterprise.cdi-api</artifactId>
+      <version>4.1.0</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.microprofile.config</groupId>
+      <artifactId>microprofile-config-api</artifactId>
+      <version>3.1</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- The OSGi annotations microprofile-config-api carries, which javac
+         reads and, without their classes, warns about under -Werror. -->
+    <dependency>
+      <groupId>org.osgi</groupId>
+      <artifactId>osgi.annotation</artifactId>
+      <version>8.1.0</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
