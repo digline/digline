@@ -1,8 +1,14 @@
 # An agent in Python, from its first turns to a gate on its steps
 
-> **Arrives with digline 1.1.** The release on PyPI has no `digline record`
-> and no `digline suggest`, so until 1.1.0 is published the commands below
-> need digline installed from this repository.
+This page records an agent's turns with the tools it calls, turns the
+recordings into a suite, and ends with a gate on the agent's steps.
+
+> **Arrives with the next digline-anthropic.** The digline-anthropic on
+> PyPI does not record a call whose messages carry the
+> SDK's reply as it came, `reply.content`, which the agent below sends
+> back: it counts the call and records nothing. Until the next
+> digline-anthropic is published, the commands below need it installed
+> from this repository.
 
 ## Who this is for
 

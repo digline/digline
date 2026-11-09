@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-11-09
 
 digline **1.1.0**. **A minor, because the schema moves**: the run document is at
 schema 23, and `digline migrate` takes a document from 22 by a step that writes

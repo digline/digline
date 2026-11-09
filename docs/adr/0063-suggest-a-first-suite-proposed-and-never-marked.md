@@ -12,7 +12,9 @@
   §7, with `docs/suggest.md`. §4's assistant is not built
   *Built 2026-11-06, the rest:* §4's assistant, with what its measurement
   added noted beside §4 and §6
-- Shipped: unreleased
+  *The block above is the proposed phase's own text, kept as written, and speaks
+  from that phase.* `Shipped:` below names the release that first carries it
+- Shipped: 1.1.0
 - Date: 2026-11-06
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`, no `RECORDING_VERSION`, and no entry in the layout of

@@ -16,7 +16,6 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "docs" / "walkthroughs" / "java-quarkus-bedrock.md"
 STORY_TEST = REPO / "recorders/java/src/test/java/dev/digline/StoryTest.java"
-MARK = "> **Arrives with digline 1.1.**"
 
 
 def _lines(block: str) -> list[str]:
@@ -32,11 +31,26 @@ def test_every_java_block_on_the_story_is_one_the_java_tests_run() -> None:
     assert [_lines(block) for block in page] == [_lines(block) for block in run]
 
 
-def test_the_story_carries_the_mark_under_its_title() -> None:
-    """Until 1.1.0 is on PyPI the story's commands need digline from this
-    repository, and the mark says so under the title. The cut takes it out
-    (RELEASING.md, *Owed to the next version*)."""
-    page = PAGE.read_text(encoding="utf-8")
+def _opening(page: str) -> tuple[str, str]:
+    """The paragraph under the title, and what follows it."""
     title, rest = page.split("\n", 1)
     assert title.startswith("# ")
-    assert rest.lstrip("\n").startswith(MARK)
+    lede, _, after = rest.lstrip("\n").partition("\n\n")
+    return lede, after.lstrip("\n")
+
+
+def test_the_page_opens_on_a_lede_of_one_sentence() -> None:
+    """A paragraph under the title says what the page shows, in one sentence,
+    so the site's opening band has a lede: on digline.dev,
+    `tools/check-opening.py` declares a page without one by name. (The 1.1.0
+    cut, ruled 2026-11-09.)"""
+    lede, _ = _opening(PAGE.read_text(encoding="utf-8"))
+    assert lede and not lede.startswith((">", "#", "-", "`")), lede
+    assert lede.count(". ") == 0 and lede.endswith("."), lede
+
+
+def test_the_page_carries_no_mark() -> None:
+    """Its mark went at the cut of 1.1.0: what the page runs is on PyPI from
+    that release on. (RELEASING.md, *Owed to the next version*)"""
+    _, after = _opening(PAGE.read_text(encoding="utf-8"))
+    assert after.startswith("## Who this is for"), after[:80]

@@ -440,20 +440,12 @@ RECORDED: dict[str, dict[str, str]] = {
     "docs/walkthroughs/from-the-ide-over-mcp.md": {
         "0.8.1": (
             "the digline-mcp on PyPI when the story was run, with eight tools, "
-            "under the notice that turns false when digline 1.1.0 and a "
-            "digline-mcp with thirteen tools are published; RELEASING.md's row "
-            "owed to the next version removes it"
+            "under the notice that turns false when a digline-mcp with thirteen "
+            "tools is published; RELEASING.md's row owed to the next version "
+            "removes it with that release"
         ),
         "2.3.0": "the mcp SDK the story's client was run with, not a digline one",
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
-    },
-    "docs/record.md": {
-        "1.0.3": (
-            "'On 1.0.3, digline record and digline.recorder do not exist' — the "
-            "release on PyPI while 1.1.0 is unreleased, under the notice that "
-            "turns false at the tag; the release pull request of 1.1.0 removes "
-            "the line, as RELEASING.md's row owed to the next version says"
-        ),
     },
     "RELEASING.md": {
         "1.0.3": (
@@ -1636,7 +1628,22 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: sentence somebody writes and somebody reads, which is the point. What it
 #: must not become is the way to make this red go away: the red it exists for
 #: is `v0.17.0` publishing two plugins and leaving both declared unreleased.
-UNRELEASED_ON_PURPOSE: dict[str, str] = {}
+#:
+#: *1.1.0, by Alessandro Prandini's ruling of 2026-11-09 (P-1613 bis).* The
+#: five plugins keep their `— unreleased` headings across the core's tag:
+#: each is released on its own tag after digline 1.1.0's (RELEASING.md,
+#: *Owed at the cut*). Their versions did not move in the core's release
+#: pull request, so the gate below finds each one's dated heading at the
+#: version it reads and would pass without these lines: they say the
+#: intent, and each plugin's release pull request deletes its own.
+_OWN_TAG_AFTER_1_1_0 = "released on its own tag after digline 1.1.0's"
+UNRELEASED_ON_PURPOSE: dict[str, str] = {
+    "digline-anthropic": _OWN_TAG_AFTER_1_1_0,
+    "digline-bedrock": _OWN_TAG_AFTER_1_1_0 + " and after digline-anthropic's",
+    "digline-mcp": _OWN_TAG_AFTER_1_1_0,
+    "digline-openai": _OWN_TAG_AFTER_1_1_0,
+    "pytest-digline": _OWN_TAG_AFTER_1_1_0,
+}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:
