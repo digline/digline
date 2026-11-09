@@ -116,6 +116,13 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
+    "docs/stories/an-agent.md": {
+        "2.4.0": (
+            "'anthropic 2.4.0': the Python SDK for Anthropic the story was run "
+            "with, on 2026-11-09, not a digline version; written by hand, and no "
+            "test holds it"
+        ),
+    },
     "src/digline/core/projection.py": {
         "0.25.0": (
             "'(Delta-pass over 0.25.0, F-n)': the pass over the 0.25.0 release that "
