@@ -13,7 +13,7 @@
   same day, after a mockup in two variants:* the maintainer chose a stylesheet of digline's own over a
   vendored framework, and §4.4, §5 and §7 carry what that choice ruled. The
   mockup was built outside the repository and is not part of this record
-- Shipped: 1.1.0
+- Shipped: 1.1.1
 - Date: 2026-11-03
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`, no `RECORDING_VERSION` and no line of `_STEPS`. The page

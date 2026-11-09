@@ -8,7 +8,7 @@ calls it makes on the way to one answer, is kept as one recording, an
 episode with its steps. A person then reads them back and names the ones that
 become cases.
 
-> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.0 is on
+> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.1 is on
 > PyPI with `digline record` and `digline.recorder`, and the provider
 > plugins there are not yet the ones this page uses: the digline-openai
 > and digline-bedrock on PyPI have no recording map, digline-anthropic's

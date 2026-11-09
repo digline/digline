@@ -6,11 +6,34 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.1.0 — 2026-11-09
+## 1.1.1 — 2026-11-09
 
-digline **1.1.0**. **A minor, because the schema moves**: the run document is at
-schema 23, and `digline migrate` takes a document from 22 by a step that writes
-nothing. No public name is removed or renamed and no exit code changes.
+digline **1.1.1**, the release of what was tagged as 1.1.0. **1.1.0 did not
+reach PyPI**: TestPyPI serves it, PyPI does not. Its publish run
+(`42639021156`) tried every plugin PyPI serves beside it, and digline-mcp
+0.8.1, whose range admits it, failed: `digline.host.measure` had gained a
+required argument, `marker_root`, and the server's call without it raised
+`TypeError`. The run stopped before the gate. A minor does not add a required
+parameter to a public function (RELEASING.md, *Choosing the version*), so the
+repair below is a patch, and everything in this entry is 1.1.1's.
+
+- **`measure()` takes its 1.0 form again** (ADR 0058 §4, note of 2026-11-09).
+  Left out, `marker_root` is derived from a `FileResultStore`: the project it
+  lives in, which is the directory `digline run` and the MCP server pass, so a
+  run started the 1.0 way marks its calls as the gate's. `None` still says
+  that nothing can be recording. **What is left of the break:** a call without
+  `marker_root` on a store that is not a `FileResultStore` is refused, with a
+  `TypeError` that names the argument, rather than run with no marker. Such a
+  store names no project to write the marker under.
+- **A public callable cannot gain a required parameter unseen.**
+  `tests/test_public_signatures.py` holds every name in the `__all__` of
+  `digline.core`, `digline.run` and `digline.host` to the required parameters
+  it had at `v1.0.3`, read by `tools/public_signatures.py`. Read against
+  1.1.0's tree, it names `measure`'s `marker_root` and nothing else.
+
+**1.1 is a minor because the schema moves**: the run document is at schema 23, and
+`digline migrate` takes a document from 22 by a step that writes nothing. No
+public name is removed or renamed and no exit code changes.
 
 - **Schema 23: a recorded response keeps the trajectory the checks read live,
   and a case keeps what a person said of a reviewed answer**, four passengers,
@@ -600,7 +623,7 @@ nothing. No public name is removed or renamed and no exit code changes.
     the baseline unmoved in `git diff`.
 - **The walkthrough for `digline view --allow-record` ran on 2026-11-09,
   before the tag, by Alessandro**, its first run by a person, in the same
-  browser on the same head. **It was owed:** 1.1.0 is the first release that
+  browser on the same head. **It was owed:** 1.1.1 is the first release that
   carries the flag. Steps 0 to 6 went as written, in the store the script
   builds in `/tmp/walk-record`.
   - **The answers.** Two answers, each with `--good` and `--bad`, and no
@@ -660,7 +683,7 @@ nothing. No public name is removed or renamed and no exit code changes.
   name, a setup's key and a model are tokens, digline's own keys stay in clear
   as a run's do, and a cases file's path and the plugins installed are
   withheld.
-- Its floor on `digline` becomes `1.1.0` in its own release, a minor cut with
+- Its floor on `digline` becomes `1.1.1` in its own release, a minor cut with
   the core's: RELEASING.md, *Owed at the cut*.
 
 ## pytest-digline — unreleased
@@ -680,7 +703,7 @@ nothing. No public name is removed or renamed and no exit code changes.
   where it said the movement: on a reviewed answer added after the
   reference, *Checked here, not present in the reference*, which names
   nothing that failed.
-- Its floor on `digline` becomes `1.1.0` in its own release, after the core's:
+- Its floor on `digline` becomes `1.1.1` in its own release, after the core's:
   RELEASING.md, *Owed at the cut*.
 
 ## digline-openai — unreleased
@@ -738,7 +761,7 @@ nothing. No public name is removed or renamed and no exit code changes.
   type checker alone (#919).
 - **The dependency is `digline>=0.35.0,<2`** (#862). The cap is new since
   0.7.0, which declared none.
-- Its floor on `digline` becomes `1.1.0` in its own release, after the core's,
+- Its floor on `digline` becomes `1.1.1` in its own release, after the core's,
   and its floor on `digline-anthropic` the release after 0.8.0 that carries
   `WIRE` and the stream reading: RELEASING.md, *Owed at the cut*.
 

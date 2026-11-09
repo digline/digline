@@ -20,7 +20,7 @@
   but §2's `input`, which #901 writes, landed before the acceptance
   *The block above is the proposed phase's own text, kept as written, and speaks
   from that phase.* `Shipped:` below names the release that first carries it
-- Shipped: 1.1.0 — §4's façade for an application with no framework,
+- Shipped: 1.1.1 — §4's façade for an application with no framework,
   `Digline.ask`, is in no file, and `recorder-java` is not a required
   check; .NET's and Go's interceptors come after 1.1, as §4 decides
 - Date: 2026-11-04

@@ -116,6 +116,13 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
+    "docs/record-java.md": {
+        "1.1.0": (
+            "'installed digline 1.1.0 from `main` at `98bbf62c`': what the "
+            "install line put in place when it was run, on 2026-11-06, told as "
+            "history"
+        ),
+    },
     "docs/walkthroughs/an-agent.md": {
         "2.4.0": (
             "'anthropic 2.4.0': the Python SDK for Anthropic the story was run "
@@ -448,8 +455,15 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "1.1.0": (
+            "the tag that never reached PyPI, told as history: the cut of 1.1.0 "
+            "that rewrote the rows of *Owed to the next version* (P-1613 ter, "
+            "P-1614), its release pull request (#970), the floors moved from it "
+            "to 1.1.1, and its paragraph in the Status block, where publish run "
+            "42639021156 stopped it before the gate"
+        ),
         "1.0.3": (
-            "the release before 1.1.0, told as history: its paragraph in the "
+            "the release before 1.1.1, told as history: its paragraph in the "
             "Status block, with the capture, the index, the image, the locks and "
             "the reports it moved, and the follow-up that read it"
         ),
@@ -1631,18 +1645,19 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #:
 #: *1.1.0, by Alessandro Prandini's ruling of 2026-11-09 (P-1613 bis).* The
 #: five plugins keep their `— unreleased` headings across the core's tag:
-#: each is released on its own tag after digline 1.1.0's (RELEASING.md,
+#: each is released on its own tag after digline 1.1.1's (RELEASING.md,
 #: *Owed at the cut*). Their versions did not move in the core's release
 #: pull request, so the gate below finds each one's dated heading at the
 #: version it reads and would pass without these lines: they say the
 #: intent, and each plugin's release pull request deletes its own.
-_OWN_TAG_AFTER_1_1_0 = "released on its own tag after digline 1.1.0's"
+#: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
+_OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-anthropic": _OWN_TAG_AFTER_1_1_0,
-    "digline-bedrock": _OWN_TAG_AFTER_1_1_0 + " and after digline-anthropic's",
-    "digline-mcp": _OWN_TAG_AFTER_1_1_0,
-    "digline-openai": _OWN_TAG_AFTER_1_1_0,
-    "pytest-digline": _OWN_TAG_AFTER_1_1_0,
+    "digline-anthropic": _OWN_TAG_AFTER_1_1_1,
+    "digline-bedrock": _OWN_TAG_AFTER_1_1_1 + " and after digline-anthropic's",
+    "digline-mcp": _OWN_TAG_AFTER_1_1_1,
+    "digline-openai": _OWN_TAG_AFTER_1_1_1,
+    "pytest-digline": _OWN_TAG_AFTER_1_1_1,
 }
 
 

@@ -157,7 +157,7 @@ Reproduce on the artifact that actually travels, not on the code that builds it,
 and write the regression test so that it fails against the release just cut.
 
 It has run on 0.7.1, on every minor release of 0.x since, and on 1.0.0.
-The pass over 1.1.0 runs after its tag. A pass
+The pass over 1.1.1 runs after its tag. A pass
 that found something is in the changelog, beside the fix it led to. One that
 found nothing often left no line there, and its report is kept in the
 maintainers' notes, which are not public. The pass

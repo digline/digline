@@ -13,7 +13,7 @@
   functions and of one argument of `execute()`, the refusals a suite meets,
   and the keys each assertion writes. Each was proposed, for acceptance to
   take or remove item by item
-- Shipped: 1.1.0
+- Shipped: 1.1.1
 - Date: 2026-11-03
 - Opens: **a third passenger on schema 23, when its code lands, and nothing
   before.** This record writes no `SCHEMA_VERSION`, no line of `_STEPS` and no
