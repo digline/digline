@@ -304,29 +304,70 @@ def suite(*checks: Any) -> Suite:
             Never(tool="lookup_order"),
             ToolCalledWith(tool="lookup_order", arguments={"order": 42}),
         ),
-        (Never(tool="issue_refund"), LOOKUP_BEFORE_REFUND),
-        (Never(tool="lookup_order"), LOOKUP_BEFORE_REFUND),
-        (
-            LOOKUP_BEFORE_REFUND,
-            Before(first="issue_refund", then="lookup_order", name="refund_first"),
-        ),
         (MaxSteps(limit=1, count="tool"), LOOKUP_THEN_REFUND),
     ],
     ids=[
         "never-subsequence",
         "never-tools_called",
         "never-tool_called_with",
-        "never-before-then",
-        "never-before-first",
-        "before-before",
         "max_steps-subsequence",
     ],
 )
 def test_a_suite_refuses_two_checks_that_cannot_both_pass(one: Any, other: Any) -> None:
     with pytest.raises(RefusedError, match="cannot both pass") as refused:
         suite(one, other)
-    assert repr(one.name) in str(refused.value)
-    assert repr(other.name) in str(refused.value)
+    said = str(refused.value)
+    assert repr(one.name) in said
+    assert repr(other.name) in said
+    assert "so the suite would fail every case" in said
+
+
+REFUND_FIRST = Before(first="issue_refund", then="lookup_order", name="refund_first")
+
+
+@pytest.mark.parametrize(
+    ("one", "other", "turn"),
+    [
+        (
+            Never(tool="issue_refund"),
+            LOOKUP_BEFORE_REFUND,
+            "a turn that calls the tool the first forbids: the second allows it "
+            "after another, and the first forbids it",
+        ),
+        (
+            Never(tool="lookup_order"),
+            LOOKUP_BEFORE_REFUND,
+            "a turn that calls the second's later tool: the second needs the tool "
+            "the first forbids before it, so that one is forbidden too, under "
+            "another name",
+        ),
+        (
+            LOOKUP_BEFORE_REFUND,
+            REFUND_FIRST,
+            "a turn that calls both tools: each asks for the other's tool first",
+        ),
+    ],
+    ids=["never-before-then", "never-before-first", "before-before"],
+)
+def test_two_checks_that_contradict_on_some_turns_say_which(
+    one: Any, other: Any, turn: str
+) -> None:
+    """`never` beside a `before` on its tool, and two reversed `before`s, are
+    refused too, and the sentence says the truth about them: both pass on a
+    turn that calls neither tool, and they disagree on the turn named, not on
+    every case. (P-1588; it said *which cannot both pass … would fail every
+    case*)"""
+    with pytest.raises(RefusedError) as refused:
+        suite(one, other)
+    said = str(refused.value)
+    assert said == (
+        f"suite 'refunds' declares {one.name!r} and {other.name!r}, which "
+        f"contradict each other on {turn}. Every case is asked every check, so "
+        "the suite would fail every such turn. Remove one of the two"
+    )
+    assert "cannot both pass" not in said
+    # What the sentence rests on: a turn that calls neither tool passes both.
+    assert status(one, steps=[]) == status(other, steps=[]) == "pass"
 
 
 def test_a_suite_takes_checks_that_can_both_pass() -> None:

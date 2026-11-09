@@ -826,13 +826,23 @@ class Suite:
     def _check_trajectories(self) -> None:
         """Two trajectory checks that cannot both hold, refused before a call
         is paid for: every case that is not a calibration case is asked every
-        check, so a contradiction would fail every case. (ADR 0060 §4)
+        check. Some pairs fail every case; `never` beside a `before` on its
+        tool, and two `before`s each other's reverse, fail every turn that
+        calls the tool they disagree on, and the sentence says which.
+        (ADR 0060 §4)
 
         The sentence names the two checks and how they collide, never the tool,
         which is a name of the suite's that no projection mints."""
         checks = self.assertions
         for never in (check for check in checks if isinstance(check, Never)):
             for other in checks:
+                if isinstance(other, Before) and never.tool in (
+                    other.first,
+                    other.then,
+                ):
+                    raise _contradicting(
+                        self.name, never, other, _never_before(never.tool, other)
+                    )
                 why = _against_never(never.tool, other)
                 if why is not None:
                     raise _colliding(self.name, never, other, why)
@@ -840,12 +850,12 @@ class Suite:
         for one in befores:
             for other in befores:
                 if one.first == other.then and one.then == other.first:
-                    raise _colliding(
+                    raise _contradicting(
                         self.name,
                         one,
                         other,
-                        "each asks for the other's tool first, so both hold only "
-                        "where one of the two tools is never called",
+                        "a turn that calls both tools: each asks for the other's "
+                        "tool first",
                     )
         for limit in (
             check
@@ -1329,17 +1339,23 @@ def _against_never(tool: str, other: Assertion) -> str | None:
         return "the second expects the tool the first forbids"
     if isinstance(other, ToolCalledWith) and other.tool == tool:
         return "the second asks for a call to the tool the first forbids"
-    if isinstance(other, Before) and other.then == tool:
-        return (
-            "the second orders a tool the first forbids, so it could only pass "
-            "because that tool is never called"
-        )
-    if isinstance(other, Before) and other.first == tool:
-        return (
-            "the second needs a tool the first forbids before its own, so it "
-            "would forbid that one too, under another name"
-        )
     return None
+
+
+def _never_before(tool: str, before: Before) -> str:
+    """Where `never` on `tool` and `before` disagree, and how: the turn that
+    calls the tool `before` allows after another, or the tool `before` needs
+    the forbidden one ahead of. (ADR 0060 §4)"""
+    if before.then == tool:
+        return (
+            "a turn that calls the tool the first forbids: the second allows it "
+            "after another, and the first forbids it"
+        )
+    return (
+        "a turn that calls the second's later tool: the second needs the tool "
+        "the first forbids before it, so that one is forbidden too, under "
+        "another name"
+    )
 
 
 def _colliding(suite: str, one: Assertion, other: Assertion, why: str) -> RefusedError:
@@ -1351,6 +1367,24 @@ def _colliding(suite: str, one: Assertion, other: Assertion, why: str) -> Refuse
             NameRef("verdict_name", other.name),
             f", which cannot both pass: {why}. Every case is asked every check, "
             "so the suite would fail every case. Remove one of the two",
+        )
+    )
+
+
+def _contradicting(
+    suite: str, one: Assertion, other: Assertion, turn: str
+) -> RefusedError:
+    """Two checks that both pass where the tool they disagree on is never
+    called, and contradict each other on `turn`, which says where and how."""
+    return RefusedError(
+        Written.said(
+            f"suite {suite!r} declares ",
+            NameRef("verdict_name", one.name),
+            " and ",
+            NameRef("verdict_name", other.name),
+            f", which contradict each other on {turn}. Every case is asked "
+            "every check, so the suite would fail every such turn. Remove one "
+            "of the two",
         )
     )
 

@@ -273,6 +273,13 @@ is not a calibration case is asked every assertion
 - `MaxSteps(count="tool")` with a `limit` below the length of a
   `Subsequence`.
 
+*Corrected 2026-11-09 (P-1588):* *"a contradiction fails every case"* holds
+for the first item and the last. The second and the third pass both checks
+on a turn that calls neither tool, and fail every turn that calls the tool
+they disagree on. They are refused all the same, and since this correction
+the refusal says on which turn the two contradict each other, where it said
+of them too that the suite would fail every case.
+
 **An `error`, never a `fail`:**
 
 - the target reported neither `steps` nor `tools`, or, for `MaxSteps`, no
