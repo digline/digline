@@ -15,8 +15,9 @@ What is held here:
   `X-Digline-Case` gives or its first call's, and the import says which;
 - a stream the application closes before its end is `stream abandoned`;
 - off, nothing is written; a 500 or a 403 passes on as it came, is not
-  recorded, and is counted `provider error <status>`; an upstream that does not answer is a 504 that says so; a route no plugin is
-  installed for is a 502 that names the package;
+  recorded, and is counted `provider error <status>`; an upstream that does
+  not answer is a 504 that says so; a route no plugin is installed for is a
+  502 that names the package;
 - an endpoint that answers in OpenAI's shape, at another path, as Gemini's
   OpenAI-compatible one does, is read by OpenAI's map;
 - the latency the proxy adds, measured and printed.
