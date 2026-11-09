@@ -548,7 +548,8 @@ def test_the_listing_writes_nothing_and_says_the_declaration_first(
         f"  {ID_A_OLD} · 2026-11-03T08:01:00+00:00 · setup {S1[:8]} (earlier)" in text
     )
     assert "    answer: new answer about refunds\n    electable" in text
-    assert "1 orphans" in text and "1 interrupted episodes" in text
+    # One of each, in the singular. (P-1588; it held "1 orphans")
+    assert "1 orphan," in text and "1 interrupted episode," in text
     assert "--good ID or --bad ID, and give --by NAME" in text
 
 

@@ -435,6 +435,24 @@ of what holds it: `test_an_unreleased_entry_is_in_no_release_tag` runs in
 carries. Forgotten, it turns the first pull request after the tag red, naming
 each entry.
 
+**And the comments in `INTRODUCED` that say *not yet a release* become the
+release, in the same commit.** *Added 2026-11-09.* An entry of `INTRODUCED`
+whose name is on `main` and in no tag already carries the number the cut is
+expected to give, so the number does not move. The comment above it does: it
+says *"the number the cut is expected to give the core release that carries
+… — not yet a release"*, and that turns false at the tag. List them:
+
+```sh
+grep -n 'not yet a release' tests/test_plugin_floors.py
+```
+
+For each one this release carries, write the release and how it was read,
+*"1.1.0, the release that carries …: in its tag and not in 1.0.3's"*, and
+drop what the comment says is still owed once the floor it names has moved.
+No test reads a comment, so nothing reddens if this is skipped. The 0.34.0 and
+0.35.0 comments said *not yet a release* until 2026-11-09, ten days and more
+after their tags.
+
 **And one more that no test reddens: raise the floors owed to this release.**
 `tests/test_plugin_floors.py` computes a plugin's floor from the names it
 imports. It cannot see a widened signature: a plugin that passes a new argument
@@ -573,6 +591,9 @@ after the tag, on the site, and its *Then* says so.
 |---|---|---|---|
 | `digline` | `docs/record.md`, under its first paragraph, says *"Arrives with digline 1.1."*, which turns false at the tag. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the line and deletes this row |
 | `digline` | `docs/record-java.md`, *Install the digline CLI*, says *"Arrives with digline 1.1."* above a line that installs digline and its plugins from this repository by `git+https`, which turns stale at the tag. `tests/test_recorder_java.py` holds the two together. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the mark, puts back `uv tool install digline --with digline-openai` in place of the line, and deletes this row |
+| `digline` | `docs/record-node.md`, under its opening paragraphs, says *"Arrives with digline 1.1."*, which turns false at the tag. `tests/test_record_node_page.py` holds the mark to this row: one without the other is a page cut halfway. | 1.1.0, the release that makes `digline record` installable | the release pull request of 1.1.0 removes the mark and deletes this row |
+| `digline-openai` | #919: the recorder's map merges `extra_body`'s keys into the setup at the top level, where it kept them under a key of their own, so a setup that sent `extra_body` records under another setup digest than before, and `digline record import` lists its earlier answers under an earlier setup. Its changelog entry says the number is the cut's to choose. | the number is the cut's to choose, because the setup digest changes with `extra_body`. The criterion: a minor if the digest changes for whoever upgrades, a patch if it does not | Alessandro, at the cut, chooses the number by that criterion; the release pull request of digline-openai writes it and deletes this row |
+| `digline-anthropic` | #919, as for `digline-openai`: a setup that sent `extra_body` records under another setup digest than before. Its changelog entry says the same. | the number is the cut's to choose, because the setup digest changes with `extra_body`. The criterion: a minor if the digest changes for whoever upgrades, a patch if it does not | Alessandro, at the cut, chooses the number by that criterion; the release pull request of digline-anthropic writes it and deletes this row |
 | `digline` | `docs/stories/an-agent.md`, under its title, says *"Arrives with digline 1.1."* and that its commands need digline installed from this repository, which turns false at the tag. `tests/test_story_an_agent.py` holds the mark under the title. | 1.1.0, the release that makes `digline record` and `digline suggest` installable | the release pull request of 1.1.0 removes the mark and the test that holds it, and deletes this row |
 | `digline` | on digline.dev, `product/record.md` moves from *Essentials* to *Commands*, with its group in `COMMAND_GROUPS` (`tools/hooks/home.py`), once the release has captured `home.json` again with `record` in its command list. The precedent is `digline delete`, entered by digline.dev `e96f4b9` after 0.30.0. | 1.1.0 | a session, on digline.dev after the tag of 1.1.0 and the capture of `home.json`; the pull request here that names that site commit deletes this row |
 
@@ -978,6 +999,142 @@ No test reads either line, on purpose. A check that the sentence exists would
 teach writing the sentence, which is the reason given under *These three have
 no gate, and must not be given one*. It is a record, and the person who ran
 the walkthrough is the only one who can make it true.
+
+### The walkthrough for `digline view --allow-record` (ADR 0061 §2, §4)
+
+*Added 2026-11-09 (P-1586).* The page's two writes, from #904: the recorder
+switched on and off, and recorded answers written as cases with a person's
+yes or no. Run it before a tag whenever the key, the forms, the line under a
+button or the script that keeps the line equal to the form has changed, and
+before 1.1.0's, the first release that carries the flag.
+
+**What has been run, and what has not.** The store below, and every step
+that a request without a browser can make, were run on 2026-11-09 by a
+session, with `curl` against the code of the branch that wrote this section:
+the startup line, the `303` of the printed address and the `403` of its
+second opening, the `403` of a write with no cookie and of one from another
+origin, both writes answered with a `303` and read back from the files, and a
+refusal answered with a `400` and the command's sentence. **No person has run
+the steps in a browser yet.** What only a browser shows, the line under each
+button following the form as it is edited and the cookie kept by one engine
+and not by another, is the part this walkthrough exists for, and its first
+run is the one that checks these steps.
+
+**What it needs.**
+
+- **A store with recorded answers, offline.** The fake OpenAI of
+  `tests/test_record_proxy.py`, which the CI job `through-the-proxy` runs as
+  a process, answers behind `digline record proxy`. Three terminals, all
+  with the checkout synced (`uv sync --all-packages`). In the first, from
+  the checkout:
+
+  ```sh
+  .venv/bin/python -m tests.proxy_upstream 18790
+  ```
+
+  In the second, a scratch directory with a suite that declares a capture
+  source for a judged check, sampled twice, as a reviewed answer needs:
+
+  ```sh
+  mkdir /tmp/walk-record && cd /tmp/walk-record && git init -q
+  cat > suite.toml <<'TOML'
+  [suite]
+  tenant = "walk"
+  environment = "dev"
+  name = "triage"
+  cases = ["cases.json", "captured.json"]
+  samples = 2
+  min_agreement = "2/2"
+
+  [capture]
+  cases_file = "captured.json"
+  repository = "private"
+  check = "llm_rubric"
+
+  [[assertions]]
+  type = "llm_rubric"
+  rubric = "Does the reply answer what the customer asked?"
+  judge = "openai/gpt-4o-mini"
+  threshold = 0.7
+  tolerance = 0.05
+
+  [target]
+  type = "http"
+  url = "http://127.0.0.1:9/answer"
+  output_path = "answer"
+
+    [target.body]
+    messages = "case.vars.messages"
+  TOML
+  echo '[{"id": "by-hand"}]' > cases.json && echo '[]' > captured.json
+  git add -A && git commit -qm walk
+  <digline checkout>/.venv/bin/digline record on --tenant walk
+  <digline checkout>/.venv/bin/digline record proxy --root "$PWD" --tenant walk \
+    --port 18791 --upstream "openai=http://127.0.0.1:18790/v1"
+  ```
+
+  In the third, two calls through the proxy, then ctrl-c in the second
+  terminal, which writes them:
+
+  ```sh
+  for q in "Where is my refund?" "The parcel never arrived."; do
+    curl -sS http://127.0.0.1:18791/v1/chat/completions \
+      -H "Content-Type: application/json" -H "Authorization: Bearer x" \
+      -H "X-Digline-Suite: triage" \
+      -d "{\"model\":\"gpt-4o-mini\",\"messages\":[{\"role\":\"user\",\"content\":\"$q\"}]}"
+  done
+  ```
+
+  `digline record import --tenant walk --suite suite.toml`, from the
+  scratch directory, then lists *2 answers in 1 group*, each `electable`.
+  The judge is never called: nothing here runs the suite. **Stop the proxy
+  with ctrl-c in its own terminal**, not with `kill` on a `uv run` in front
+  of it: on 2026-11-09 a proxy started behind `uv run` outlived the `kill`,
+  kept the port, and the next store's calls were recorded into the one
+  before it.
+- **The digline you are releasing**, as for `--allow-promote`: every
+  command from `<digline checkout>/.venv/bin/digline`, and step 0 above.
+
+1. From the scratch directory, run `digline view --suite suite.toml
+   --allow-record`. The startup line says *the recorder's writes enabled, for
+   the first browser that opens this address*, and carries `?launch=`.
+2. Click the address. The page loads on `/`, **without** `?launch=`.
+3. **The answers.** Open the recordings of `triage`,
+   `/recordings/walk/triage/`, linked from the first page. Each of the two answers has `--good` and `--bad` beside it, and
+   neither is chosen; there is no button that writes every answer. Choose
+   `--good` on one and `--bad` on the other, and type a name with a space in
+   it, `Ada Lovelace`. **Read the line under the button as you go**: it
+   becomes `digline record import --tenant walk --suite suite.toml --good
+   cap-… --bad cap-… --by 'Ada Lovelace'`, the name quoted. Press *Write the
+   answers named*. The page comes back on the same recordings with each
+   answer *already in the file*, `--good` and `--bad`, and `captured.json`
+   holds two cases whose `metadata.reviewed_by` is `Ada Lovelace` and whose
+   `reviewed_answer.good` is `true` and `false`. Reload the page: nothing is
+   written again, and `git diff captured.json` is the same.
+4. **The recorder.** On the recorder's page for `walk`, press *Switch off*.
+   The page comes back on the recorder, its switch saying *recording off*,
+   and `.digline/walk/recorder.toml` says `on = false`. Then type `0.5` in *sample* and read the line under
+   *Switch on*: `digline record on --tenant walk --sample 0.5`, with the
+   point and not a comma, whatever the system's locale. Press it: the file
+   says `on = true` and `sample = 0.5`.
+5. **A refusal.** On a fresh store, choose `--good` on an answer with the
+   name left empty: a page that says *Nothing was written. --by NAME is
+   missing*. Type `x` in *sample* and press *Switch on*: *Nothing was
+   written. argument --sample: invalid float value: 'x'*, the parser's own
+   words. No file changes for either.
+6. **What must fail.** In a private window, open the bare
+   `http://127.0.0.1:<port>/` and press *Switch off*: a `403`, *this request
+   carries no cookie from this server*, and `recorder.toml` does not change.
+   Then paste the address step 2 opened into that window: a `403`, *this
+   address has already been opened*.
+
+**If a write in step 6 succeeds, stop: the tag waits**, as for
+`--allow-promote`. Do it in the browser you use, and in a second engine if
+you have one.
+
+**Where it is recorded:** the release's own changelog entry, in one of the
+two lines above, *it ran* or *it was not owed*, said of this walkthrough by
+name.
 
 ## Before the tag: the gates
 

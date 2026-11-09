@@ -93,7 +93,7 @@ from digline.host.reading import (
     reported,
 )
 from digline.host.recording import recorder_status, switch_off, switch_on
-from digline.host.refusals import NOT_REFUSALS, REFUSALS
+from digline.host.refusals import NOT_REFUSALS, REFUSALS, SAID_ALONE
 from digline.host.register import entry_for, record
 from digline.host.resolve import (
     LATEST,
@@ -136,6 +136,7 @@ __all__ = [
     "NO_BASELINE",
     "REFUSALS",
     "Reported",
+    "SAID_ALONE",
     "Resolved",
     "SUITE_ATTR",
     "PROPOSAL",

@@ -19,6 +19,7 @@ reached, so it is held here on its own, with what `checked_name` would refuse.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -345,3 +346,37 @@ def test_the_recorders_copy_refuses_what_the_store_refuses(
     assert recorder._joined_inside(root, "acme", "recordings") == joined_inside(  # pyright: ignore[reportPrivateUsage]
         root, "acme", "recordings"
     )
+
+
+#: A root as a command line gives it: `--root` defaults to ".".
+RELATIVE_ROOTS = (".", "store", "./store", "store/../store")
+
+
+@pytest.mark.parametrize("root", RELATIVE_ROOTS)
+def test_a_relative_root_holds_what_is_under_it_in_both_copies(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root: str
+) -> None:
+    """`digline record proxy` with no `--root` started on "." and was refused
+    at its first join, `.digline/acme/recordings is not inside .`: a
+    normalised "." shares no prefix with ".digline". Both copies join under a
+    relative root, to the same relative path."""
+    monkeypatch.chdir(tmp_path)
+    joined = joined_inside(Path(root), ".digline", "acme", "recordings")
+    assert joined == Path(
+        os.path.normpath(Path(root) / ".digline" / "acme" / "recordings")
+    )
+    assert not joined.is_absolute()
+    copied = recorder._joined_inside(Path(root), ".digline", "acme", "recordings")  # pyright: ignore[reportPrivateUsage]
+    assert copied == joined
+
+
+@pytest.mark.parametrize("root", RELATIVE_ROOTS)
+@pytest.mark.parametrize("parts", LEAVES)
+def test_a_relative_root_still_refuses_what_leaves_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root: str, parts: tuple[str, ...]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(PathRefusedError, match="is not inside"):
+        joined_inside(Path(root), *parts)
+    with pytest.raises(ValueError, match="is not inside"):
+        recorder._joined_inside(Path(root), *parts)  # pyright: ignore[reportPrivateUsage]

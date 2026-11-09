@@ -55,6 +55,7 @@ from digline.host import (
     LATEST,
     NO_BASELINE,
     REFUSALS,
+    SAID_ALONE,
     SUITE_RULE,
     SUITE_SUFFIX,
     Loaded,
@@ -2749,7 +2750,8 @@ def _command(argv: Sequence[str] | None, *, give_back: bool) -> int:
     except (*REFUSALS, OSError) as exc:
         # They are the user's to fix: a crossed perimeter, a moved configuration
         # or baseline, a run that could not judge, a file that cannot be read.
-        say(f"digline: {type(exc).__name__}: {exc}", err=True)
+        named = "" if isinstance(exc, SAID_ALONE) else f"{type(exc).__name__}: "
+        say(f"digline: {named}{exc}", err=True)
         return EXIT_USAGE
     # Anything else was anticipated by nobody. It exits 70 and never 1, which
     # is "worse" and was Python's default here: a gate that measured nothing
