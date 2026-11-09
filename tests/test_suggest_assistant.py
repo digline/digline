@@ -524,8 +524,8 @@ def test_the_material_is_the_newest_recordings_within_the_bound(
     assert given[0]["answer"] == f"answer {MAX_RECORDINGS + 9}"
     assert all(entry["answer"] != "answer 0" for entry in given)
     assert (
-        "; 10 more left out at the bound of 50 recordings and 200,000 characters"
-        in capsys.readouterr().err
+        "; left out: 0 under earlier setups; 10 at the bound of 50 recordings "
+        "and 200,000 characters" in capsys.readouterr().err
     )
 
 
@@ -548,6 +548,39 @@ def test_a_setup_no_longer_in_force_is_not_given(
     assert new("private", "--model", MODEL) == 0
     assert "OLD-SETUP-ANSWER" not in asked.prompt
     assert "one" in asked.prompt
+
+
+def test_an_earlier_setup_is_counted_apart_from_the_bound(
+    here: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Six recordings on two setups, three each: the three under the earlier
+    one are left out because of their setup, and the bound leaves out none.
+    The line said *3 more left out at the bound*. (P-1588)"""
+    setup: dict[str, object] = {"model": "older"}
+    older = [
+        Recording(
+            source_tenant="acme",
+            app="support",
+            suite="triage",
+            case={"question": f"q{n}"},
+            setup=setup,
+            setup_digest=setup_digest_of(setup),
+            response=RecordedResponse(output=f"old {n}", kind="text", input=f"q{n}"),
+            recorded_at=f"2026-11-06T07:0{n}:00+00:00",
+        )
+        for n in range(3)
+    ]
+    write(here, [*older, *(single(n, f"new {n}") for n in range(1, 4))])
+    asked = upstream(monkeypatch, capsys, {})
+    assert new("private", "--model", MODEL) == 0
+    assert len(json.loads(asked.prompt)["recordings"]) == 3
+    said = capsys.readouterr().err
+    assert (
+        "the assistant read the text: 3 recordings and 0 reviewed answers, the "
+        "newest of the setups in force, each whole; left out: 3 under earlier "
+        "setups; 0 at the bound of 50 recordings and 200,000 characters"
+    ) in said
+    assert "more left out at the bound" not in said
 
 
 # What it writes, and what is discarded.

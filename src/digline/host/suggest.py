@@ -611,16 +611,20 @@ def _assist(
 
     lines = ["the assistant:"]
     if given.regime == "private":
-        left = given.recordings_left + given.reviewed_left
+        # Two reasons, counted apart: a setup no longer in force is not the
+        # bound, and was said as if it were. (P-1588)
+        bound = given.recordings_left + given.reviewed_left
+        earlier = given.recordings_earlier
         lines.append(
             f"  the regime: under private the assistant read the text: "
             f"{_many(given.recordings, 'recording')} and "
             f"{_many(given.reviewed, 'reviewed answer')}, the newest of the "
             "setups in force, each whole"
             + (
-                f"; {left} more left out at the bound of "
-                f"{MAX_RECORDINGS} recordings and {MAX_CHARS:,} characters"
-                if left
+                f"; left out: {earlier} under earlier setups; {bound} at the "
+                f"bound of {MAX_RECORDINGS} recordings and {MAX_CHARS:,} "
+                "characters"
+                if bound or earlier
                 else ""
             )
         )
