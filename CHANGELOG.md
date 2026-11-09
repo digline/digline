@@ -719,7 +719,7 @@ public name is removed or renamed and no exit code changes.
   The stream readings are typed with `digline.recorder.StreamReading`, for the
   type checker alone (ADR 0062 §2).
 
-## digline-anthropic 0.8.1 — 2026-11-09
+## digline-anthropic 0.9.0 — 2026-11-09
 
 - **Its floor on `digline` is 1.1.1**, the first core on PyPI that reads the
   recorder's map this package has carried since 0.8.0, and that has
