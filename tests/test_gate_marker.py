@@ -349,6 +349,85 @@ def test_measure_marks_the_run_while_it_calls_and_removes_the_mark_after(
     assert not place(tmp_path).exists()
 
 
+def a_triage(target: Looking) -> tuple[Suite, Any]:
+    from digline.core import Contains
+
+    suite = Suite(
+        tenant="acme",
+        environment="dev",
+        name="triage",
+        assertions=[Contains(needle="fine")],
+        cases=[Case(id="one"), Case(id="two")],
+    )
+    return suite, prepare(
+        suite, target, now="2026-11-05T12:30:00+00:00", git_commit=None, artifacts={}
+    )
+
+
+def test_a_call_written_for_1_0_marks_the_run_as_digline_run_does(
+    tmp_path: Path,
+) -> None:
+    """The form digline-mcp 0.8.1 calls (`server.py:531`) and `docs/api.md`
+    shows: no `marker_root`. 1.1.0 made it required and that call raised
+    `TypeError`, which kept 1.1.0 off PyPI. Left out, it is derived from the
+    `FileResultStore`, the same directory the CLI passes, so the marker is
+    where a writer of recordings looks. (ADR 0058 §4, note of 2026-11-09)"""
+    target = Looking(tmp_path)
+    suite, prepared = a_triage(target)
+    measured = measure(
+        suite, target, store=FileResultStore(tmp_path), prepared=prepared
+    )
+    key = key_of(measured.run.created_at, measured.run.config_hash)
+    assert target.seen == [key, key]
+    assert not place(tmp_path).exists()
+
+
+def test_none_said_by_the_caller_still_writes_no_marker(tmp_path: Path) -> None:
+    """The default is not `None`: `None` stays the caller's own statement that
+    nothing can be recording, and only then is no marker written."""
+    target = Looking(tmp_path)
+    suite, prepared = a_triage(target)
+    measure(
+        suite,
+        target,
+        store=FileResultStore(tmp_path),
+        prepared=prepared,
+        marker_root=None,
+    )
+    assert target.seen == [None, None]
+
+
+class Elsewhere:
+    """A journalling store that is not a `FileResultStore`, and so names no
+    project: every call is passed to one that does, and it is still not one."""
+
+    def __init__(self, inner: FileResultStore) -> None:
+        self.inner = inner
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.inner, name)
+
+
+def test_another_store_without_a_marker_root_is_refused_before_anything_opens(
+    tmp_path: Path,
+) -> None:
+    """The residue of the 1.0 form: a store that names no project cannot have
+    the root derived, and a run whose marker nobody wrote would file its own
+    calls as the application's. So it is refused, naming the argument, before
+    a journal is opened or a case is called."""
+    target = Looking(tmp_path)
+    suite, prepared = a_triage(target)
+    with pytest.raises(TypeError, match=r"marker_root.*Elsewhere.*ADR 0058 §4"):
+        measure(
+            suite,
+            target,
+            store=Elsewhere(FileResultStore(tmp_path)),  # pyright: ignore[reportArgumentType]
+            prepared=prepared,
+        )
+    assert target.seen == []
+    assert not (tmp_path / ".digline").exists()
+
+
 # -- the readers ---------------------------------------------------------------- #
 
 
