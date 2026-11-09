@@ -2,11 +2,11 @@
 
 The `revision` at the top of a lock is the format of the `uv` that last wrote
 it, not something this repository chose: a `uv` that rewrites a lock writes its
-own number. And nothing here fixes the tool. No `pyproject.toml` sets
-`required-version`, `setup-uv` is pinned by commit and given no `version`, so
-CI takes the newest, and a person relocks with whatever is installed. So a lock
-regenerated for another reason can change format on the way, in a diff that
-reads as one more line.
+own number. Until 2026-11-09 nothing here fixed the tool: no `pyproject.toml`
+set `required-version`, `setup-uv` was pinned by commit and given no `version`,
+so CI took the newest, and a person relocked with whatever was installed. So a
+lock regenerated for another reason could change format on the way, in a diff
+that read as one more line.
 
 Observed, each one a rewrite by a different `uv`:
 - 2026-10-26, Dependabot moved every lock from 3 to 5 (`34beafe8`, `ec0c935d`);
@@ -30,17 +30,14 @@ recorded and not assumed. RELEASING.md names this test where the locks are
 regenerated: step 5 of *Before the tag: moving the number*, and *Before the
 tag: the home capture*.
 
-**Normalising every lock to one `revision` is owed, and not done here.** A
-`uv` rewrites a lock only when something in it changes (measured 2026-10-28:
-`uv` 0.13.6 on an unchanged root lock wrote nothing), and the format moves with
-that rewrite. So a normalisation made before the tool is fixed lasts until the
-next relock by another `uv`. It goes with the pin, after the release chain of
-0.35.0.
-
-**The cause is that nothing fixes the tool**, as above: no `required-version`,
-and `setup-uv` pinned by commit with no `version`, so CI takes the newest `uv`.
-Fixing it is the repair. **This test is the alarm, not the repair**: it says
-which lock moved, and the pin, made after the chain, is what stops it moving.
+**Fixed on 2026-11-09 at uv 0.13.7**, by Alessandro Prandini's decision: the
+root `pyproject.toml` sets `required-version = "==0.13.7"`, and every
+`setup-uv` in the workflows installs `version: "0.13.7"`.
+`tests/test_uv_pin.py` holds those and this sentence to one version. That is the
+repair. **This test stays the alarm**: it says which lock moved, if one does.
+Every lock reads 5, the format 0.13.7 writes, and 0.13.7's `uv lock --check`
+passes on each of them unchanged (measured 2026-11-09), so no lock was
+rewritten for the pin and none is left to normalise.
 """
 
 from __future__ import annotations
@@ -62,9 +59,9 @@ _DEPENDABOT = (
 REVISIONS: dict[str, tuple[int, str]] = {
     "uv.lock": (
         5,
-        "5 since the workspace group's bump (#950, 2026-11-06): CI installs "
-        "the newest uv, 0.13.7 when measured, which writes 5; the 3 it read "
-        "before came from an older local uv, and 0.11.14 still writes 3",
+        "5 since the workspace group's bump (#950, 2026-11-06), the format "
+        "of uv 0.13.7, the uv pinned since 2026-11-09; the 3 it read before "
+        "came from an older local uv, and 0.11.14 writes 3",
     ),
     "examples/classifier/uv.lock": (5, _DEPENDABOT),
     "examples/langchain/uv.lock": (5, _DEPENDABOT),

@@ -144,6 +144,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         if: needs.queue-tested.outputs.gates != 'true'
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - name: Install the workspace
@@ -290,6 +291,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       # Two builds, chosen by the event, because the site's sync refuses a
@@ -433,6 +435,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - run: uv sync
@@ -549,6 +552,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - name: Build the site's preview from these docs
@@ -619,6 +623,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - name: digline alone
@@ -686,6 +691,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - name: digline alone
@@ -727,6 +733,7 @@ jobs:
 
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: "0.13.7"
           enable-cache: true
 
       - name: digline and its plugins, which read the calls
@@ -950,6 +957,8 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
 
       - name: Wait for this workspace's version to be served to this runner
         # This job fires the moment `publish` finishes, and PyPI takes a minute
