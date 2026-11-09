@@ -541,6 +541,18 @@ nothing. No public name is removed or renamed and no exit code changes.
   and the models its calls named; `--show-setup` shows `child_setups` one per
   line, each with its model. `--json` is unchanged.
 
+### Examples
+
+- **`examples/langgraph` shows the four checks on the steps.** The order the
+  agent keeps was `ToolsCalled`, the whole sequence; it is now `Before` for
+  the policy, no refund without a lookup before it, and `Subsequence` for the
+  job, a lookup then a refund with anything between. The agent is given a
+  third tool, `cancel_order`, that `Never` holds no case calls, and
+  `MaxSteps(limit=3, count="model")` bounds its turns at the three the
+  baseline measured in every case. The target reports its steps beside its
+  calls, and the baseline is promoted again: six runs on the scripted model
+  gave one set of verdicts.
+
 ### Security
 
 - **A name becomes a path through one function**, `joined_inside`, which
@@ -636,6 +648,38 @@ nothing. No public name is removed or renamed and no exit code changes.
   for `digline-openai` above, and with the same consequence: a setup that sent
   `extra_body` records under another digest than before. The stream readings
   are typed with `digline.recorder.StreamReading` (ADR 0062 §2).
+
+## digline-bedrock — unreleased
+
+- **The package carries its recording maps for ADR 0058's recorder**:
+  `digline_bedrock.recording`, under the entry point `digline.recording_maps`,
+  for `converse` (#874) and `converse_stream` (#883). The case is the
+  messages; the setup is `modelId` and the call's other keys but
+  `requestMetadata`; the reply is read by the target's own `completion_of`,
+  with no price list, so a reply without usage is recorded as *not recorded*.
+  A stream's events are folded into the Converse reply the whole answer would
+  have been, and reach the application as they pass.
+- **`digline record proxy` reads Bedrock off the wire** (#913): the entry
+  point `digline.recording_wire` names `bedrock`, for `/model/<id>/converse`
+  and `/model/<id>/converse-stream`. The application's request is checked to
+  be signed with the credentials botocore finds on the proxy's machine, then
+  signed again with them for Bedrock (ADR 0062 §3). Measured against a fake
+  Bedrock only.
+- **`invoke_model` and `invoke_model_with_response_stream` are recorded for an
+  Anthropic model, and counted by name for any other** (#939). An Anthropic
+  model's body is read with the map `digline-anthropic` reads a direct
+  Messages call with, so there is one reading of Messages. Titan, Llama,
+  Mistral and embedding models are not recorded: each call is counted, *model
+  family not recorded* or *embeddings not recorded*, and standard error says
+  it once a family. **The package now depends on `digline-anthropic`**,
+  `>=0.8.0,<1`, with no extra (ADR 0062 §2, noted 2026-11-05).
+- The stream readings are typed with `digline.recorder.StreamReading`, for the
+  type checker alone (#919).
+- **The dependency is `digline>=0.35.0,<2`** (#862). The cap is new since
+  0.7.0, which declared none.
+- Its floor on `digline` becomes `1.1.0` in its own release, after the core's,
+  and its floor on `digline-anthropic` the release after 0.8.0 that carries
+  `WIRE` and the stream reading: RELEASING.md, *Owed at the cut*.
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 

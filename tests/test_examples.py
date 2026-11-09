@@ -904,7 +904,9 @@ def test_the_langgraph_baseline_records_the_trajectory_checks() -> None:
     baseline carrying only text checks would be the example quietly ceasing to
     be about anything. Named checks rather than a count: a suite that swapped
     `tool_called_with` for a second `contains` would keep the count and lose the
-    point.
+    point. And it is the example that shows the four checks on the steps, so
+    all four are named, each passing on every case: a check that errored
+    because the target stopped reporting its steps would still be in the set.
     """
     baseline = json.loads(
         (
@@ -912,7 +914,27 @@ def test_the_langgraph_baseline_records_the_trajectory_checks() -> None:
         ).read_text(encoding="utf-8")
     )
     named = {v["assertion"] for case in baseline["results"] for v in case["verdicts"]}
-    assert {"tools_called", "tool_called_with"} <= named, named
+    steps = {"subsequence", "before", "never", "max_steps"}
+    assert {"tool_called_with", *steps} <= named, named
+    statuses = {
+        (case["case_id"], v["assertion"]): v["status"]
+        for case in baseline["results"]
+        for v in case["verdicts"]
+        if v["assertion"] in steps
+    }
+    assert len(statuses) == 4 * len(baseline["results"]), statuses
+    assert set(statuses.values()) == {"pass"}, statuses
+    # The bound is the one the baseline measured: every case took as many
+    # turns of the model as `MaxSteps` allows, so a fourth turn fails it.
+    bounds = {
+        (v["metadata"]["steps"], v["metadata"]["limit"])
+        for case in baseline["results"]
+        for v in case["verdicts"]
+        if v["assertion"] == "max_steps"
+    }
+    assert len(bounds) == 1, bounds
+    ((steps_taken, limit),) = bounds
+    assert steps_taken == limit, bounds
     # And the prompt is the thing under test (ADR 0003): the agent reads it from
     # the file the suite declares, so a run that recorded no artifact would mean
     # the policy under test was inlined somewhere nothing diffs.
