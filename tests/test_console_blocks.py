@@ -59,7 +59,9 @@ def test_every_console_block_opens_with_the_command_that_printed_it() -> None:
 STORIES = (
     "java-quarkus.md",
     "python-many-prompts.md",
+    "node.md",
     "from-the-ide-with-mcp.md",
+    "an-agent.md",
 )
 
 
