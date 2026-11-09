@@ -45,7 +45,7 @@ from doc_fences import BLOCK_RE
 REPO = Path(__file__).resolve().parents[1]
 PAGE = REPO / "docs" / "walkthroughs" / "from-the-ide-over-mcp.md"
 TEXT = PAGE.read_text(encoding="utf-8")
-MARK = "> **Arrives with digline 1.1.**"
+MARK = "> **Arrives with the next digline-mcp.**"
 
 #: A run's key, which differs on every run.
 KEY = re.compile(r"\d{4}-\d\d-\d\dT\d\d-\d\d-\d\d-\d+-\d\d-\d\d-[0-9a-f]+")
@@ -58,14 +58,30 @@ DAY_ONE = list(ANSWERS)[:4]
 DAY_TWO = list(ANSWERS)[4]
 
 
-def test_the_story_carries_the_mark_under_its_title() -> None:
-    """Until digline 1.1.0 and a `digline-mcp` with the thirteen tools are on
-    PyPI, the story's commands need both from this repository, and the mark
-    says so under the title. The cut takes it out (RELEASING.md, *Owed to the
-    next version*)."""
-    title, rest = TEXT.split("\n", 1)
+def _opening(page: str) -> tuple[str, str]:
+    """The paragraph under the title, and what follows it."""
+    title, rest = page.split("\n", 1)
     assert title.startswith("# ")
-    assert rest.lstrip("\n").startswith(MARK)
+    lede, _, after = rest.lstrip("\n").partition("\n\n")
+    return lede, after.lstrip("\n")
+
+
+def test_the_page_opens_on_a_lede_of_one_sentence() -> None:
+    """A paragraph under the title says what the page shows, in one sentence,
+    so the site's opening band has a lede: on digline.dev,
+    `tools/check-opening.py` declares a page without one by name. (The 1.1.0
+    cut, ruled 2026-11-09.)"""
+    lede, _ = _opening(TEXT)
+    assert lede and not lede.startswith((">", "#", "-", "`")), lede
+    assert lede.count(". ") == 0 and lede.endswith("."), lede
+
+
+def test_the_mark_follows_the_lede() -> None:
+    """Until the next digline-mcp is on PyPI the page needs it from this
+    repository, and the mark under the lede says so. That release's pull
+    request takes it out (RELEASING.md, *Owed to the next version*)."""
+    _, after = _opening(TEXT)
+    assert after.startswith(MARK), after[:80]
 
 
 def _flat(text: str) -> str:

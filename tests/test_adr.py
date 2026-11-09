@@ -231,51 +231,6 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
         "`tests/test_migration_steps.py`, run on a transforming step built there"
     ),
-    "0057-the-replay-reads-the-trajectory-the-live-run-read": (
-        "built and not released: `RecordedResponse.finish` and `.tools` at "
-        "schema 23, handed back by the replay. Meant for 1.1"
-    ),
-    "0058-the-recorder-a-call-recorded-where-the-application-makes-it": (
-        "the narrow piece exists: the recording's document and its place in "
-        "the layout, the wrapper of a synchronous, a streaming and an "
-        "asynchronous call (streaming since #883, asynchronous since #885), "
-        "the episode with `RecordedStep`, the switch file with its refusals, "
-        "interval, sample and ceiling, `digline record` and the narrow import. "
-        "The rich import is in no file. Meant for 1.1"
-    ),
-    "0059-a-reviewed-answer-a-grouped-listing-a-source-as-data": (
-        "built and not released: a reviewed answer is declared, imported and "
-        "run, `reviewed` on its case at schema 23, a judge that contradicts "
-        "the person exits 1, counted by direction. Meant for 1.1"
-    ),
-    "0060-the-steps-of-a-trajectory-live-recorded-and-collected": (
-        "built and not released: `steps_of`, the live steps, the collection "
-        "around the target's call, the four checks on steps, `steps` on "
-        "`RecordedResponse` at schema 23, and a recording's steps in its "
-        "response, with `Recording.steps` gone. Meant for 1.1"
-    ),
-    "0061-a-local-page-whose-views-other-packages-may-extend": (
-        "built: `digline view` binds loopback alone with no `--host`, carries "
-        "the policy of §4.4 with nothing inline, serves the one sheet, uPlot "
-        "and digline's script, the recorder's three views (#902) and, behind "
-        "`--allow-record`, its two writes with the command under each button "
-        "(#904), and the views of `digline.views`"
-    ),
-    "0062-the-recorder-out-of-process-and-in-other-processes": (
-        "§2 is built: the in-process recorder's `input` (#901), and the "
-        "contract `docs/recording-format.md` states, which the readers hold a "
-        "recording to (#905). §3 is built: `digline record proxy` and "
-        "`digline.recording_wire` read OpenAI, Anthropic and Bedrock, signed "
-        "again, and an episode's tool steps are closed by the next call's "
-        "results: OpenAI and Anthropic in #909, Bedrock and the steps after "
-        "it. Bedrock was measured against a fake only. §4 in part: the Java "
-        "recorder's writer, `recorders/java` (#912); its hooks for a "
-        "client's calls do not exist"
-    ),
-    "0063-suggest-a-first-suite-proposed-and-never-marked": (
-        "built and not released: the verb and its file of proposal, and §4's "
-        "assistant, `[suggest]` or `--model`. Meant for 1.1"
-    ),
 }
 
 
@@ -429,10 +384,13 @@ KEPT_AS_PROPOSED: dict[str, str] = {
     "0050-the-noise-floor-compares-a-range-with-means": _KEPT,
     "0051-a-pinned-path-the-run-no-longer-records": _KEPT,
     "0052-a-suite-loaded-again-reads-its-application-again": _KEPT,
+    "0058-the-recorder-a-call-recorded-where-the-application-makes-it": _KEPT,
+    "0062-the-recorder-out-of-process-and-in-other-processes": _KEPT,
+    "0063-suggest-a-first-suite-proposed-and-never-marked": _KEPT,
 }
 
 #: How many records `KEPT_AS_PROPOSED` declares.
-KEPT_AS_PROPOSED_COUNT = 3
+KEPT_AS_PROPOSED_COUNT = 6
 
 
 def _status_block(head: str) -> str:

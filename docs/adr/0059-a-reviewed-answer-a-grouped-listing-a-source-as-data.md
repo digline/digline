@@ -10,7 +10,7 @@
   of a new kind of case, the names of two flags, a suite field and two details
   of the import. Each was proposed, for acceptance to take or remove item by
   item
-- Shipped: unreleased
+- Shipped: 1.1.0
 - Date: 2026-11-03
 - Opens: **nothing at this record's landing.** No `SCHEMA_VERSION`, no
   `OUTPUT_VERSION`, no `RECORDING_VERSION` and no line of `_STEPS`. What the

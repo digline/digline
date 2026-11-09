@@ -4,7 +4,7 @@
   decision was ruled on 2026-11-02, before this record was written, and is
   stated here as ruled. What is pending is its code, which `Shipped:` below
   will name when it lands
-- Shipped: unreleased
+- Shipped: 1.1.0
 - Date: 2026-11-02
 - Opens: **schema 23 when its code lands, and nothing before.** This record
   writes no `SCHEMA_VERSION`, no line of `_STEPS` and no code. The code that

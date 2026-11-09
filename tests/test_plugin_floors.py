@@ -75,8 +75,8 @@ PACKAGES = ROOT / "packages"
 #: is the first release, and anything claiming it should be a name that has
 #: been there from the start.
 INTRODUCED: dict[str, str] = {
-    # 1.1.0, the number the cut is expected to give the core release that
-    # carries `digline.recorder` — not yet a release. The three providers' maps
+    # 1.1.0, the release that carries `digline.recorder`: in its tag and not
+    # in 1.0.3's, which has no `src/digline/recorder.py`. The three providers' maps
     # type their stream readings with it, imported for the type checker
     # alone; their floors are owed at the cut, in RELEASING.md's table.
     "StreamReading": "1.1.0",
@@ -321,8 +321,8 @@ INTRODUCED: dict[str, str] = {
     # *message* is not a rendered document: `digline.wire` never saw it, and it
     # left for a client with its control bytes intact.
     "json_visible": "0.15.1",
-    # 1.1.0, the number the cut is expected to give the core release that
-    # carries them — not yet a release. pytest-digline measures as `digline
+    # 1.1.0, the release that carries them: in its tag and not in 1.0.3's
+    # (`git grep` of each `def` at both). pytest-digline measures as `digline
     # run` does, inside `running()` and with `around_target`, and fails a
     # reviewed answer's row by `contradicted`; its floor is owed at the cut, in
     # RELEASING.md's table. (ADR 0059 §1, ADR 0060 §3)
@@ -420,10 +420,19 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.core.compare", "AssertionDelta", "current"): "0.1.0",
     ("digline.core.compare", "AssertionDelta", "denominator_moved"): "0.15.1",
     ("digline.core.compare", "AssertionDelta", "outcome"): "0.1.0",
+    # pytest-digline fails a reviewed answer's row by the run's
+    # contradictions, never by its movement. (ADR 0059 §1; #903)
+    ("digline.core.compare", "AssertionDelta", "reviewed"): "1.1.0",
     ("digline.core.compare", "AssertionDelta", "scope"): "0.1.0",
     ("digline.core.compare", "Comparison", "config_changes"): "0.2.0",
     ("digline.core.compare", "Comparison", "deltas"): "0.1.0",
     ("digline.core.protocols", "Assertion", "name"): "0.1.0",
+    # pytest-digline fails a reviewed answer's row by the run's contradictions,
+    # and its FAILURES line says the contradiction by check and direction.
+    # (ADR 0059 §1; #903, P-1582)
+    ("digline.core.reviewed", "Contradiction", "case_id"): "1.1.0",
+    ("digline.core.reviewed", "Contradiction", "check"): "1.1.0",
+    ("digline.core.reviewed", "Contradiction", "direction"): "1.1.0",
     ("digline.core.run", "Run", "config_hash"): "0.1.0",
     ("digline.core.run", "Run", "created_at"): "0.1.0",
     ("digline.core.run", "Run", "usage"): "0.16.0",
@@ -463,6 +472,14 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.host.reading", "Explained", "run"): "0.13.0",
     ("digline.host.resolve", "Resolved", "key"): "0.6.0",
     ("digline.host.resolve", "Resolved", "note"): "0.6.0",
+    # digline-mcp's `suggest` returns the facts standard error is rendered
+    # from, and writes nothing. (ADR 0011 §1, as noted 2026-11-06)
+    ("digline.host.suggest", "Suggested", "facts"): "1.1.0",
+    # digline-bedrock hands each InvokeModel stream chunk to the Messages
+    # reading `digline-anthropic` gives it, typed as the core's StreamReading.
+    # (P-1543)
+    ("digline.recorder", "StreamReading", "add"): "1.1.0",
+    ("digline.recorder", "StreamReading", "completion"): "1.1.0",
     ("digline.report.diff", "", "sentence"): "0.6.0",
     ("digline.report.render", "Headline", "reasons_available"): "0.1.0",
     ("digline.report.render", "Headline", "sentence"): "0.1.0",
@@ -510,24 +527,7 @@ UNDATED: dict[tuple[str, str, str], str] = {}
 #: the release that carries it (RELEASING.md, *Before the tag: moving the
 #: number*). `test_plugin_calls.py` holds that every entry here is in no tag,
 #: so a name the cut forgot to move fails there rather than staying here.
-UNRELEASED: dict[tuple[str, str, str], str] = {
-    # pytest-digline fails a reviewed answer's row by the run's contradictions,
-    # and never by its movement. (ADR 0059 §1)
-    ("digline.core.compare", "AssertionDelta", "reviewed"): "#903",
-    ("digline.core.reviewed", "Contradiction", "case_id"): "#903",
-    # And its FAILURES line says the contradiction, by check and direction.
-    # (P-1582)
-    ("digline.core.reviewed", "Contradiction", "check"): "P-1582",
-    ("digline.core.reviewed", "Contradiction", "direction"): "P-1582",
-    # digline-bedrock hands each InvokeModel stream chunk to the Messages
-    # reading `digline-anthropic` gives it, typed as the core's StreamReading.
-    # (P-1543)
-    ("digline.recorder", "StreamReading", "add"): "P-1543",
-    ("digline.recorder", "StreamReading", "completion"): "P-1543",
-    # digline-mcp's `suggest` returns the facts standard error is rendered
-    # from, and writes nothing. (ADR 0011 §1, as noted 2026-11-06)
-    ("digline.host.suggest", "Suggested", "facts"): "ADR 0011 §1, 2026-11-06",
-}
+UNRELEASED: dict[tuple[str, str, str], str] = {}
 
 
 def plugins() -> list[Path]:

@@ -11,7 +11,10 @@
   so that acceptance can rule on it item by item: the names, the recording's
   version, the order of the work, and what it learnt from measuring. Nothing in
   it is implemented
-- Shipped: unreleased
+  *The block above is the proposed phase's own text, kept as written, and speaks
+  from that phase.* `Shipped:` below names the release that first carries it
+- Shipped: 1.1.0 — the rich import's second half, sampling by output, is in
+  no file; its first half is `digline suggest` (ADR 0063)
 - Date: 2026-11-02
 - Opens: **nothing in the run schema.** This record writes no
   `SCHEMA_VERSION`, no step of `_STEPS`, no `OUTPUT_VERSION` and no

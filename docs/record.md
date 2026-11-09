@@ -8,8 +8,13 @@ calls it makes on the way to one answer, is kept as one recording, an
 episode with its steps. A person then reads them back and names the ones that
 become cases.
 
-> **Arrives with digline 1.1.** On 1.0.3, `digline record` and
-> `digline.recorder` do not exist.
+> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.0 is on
+> PyPI with `digline record` and `digline.recorder`, and the provider
+> plugins there are not yet the ones this page uses: the digline-openai
+> and digline-bedrock on PyPI have no recording map, digline-anthropic's
+> map there has no reading of a stream, and none of the three reads the
+> wire for `digline record proxy`. Until the next of
+> each is published, install it from this repository.
 
 If you don't know what to do next, open `digline view`, with no suite yet:
 its first page, [*Where you are*](view.md#where-you-are), reads `.digline/`

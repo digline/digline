@@ -1,9 +1,7 @@
 # A Quarkus application on Bedrock, from its first call to a gate
 
-> **Arrives with digline 1.1.** The release on PyPI has no `digline record`
-> and no `digline suggest`, so until 1.1.0 is published the commands below
-> need digline installed from this repository, as
-> [the Java page](../record-java.md#install-the-digline-cli) installs it.
+This page records the calls a Quarkus application makes to Bedrock,
+turns the recordings into a suite, and ends with a gate on it.
 
 ## Who this is for
 

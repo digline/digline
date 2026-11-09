@@ -6,7 +6,7 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-11-09
 
 digline **1.1.0**. **A minor, because the schema moves**: the run document is at
 schema 23, and `digline migrate` takes a document from 22 by a step that writes
@@ -581,6 +581,45 @@ nothing. No public name is removed or renamed and no exit code changes.
   held its paths as written, so under the default root, `.`, it refused
   every one, `.digline/acme/recordings is not inside .`, exit `70`. It now
   holds them as absolute paths and returns them as written, in both copies.
+
+### Seen working in a browser — both walkthroughs, owed and run
+
+- **The walkthrough for `digline view --allow-promote` ran on 2026-11-09,
+  before the tag, by Alessandro**, in Chrome 156.0.8078.80 on macOS
+  (arm64), one browser engine, on the release head `2aa1b117`. **It was
+  owed:** the promote form changed after 1.0.3, and *Make baseline* now
+  answers a `303` (ADR 0061 §4.2). Steps 0 to 6 went as written, in a store
+  built from the quickstart in `/tmp/walk`.
+  - **Which digline ran:** step 0 printed the release worktree's
+    `src/digline/__init__.py`.
+  - **The promotion worked.** *Make baseline* moved the baseline from the
+    13-53-59 run to the 13-54-25 run, read in `git diff`.
+  - **The refusals, each a 403:** no cookie, in a private window (step 4); a
+    cookie not issued by this start, after a restart (step 5); and step 6's
+    three, the address *already been opened*, the button with no cookie, and
+    the baseline unmoved in `git diff`.
+- **The walkthrough for `digline view --allow-record` ran on 2026-11-09,
+  before the tag, by Alessandro**, its first run by a person, in the same
+  browser on the same head. **It was owed:** 1.1.0 is the first release that
+  carries the flag. Steps 0 to 6 went as written, in the store the script
+  builds in `/tmp/walk-record`.
+  - **The answers.** Two answers, each with `--good` and `--bad`, and no
+    button that writes them all. The line under the button followed the
+    form, with `--by 'Ada Lovelace'` quoted. Both were written, `--good` and
+    `--bad`, and `captured.json` held `reviewed_by` *Ada Lovelace* and `good`
+    `true` and `false`. A reload wrote nothing again.
+  - **The recorder.** *Switch off* wrote `on = false`. The line under
+    *Switch on* read `--sample 0.5`, with the point. *Switch on* wrote
+    `on = true` and `sample = 0.5`.
+  - **The refusals.** Step 5's two, on an untouched store: *--by NAME is
+    missing* and *invalid float value: 'x'*, with no file changed. Step 6's
+    two, each a 403: *no cookie* and *already been opened*.
+  - **The store held four recordings for the script's two calls**, and the
+    proxy did not write them twice. Each of the four has a latency of its
+    own, and they came in two pairs whose `recorded_at` are 20.4 s apart, so
+    four calls reached the proxy. The same script run again, with the proxy stopped by
+    SIGINT, left alive past two intervals, or sent one call, wrote one
+    recording per call.
 
 ## digline-mcp — unreleased
 
