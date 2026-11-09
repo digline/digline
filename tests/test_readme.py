@@ -487,7 +487,7 @@ def test_the_status_version_is_the_version_in_pyproject() -> None:
 
 
 #: Where the opening is: from the question to the first suite under it.
-QUESTION = "**Did my change make it worse?**"
+QUESTION = "**Did my change make the agent, or the prompt, worse?**"
 
 #: The claims F-3 found false of the page's own suite, by their stems: that
 #: digline *measures* how much the model varies, and calls a difference a
