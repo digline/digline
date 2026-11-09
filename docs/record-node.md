@@ -9,7 +9,7 @@ builds. Where the application's code is not to be touched,
 own machine that its SDK points at.
 
 > **Arrives with the next digline-openai, digline-anthropic and digline-bedrock**, for `digline record
-> proxy` alone. digline 1.1.0 is on PyPI with `digline record`, and the
+> proxy` alone. digline 1.1.1 is on PyPI with `digline record`, and the
 > files below are in this repository; the proxy reads a provider's wire
 > through that provider's plugin, and no release of the three on PyPI
 > has that reading yet.

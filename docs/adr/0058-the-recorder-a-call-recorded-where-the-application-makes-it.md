@@ -13,7 +13,7 @@
   it is implemented
   *The block above is the proposed phase's own text, kept as written, and speaks
   from that phase.* `Shipped:` below names the release that first carries it
-- Shipped: 1.1.0 — the rich import's second half, sampling by output, is in
+- Shipped: 1.1.1 — the rich import's second half, sampling by output, is in
   no file; its first half is `digline suggest` (ADR 0063)
 - Date: 2026-11-02
 - Opens: **nothing in the run schema.** This record writes no
@@ -650,3 +650,21 @@ land in `_unassigned` (§10).
   recordings and writes two things, the switch and an imported case, through
   the host functions `digline record` calls. The second half, recording a
   response flagged from inside the application, is not decided there.
+- **A store that names the project its gate marker goes under.**
+
+  *Noted 2026-11-09, by Alessandro Prandini's ruling (P-1616 bis), and §4
+  kept as written.* §4 makes `measure`'s `marker_root` a required argument.
+  1.1.0 shipped it that way, and that broke a public signature in a minor:
+  digline-mcp 0.8.1 calls `measure` without it, raised `TypeError`, and kept
+  1.1.0 off PyPI. In 1.1.1 the argument has a **private sentinel** as its
+  default, distinct from `None`. Left out with a `FileResultStore`, the root
+  is the project that store lives in (`store.root.parent`), which is the
+  directory `digline run` and the MCP server pass, so the marker is written
+  as §4 asks. `None` is still the caller's statement that nothing can be
+  recording. **The residual case:** left out with any other `JournallingStore`,
+  the call is refused with a `TypeError` that names `marker_root` and this
+  section, before anything opens, because a run whose marker nobody wrote
+  would file its own calls as the application's. **Not decided here:** a way
+  for a store to name its project through the `ResultStore` protocol, which
+  would close the residual case. It changes the protocol, which fixed decision
+  2 governs, so it needs its own decision.

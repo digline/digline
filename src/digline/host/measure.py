@@ -13,8 +13,9 @@ from __future__ import annotations
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from digline import __version__
 from digline.core import (
@@ -54,6 +55,7 @@ from digline.store import (
     SupportsJournal,
     TenantMismatchError,
 )
+from digline.store.file_store import FileResultStore
 from digline.targets import Completion, HasObserved, ProviderTarget
 
 __all__ = [
@@ -409,6 +411,34 @@ def around_target(
     return contextmanager(around)
 
 
+class _Derived(Enum):
+    """The default of `measure`'s `marker_root`, private and distinct from
+    `None`, which is a caller's own statement that nothing is recording.
+    An enum of one member, so a type checker narrows on `is` as it does on
+    `None`."""
+
+    FROM_STORE = "from the store"
+
+
+def _marker_root(
+    given: Path | None | Literal[_Derived.FROM_STORE], store: JournallingStore
+) -> Path | None:
+    """The root the gate's marker goes under: as given, or derived from the
+    store, or refused where the store names no project. (ADR 0058 §4)"""
+    if given is not _Derived.FROM_STORE:
+        return given
+    if isinstance(store, FileResultStore):
+        return store.root.parent
+    raise TypeError(
+        "measure() needs marker_root for a store that is not a "
+        f"FileResultStore ({type(store).__name__}): the gate's marker is "
+        "written under a project directory, so that an application recording "
+        "itself in another process files this run's calls as the gate's, and "
+        "this store names none. Pass the project directory, or None where no "
+        "application can be recording. (ADR 0058 §4)"
+    )
+
+
 def measure(
     suite: Suite,
     target: Target,
@@ -421,7 +451,7 @@ def measure(
     modules_unchecked: Sequence[str] | None = None,
     mapper: Mapper = default_mapper,
     accepting_baseline_schema: int | None = None,
-    marker_root: Path | None,
+    marker_root: Path | None | Literal[_Derived.FROM_STORE] = _Derived.FROM_STORE,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
 
@@ -436,9 +466,18 @@ def measure(
     `marker_root` is the project whose `.digline/<suite.tenant>/` holds the
     gate's marker while the run is in progress (`host.gate`), so that an
     application recording itself in another process marks the run's calls as
-    the gate's. Required, and `None` only where the caller says no
-    application can be recording: a test's stub target.
+    the gate's. `None` only where the caller says no application can be
+    recording: a test's stub target.
+
+    Left out, it is derived from the store, and never assumed to be `None`: a
+    `FileResultStore` names the project it lives in, the directory the CLI and
+    the MCP server pass, so a call written for 1.0, without the argument,
+    marks its run as `digline run` does. Any other store names no project, and
+    the call is refused before anything is opened: a run whose marker nobody
+    wrote would file its own calls as the application's, silently. (ADR 0058
+    §4, and its note of 2026-11-09)
     """
+    root = _marker_root(marker_root, store)
     baseline_found = refuse_unreadable_baseline(
         store, suite, accepting_schema=accepting_baseline_schema
     )
@@ -451,9 +490,9 @@ def measure(
     # application's traffic.
     marker = (
         nullcontext()
-        if marker_root is None
+        if root is None
         else marking(
-            marker_root,
+            root,
             suite.tenant,
             run_id=key_of(prepared.created_at, prepared.header.config_hash),
             started_at=prepared.header.started_at,

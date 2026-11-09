@@ -1,0 +1,933 @@
+{
+ "digline.core.Accuracy": [
+  "over",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.Affix": [
+  "affix"
+ ],
+ "digline.core.Artifact": [],
+ "digline.core.ArtifactDelta": [
+  "path",
+  "outcome"
+ ],
+ "digline.core.AssertionBase": [],
+ "digline.core.AssertionDelta": [
+  "case_id",
+  "assertion",
+  "outcome",
+  "scope",
+  "current",
+  "baseline",
+  "delta",
+  "reason"
+ ],
+ "digline.core.CalibrationBand": [
+  "check",
+  "low",
+  "high",
+  "assertion_id"
+ ],
+ "digline.core.CalibrationBand.bounds": [
+  "check",
+  "low",
+  "high"
+ ],
+ "digline.core.CalibrationBand.holds": [
+  "score"
+ ],
+ "digline.core.CallTotals": [],
+ "digline.core.CallTotals.plus": [
+  "tokens",
+  "spent_usd"
+ ],
+ "digline.core.CaseCount": [
+  "held",
+  "suspended"
+ ],
+ "digline.core.CaseOutcome": [
+  "case_id",
+  "label",
+  "verdict"
+ ],
+ "digline.core.CaseProgress": [
+  "result"
+ ],
+ "digline.core.CaseResult": [
+  "case_id"
+ ],
+ "digline.core.CheckDifference": [
+  "case_id",
+  "assertion",
+  "scope",
+  "outcome",
+  "left",
+  "right",
+  "favours"
+ ],
+ "digline.core.ClaimReply": [
+  "supported",
+  "total",
+  "reason"
+ ],
+ "digline.core.Comparison": [
+  "tenant",
+  "suite",
+  "config_changed"
+ ],
+ "digline.core.Comparison.of": [],
+ "digline.core.ConfigDelta": [
+  "field",
+  "outcome"
+ ],
+ "digline.core.Contains": [
+  "needle"
+ ],
+ "digline.core.CostBudget": [
+  "max_usd",
+  "tolerance"
+ ],
+ "digline.core.Declared": [
+  "subject",
+  "watching"
+ ],
+ "digline.core.Denominator": [
+  "considered"
+ ],
+ "digline.core.Difference": [
+  "tenant",
+  "suite"
+ ],
+ "digline.core.Disclosure": [],
+ "digline.core.DocumentRefusedError": [],
+ "digline.core.Equals": [],
+ "digline.core.EvaluatorInputs": [
+  "output"
+ ],
+ "digline.core.F1": [
+  "over",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.Faithfulness": [
+  "judge",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.FromAutoevals": [
+  "scorer",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.Gap": [
+  "kind",
+  "case_id"
+ ],
+ "digline.core.IsJson": [],
+ "digline.core.JsonSchema": [
+  "schema"
+ ],
+ "digline.core.JudgeReply": [
+  "score",
+  "reason"
+ ],
+ "digline.core.LatencyBudget": [
+  "max_ms",
+  "tolerance"
+ ],
+ "digline.core.Length": [],
+ "digline.core.Levenshtein": [],
+ "digline.core.LlmRubric": [
+  "rubric",
+  "judge",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.Matrix": [],
+ "digline.core.Matrix.as_metadata": [],
+ "digline.core.Message": [
+  "role",
+  "content"
+ ],
+ "digline.core.NameRef": [
+  "kind",
+  "text"
+ ],
+ "digline.core.NameRef.rendered": [
+  "mint"
+ ],
+ "digline.core.Noise": [],
+ "digline.core.Noise.beyond": [],
+ "digline.core.Noise.covers": [
+  "score"
+ ],
+ "digline.core.Noise.inside": [],
+ "digline.core.Noise.rendered": [],
+ "digline.core.Noise.standard_errors": [],
+ "digline.core.NotContains": [
+  "needle"
+ ],
+ "digline.core.PiiAbsent": [],
+ "digline.core.PiiPattern": [
+  "name",
+  "pattern"
+ ],
+ "digline.core.PiiPattern.count": [
+  "text"
+ ],
+ "digline.core.Precision": [
+  "over",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.Recall": [
+  "over",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.RecordedOutcome": [
+  "regressed",
+  "improved",
+  "unchanged",
+  "new",
+  "missing",
+  "errored",
+  "unjudged",
+  "suspended",
+  "within_noise",
+  "on_the_line",
+  "worse",
+  "canary_moved",
+  "config_changed",
+  "artifacts_changed",
+  "target_config_changed",
+  "judge_config_changed",
+  "rejudged"
+ ],
+ "digline.core.RecordedResponse": [],
+ "digline.core.RecordedToolCall": [
+  "tool"
+ ],
+ "digline.core.Regex": [
+  "pattern"
+ ],
+ "digline.core.RegisterEntry": [
+  "recorded_at",
+  "digline_version",
+  "disposition",
+  "run_key",
+  "run_created_at",
+  "run_config_hash",
+  "run_environment",
+  "run_digline_version",
+  "run_rejudged",
+  "baseline_key",
+  "baseline_config_hash",
+  "baseline_promoted_at",
+  "outcome",
+  "exit_code"
+ ],
+ "digline.core.Repeated": [
+  "inner",
+  "samples",
+  "min_agreement"
+ ],
+ "digline.core.Run": [
+  "tenant",
+  "environment",
+  "suite",
+  "config_hash",
+  "created_at"
+ ],
+ "digline.core.RunAssertionBase": [],
+ "digline.core.RunUsage": [],
+ "digline.core.ScaleLost": [
+  "case_id",
+  "check",
+  "score",
+  "samples",
+  "low",
+  "high"
+ ],
+ "digline.core.Score": [
+  "name"
+ ],
+ "digline.core.SuiteDelta": [
+  "rule",
+  "assertion_id",
+  "scope",
+  "outcome"
+ ],
+ "digline.core.SystemConfig": [],
+ "digline.core.SystemConfig.perimeter": [],
+ "digline.core.SystemConfig.redacted": [],
+ "digline.core.ToolCalledWith": [
+  "tool",
+  "arguments"
+ ],
+ "digline.core.ToolsCalled": [
+  "expected"
+ ],
+ "digline.core.Usage": [
+  "input_tokens",
+  "output_tokens"
+ ],
+ "digline.core.Verdict": [
+  "score",
+  "threshold",
+  "status",
+  "reason",
+  "assertion_id"
+ ],
+ "digline.core.Withheld": [
+  "kind",
+  "text"
+ ],
+ "digline.core.Withheld.rendered": [
+  "mint"
+ ],
+ "digline.core.Written": [
+  "before",
+  "kind",
+  "message",
+  "cause"
+ ],
+ "digline.core.Written.around": [
+  "before",
+  "after"
+ ],
+ "digline.core.Written.of": [
+  "exc",
+  "before"
+ ],
+ "digline.core.Written.parts": [],
+ "digline.core.Written.rendered": [
+  "withheld"
+ ],
+ "digline.core.Written.said": [],
+ "digline.core.artifact_deltas": [
+  "run",
+  "baseline"
+ ],
+ "digline.core.artifacts_sha": [
+  "artifacts"
+ ],
+ "digline.core.as_ratio": [
+  "value",
+  "field"
+ ],
+ "digline.core.at_precision": [
+  "value"
+ ],
+ "digline.core.barred_from_crossing": [
+  "key"
+ ],
+ "digline.core.budget_exceedances": [
+  "verdict"
+ ],
+ "digline.core.budget_score": [
+  "measured",
+  "cap"
+ ],
+ "digline.core.canonical": [
+  "value"
+ ],
+ "digline.core.case_count": [
+  "run"
+ ],
+ "digline.core.case_from_dict": [
+  "raw",
+  "redacted"
+ ],
+ "digline.core.case_to_dict": [
+  "case",
+  "redacted"
+ ],
+ "digline.core.causes_of_two": [
+  "run",
+  "comparison",
+  "declared"
+ ],
+ "digline.core.checked_denominator": [
+  "verdict",
+  "cases"
+ ],
+ "digline.core.combine_samples": [
+  "verdicts",
+  "min_agreement"
+ ],
+ "digline.core.compare": [
+  "run",
+  "baseline"
+ ],
+ "digline.core.config_deltas": [
+  "now",
+  "before"
+ ],
+ "digline.core.config_from_dict": [
+  "raw",
+  "where"
+ ],
+ "digline.core.config_hash": [
+  "assertions"
+ ],
+ "digline.core.config_to_dict": [
+  "config"
+ ],
+ "digline.core.considered_cases": [
+  "verdict"
+ ],
+ "digline.core.counted_cases": [
+  "verdict"
+ ],
+ "digline.core.crossing_refusal": [
+  "run",
+  "going"
+ ],
+ "digline.core.denominator": [
+  "verdict"
+ ],
+ "digline.core.diff": [
+  "left",
+  "right"
+ ],
+ "digline.core.directions": [
+  "verdict"
+ ],
+ "digline.core.error_verdict": [
+  "assertion",
+  "reason"
+ ],
+ "digline.core.expand_by_group": [
+  "assertions",
+  "groups"
+ ],
+ "digline.core.fold_judgements": [
+  "judgements",
+  "min_agreement"
+ ],
+ "digline.core.grouped_name": [
+  "name",
+  "group"
+ ],
+ "digline.core.identity_of": [
+  "provider",
+  "model"
+ ],
+ "digline.core.index_verdicts": [
+  "run"
+ ],
+ "digline.core.is_token": [
+  "text"
+ ],
+ "digline.core.json_visible": [
+  "text"
+ ],
+ "digline.core.judged": [
+  "assertion"
+ ],
+ "digline.core.key_of": [
+  "created_at",
+  "config_hash"
+ ],
+ "digline.core.levenshtein_distance": [
+  "a",
+  "b"
+ ],
+ "digline.core.meets": [
+  "value",
+  "limit"
+ ],
+ "digline.core.misnamed": [
+  "run"
+ ],
+ "digline.core.misnamed_verdict": [
+  "assertion",
+  "declared",
+  "names"
+ ],
+ "digline.core.misnamings": [
+  "declared",
+  "verdicts"
+ ],
+ "digline.core.nothing_judged": [
+  "run",
+  "declared"
+ ],
+ "digline.core.on_the_line": [
+  "verdict"
+ ],
+ "digline.core.origin": [
+  "assertion"
+ ],
+ "digline.core.output_kind": [
+  "output"
+ ],
+ "digline.core.per_sample_outcomes": [
+  "outcomes"
+ ],
+ "digline.core.pins_implicated": [
+  "comparison"
+ ],
+ "digline.core.pricing_digest": [
+  "model",
+  "rates"
+ ],
+ "digline.core.project": [
+  "run",
+  "mint"
+ ],
+ "digline.core.project_check_name": [
+  "check",
+  "mint"
+ ],
+ "digline.core.project_declared": [
+  "declared",
+  "mint"
+ ],
+ "digline.core.project_served": [
+  "run",
+  "mint"
+ ],
+ "digline.core.reachable_agreements": [
+  "samples"
+ ],
+ "digline.core.reconcile": [
+  "asked",
+  "results"
+ ],
+ "digline.core.record_output": [
+  "output"
+ ],
+ "digline.core.record_trajectory": [
+  "metadata"
+ ],
+ "digline.core.redact": [
+  "run"
+ ],
+ "digline.core.release_tuple": [
+  "version"
+ ],
+ "digline.core.resolve_tokens": [
+  "run",
+  "lookup"
+ ],
+ "digline.core.restore_output": [
+  "text",
+  "kind"
+ ],
+ "digline.core.run_from_json": [
+  "payload"
+ ],
+ "digline.core.run_to_json": [
+  "run"
+ ],
+ "digline.core.scale_lost": [
+  "run"
+ ],
+ "digline.core.score_from_autoevals": [
+  "raw"
+ ],
+ "digline.core.split_grouped_name": [
+  "name"
+ ],
+ "digline.core.suite_deltas": [
+  "run",
+  "baseline"
+ ],
+ "digline.core.tolerance_is_blind": [
+  "threshold",
+  "tolerance"
+ ],
+ "digline.core.totals_from_dict": [
+  "raw",
+  "where"
+ ],
+ "digline.core.totals_to_dict": [
+  "totals"
+ ],
+ "digline.core.trajectory_chars": [
+  "calls"
+ ],
+ "digline.core.travels": [
+  "value"
+ ],
+ "digline.core.unjudged_cases": [
+  "run"
+ ],
+ "digline.core.unmarked": [
+  "verdict"
+ ],
+ "digline.core.unpaired": [
+  "comparison"
+ ],
+ "digline.core.unreconciled": [
+  "run"
+ ],
+ "digline.core.unreconciled_verdict": [
+  "verdict",
+  "reason"
+ ],
+ "digline.core.verify_codice_fiscale": [
+  "candidate"
+ ],
+ "digline.core.verify_iban": [
+  "candidate"
+ ],
+ "digline.core.verify_partita_iva": [
+  "candidate"
+ ],
+ "digline.core.with_noise_interval": [
+  "assertion",
+  "outcomes"
+ ],
+ "digline.core.withhold_artifacts": [
+  "comparison"
+ ],
+ "digline.core.within": [
+  "value",
+  "limit"
+ ],
+ "digline.core.without_responses": [
+  "run"
+ ],
+ "digline.host.Explained": [
+  "run",
+  "baseline",
+  "facts",
+  "reading",
+  "exit_code"
+ ],
+ "digline.host.Loaded": [
+  "suite"
+ ],
+ "digline.host.Measured": [
+  "ref",
+  "run",
+  "plan"
+ ],
+ "digline.host.Prepared": [
+  "header",
+  "plan"
+ ],
+ "digline.host.ProcessState": [],
+ "digline.host.Reported": [
+  "document",
+  "exit_code",
+  "run",
+  "baseline"
+ ],
+ "digline.host.Resolved": [
+  "key"
+ ],
+ "digline.host.SourceOnlyLoader": [
+  "fullname",
+  "path"
+ ],
+ "digline.host.SourceOnlyLoader.create_module": [
+  "spec"
+ ],
+ "digline.host.SourceOnlyLoader.exec_module": [
+  "module"
+ ],
+ "digline.host.SourceOnlyLoader.get_code": [
+  "fullname"
+ ],
+ "digline.host.SourceOnlyLoader.get_data": [
+  "path"
+ ],
+ "digline.host.SourceOnlyLoader.get_filename": [],
+ "digline.host.SourceOnlyLoader.get_resource_reader": [],
+ "digline.host.SourceOnlyLoader.get_source": [
+  "fullname"
+ ],
+ "digline.host.SourceOnlyLoader.is_package": [
+  "fullname"
+ ],
+ "digline.host.SourceOnlyLoader.load_module": [],
+ "digline.host.SourceOnlyLoader.path_mtime": [
+  "path"
+ ],
+ "digline.host.SourceOnlyLoader.path_stats": [
+  "path"
+ ],
+ "digline.host.SourceOnlyLoader.set_data": [
+  "path",
+  "data"
+ ],
+ "digline.host.SourceOnlyLoader.source_to_code": [
+  "data",
+  "path"
+ ],
+ "digline.host.SuiteRuns": [
+  "runs",
+  "baseline_key",
+  "baseline_refused",
+  "refused",
+  "unnamed",
+  "skipped",
+  "unreadable_count",
+  "listing"
+ ],
+ "digline.host.SuiteRuns.advice": [],
+ "digline.host.SuiteRuns.note": [],
+ "digline.host.entry_for": [
+  "run",
+  "run_key",
+  "baseline",
+  "baseline_key",
+  "disposition",
+  "recorded_at",
+  "digline_version",
+  "declared"
+ ],
+ "digline.host.explained": [
+  "store",
+  "suite",
+  "key"
+ ],
+ "digline.host.git_commit": [
+  "root"
+ ],
+ "digline.host.history": [
+  "store",
+  "suite"
+ ],
+ "digline.host.instant": [
+  "value",
+  "name"
+ ],
+ "digline.host.left_out": [
+  "listed",
+  "locale"
+ ],
+ "digline.host.left_out_parts": [
+  "listed",
+  "locale"
+ ],
+ "digline.host.load_name_table": [
+  "spec"
+ ],
+ "digline.host.load_suite": [
+  "spec"
+ ],
+ "digline.host.load_target": [
+  "spec",
+  "loaded",
+  "suite_spec"
+ ],
+ "digline.host.load_toml_suite": [
+  "path"
+ ],
+ "digline.host.measure": [
+  "suite",
+  "target",
+  "store",
+  "prepared"
+ ],
+ "digline.host.need_baseline": [
+  "store",
+  "suite"
+ ],
+ "digline.host.one_table": [
+  "mint",
+  "where"
+ ],
+ "digline.host.prepare": [
+  "suite",
+  "target",
+  "now",
+  "git_commit",
+  "artifacts"
+ ],
+ "digline.host.pricing_for": [
+  "loaded",
+  "target",
+  "suite_spec"
+ ],
+ "digline.host.process_state": [
+  "pid",
+  "host"
+ ],
+ "digline.host.promote": [
+  "store",
+  "loaded",
+  "key",
+  "target",
+  "replacing",
+  "promoted_at"
+ ],
+ "digline.host.promote_priced": [
+  "store",
+  "suite",
+  "pricing",
+  "key",
+  "replacing",
+  "promoted_at"
+ ],
+ "digline.host.promotion_notes": [
+  "run"
+ ],
+ "digline.host.read_artifacts": [
+  "suite",
+  "target",
+  "base"
+ ],
+ "digline.host.read_pinned": [
+  "suite",
+  "base",
+  "artifacts"
+ ],
+ "digline.host.read_run": [
+  "store",
+  "suite",
+  "key"
+ ],
+ "digline.host.record": [
+  "store",
+  "suite",
+  "key",
+  "disposition",
+  "recorded_at"
+ ],
+ "digline.host.refuse_unreadable_baseline": [
+  "store",
+  "suite"
+ ],
+ "digline.host.refused_exit": [
+  "exc"
+ ],
+ "digline.host.replacing": [
+  "value"
+ ],
+ "digline.host.reported": [
+  "store",
+  "suite",
+  "key",
+  "locale",
+  "redacted"
+ ],
+ "digline.host.resolve_key": [
+  "store",
+  "suite",
+  "key"
+ ],
+ "digline.host.seed_observed": [
+  "suite",
+  "target",
+  "pending"
+ ],
+ "digline.host.suite_runs": [
+  "store",
+  "tenant",
+  "suite",
+  "mint"
+ ],
+ "digline.host.this_process": [],
+ "digline.host.to_withhold": [
+  "exc"
+ ],
+ "digline.host.unignored": [
+  "root",
+  "tenant"
+ ],
+ "digline.host.unignored_notes": [
+  "tenant",
+  "missing"
+ ],
+ "digline.host.utc_now_iso": [],
+ "digline.host.written_by_digline": [
+  "exc"
+ ],
+ "digline.run.BlindTolerance": [
+  "name",
+  "threshold",
+  "tolerance"
+ ],
+ "digline.run.BlindTolerance.sentence": [],
+ "digline.run.Calibration": [
+  "output",
+  "check",
+  "low",
+  "high"
+ ],
+ "digline.run.CallPlan": [
+  "cases",
+  "samples",
+  "tenant"
+ ],
+ "digline.run.CallPlan.sentence": [],
+ "digline.run.Case": [
+  "id"
+ ],
+ "digline.run.Replay": [
+  "suite",
+  "source"
+ ],
+ "digline.run.Response": [
+  "output"
+ ],
+ "digline.run.Suite": [
+  "tenant",
+  "environment",
+  "name",
+  "assertions",
+  "cases"
+ ],
+ "digline.run.Suite.band": [
+  "calibration"
+ ],
+ "digline.run.Suite.calibrated": [
+  "calibration"
+ ],
+ "digline.run.Suite.cases_digest": [],
+ "digline.run.Suite.config_hash": [],
+ "digline.run.Suite.declared": [],
+ "digline.run.Suite.groups": [],
+ "digline.run.blind_tolerances": [
+  "suite"
+ ],
+ "digline.run.check_target": [
+  "target"
+ ],
+ "digline.run.default_mapper": [
+  "response",
+  "case"
+ ],
+ "digline.run.execute": [
+  "suite",
+  "target",
+  "created_at"
+ ],
+ "digline.run.judge_config": [
+  "suite"
+ ],
+ "digline.run.judges": [
+  "assertions"
+ ],
+ "digline.run.planned_calls": [
+  "suite"
+ ],
+ "digline.run.price_digest_of": [
+  "target"
+ ],
+ "digline.run.rejudge": [
+  "suite",
+  "source",
+  "key",
+  "created_at"
+ ],
+ "digline.run.replayable_cases": [
+  "source"
+ ],
+ "digline.run.suite_notes": [
+  "suite"
+ ],
+ "digline.run.target_config": [
+  "target"
+ ],
+ "digline.run.undeclared_kinds": [
+  "suite"
+ ]
+}

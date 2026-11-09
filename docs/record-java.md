@@ -23,7 +23,7 @@ The commands on this page, `digline record on`, `status`, `import`, `proxy`,
 `view` and `run`, are digline's command line, which is Python. In a project
 that is not Python, install it as a tool of its own, apart from the project.
 
-> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.0 is on
+> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.1 is on
 > PyPI, and the provider plugins `digline record proxy` reads the wire
 > through are not yet, so until they are published the line below
 > installs digline and its plugins from this repository.

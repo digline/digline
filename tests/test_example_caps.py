@@ -230,7 +230,11 @@ RELEASED: dict[str, int] = {
     "1.0.2": 22,
     "1.0.3": 22,
     # Schema 23: `finish` and `tools` on a recorded response (ADR 0057).
+    # 1.1.0 is tagged and on TestPyPI, and never reached PyPI: publish run
+    # 42639021156 stopped it before the gate (CHANGELOG, 1.1.1). Kept, because
+    # the tag names it; 1.1.1 is the release of the same schema.
     "1.1.0": 23,
+    "1.1.1": 23,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
