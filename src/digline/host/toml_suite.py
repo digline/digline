@@ -119,6 +119,10 @@ __all__ = [
 #: What makes the CLI read a suite as data rather than import it.
 SUITE_SUFFIX = ".toml"
 
+#: The one file `digline suggest` writes, which no command of digline reads
+#: as a suite: a proposal enters no gate on its own. (ADR 0063 §3)
+PROPOSAL = "suite.proposed.toml"
+
 #: Token → class, for a check about one case. The token is the name the check
 #: already carries in every report and every baseline, so a reader who has seen
 #: the output can write the file (ADR 0007 §1). The two whose name is derived

@@ -75,7 +75,7 @@ from digline.host.importing import (
     split_recordings,
 )
 from digline.host.recording import recorder_status
-from digline.host.toml_suite import read_cases
+from digline.host.toml_suite import PROPOSAL, read_cases
 from digline.recorder import UNASSIGNED
 from digline.run.suite import Case, Suite
 from digline.store.file_store import FileResultStore, checked_name
@@ -91,9 +91,6 @@ SUITE_RULE = (
     "or .toml, or module:attribute; anything else is the name of a suite that "
     "does not exist yet, given with --tenant and --repository private|public"
 )
-
-#: The one file the command writes.
-PROPOSAL = "suite.proposed.toml"
 
 #: The capture file a suite that does not exist yet is proposed with.
 CAPTURED = "captured.json"
