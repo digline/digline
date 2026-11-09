@@ -941,7 +941,9 @@ def _say_answer(answer: ImportAnswer) -> list[str]:
         for s in answer.setups
     )
     times = f" · ×{answer.times}" if answer.times > 1 else ""
-    attached = f" · {answer.attached} calls attached" if answer.attached else ""
+    attached = (
+        f" · {_many(answer.attached, 'call')} attached" if answer.attached else ""
+    )
     made = [f"    made at: {', '.join(answer.call_sites)}"] if answer.call_sites else []
     return [
         f"  {answer.id} · {answer.first_at or 'undated'} · setup {setups}"
@@ -1003,10 +1005,16 @@ def closing_lines(found: ImportListing) -> list[str]:
         f"{_many(len(found.answers), 'answer')} in "
         f"{_many(len(found.groups), 'group')}, from "
         f"{_many(found.recordings, 'recording')} of the suite; not cases: "
-        f"{found.orphans} orphans, {found.detached} calls whose episode is not "
-        f"among the files, {found.interrupted} interrupted episodes, "
-        f"{found.oversize} over the ceiling of a recording, {found.unreadable} "
-        "files that are not readable recordings"
+        f"{_many(found.orphans, 'orphan')}, {_many(found.detached, 'call')} "
+        f"whose episode is not among the files, "
+        f"{_many(found.interrupted, 'interrupted episode')}, "
+        f"{found.oversize} over the ceiling of a recording, "
+        f"{_many(found.unreadable, 'file')} that "
+        + (
+            "is not a readable recording"
+            if found.unreadable == 1
+            else "are not readable recordings"
+        )
     ]
     if found.declaration.repository == "public":
         lines.append(
