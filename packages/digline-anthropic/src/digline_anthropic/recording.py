@@ -7,7 +7,9 @@ and loaded only when a call is recorded.
 **The case is the messages.** The setup is everything else the call decides
 with: `model`, `system`, `max_tokens`, the sampling parameters, `tools` and
 `tool_choice`, `thinking`, and the keys of `extra_body`, merged at the top
-level as the SDK sends them (`as_sent`). Neither is how the request travels
+level as the SDK sends them (`as_sent`). Neither is a credential the body
+carries, an MCP server's `authorization_token`, which is left out of its
+server's entry; how the request travels
 (`extra_headers`, `extra_query`, `timeout`), `stream`, or `metadata`, which
 names who the request is for: a per-request identifier in the setup would give
 every user a setup of their own, and the digest would read people as changes.
@@ -71,6 +73,27 @@ __all__ = [
 NOT_SETUP: frozenset[str] = frozenset(
     {"messages", "stream", "extra_headers", "extra_query", "timeout", "metadata"}
 )
+
+#: The keys of a Messages request body that carry a credential, by where they
+#: sit: an MCP server's `authorization_token`, the bearer token Anthropic
+#: forwards to that server. A credential is the one payload no `Disclosure`
+#: releases (ADR 0004 §5), and in a setup it would also enter the digest, so
+#: each rotation of the token would read as a new setup.
+_CREDENTIAL_KEYS: frozenset[str] = frozenset({"authorization_token"})
+
+
+def _without_credentials(servers: object) -> object:
+    """`mcp_servers` with each server's credential left out, and everything
+    else as it was sent: which servers, at which address, with which tools.
+    A value that is not a list of mappings is left as it is."""
+    if not isinstance(servers, list):
+        return servers
+    return [
+        {key: value for key, value in server.items() if key not in _CREDENTIAL_KEYS}
+        if isinstance(server, Mapping)
+        else server
+        for server in cast(list[Any], servers)
+    ]
 
 
 def as_sent(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -164,6 +187,8 @@ class AnthropicRecording:
             for key, value in request.items()
             if key not in NOT_SETUP
         }
+        if "mcp_servers" in setup:
+            setup["mcp_servers"] = _without_credentials(setup["mcp_servers"])
         return case, setup
 
     def refusal(self, request: Mapping[str, Any]) -> Any:
