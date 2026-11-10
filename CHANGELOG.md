@@ -118,7 +118,7 @@ follows on a tag of its own, with the other plugins' patches.
   it is now scrubbed as every message this package records is, `<arn>` in
   its place.
 
-## digline-mcp — unreleased
+## digline-mcp 0.9.1 — 2026-11-10
 
 - **Under `--names project`, a finish no plugin wrote is withheld.**
   `record_listing`, `suggest` and `where` let a shape's `finish` through as
