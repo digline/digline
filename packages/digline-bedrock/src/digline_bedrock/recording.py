@@ -61,7 +61,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 from urllib.parse import unquote
 
 from digline.targets import Completion, Pricing, ToolCall
-from digline_bedrock.client import completion_of
+from digline_bedrock.client import completion_of, scrub
 
 if TYPE_CHECKING:
     from digline.recorder import StreamReading
@@ -216,12 +216,12 @@ def _refusal(method: str, model_id: str) -> Any:
         return Refusal(
             reason="embeddings not recorded",
             family=f"bedrock embeddings {vendor}",
-            said=f"{method} on {model_id}: embeddings are not recorded",
+            said=f"{method} on {scrub(model_id)}: embeddings are not recorded",
         )
     return Refusal(
         reason="model family not recorded",
         family=f"bedrock {vendor}",
-        said=f"{method} on {model_id}: this model family is not recorded",
+        said=f"{method} on {scrub(model_id)}: this model family is not recorded",
     )
 
 
