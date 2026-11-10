@@ -26,7 +26,7 @@ FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a7
 ARG DIGLINE_VERSION=1.2.0
 ARG DIGLINE_ANTHROPIC_VERSION=0.9.1
 ARG DIGLINE_OPENAI_VERSION=0.7.0
-ARG DIGLINE_BEDROCK_VERSION=0.8.0
+ARG DIGLINE_BEDROCK_VERSION=0.8.1
 
 # Passed by the workflow, empty on a local build. Empty is the honest value: a
 # revision label that names a commit the image was not built from is worse than
