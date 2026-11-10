@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -26,6 +27,21 @@ from tests.test_record_proxy import Upstream, an_openai, proxying
 
 from digline import recorder
 from digline.host.proxy import Proxy
+
+#: The SDKs this file imports, taken out again when it is done: the plugins'
+#: own tests hold that their SDK is imported only when a call is made, in the
+#: same session (`tests/test_recorder.py` does the same).
+SDKS = ("anthropic", "openai", "httpx2", "boto3", "botocore")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
+
 
 BODY = json.dumps(
     {"model": "gpt-fake", "messages": [{"role": "user", "content": "q"}]}
