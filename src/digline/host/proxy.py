@@ -307,7 +307,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _forward(self) -> None:
         started = time.perf_counter()
-        from_a_page = _from_a_page(self.headers, self.server.server_address[1])
+        bound = cast("tuple[str, int]", self.server.server_address)[1]
+        from_a_page = _from_a_page(self.headers, bound)
         if from_a_page is not None:
             # Before the body is read, so the connection is closed after the
             # answer rather than read on from the middle of a request.
