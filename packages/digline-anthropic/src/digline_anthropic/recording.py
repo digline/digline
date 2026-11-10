@@ -88,12 +88,20 @@ def _without_credentials(servers: object) -> object:
     A value that is not a list of mappings is left as it is."""
     if not isinstance(servers, list):
         return servers
-    return [
-        {key: value for key, value in server.items() if key not in _CREDENTIAL_KEYS}
-        if isinstance(server, Mapping)
-        else server
-        for server in cast(list[Any], servers)
-    ]
+    kept: list[object] = []
+    for server in cast(list[object], servers):
+        if isinstance(server, Mapping):
+            entry = cast(Mapping[str, object], server)
+            kept.append(
+                {
+                    key: value
+                    for key, value in entry.items()
+                    if key not in _CREDENTIAL_KEYS
+                }
+            )
+        else:
+            kept.append(server)
+    return kept
 
 
 def as_sent(request: Mapping[str, Any]) -> dict[str, Any]:

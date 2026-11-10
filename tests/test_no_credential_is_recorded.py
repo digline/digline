@@ -53,9 +53,11 @@ SERVER = {"type": "url", "url": "https://mcp.example/sse", "name": "tickets"}
 
 def an_anthropic() -> Any:
     httpx2 = importlib.import_module("httpx2")
-    http = httpx2.Client(
-        transport=httpx2.MockTransport(lambda request: httpx2.Response(200, json=REPLY))
-    )
+
+    def handle(request: object) -> Any:
+        return httpx2.Response(200, json=REPLY)
+
+    http = httpx2.Client(transport=httpx2.MockTransport(handle))
     return importlib.import_module("anthropic").Anthropic(
         api_key="sk-ant-HEADER-KEY", http_client=http, max_retries=0
     )
@@ -102,7 +104,7 @@ def test_a_rotated_token_is_the_same_setup() -> None:
     from digline_anthropic.recording import MAP
 
     def setup(token: str) -> dict[str, object]:
-        request = {
+        request: dict[str, object] = {
             "model": "claude-test",
             "max_tokens": 10,
             "messages": [],
