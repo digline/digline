@@ -848,8 +848,13 @@ def _unassigned(found: Suggestion) -> list[str]:
 
 
 def _key(key: str) -> str:
+    """A key as TOML writes it: bare where it may be, else quoted as a basic
+    string, with DEL escaped as `_value` escapes it: a recorded key is the
+    application's text, and TOML refuses DEL in a string."""
     bare = key and all(ch.isascii() and (ch.isalnum() or ch in "_-") for ch in key)
-    return key if bare else json.dumps(key, ensure_ascii=False)
+    return (
+        key if bare else json.dumps(key, ensure_ascii=False).replace("\x7f", "\\u007f")
+    )
 
 
 def _value(value: object) -> str:

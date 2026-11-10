@@ -16,23 +16,46 @@ differences this surface declares. (ADR 0011 §1, §5, as noted 2026-11-06)
   kinds, with a key digline names itself in clear as a run's are, and the
   recorder's `redact` as a module's name. A cases file's path and the
   provider plugins installed are withheld: they are names of the repository
-  and of this machine, and no kind holds them.
+  and of this machine, and no kind holds them. **A shape's `finish` crosses
+  in clear only as one of `digline.core.Finish`'s words**, the vocabulary a
+  provider plugin writes; a recording made without one carries the text it
+  was given (ADR 0058 §12), and that text is withheld whole as
+  `FINISH_WITHHELD`, in `record_listing`, `suggest` and `where` alike.
 """
 
 from __future__ import annotations
 
 from pathlib import Path, PurePath
-from typing import Any, cast
+from typing import Any, cast, get_args
 
-from digline.core import NAMED_CONFIG_KEYS, Minter, project_check_name
+from digline.core import NAMED_CONFIG_KEYS, Finish, Minter, project_check_name
 
 __all__ = [
+    "FINISH_WITHHELD",
+    "FINISH_WORDS",
     "compare_answer",
     "listing_answer",
     "relative",
     "status_answer",
     "suggest_answer",
+    "where_answer",
 ]
+
+#: The finishes that cross in clear under `project`: `Finish`'s words, which a
+#: provider plugin writes. Read from the type, so the two cannot drift.
+FINISH_WORDS: frozenset[str] = frozenset(get_args(Finish.__value__))
+
+#: What an agent reads under `project` in place of a finish no plugin wrote.
+FINISH_WITHHELD = "a finish withheld: no plugin normalised it"
+
+
+def _finish(shape: dict[str, Any], mint: Minter | None) -> None:
+    """Under `project`, a recorded finish that is not one of `FINISH_WORDS`
+    withheld whole: it is the text a recording was given, not digline's
+    word. `None`, *not recorded*, stays as it is."""
+    finish = shape.get("finish")
+    if mint is not None and finish is not None and finish not in FINISH_WORDS:
+        shape["finish"] = FINISH_WITHHELD
 
 
 def relative(path: str, root: Path) -> str:
@@ -71,6 +94,16 @@ def listing_answer(document: dict[str, Any], *, mint: Minter | None) -> dict[str
         if declaration["check"] is not None:
             declaration["check"] = project_check_name(str(declaration["check"]), mint)
         declaration["cases_file"] = None
+        for group in cast(list[dict[str, Any]], document["groups"]):
+            _finish(cast(dict[str, Any], group["shape"]), mint)
+    return document
+
+
+def where_answer(document: dict[str, Any], *, mint: Minter | None) -> dict[str, Any]:
+    """`where_json`, and under `project` each shape's finish as `_finish`
+    lets it through."""
+    for shape in cast(list[dict[str, Any]], document["shapes"]):
+        _finish(shape, mint)
     return document
 
 
@@ -121,4 +154,6 @@ def suggest_answer(
         for name in cast(list[object], document["already"])
     ]
     cast(dict[str, Any], document["counterexample"])["cases_file"] = None
+    for group in cast(list[dict[str, Any]], document["groups"]):
+        _finish(group, mint)
     return document

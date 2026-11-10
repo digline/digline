@@ -115,6 +115,7 @@ from digline_mcp.recordings import (
     listing_answer,
     status_answer,
     suggest_answer,
+    where_answer,
 )
 
 # What the delta-pass reads, not a declaration of public API: the server's
@@ -513,7 +514,9 @@ def build_server(
                 module=open_.loaded.module,
                 suite_file=open_.path,
             )
-        return where_json(found, suite_arg=suite, root=[])
+        return where_answer(
+            where_json(found, suite_arg=suite, root=[]), mint=answering()
+        )
 
     @answered
     def record_status(tenant: str | None = None) -> dict[str, Any]:

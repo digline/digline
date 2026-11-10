@@ -1854,28 +1854,53 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         suite, loaded = load_suite(args.suite, root=root)
         _check_perimeter(suite, args.tenant, None)
         suite_file = suite_file_of(args.suite, loaded.module)
-        # `[suggest]` is read from a suite.toml alone, and `--model` wins over
-        # it: the source is said beside the assistant. (ADR 0063 §4)
+        # `[suggest]` is read from a suite.toml alone. It names the model and
+        # does not ask it: the assistant is called with `--model`, which wins,
+        # or with `--assist`, which asks the model the suite names. A bare
+        # `digline suggest` calls nothing, and says the command that would.
+        # (ADR 0063 §4, as amended 2026-11-10)
         declared = (
             suggest_model(suite_file) if suite_file.suffix == SUITE_SUFFIX else None
         )
-        model_from = (
-            "--model"
-            + (f", which wins over [suggest] in {suite_file.name}" if declared else "")
-            if args.model is not None
-            else f"[suggest] in {suite_file.name}"
-        )
+        if args.model is not None:
+            model: str | None = args.model
+            model_from = "--model" + (
+                f", which wins over [suggest] in {suite_file.name}" if declared else ""
+            )
+        elif args.assist:
+            if declared is None:
+                raise UsageError(
+                    f"--assist asks the model [suggest] names in a suite.toml, and "
+                    f"{suite_file.name} names none: give --model instead"
+                )
+            model = declared
+            model_from = f"[suggest] in {suite_file.name}, asked by --assist"
+        else:
+            model, model_from = None, ""
+            if declared is not None:
+                would = ["digline", "suggest", "--suite", args.suite, "--assist"]
+                say(
+                    f"assistant: not called. [suggest] in {suite_file.name} names "
+                    f"{declared}, and is asked only with --assist: "
+                    f"{shlex.join(would)}",
+                    err=True,
+                )
         done = suggest_for(
             root,
             suite,
             suite_file=suite_file,
             module=loaded.module,
             repository=args.repository,
-            model=args.model if args.model is not None else declared,
+            model=model,
             model_from=model_from,
             say=lambda line: say(line, err=True),
         )
     else:
+        if args.assist:
+            raise UsageError(
+                "--assist asks the model [suggest] names in a suite.toml, and a "
+                "suite that does not exist yet has none: give --model instead"
+            )
         done = suggest_new(
             root,
             args.suite,
@@ -2683,7 +2708,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "the assistant that writes the rubrics, the reasons, the limits and "
             "a counterexample into the proposal; wins over [suggest] in a "
-            "suite.toml. Without either, no model is called"
+            "suite.toml. Without it or --assist, no model is called"
+        ),
+    )
+    sug_p.add_argument(
+        "--assist",
+        action="store_true",
+        help=(
+            "ask the assistant [suggest] model names in the suite.toml; a model "
+            "named there is never asked without this flag or --model"
         ),
     )
     sug_p.set_defaults(func=cmd_suggest)
