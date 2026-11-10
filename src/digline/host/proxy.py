@@ -143,12 +143,22 @@ def upstreams_of(
     given: Sequence[str], wires: Mapping[str, RecordingWire]
 ) -> dict[str, str]:
     """`--upstream ROUTE=URL`, each, checked: a route a plugin reads, and an
-    http or https address."""
+    http or https address with no credential in it.
+
+    No refusal quotes the address. An address is where a person most often
+    pastes a secret by mistake, and a refusal goes to standard error and from
+    there into a CI log (GHSA-xrvr-5x82-w7g7's class). A credential in the
+    address is refused rather than kept: it would be printed on the start
+    line, and it would never reach the upstream, which reads the application's
+    own key from the request."""
     found: dict[str, str] = {}
     for item in given:
         route, sep, url = item.partition("=")
         if not sep or not route or not url:
-            raise UsageError(f"--upstream {item}: write it as ROUTE=URL")
+            raise UsageError(
+                "--upstream: write it as ROUTE=URL; the value given is not "
+                "repeated here, because an address can carry a secret"
+            )
         if route not in wires:
             known = ", ".join(sorted(wires)) or "none"
             # A route digline knows and this machine has no plugin for: the
@@ -159,11 +169,27 @@ def upstreams_of(
                 else ""
             )
             raise UsageError(
-                f"--upstream {item}: no plugin reads the route {route!r}{install}; "
+                f"--upstream {route!r}: no plugin reads this route{install}; "
                 f"the routes read here are {known}"
             )
-        if urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).hostname:
-            raise UsageError(f"--upstream {item}: the address is not http or https")
+        try:
+            parts = urlsplit(url)
+            hostname = parts.hostname
+            parts.port  # noqa: B018 — a port that is not a number raises here
+        except ValueError:
+            parts, hostname = None, None
+        if parts is None or parts.scheme not in ("http", "https") or not hostname:
+            raise UsageError(
+                f"--upstream {route}=…: the address is not an http or https one; "
+                "it is not repeated here, because an address can carry a secret"
+            )
+        if parts.username is not None or parts.password is not None:
+            raise UsageError(
+                f"--upstream {route}=…: the address carries a user name or a "
+                "password. Leave it out: the proxy never sends one, and the "
+                "upstream reads the application's own key from the request. The "
+                "address is not repeated here, because that part of it is a secret"
+            )
         found[route] = url.rstrip("/")
     return found
 
@@ -668,7 +694,12 @@ class _Handler(BaseHTTPRequestHandler):
             elapsed_ms=elapsed_ms,
             suite=suite,
             app=app,
-            site=None if suite is not None else f"{agent or 'no User-Agent'} {path}",
+            # The path without its query: a client that sends its key as a
+            # query parameter, `?api-key=...` as Azure's do, would otherwise
+            # have it written into the recording and the import's listing.
+            site=None
+            if suite is not None
+            else f"{agent or 'no User-Agent'} {path.partition('?')[0]}",
             episode=episode,
             case=_case(case),
             results=results,
