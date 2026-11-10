@@ -31,12 +31,12 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from tests.test_record_proxy import Upstream, an_openai, proxying
 
 from digline import recorder
 from digline.host.errors import UsageError
 from digline.host.proxy import Proxy, load_wires, upstreams_of
 from digline.recorder import wrap
-from tests.test_record_proxy import Upstream, an_openai, proxying
 
 REPLY: dict[str, object] = {
     "id": "msg_1",
