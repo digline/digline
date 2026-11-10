@@ -3,11 +3,6 @@
 This page shows an IDE's agent reading recordings and measuring over
 MCP, while the person decides, from the first suite to a gate.
 
-> **Arrives with the next digline-mcp.** `digline-mcp` 0.8.1 on PyPI has
-> eight tools, not the thirteen below. Until the next `digline-mcp` is
-> published, what this page runs needs it installed from this
-> repository.
-
 ## Who this is for
 
 A developer whose IDE has an agent that speaks MCP, working on an application
