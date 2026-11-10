@@ -1897,6 +1897,10 @@ def _mark_ceiling(root: Path, tenant: str, ceiling: int, size: int) -> None:
 
     directory = _joined_inside(root, _STORE, tenant, _RECORDINGS)
     marker = directory / _CEILING_MARKER
+    # Not through a link out of the store: the same rule the writer holds.
+    store = Path(os.path.realpath(_joined_inside(root, _STORE)))
+    if not Path(os.path.realpath(directory)).is_relative_to(store):
+        return
     try:
         directory.mkdir(parents=True, exist_ok=True)
         temporary = directory / f".{_CEILING_MARKER}.{os.getpid()}"
