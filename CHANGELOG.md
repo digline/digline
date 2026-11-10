@@ -6,7 +6,56 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 1.2.0 — 2026-11-10
+
+digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare
+`digline suggest` on a suite that names `[suggest] model` no longer asks
+that model, and `--assist` does (*Changed*, below; RELEASING.md, *Choosing
+the version*). Beside it, three advisories against the recorder and
+`digline record proxy`, both new in 1.1.1, and repairs found by the same
+delta-pass. No public name is removed or renamed, and no exit code changes.
+**digline-anthropic 0.9.1**, which carries one half of the third advisory,
+follows on a tag of its own, with the other plugins' patches.
+
+### Security
+
+- **The recorder wrote recordings through a symlink committed in the store**
+  (advisory [GHSA-v524-xvf5-jrf9](https://github.com/digline/digline/security/advisories/GHSA-v524-xvf5-jrf9)).
+  `RecordingWriter` created `.digline/<tenant>/recordings/<process>/` and
+  linked each recording into it without checking where the path resolved, and
+  the generated `.gitignore`'s `*/recordings/` does not match a link, so a
+  repository could carry one and send the application's prompts and answers
+  wherever it pointed. The writer and the ceiling marker now refuse a path
+  outside the store, as the readers have since 0.7.2; the call is counted as
+  not recorded. Affected: 1.1.1.
+- **`digline record proxy` answered a web page**
+  (advisory [GHSA-mg7q-phfv-2g93](https://github.com/digline/digline/security/advisories/GHSA-mg7q-phfv-2g93)).
+  It read neither `Host` nor `Origin`, so a page could send a CORS-simple POST
+  through it, spend through an upstream that needs no key and plant
+  recordings under a suite it named. A request that carries `Origin` is now
+  refused with 403, and `Host` is held to `127.0.0.1:<port>` or
+  `localhost:<port>`. Affected: 1.1.1.
+- **The recorder and `digline record proxy` could write or print a
+  credential** (advisory [GHSA-v7r8-xg2j-wjx4](https://github.com/digline/digline/security/advisories/GHSA-v7r8-xg2j-wjx4),
+  with digline-anthropic below). The proxy wrote a call site's path with its
+  query, so a key sent as `?api-key=...` was recorded; and `--upstream` kept a
+  user name and password in its address, printed it on the start line and
+  quoted it in its refusals. The call site now carries the path alone, and an
+  address with a credential is refused without being repeated. Affected:
+  1.1.1.
+
+### Changed
+
+- **`[suggest] model` names the assistant and no longer asks it.** A bare
+  `digline suggest` on a suite whose `suite.toml` names a model makes no
+  call, and says in one line the command that would, with the new
+  `--assist`, which asks the model the suite names; `--model` still wins
+  over it. A committed suite in a cloned repository otherwise sent the
+  tenant's recordings to a model with nobody asked. Whoever relied on the
+  bare command calling the model adds `--assist` (ADR 0063 §4, as amended
+  2026-11-10).
+
+### Fixed
 
 - **The recorder's own lines on standard error show a control character
   rather than obey it.** The sentence a plugin says once for a call it does
@@ -44,18 +93,22 @@ notes under them are this file, verbatim.
   refuses a form with no usable length. Such a body, sent with the session,
   raised `UnicodeDecodeError`: the connection closed with no answer and a
   traceback reached standard error. Nothing is written, as before.
-
-- **`[suggest] model` names the assistant and no longer asks it.** A bare
-  `digline suggest` on a suite whose `suite.toml` names a model makes no
-  call, and says in one line the command that would, with the new
-  `--assist`, which asks the model the suite names; `--model` still wins
-  over it. A committed suite in a cloned repository otherwise sent the
-  tenant's recordings to a model with nobody asked. Whoever relied on the
-  bare command calling the model adds `--assist` (ADR 0063 §4, as amended
-  2026-11-10).
 - **A recorded key with DEL no longer makes `digline suggest` write TOML
   that cannot be read.** The key is quoted with DEL escaped, as a value
   already was.
+
+## digline-anthropic — unreleased
+
+### Security
+
+- **The recording map wrote an MCP server's token into the setup**
+  (advisory [GHSA-v7r8-xg2j-wjx4](https://github.com/digline/digline/security/advisories/GHSA-v7r8-xg2j-wjx4),
+  with digline above). The map put every key of a Messages request but the
+  messages into the recording's setup, `extra_body`'s keys merged in, so
+  `mcp_servers[].authorization_token` was written in clear into every
+  recording, shown by `digline record compare --show-setup`, and folded into
+  the setup digest. Each server's `authorization_token` is now left out of its
+  entry, and the rest of the entry is kept. Affected: 0.9.0.
 
 ## digline-bedrock — unreleased
 

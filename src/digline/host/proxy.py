@@ -143,12 +143,22 @@ def upstreams_of(
     given: Sequence[str], wires: Mapping[str, RecordingWire]
 ) -> dict[str, str]:
     """`--upstream ROUTE=URL`, each, checked: a route a plugin reads, and an
-    http or https address."""
+    http or https address with no credential in it.
+
+    No refusal quotes the address. An address is where a person most often
+    pastes a secret by mistake, and a refusal goes to standard error and from
+    there into a CI log (GHSA-xrvr-5x82-w7g7's class). A credential in the
+    address is refused rather than kept: it would be printed on the start
+    line, and it would never reach the upstream, which reads the application's
+    own key from the request."""
     found: dict[str, str] = {}
     for item in given:
         route, sep, url = item.partition("=")
         if not sep or not route or not url:
-            raise UsageError(f"--upstream {item}: write it as ROUTE=URL")
+            raise UsageError(
+                "--upstream: write it as ROUTE=URL; the value given is not "
+                "repeated here, because an address can carry a secret"
+            )
         if route not in wires:
             known = ", ".join(sorted(wires)) or "none"
             # A route digline knows and this machine has no plugin for: the
@@ -159,11 +169,27 @@ def upstreams_of(
                 else ""
             )
             raise UsageError(
-                f"--upstream {item}: no plugin reads the route {route!r}{install}; "
+                f"--upstream {route!r}: no plugin reads this route{install}; "
                 f"the routes read here are {known}"
             )
-        if urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).hostname:
-            raise UsageError(f"--upstream {item}: the address is not http or https")
+        try:
+            parts = urlsplit(url)
+            hostname = parts.hostname
+            parts.port  # noqa: B018 — a port that is not a number raises here
+        except ValueError:
+            parts, hostname = None, None
+        if parts is None or parts.scheme not in ("http", "https") or not hostname:
+            raise UsageError(
+                f"--upstream {route}=…: the address is not an http or https one; "
+                "it is not repeated here, because an address can carry a secret"
+            )
+        if parts.username is not None or parts.password is not None:
+            raise UsageError(
+                f"--upstream {route}=…: the address carries a user name or a "
+                "password. Leave it out: the proxy never sends one, and the "
+                "upstream reads the application's own key from the request. The "
+                "address is not repeated here, because that part of it is a secret"
+            )
         found[route] = url.rstrip("/")
     return found
 
@@ -214,6 +240,43 @@ def start_proxy(
         wires=loaded,
         upstreams=upstreams,
     )
+
+
+#: The names the proxy is reached by. It binds 127.0.0.1 and nothing else, so
+#: a `Host` naming anything but the loopback is a name that resolved to it by
+#: somebody else's choice: DNS rebinding, a page's own host.
+_OWN_NAMES = frozenset({"127.0.0.1", "localhost"})
+
+
+def _from_a_page(headers: Any, port: int) -> str | None:
+    """Why this request is refused as a web page's, or `None`.
+
+    The proxy answers programs: an SDK, a framework, an application's own
+    HTTP client. None of them sends `Origin`, and a browser sends it on every
+    request a page makes across origins, the CORS-simple POST included, which
+    is the one a page can send without asking. A page could otherwise spend
+    through a keyless upstream and plant recordings under a suite it names.
+    `Host` is held to the address the proxy bound, as `digline view` holds
+    its own (GHSA-qjqq-hrq4-rfgh): never compared with another header the
+    same sender chose. Neither value is quoted back."""
+    if headers.get("Origin") is not None:
+        return (
+            "a request that carries Origin comes from a web page, and the "
+            "proxy answers programs only"
+        )
+    host = headers.get("Host")
+    if host is None:
+        return None
+    name, _, given_port = host.strip().rpartition(":")
+    if not name or not given_port.isdigit():
+        name, given_port = host.strip(), ""
+    if name.lower() not in _OWN_NAMES or given_port != str(port):
+        return (
+            f"the request's Host is not this proxy's address, 127.0.0.1:{port} "
+            f"or localhost:{port}; a name that resolves here by another's "
+            "choice is not one the proxy answers"
+        )
+    return None
 
 
 class _Server(ThreadingHTTPServer):
@@ -275,6 +338,14 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _forward(self) -> None:
         started = time.perf_counter()
+        bound = cast("tuple[str, int]", self.server.server_address)[1]
+        from_a_page = _from_a_page(self.headers, bound)
+        if from_a_page is not None:
+            # Before the body is read, so the connection is closed after the
+            # answer rather than read on from the middle of a request.
+            self.close_connection = True
+            self._refuse(403, from_a_page)
+            return
         headers = {key.lower(): value for key, value in self.headers.items()}
         ours = {k: _text(v) for k, v in headers.items() if k.startswith(_OURS)}
         path = self.path
@@ -623,7 +694,12 @@ class _Handler(BaseHTTPRequestHandler):
             elapsed_ms=elapsed_ms,
             suite=suite,
             app=app,
-            site=None if suite is not None else f"{agent or 'no User-Agent'} {path}",
+            # The path without its query: a client that sends its key as a
+            # query parameter, `?api-key=...` as Azure's do, would otherwise
+            # have it written into the recording and the import's listing.
+            site=None
+            if suite is not None
+            else f"{agent or 'no User-Agent'} {path.partition('?')[0]}",
             episode=episode,
             case=_case(case),
             results=results,
