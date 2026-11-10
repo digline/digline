@@ -817,7 +817,7 @@ thing users rely on.
   is the first release on PyPI to carry (v1.1.0 is tagged and never reached
   PyPI). Against 1.0.3 the import raises `ImportError`.
 
-## pytest-digline — unreleased
+## pytest-digline 0.6.1 — 2026-11-10
 
 - **Each row of an episode's reviewed answer fails on its own check.** An
   episode's reviewed answer is asked the checks on its steps beside the one
