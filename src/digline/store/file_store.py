@@ -2041,10 +2041,17 @@ class RecordingWriter:
             # what keeps `*/recordings/` out of git, and a recording is
             # payload. `run` lays it out the same way.
             self._store.ensure_layout(tenant)
-            directory = (
-                self._store.recordings_dir(tenant) / f"p{pid}-{secrets.token_hex(4)}"
-            )
+            # Held inside the store before anything is created, and again once
+            # it is: a `recordings` or tenant directory that is a link out of
+            # the store, which a clone can carry, would otherwise take the
+            # application's prompts and answers wherever it points. The
+            # readers have refused such a link since 0.7.2; the writer is held
+            # to the same rule.
+            recordings = self._store.recordings_dir(tenant)
+            self._store._inside(recordings, "recordings directory")
+            directory = recordings / f"p{pid}-{secrets.token_hex(4)}"
             directory.mkdir(parents=True, exist_ok=False)
+            self._store._inside(directory, "recordings directory")
             place = (pid, directory, 0)
             self._places[tenant] = place
         return place
