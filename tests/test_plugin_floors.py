@@ -429,13 +429,16 @@ CALLED: dict[tuple[str, str, str], str] = {
     ("digline.core.protocols", "Assertion", "name"): "0.1.0",
     # pytest-digline fails a reviewed answer's row by the run's contradictions,
     # and its FAILURES line says the contradiction by check and direction.
-    # (ADR 0059 §1; #903, P-1582)
+    # (ADR 0059 §1; #903, P-1582) By case and `assertion_id`, and the row's
+    # own verdict's, so an episode's rows each fail on their own check.
+    ("digline.core.reviewed", "Contradiction", "assertion_id"): "1.1.0",
     ("digline.core.reviewed", "Contradiction", "case_id"): "1.1.0",
     ("digline.core.reviewed", "Contradiction", "check"): "1.1.0",
     ("digline.core.reviewed", "Contradiction", "direction"): "1.1.0",
     ("digline.core.run", "Run", "config_hash"): "0.1.0",
     ("digline.core.run", "Run", "created_at"): "0.1.0",
     ("digline.core.run", "Run", "usage"): "0.16.0",
+    ("digline.core.types", "Verdict", "assertion_id"): "0.1.0",
     ("digline.core.types", "Verdict", "reason"): "0.1.0",
     ("digline.core.types", "Verdict", "status"): "0.1.0",
     ("digline.host.listing", "SuiteRuns", "baseline_key"): "0.25.2",
