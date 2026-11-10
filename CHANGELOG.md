@@ -736,8 +736,13 @@ public name is removed or renamed and no exit code changes.
   `extra_body` records under another digest than before. The stream readings
   are typed with `digline.recorder.StreamReading` (ADR 0062 §2).
 
-## digline-bedrock — unreleased
+## digline-bedrock 0.8.0 — 2026-11-10
 
+- **Its floors are `digline` 1.1.1 and `digline-anthropic` 0.9.** 1.1.1 is
+  the first core on PyPI that reads the recording maps below and that has
+  `digline.recorder.StreamReading`, which they import; digline-anthropic 0.9.0
+  is the first release with the `WIRE` and the stream reading this package
+  imports from it.
 - **The package carries its recording maps for ADR 0058's recorder**:
   `digline_bedrock.recording`, under the entry point `digline.recording_maps`,
   for `converse` (#874) and `converse_stream` (#883). The case is the
@@ -759,14 +764,11 @@ public name is removed or renamed and no exit code changes.
   Mistral and embedding models are not recorded: each call is counted, *model
   family not recorded* or *embeddings not recorded*, and standard error says
   it once a family. **The package now depends on `digline-anthropic`**,
-  `>=0.8.0,<1`, with no extra (ADR 0062 §2, noted 2026-11-05).
+  `>=0.9,<0.10`, with no extra (ADR 0062 §2, noted 2026-11-05).
 - The stream readings are typed with `digline.recorder.StreamReading`, for the
   type checker alone (#919).
-- **The dependency is `digline>=0.35.0,<2`** (#862). The cap is new since
-  0.7.0, which declared none.
-- Its floor on `digline` becomes `1.1.1` in its own release, after the core's,
-  and its floor on `digline-anthropic` the release after 0.8.0 that carries
-  `WIRE` and the stream reading: RELEASING.md, *Owed at the cut*.
+- **The dependency is `digline>=1.1.1,<2`**. The cap is new since 0.7.0,
+  which declared none (#862).
 
 ## digline-anthropic 0.8.0 — 2026-11-03
 
