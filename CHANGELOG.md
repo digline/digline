@@ -764,6 +764,18 @@ thing users rely on.
   is the first release on PyPI to carry (v1.1.0 is tagged and never reached
   PyPI). Against 1.0.3 the import raises `ImportError`.
 
+## pytest-digline — unreleased
+
+- **Each row of an episode's reviewed answer fails on its own check.** An
+  episode's reviewed answer is asked the checks on its steps beside the one
+  it was reviewed for, so one case has several rows (ADR 0059 §1, amended
+  2026-11-05). 0.6.0 failed every row of a case where one check contradicted
+  the person: the judge failing a yes failed the rows on the steps too, each
+  with *Score unchanged*, while the summary named one contradiction. A row
+  now fails where its own verdict contradicts the person, read off the run by
+  case and check, and the case's other rows pass or fail on what they
+  measured. The session's exit status does not change.
+
 ## pytest-digline 0.6.0 — 2026-11-10
 
 - **`--digline-run` measures as `digline run` does.** Inside
