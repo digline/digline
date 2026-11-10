@@ -1032,9 +1032,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.proposal.invalid": "The file is there and could not be read: {error}",
         "view.proposal.commands": (
-            "The command that writes one, without an assistant and with one. It "
-            "is shown and never run here: what a model costs is said before its "
-            "call."
+            "The command that writes one, without an assistant and with one. A "
+            "model [suggest] names in the suite.toml is asked only with --assist, "
+            "and --model wins over it. It is shown and never run here: what a "
+            "model costs is said before its call."
         ),
         "view.proposal.overwrite": (
             "digline suggest does not overwrite a proposal: move or delete {path} "
@@ -2780,8 +2781,10 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "view.proposal.invalid": "Il file c'è e non si è potuto leggere: {error}",
         "view.proposal.commands": (
-            "Il comando che la scrive, senza assistente e con. Qui è mostrato e "
-            "mai eseguito: quanto costa un modello si dice prima della chiamata."
+            "Il comando che la scrive, senza assistente e con. Un modello che "
+            "[suggest] nomina nel suite.toml è chiamato solo con --assist, e "
+            "--model vince su di esso. Qui è mostrato e mai eseguito: quanto "
+            "costa un modello si dice prima della chiamata."
         ),
         "view.proposal.overwrite": (
             "digline suggest non sovrascrive una proposta: sposta o cancella "

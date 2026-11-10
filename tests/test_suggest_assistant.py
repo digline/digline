@@ -370,7 +370,32 @@ def test_suggest_takes_a_model_by_coordinates_and_nothing_else(
     assert said in str(refused.value)
 
 
-def test_the_model_in_the_suite_toml_is_asked_and_said_where_from(
+def test_a_bare_suggest_asks_no_model_the_suite_toml_names_and_says_how(
+    here: Path,
+    fake_provider: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A committed `[suggest] model` names the model and does not authorise
+    the call: a bare `digline suggest` on a cloned repository makes none, and
+    says in one line the command that would. (ADR 0063 §4, as amended
+    2026-11-10)"""
+    existing(here)
+    with (here / "suite.toml").open("a", encoding="utf-8") as suite:
+        suite.write(f'\n[suggest]\nmodel = "{MODEL}"\n')
+    asked = upstream(monkeypatch, capsys, {})
+    assert main("suggest", "--suite", "suite.toml") == 0
+    assert asked.requests == []
+    said = capsys.readouterr().err
+    assert (
+        f"assistant: not called. [suggest] in suite.toml names {MODEL}, and is "
+        "asked only with --assist: digline suggest --suite suite.toml --assist"
+    ) in said
+    assert "1 call to" not in said
+    assert (here / PROPOSAL).is_file()
+
+
+def test_assist_asks_the_model_the_suite_toml_names_and_says_where_from(
     here: Path,
     fake_provider: None,
     monkeypatch: pytest.MonkeyPatch,
@@ -380,12 +405,30 @@ def test_the_model_in_the_suite_toml_is_asked_and_said_where_from(
     with (here / "suite.toml").open("a", encoding="utf-8") as suite:
         suite.write(f'\n[suggest]\nmodel = "{MODEL}"\n')
     asked = upstream(monkeypatch, capsys, {})
-    assert main("suggest", "--suite", "suite.toml") == 0
+    assert main("suggest", "--suite", "suite.toml", "--assist") == 0
     [request] = asked.requests
     assert request["model"] == "claude-haiku-4-5"
     assert (
-        f"assistant: {MODEL}, from [suggest] in suite.toml" in capsys.readouterr().err
+        f"assistant: {MODEL}, from [suggest] in suite.toml, asked by --assist"
+        in capsys.readouterr().err
     )
+
+
+def test_assist_without_a_model_named_is_refused_before_anything(
+    here: Path,
+    fake_provider: None,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    existing(here)
+    asked = upstream(monkeypatch, capsys, {})
+    assert main("suggest", "--suite", "suite.toml", "--assist") != 0
+    assert asked.requests == []
+    assert not (here / PROPOSAL).exists()
+    assert "suite.toml names none: give --model instead" in capsys.readouterr().err
+    assert new("private", "--assist") != 0
+    assert asked.requests == []
+    assert "a suite that does not exist yet has none" in capsys.readouterr().err
 
 
 def test_model_wins_over_the_suite_toml_and_says_so(

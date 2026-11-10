@@ -142,18 +142,22 @@ pre-selection, which [ADR 0023](adr/0023-capture.md) §4 forbids.
 
 A model of its own, never the suite's judge, asked once for what the rules
 cannot know: a rubric for the judged check, a sentence on why each check is
-there, limits in place of the placeholders, and a counterexample. It is
-declared, or nothing is called:
+there, limits in place of the placeholders, and a counterexample. It is asked
+on the command line, or nothing is called: with `--model`, or with
+`--assist`, which asks the model a `suite.toml` names:
 
 ```toml
 [suggest]
 model = "anthropic/claude-haiku-4-5"
 ```
 
-in a `suite.toml`, by coordinates as [a judge is](declarative.md#the-judge-by-coordinates),
-or with `--model`, which wins over it. A `suite.py` and a suite that does not
-exist yet take `--model` alone. `[suggest]` is outside the suite: no run reads
-it, and the suite's `config_hash` is the same with it or without it.
+by coordinates as [a judge is](declarative.md#the-judge-by-coordinates).
+`--model` wins over it. **`[suggest] model` names the model and does not
+authorise the call**: a suite is committed and cloned, and a bare `digline
+suggest` on it calls nothing, and says, in one line, the command with
+`--assist` that would. A `suite.py` and a suite that does not exist yet take
+`--model` alone, and refuse `--assist`. `[suggest]` is outside the suite: no
+run reads it, and the suite's `config_hash` is the same with it or without it.
 
 **What it costs is said before the call**, and not asked:
 
@@ -244,7 +248,8 @@ The MCP server's `suggest` tool returns what this command says, as facts, and
 the command that writes the file: it writes nothing, because the server writes
 nothing into your repository. It asks no assistant there: what one costs is
 said before its call, and a tool has no before, so the command with `--model`
-is in its answer for you to run ([digline over MCP](mcp.md)).
+is in its answer for you to run ([digline over MCP](mcp.md)). The command
+without it asks no assistant, whatever the suite names.
 
 ## At the page
 
@@ -252,8 +257,8 @@ is in its answer for you to run ([digline over MCP](mcp.md)).
 declares, each check with why it is there, the placeholders marked as such and
 a value the assistant wrote marked as not measured, the counterexample and the
 calibration skeleton, and the command that writes one, without and with
-`--model`, to copy. No button asks a model: what one costs is said before its
-call. `digline where` names the file in the state `no_suite_yet`, by its path
+`--model`, to copy; a model the suite names is asked only with `--assist`. No
+button asks a model: what one costs is said before its call. `digline where` names the file in the state `no_suite_yet`, by its path
 ([`digline view`](view.md#the-recorders-views)).
 
 ## Not yet

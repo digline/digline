@@ -221,7 +221,8 @@ it is there, each value with its mark (*a placeholder: yours to write*, or
 *from the assistant, not measured*), the counterexample and the calibration
 skeleton. Under them, the command that writes one, without and with
 `--model`, shown and never run, because what a model costs is said before
-its call; and, where the file is there, that `suggest` does not overwrite it.
+its call; a model `[suggest]` names in a `suite.toml` is asked only with
+`--assist`; and, where the file is there, that `suggest` does not overwrite it.
 It is looked for where `suggest` writes it: beside the suite's file, or, for
 a suite that does not exist yet, in the store's root and the directory the
 server runs in, never further. Where there is none, the page says where it

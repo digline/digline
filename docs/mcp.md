@@ -83,7 +83,8 @@ reading, so what an agent did can be done again by hand:
   writes `suite.proposed.toml`, and writes nothing: the file is the
   repository's. It asks no assistant: what one costs is said before its call,
   and a tool has no before, so `assistant.command`, the command with
-  `--model`, is the person's to run.
+  `--model`, is the person's to run. `command` asks none, even where the
+  suite's `[suggest]` names a model: that one is asked only with `--assist`.
 
 **What `get_run` and `get_baseline` say about the instrument.** Since 0.16.0 the
 run document marks a judged check (`judged`), a canary (`canary`), a calibration

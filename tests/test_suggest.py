@@ -757,6 +757,27 @@ def test_a_json_answer_proposes_is_json_and_the_keys_every_one_carries(
     assert "length" not in found
 
 
+def test_a_recorded_key_with_del_is_written_as_toml_reads_it(
+    here: Path, fake_provider: None
+) -> None:
+    """A key of a recorded answer is the application's text, and the schema
+    the proposal writes quotes it. DEL is the one control character JSON
+    leaves as it is and a TOML string refuses: escaped, the proposal is
+    TOML, and the key reads back as it was recorded."""
+    (here / "suite.toml").write_text(SUITE_TOML, encoding="utf-8")
+    write(
+        here,
+        [
+            single(1, '{"cat\\u007fegory": "refund"}'),
+            single(2, '{"cat\\u007fegory": "other"}'),
+        ],
+    )
+    assert main("suggest", "--suite", "suite.toml") == 0
+    found = {c["type"]: c for c in checks(here)}
+    assert found["json_schema"]["schema"]["required"] == ["cat\x7fegory"]
+    assert "cat\x7fegory" in found["json_schema"]["schema"]["properties"]
+
+
 def test_answers_of_two_kinds_propose_no_shape(here: Path, fake_provider: None) -> None:
     (here / "suite.toml").write_text(SUITE_TOML, encoding="utf-8")
     write(here, [single(1, "text"), single(2, '{"a": 1}', kind="structured")])
