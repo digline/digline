@@ -919,10 +919,13 @@ def test_a_client_that_goes_is_one_line_and_its_call_is_counted(
     """Between two requests, nothing to count and one line; inside one, the
     call of a route the proxy records is counted `client gone`. Never
     `socketserver`'s traceback."""
-    reset(proxy.port, b"GET /v1/models HTTP/1.1\r\nHost: x\r\n")
+    # The proxy's own address: any other `Host` is refused before the body is
+    # read, and this test is about a body that never arrives.
+    host = f"Host: 127.0.0.1:{proxy.port}\r\n".encode()
+    reset(proxy.port, b"GET /v1/models HTTP/1.1\r\n" + host)
     reset(
         proxy.port,
-        b"POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nX-Digline-Suite: triage\r\n"
+        b"POST /v1/chat/completions HTTP/1.1\r\n" + host + b"X-Digline-Suite: triage\r\n"
         b'Content-Length: 100\r\n\r\n{"a"',
     )
     proxy.stop()

@@ -211,6 +211,43 @@ def start_proxy(
     )
 
 
+#: The names the proxy is reached by. It binds 127.0.0.1 and nothing else, so
+#: a `Host` naming anything but the loopback is a name that resolved to it by
+#: somebody else's choice: DNS rebinding, a page's own host.
+_OWN_NAMES = frozenset({"127.0.0.1", "localhost"})
+
+
+def _from_a_page(headers: Any, port: int) -> str | None:
+    """Why this request is refused as a web page's, or `None`.
+
+    The proxy answers programs: an SDK, a framework, an application's own
+    HTTP client. None of them sends `Origin`, and a browser sends it on every
+    request a page makes across origins, the CORS-simple POST included, which
+    is the one a page can send without asking. A page could otherwise spend
+    through a keyless upstream and plant recordings under a suite it names.
+    `Host` is held to the address the proxy bound, as `digline view` holds
+    its own (GHSA-qjqq-hrq4-rfgh): never compared with another header the
+    same sender chose. Neither value is quoted back."""
+    if headers.get("Origin") is not None:
+        return (
+            "a request that carries Origin comes from a web page, and the "
+            "proxy answers programs only"
+        )
+    host = headers.get("Host")
+    if host is None:
+        return None
+    name, _, given_port = host.strip().rpartition(":")
+    if not name or not given_port.isdigit():
+        name, given_port = host.strip(), ""
+    if name.lower() not in _OWN_NAMES or given_port != str(port):
+        return (
+            f"the request's Host is not this proxy's address, 127.0.0.1:{port} "
+            f"or localhost:{port}; a name that resolves here by another's "
+            "choice is not one the proxy answers"
+        )
+    return None
+
+
 class _Server(ThreadingHTTPServer):
     """The proxy's server: a client that closes its connection between two
     requests, as an SDK's pool does when its process ends, is one line on
@@ -270,6 +307,13 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _forward(self) -> None:
         started = time.perf_counter()
+        from_a_page = _from_a_page(self.headers, self.server.server_address[1])
+        if from_a_page is not None:
+            # Before the body is read, so the connection is closed after the
+            # answer rather than read on from the middle of a request.
+            self.close_connection = True
+            self._refuse(403, from_a_page)
+            return
         headers = {key.lower(): value for key, value in self.headers.items()}
         ours = {k: _text(v) for k, v in headers.items() if k.startswith(_OURS)}
         path = self.path
