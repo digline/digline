@@ -19,6 +19,8 @@ from __future__ import annotations
 import importlib
 import json
 import subprocess
+import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +29,21 @@ import pytest
 from digline import recorder
 from digline.recorder import wrap
 from digline.store.file_store import FileResultStore, PathRefusedError, RecordingWriter
+
+#: The SDKs this file imports, taken out again when it is done: the plugins'
+#: own tests hold that their SDK is imported only when a call is made, in the
+#: same session (`tests/test_recorder.py` does the same).
+SDKS = ("anthropic", "openai", "httpx2", "boto3", "botocore")
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
+
 
 REPLY: dict[str, object] = {
     "id": "msg_1",
