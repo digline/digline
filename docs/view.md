@@ -211,7 +211,8 @@ number only for the suite the server was started with, when it declares where
 captured cases go, and otherwise says *not read*: the draft is the suite's
 file, and only the suite says where it is. Then the switch, its values, each
 marked declared or default, where the recorder writes, and the recordings by
-suite.
+suite. It is the server's own tenant's: another tenant's recorder is no page,
+to read or to switch.
 
 **Proposal** (`/proposal/<tenant>/<suite>/`) — the file
 [`digline suggest`](suggest.md) wrote, `suite.proposed.toml`, read and never

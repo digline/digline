@@ -32,7 +32,11 @@ from digline.cli import EXIT_USAGE
 from digline.cli.main import main
 from digline.host.recording import recorder_status
 from digline.store import PathRefusedError, checked_name
-from digline.store.file_store import FileResultStore, joined_inside
+from digline.store.file_store import (
+    RECORDING_MAX_DEPTH,
+    FileResultStore,
+    joined_inside,
+)
 
 #: The SDK `wrap()` is given here, taken back out of `sys.modules` when this
 #: module ends, as `tests/test_record_proxy.py` does: a plugin's own tests
@@ -185,6 +189,50 @@ def test_a_recording_whose_tenant_climbs_is_not_read(tmp_path: Path) -> None:
     (status,) = recorder_status(tmp_path, "acme")
     assert status.unreadable == 1
     assert status.suites == ()
+
+
+@pytest.mark.parametrize(
+    "depth",
+    # 200,000: deep enough that Python's parser gives up, on 3.14 past
+    # 5,000, which it still reads.
+    [RECORDING_MAX_DEPTH + 1, 200_000],
+    ids=["past the limit", "past Python's parser"],
+)
+def test_a_recording_nested_past_the_limit_is_refused_and_counted_unreadable(
+    tmp_path: Path, depth: int, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A file under `recordings/` is whatever was written there. One nested
+    deeper than `RECORDING_MAX_DEPTH` is refused by name, and one deep enough
+    to make Python's parser give up is refused the same way, never a
+    `RecursionError`: `digline record status` counts it unreadable and exits
+    0, where it ended with 70."""
+    place = tmp_path / ".digline" / "acme" / "recordings" / "j1-aaaaaaaa"
+    place.mkdir(parents=True)
+    path = place / "000001.json"
+    path.write_text("[" * depth + "]" * depth, encoding="utf-8")
+    with pytest.raises(
+        ValueError, match=f"nests deeper than the {RECORDING_MAX_DEPTH} levels"
+    ):
+        FileResultStore(tmp_path).read_recording(path)
+    (status,) = recorder_status(tmp_path, "acme")
+    assert status.unreadable == 1
+    assert main(["record", "status", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()
+
+
+def test_a_recording_at_the_limit_is_read_as_any_other(tmp_path: Path) -> None:
+    """The limit is on nesting, not on a recording: one whose setup nests to
+    the limit exactly is a recording."""
+    place = tmp_path / ".digline" / "acme" / "recordings" / "j1-aaaaaaaa"
+    place.mkdir(parents=True)
+    document = recording()
+    deep: object = "x"
+    for _ in range(RECORDING_MAX_DEPTH - 2):
+        deep = [deep]
+    document["setup"] = {"tools": deep}
+    path = place / "000001.json"
+    path.write_text(json.dumps(document), encoding="utf-8")
+    assert FileResultStore(tmp_path).read_recording(path).suite == document["suite"]
 
 
 def test_a_directory_that_is_not_a_name_is_no_tenant_of_the_status(
