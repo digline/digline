@@ -42,9 +42,11 @@ SECRET = "my card is 4111 1111 1111 1111"
 
 def an_anthropic() -> Any:
     httpx2 = importlib.import_module("httpx2")
-    http = httpx2.Client(
-        transport=httpx2.MockTransport(lambda request: httpx2.Response(200, json=REPLY))
-    )
+
+    def handle(request: object) -> Any:
+        return httpx2.Response(200, json=REPLY)
+
+    http = httpx2.Client(transport=httpx2.MockTransport(handle))
     return importlib.import_module("anthropic").Anthropic(
         api_key="test", http_client=http, max_retries=0
     )

@@ -1974,6 +1974,21 @@ class FileJournal:
             directory.rmdir()
 
 
+def _held_in(store: Path, path: Path) -> None:
+    """`path`, resolved, inside the store, or a refusal by name: the rule
+    `FileResultStore._inside` holds the readers to, for a directory the
+    recordings writer is about to write in. Both sides are resolved, so a
+    `.digline` that is itself a link, a store on another volume, stays
+    legitimate."""
+    resolved = path.resolve()
+    if not resolved.is_relative_to(store.resolve()):
+        raise PathRefusedError(
+            f"the recordings directory {path.name} resolves to {resolved}, which "
+            f"is outside {store}: a recording is written inside the store, never "
+            "through a link out of it"
+        )
+
+
 class RecordingWriter:
     """Files recordings under `.digline/<tenant>/recordings/<process>/`, where
     `<tenant>` is the recording's `source_tenant`. (ADR 0058 §4, §5)
@@ -2048,10 +2063,10 @@ class RecordingWriter:
             # readers have refused such a link since 0.7.2; the writer is held
             # to the same rule.
             recordings = self._store.recordings_dir(tenant)
-            self._store._inside(recordings, "recordings directory")
+            _held_in(self._store.root, recordings)
             directory = recordings / f"p{pid}-{secrets.token_hex(4)}"
             directory.mkdir(parents=True, exist_ok=False)
-            self._store._inside(directory, "recordings directory")
+            _held_in(self._store.root, directory)
             place = (pid, directory, 0)
             self._places[tenant] = place
         return place
