@@ -151,6 +151,21 @@ def test_a_marker_untouched_past_the_staleness_is_a_run_that_died(
     assert found.run_id == "live"
 
 
+def test_a_marker_dated_past_the_staleness_in_the_future_is_not_live(
+    tmp_path: Path,
+) -> None:
+    """A run touches its marker with the time it is, so one dated later than
+    the window is not a run's touch: taken as live it would never age, and
+    every recording of the tenant would be the gate's for ever. Inside the
+    window it is live, so a clock a little ahead still marks."""
+    plant(tmp_path, f"1-{KEY}.json", marker(), age=-(gate.STALE_SECONDS + 60))
+    plant(tmp_path, "2-ahead.json", marker("ahead"), age=-(gate.STALE_SECONDS - 60))
+    found = gate_markers(tmp_path, "acme")
+    assert [m.run_id for m in found.stale] == [KEY]
+    assert [m.run_id for m in found.live] == ["ahead"]
+    assert found.run_id == "ahead"
+
+
 @pytest.mark.parametrize(
     "markers",
     [
@@ -289,6 +304,15 @@ def test_a_stale_marker_does_not_mark(tmp_path: Path) -> None:
     switch_on(tmp_path, "acme", production=False, ceiling=10_000_000)
     client = recorder.wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
     plant(tmp_path, f"1-{KEY}.json", marker(), age=gate.STALE_SECONDS + 60)
+    ask(client)
+    [only] = written(tmp_path)
+    assert "origin" not in only
+
+
+def test_a_marker_dated_in_the_far_future_does_not_mark(tmp_path: Path) -> None:
+    switch_on(tmp_path, "acme", production=False, ceiling=10_000_000)
+    client = recorder.wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    plant(tmp_path, f"1-{KEY}.json", marker(), age=-10 * 365 * 86400.0)
     ask(client)
     [only] = written(tmp_path)
     assert "origin" not in only
@@ -471,8 +495,9 @@ def test_the_status_counts_the_gate_apart_and_names_a_marker_left_behind(
     out = capsys.readouterr().out
     assert "    2 from gate runs, kept apart: not listed, imported or compared" in out
     assert (
-        "  gate markers: 2 left by a run that did not remove it, older than 2 "
-        f"minutes and ignored: {KEY}, unreadable"
+        "  gate markers: 2 left by a run that did not remove it, untouched for "
+        "more than 2 minutes or dated in the future, and ignored: "
+        f"{KEY}, unreadable"
     ) in out
 
 
