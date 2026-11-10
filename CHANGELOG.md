@@ -45,6 +45,18 @@ notes under them are this file, verbatim.
   raised `UnicodeDecodeError`: the connection closed with no answer and a
   traceback reached standard error. Nothing is written, as before.
 
+- **`[suggest] model` names the assistant and no longer asks it.** A bare
+  `digline suggest` on a suite whose `suite.toml` names a model makes no
+  call, and says in one line the command that would, with the new
+  `--assist`, which asks the model the suite names; `--model` still wins
+  over it. A committed suite in a cloned repository otherwise sent the
+  tenant's recordings to a model with nobody asked. Whoever relied on the
+  bare command calling the model adds `--assist` (ADR 0063 §4, as amended
+  2026-11-10).
+- **A recorded key with DEL no longer makes `digline suggest` write TOML
+  that cannot be read.** The key is quoted with DEL escaped, as a value
+  already was.
+
 ## digline-bedrock — unreleased
 
 - **A model named by its ARN is said without the account.** The sentence the
@@ -52,6 +64,17 @@ notes under them are this file, verbatim.
   model, and an application inference profile's ARN carries the AWS account:
   it is now scrubbed as every message this package records is, `<arn>` in
   its place.
+
+## digline-mcp — unreleased
+
+- **Under `--names project`, a finish no plugin wrote is withheld.**
+  `record_listing`, `suggest` and `where` let a shape's `finish` through as
+  one of `digline.core.Finish`'s words, which a provider plugin writes, and
+  withhold any other whole as *a finish withheld: no plugin normalised it*:
+  a recording made without a plugin carries the text it was given. In clear
+  nothing changes.
+- **`suggest`'s description says that a model `[suggest]` names is asked
+  only with `--assist`**, and that `command` asks none.
 
 ## 1.1.1 — 2026-11-09
 

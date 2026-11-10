@@ -1878,10 +1878,11 @@ def cmd_suggest(args: argparse.Namespace) -> int:
         else:
             model, model_from = None, ""
             if declared is not None:
+                would = ["digline", "suggest", "--suite", args.suite, "--assist"]
                 say(
                     f"assistant: not called. [suggest] in {suite_file.name} names "
                     f"{declared}, and is asked only with --assist: "
-                    f"{shlex.join(['digline', 'suggest', '--suite', args.suite, '--assist'])}",
+                    f"{shlex.join(would)}",
                     err=True,
                 )
         done = suggest_for(
