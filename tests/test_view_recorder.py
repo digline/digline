@@ -949,12 +949,26 @@ def test_two_setups_in_the_query_are_setup_and_show_setup(served: Served) -> Non
 
 
 def test_the_served_recorder_reads_the_suite_s_import(served: Served) -> None:
-    """The server's own suite, in its own tenant, is read; another tenant's
-    page has no draft to read and says so."""
+    """The server's own suite, in its own tenant, is read."""
     read = figures(served.ask("GET", recorder_address("acme")).body)
     assert read[3] == "8"  # never imported: every recording of the suite
-    other = figures(served.ask("GET", recorder_address("globex")).body)
-    assert other[3] == "not read"
+
+
+def test_another_tenant_s_recorder_is_no_page_and_takes_no_write(
+    writing: Served,
+) -> None:
+    """The recorder's page reads and switches the server's own tenant and
+    names no other (decision 8): another's is the 404 of an unknown path, to a
+    GET and to a POST with the session alike, and its directory is not made."""
+    other = writing.ask("GET", recorder_address("globex"))
+    assert other.status == 404
+    assert "this server serves tenant 'acme'" in unescape(other.body)
+    before = tree(writing.root)
+    switched = writing.ask("POST", recorder_address("globex"), "action=on")
+    assert switched.status == 404
+    assert tree(writing.root) == before
+    assert not (writing.root / ".digline" / "globex").exists()
+    assert writing.ask("GET", recorder_address("acme")).status == 200
 
 
 def test_the_data_block_cannot_be_closed_by_what_it_carries() -> None:

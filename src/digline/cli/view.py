@@ -1153,6 +1153,11 @@ class ViewHandler(BaseHTTPRequestHandler):
         tenant = self._tenant(locale, parts[0])
         if tenant is None:
             return
+        if tenant != self.tenant:
+            # Another tenant's switch is another perimeter: this page reads
+            # and switches the server's own, and names no other (decision 8).
+            self._error(404, f"no such page: this server serves tenant {self.tenant!r}")
+            return
         root = Path(self.root)
         imports: dict[str, tuple[int | None, int]] = {}
         suite = self._suite
@@ -1472,6 +1477,14 @@ class ViewHandler(BaseHTTPRequestHandler):
             if tenant is None:
                 return
             if route[0] == "switch":
+                if tenant != self.tenant:
+                    # The server's own switch alone: another tenant's is
+                    # another perimeter, and its page is no page (decision 8).
+                    self._error(
+                        404,
+                        f"no such page: this server serves tenant {self.tenant!r}",
+                    )
+                    return
                 self._post_switch(locale, tenant, form)
             else:
                 self._post_import(locale, tenant, form)
