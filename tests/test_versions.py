@@ -454,6 +454,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "1.12.0": (
+            "not a digline version: digline-action's tag v1.12.0, the one v1 "
+            "moved to for digline 1.2.0, in v1.2.0's paragraph of the Status "
+            "block: history"
+        ),
         "1.1.1": (
             "the release before 1.2.0, told as history: its paragraph in the "
             "Status block and the named tags of its plugins, the floors and "

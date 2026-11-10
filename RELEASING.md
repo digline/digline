@@ -2488,6 +2488,78 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **v1.2.0 — a minor for `digline suggest`'s meaning, and the three
+  advisories of the delta-pass over 1.1.1 fixed, the core alone on its tag.**
+  #986 merged at 12:24:30Z; its first head was red on the three gates and the
+  two site jobs, all on *Home capture is current*, because the capture of
+  *Before the tag: the home capture* had not been taken, and `460fb8c1` took
+  it. `tools/tag_names.py "digline 1.2.0"` ran on the merge commit
+  `ed2cf199`, which was `origin/main`, immediately before the tag: one
+  package, named, exit 0. The plugins stayed at the versions PyPI served, so
+  the tag published digline alone. The tag object is `9c8bbba7`. `publish`
+  (`42815553681`) read `success` at 12:30:52Z, every job green, the GitHub
+  Release among them.
+  - **The advisories** GHSA-v524-xvf5-jrf9, GHSA-mg7q-phfv-2g93 and
+    GHSA-v7r8-xg2j-wjx4 were published between 12:02:30Z and 12:04:37Z,
+    before the release branch was pushed; read at 12:05:08Z, each named 1.2.0
+    as patched, and none carried a CVE.
+  - **The gate.** This session did not read the run's `approvals` record. The
+    `PyPI` job read `waiting` at 12:28:50Z and started at 12:28:59Z.
+    *The core against every plugin PyPI serves* read `success`.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 12:29:15Z and 12:29:17Z; the wait on `/simple/`
+    saw every pin at once, and `/pypi/digline/1.2.0/json` answered 200 at the
+    sixth read, after 50s. Read from outside at 12:30:35Z: 200, and `9.9.9`,
+    404. Read after the run, the project's JSON still left 1.2.0 out, so
+    `tag_names` read it as unpublished until it caught up, before
+    digline-anthropic's tag at 12:45:47Z.
+  - **`docker-publish` (`42815553679`, step 2)** read `success` at 12:35:01Z.
+    Its install read `served` for the four pins and installed digline 1.2.0,
+    digline-anthropic 0.9.0, digline-bedrock 0.8.0 and digline-openai 0.7.0,
+    the plugins PyPI served at the tag, since 1.2.0's own Dockerfile pinned
+    them; 0.9.1 and 0.8.1 reach an image with the next `v*` tag. The wait for
+    digline 1.2.0 served it once after 271s and twice at once. The amd64 leg
+    was `CACHED`, install included, so it proves nothing; arm64 ran. `1.2.0`,
+    `1.2` and `latest` read one digest at 12:35:24Z,
+    `sha256:ea4767c85769f9fc821123289c8f7710209217a171357409cad8e93abd42f177`,
+    and `1.1.1` its own, `sha256:1944bfae…`, as the control.
+  - **The capture (step 6)**: the capture ran, and the pair was present for
+    digline. `wait` read serial 43410489 nine times, before the index listed
+    1.2.0, and 43453156 three times; `pip` read 43453156 twice. It agreed
+    once served, and the race was the wait's, which is where it belongs.
+  - **The examples (steps 3 and 5)**: the seven locks moved to digline 1.2.0
+    with `--upgrade-package digline`, and the three that name digline-anthropic
+    to 0.9.1, written by uv 0.13.7 with `revision = 5` kept; no example locks
+    digline-mcp. `tools/example_locks.py`: 7 of 7 install. Ten reports were
+    rendered against 1.2.0, each run again from a clean tree in a chain from
+    `128b60c7`, each naming a commit `HEAD` reaches; `prompt-first` is held by
+    judgement, as a live measurement. The dispatch of `ci.yml` waits for this
+    pull request's merge.
+  - **The action (step 7)**: digline-action #30 moved the default to 1.2.0,
+    merged at `2e15ce37`; `v1.12.0` and `v1` point there, `v1` moved from
+    `3118486a` with a lease on its old tag object.
+
+- **digline-anthropic-v0.9.1, digline-bedrock-v0.8.1, digline-mcp-v0.9.1 and
+  pytest-digline-v0.6.1 — four named tags after v1.2.0's, one package each.**
+  Each release pull request carried its number alone, each merged after
+  `main` was merged into it, and `tools/tag_names.py` ran on each merge commit
+  immediately before its tag: one package, named, exit 0. This session did not
+  read any run's `approvals` record; every `PyPI` job waited and then ran.
+
+  | Tag | Merge commit (pull request) | Tag object | `publish` | `PyPI` job started | Uploads | `/pypi/…/json` |
+  |---|---|---|---|---|---|---|
+  | `digline-anthropic-v0.9.1` | `23f3309d` (#988) | `2d1e0e17` | `42818546327` | 12:49:04Z | 12:49:20Z, 12:49:22Z | 200 after 20s |
+  | `digline-bedrock-v0.8.1` | `399b6697` (#989) | `293eeee0` | `42820041483` | 13:02:03Z | 13:02:16Z, 13:02:17Z | 200 after 40s |
+  | `digline-mcp-v0.9.1` | `eddb393e` (#990) | `47b69d74` | `42821743968` | 13:11:54Z | 13:12:30Z, 13:12:31Z | 200 after 20s |
+  | `pytest-digline-v0.6.1` | `f385a214` (#991) | `c0e3f52c` | `42823412074` | 13:21:26Z | 13:21:52Z, 13:21:53Z | 200 after 30s |
+
+  Each run read `success`, with 16 `PASSED`, 2 `publish` and 10 `skip`; the
+  wait on `/simple/` saw each new version missing and then served, after 10s.
+  Each was read from outside after its run, 200, with `9.9.9` at 404.
+  digline-mcp's `mcp-registry` job published `dev.digline/digline-mcp` 0.9.1,
+  read at 13:14:36Z `active`, `isLatest` true, and 0.9.0 false. No
+  `docker-publish` ran on these tags.
+
 - **pytest-digline-v0.6.0 — the last of digline 1.1's named tags after the
   core, one package, and the family checked against the index as a whole.**
   `tools/tag_names.py "pytest-digline 0.6.0"` ran on #980's merge commit,
