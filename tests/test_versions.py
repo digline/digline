@@ -117,10 +117,10 @@ def swept() -> list[Path]:
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
     "docs/record-java.md": {
-        "0.6.0": (
-            "'installed digline 1.1.1 and digline-openai 0.6.0': what the "
-            "install line put in place when it was run, on 2026-11-10, told as "
-            "history"
+        "0.7.0": (
+            "'installed digline 1.1.1 and digline-openai 0.7.0': what the "
+            "install line put in place when it was run again, on 2026-11-10, "
+            "told as history"
         ),
     },
     "docs/walkthroughs/an-agent.md": {
@@ -1646,9 +1646,7 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: intent, and each plugin's release pull request deletes its own.
 #: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
 _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
-UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "pytest-digline": _OWN_TAG_AFTER_1_1_1,
-}
+UNRELEASED_ON_PURPOSE: dict[str, str] = {}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:
