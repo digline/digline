@@ -97,7 +97,7 @@ follows on a tag of its own, with the other plugins' patches.
   that cannot be read.** The key is quoted with DEL escaped, as a value
   already was.
 
-## digline-anthropic — unreleased
+## digline-anthropic 0.9.1 — 2026-11-10
 
 ### Security
 
