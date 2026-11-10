@@ -112,17 +112,36 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
             del sys.modules[name]
 
 
+class _Quiet(ThreadingHTTPServer):
+    """The fake's server, silent when its client has gone: `sleep` answers
+    after a proxy that gave up has hung up, and its `BrokenPipeError` on
+    standard error is the fake's, which a test of the proxy's must not read
+    as the proxy's."""
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
+
+
+#: A status line an upstream could send that is not HTTP, and that would
+#: erase the line a terminal shows and write one of its own.
+HOSTILE_STATUS_LINE = b"\x1b[2K\rFORGED digline: all green\x1b[0m"
+
+
 class Upstream:
     """OpenAI and Anthropic, faked: each request kept, each reply by the
     request's `model`: `error` a 500, `refused` a 403, `sleep` too late, `slow`
     a stream that
-    takes its time. Bedrock's two streams, too, each the same bytes of
+    takes its time, `badstatus` a status line that is not HTTP and carries
+    an escape sequence. Bedrock's two streams, too, each the same bytes of
     `EVENT_STREAMS` whatever was asked. `port` 0 takes a free one;
     `tests/proxy_upstream.py` runs it as a process on a port it names, for the
     CI job `through-the-proxy`."""
 
     def __init__(self, port: int = 0) -> None:
         self.seen: list[tuple[str, dict[str, str]]] = []
+        self.bodies: list[bytes] = []
         owner = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -134,10 +153,18 @@ class Upstream:
                 self._json(200, {"object": "list", "data": []})
 
             def do_POST(self) -> None:  # noqa: N802
-                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                raw = self.rfile.read(int(self.headers["Content-Length"]))
                 owner.seen.append(
                     (self.path, {k.lower(): v for k, v in self.headers.items()})
                 )
+                owner.bodies.append(raw)
+                try:
+                    body = json.loads(raw)
+                except ValueError:
+                    # Answered as a call that went through, so what the proxy
+                    # does with a body it cannot read is what is measured.
+                    self._json(200, OPENAI_WHOLE)
+                    return
                 streamed = EVENT_STREAMS.get(self.path.rsplit("/", 1)[-1])
                 if streamed is not None:
                     data = (EVENT_STREAM_FIXTURES / streamed).read_bytes()
@@ -161,6 +188,11 @@ class Upstream:
                     return
                 if model == "sleep":
                     time.sleep(1.5)
+                if model == "badstatus":
+                    self.wfile.write(HOSTILE_STATUS_LINE + b"\r\n\r\n")
+                    self.wfile.flush()
+                    self.close_connection = True
+                    return
                 anthropic = self.path.endswith("/v1/messages")
                 gemini = "/v1beta/openai/" in self.path
                 if not body.get("stream"):
@@ -212,7 +244,7 @@ class Upstream:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        self.server = _Quiet(("127.0.0.1", port), Handler)
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -554,6 +586,61 @@ def test_an_upstream_that_does_not_answer_is_a_504_that_says_so(
         running.stop()
     assert raised.value.status_code == 504
     assert "did not answer within 0.3 seconds" in str(raised.value)
+
+
+def test_a_status_line_that_is_not_http_is_a_502_shown_and_counted(
+    proxy: Proxy, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """An upstream whose status line is not HTTP is a 502 to the application,
+    as an upstream that cannot be reached is, and the line it sent is shown
+    with its control characters written out, never obeyed: no escape reaches
+    the application or standard error, and no traceback does either."""
+    connection = http.client.HTTPConnection("127.0.0.1", proxy.port, timeout=10)
+    connection.request(
+        "POST",
+        "/v1/chat/completions",
+        body=json.dumps({"model": "badstatus", "messages": QUESTION}).encode(),
+        headers={**SUITE, "Content-Type": "application/json"},
+    )
+    reply = connection.getresponse()
+    data = reply.read()
+    connection.close()
+    proxy.stop()
+    err = capfd.readouterr().err
+    assert reply.status == 502, data
+    message = json.loads(data)["error"]["message"]
+    assert "the upstream's reply is not HTTP" in message
+    assert "\\x1b[2K\\x0dFORGED digline: all green" in message
+    assert b"\x1b" not in data
+    assert "\x1b" not in err
+    assert "digline/host/proxy.py" not in err and "BadStatusLine" not in err
+    assert counted(tmp_path) == {"triage": {"upstream not HTTP": 1}}
+
+
+def test_a_body_that_is_not_utf8_passes_on_and_is_counted_not_json(
+    proxy: Proxy, upstream: Upstream, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A request body that is not UTF-8 reaches the upstream byte for byte,
+    its answer reaches the application as it came, and the call is counted
+    `not JSON`, as any body the proxy cannot read is: never a traceback."""
+    body = b'{"model": "gpt-4o-mini", "messages": "\xff"}'
+    connection = http.client.HTTPConnection("127.0.0.1", proxy.port, timeout=10)
+    connection.request(
+        "POST",
+        "/v1/chat/completions",
+        body=body,
+        headers={**SUITE, "Content-Type": "application/json"},
+    )
+    reply = connection.getresponse()
+    reply.read()
+    connection.close()
+    proxy.stop()
+    err = capfd.readouterr().err
+    assert reply.status == 200
+    assert upstream.bodies == [body]
+    assert "digline/host/proxy.py" not in err and "UnicodeDecodeError" not in err
+    assert recordings(tmp_path, 0) == []
+    assert counted(tmp_path) == {"triage": {"not JSON": 1}}
 
 
 def test_a_route_with_no_plugin_is_a_502_that_names_the_package(

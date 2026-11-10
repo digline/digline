@@ -1465,7 +1465,7 @@ class ViewHandler(BaseHTTPRequestHandler):
         body = self._form_body()
         if body is None:
             return
-        form = urllib.parse.parse_qs(body.decode("utf-8"))
+        form = urllib.parse.parse_qs(body)
         locale: Locale = pages.locale_of(form)
         if route[0] in ("switch", "import"):
             tenant = self._tenant(locale, route[1], write=True)
@@ -1612,8 +1612,8 @@ class ViewHandler(BaseHTTPRequestHandler):
         self._policy()
         self.end_headers()
 
-    def _form_body(self) -> bytes | None:
-        """The body `Content-Length` declares, or `None` once refused.
+    def _form_body(self) -> str | None:
+        """The body `Content-Length` declares, as text, or `None` once refused.
 
         **The length is judged before anything is read**, because reading is
         what an oversized or lying length makes expensive. A length that is
@@ -1621,7 +1621,10 @@ class ViewHandler(BaseHTTPRequestHandler):
         to raise, which reached the browser as a closed connection; a negative
         one would have read until the caller hung up. A body that stops arriving
         is a 408 with a sentence, so a caller learns the server gave up rather
-        than meeting a connection that ended.
+        than meeting a connection that ended. A body that is not UTF-8 is a
+        400, where it used to raise `UnicodeDecodeError` and close the
+        connection with no answer: this server's pages send UTF-8, so such a
+        body is not a form one of them sent.
         """
         declared = self.headers.get("Content-Length") or "0"
         # ASCII first: `"²".isdigit()` is true, and `int("²")` raises.
@@ -1650,7 +1653,11 @@ class ViewHandler(BaseHTTPRequestHandler):
             # that is a prefix of the one intended.
             self._error(400, "refused: the request ended before its declared length")
             return None
-        return body
+        try:
+            return body.decode("utf-8")
+        except UnicodeDecodeError:
+            self._error(400, "refused: the form is not UTF-8")
+            return None
 
 
 def _number[T: (int, float)](
