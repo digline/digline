@@ -2489,6 +2489,102 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **pytest-digline-v0.6.0 — the last of digline 1.1's named tags after the
+  core, one package, and the family checked against the index as a whole.**
+  `tools/tag_names.py "pytest-digline 0.6.0"` ran on #980's merge commit,
+  `5ff3a5f7`, which was `origin/main`, immediately before the tag: one
+  package, named, exit 0. The tag object is `22658fc7`. `publish`
+  (`42783809298`) read `success` at 08:40:06Z, with `github-release`, the
+  site jobs and the MCP registry skipped, as on any plugin tag, and no
+  `docker-publish`, which fires on `v*` only.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 08:38:15Z and started at 08:38:34Z.
+  - **Counts**: 16 `PASSED` in the run's log. Each selection gave 2
+    `publish`, pytest-digline 0.6.0's wheel and sdist, and 10 `skip`.
+    *The core against every plugin PyPI serves* was skipped: the tag does
+    not publish the core.
+  - **The index**: uploads at 08:38:54Z and 08:38:55Z. The wait on
+    `/simple/` saw pytest-digline 0.6.0 after 10s, and every other pin at
+    once: digline 1.1.1, digline-anthropic 0.9.0, digline-bedrock 0.8.0,
+    digline-mcp 0.9.0 and digline-openai 0.7.0. `/pypi/pytest-digline/0.6.0/json`
+    answered 404 four times and 200 at the fifth read, after 40s, and the
+    install after PyPI imported all six. Read from outside at 08:40:12Z:
+    200, and its control, `9.9.9`, 404; `requires_dist` reads
+    `digline<2,>=1.1.1` and `pytest>=8.0`.
+  - **Step 3, the example locks, had nothing to move:** no example locks
+    pytest-digline, and at 08:35:49Z every `examples/*/uv.lock` named
+    digline 1.1.1 and, where it names one, digline-anthropic 0.9.0. No
+    dispatch was made: the `ci` run that followed this `publish`
+    (`42784424499`, `workflow_run`, at `5ff3a5f7`) ran every example leg
+    against the index and read all eleven `success` at 08:47:13Z.
+    `langchain`, `llamaindex` and `prompt-first` installed
+    digline-anthropic 0.9.0, and `operator` digline-mcp 0.9.0. The run
+    read `failure` for the two site jobs alone, the `COMMAND_GROUPS` red
+    declared at the cut. A dispatch on the same ref would have cancelled
+    it (`ci.yml`, `concurrency`).
+  - **Steps 2, 5, 6 and 7 had nothing to do on any of digline 1.1's named
+    tags.** No `docker-publish` ran, so there was no log to read and no
+    capture to write: the image tagged `1.1.1` carries the plugins v1.1.1's
+    `docker/Dockerfile` pinned, digline-anthropic 0.8.0, digline-openai 0.6.0
+    and digline-bedrock 0.7.0, until the next `v*` tag builds it from
+    `docker/Dockerfile`, which pins 0.9.0, 0.7.0 and 0.8.0. No committed
+    `examples/*/report.html` names a plugin's version, and the image
+    `digline-action` defaults to did not move.
+  - **digline-mcp-v0.9.0 and digline-openai-v0.7.0** were cut by other
+    sessions, `publish` `42777502277` and `42779069518`, both `success`.
+    Their entries are theirs to write; this one does not state them.
+
+- **digline-bedrock-v0.8.0 — a named tag after the core and after
+  digline-anthropic's, one package.** `tools/tag_names.py "digline-bedrock
+  0.8.0"` ran on #978's merge commit, `3fbc2455`, which was `origin/main`,
+  immediately before the tag: one package, named, exit 0. PyPI then served
+  digline 1.1.1 and digline-anthropic 0.9.0, the two floors, and answered
+  404 for digline-bedrock 0.8.0. The tag object is `1f216fed`. `publish`
+  (`42775232556`) read `success` at 07:29:15Z, skipping what a plugin tag
+  skips.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 07:28:06Z and started at 07:28:11Z.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 07:28:26Z and 07:28:27Z. The wait on
+    `/simple/` saw every pin `after 0s`, digline-bedrock 0.8.0 among them,
+    at 07:28:28Z, and `/pypi/digline-bedrock/0.8.0/json` answered 200 at
+    the fourth read, after 30s. Read from outside at 07:29:19Z: 200, and
+    its control, `9.9.9`, 404. `requires_dist` reads `boto3>=1.35`,
+    `digline-anthropic<0.10,>=0.9` and `digline<2,>=1.1.1`.
+  - **Step 3 had nothing to move:** only the root `uv.lock` names
+    digline-bedrock, as a workspace member.
+
+- **digline-anthropic-v0.9.0 — a named tag after the core, one package, and
+  the first after the section *A tag whose publish stops before PyPI*.**
+  `tools/tag_names.py "digline-anthropic 0.9.0"` ran on #975's merge commit,
+  `ea2958f8`, which was `origin/main`, immediately before the tag: one
+  package, named, exit 0. The tag object is `c163e0f9`. `publish`
+  (`42770656606`) read `success` at 06:55:14Z, skipping what a plugin tag
+  skips. It is a minor and not 0.8.1, by #919's criterion: the digest moves
+  with `extra_body`.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 06:47:46Z and started at 06:53:11Z.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 06:53:27Z and 06:53:29Z. The wait on
+    `/simple/` read digline-anthropic 0.9.0 missing twice, *none at 0.9.0*,
+    and served after 20s; `/pypi/digline-anthropic/0.9.0/json` answered 404
+    six times and 200 at the seventh read, after 60s. Read from outside, the
+    project's JSON still named 0.8.0 at 06:55:18Z, while at 06:55:23Z the
+    version's JSON answered 200 and its control 404; at 07:04:09Z the
+    project's JSON named 0.9.0.
+  - **Step 3, the example locks.** `langchain`, `llamaindex` and
+    `prompt-first` are every example lock that names digline-anthropic.
+    #975 raised their caps to `<0.10`; #976 moved each lock to 0.9.0 with
+    `--upgrade-package digline-anthropic`, merged at `7090d2c2`. Its locks
+    were first written with uv 0.13.6, a version taken from the entries
+    below rather than from `[tool.uv] required-version`, which reads
+    `==0.13.7` since 2026-11-09 and does not reach a project outside the
+    workspace; written again with 0.13.7 the diff was empty. Read in a leg:
+    see pytest-digline-v0.6.0's entry, above.
+  - **#971, v1.1.0's follow-up, was closed by hand** at 06:48:19Z, as
+    step 4 of *A tag whose publish stops before PyPI* says, with a comment
+    naming `publish` `42639021156`, the step that stopped it, and #972.
+
 - **v1.1.1 — the release of what v1.1.0 tagged, with `measure()`'s 1.0 form
   back, and every plugin PyPI serves working beside it.** Tagged on #972's
   merge commit, `acad7d9a`, which was `origin/main`; the tag object is

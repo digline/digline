@@ -496,6 +496,12 @@ RECORDED: dict[str, dict[str, str]] = {
             "v0.35.0 and writes `revision = 5`, in v0.35.0's paragraph of the "
             "Status block: history"
         ),
+        "0.13.7": (
+            "not a digline version: the uv `[tool.uv] required-version` pins "
+            "since 2026-11-09, which relocked the examples for "
+            "digline-anthropic 0.9.0, in that tag's paragraph of the Status "
+            "block: history"
+        ),
         "3.10.3": (
             "not a digline version: the last nltk release inside "
             "GHSA-8mgp-746c-j5xp's range, which both locks held until #691"
