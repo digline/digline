@@ -22,10 +22,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from tests.test_record_proxy import Upstream, an_openai, proxying
 
 from digline import recorder
 from digline.host.proxy import Proxy
-from tests.test_record_proxy import Upstream, an_openai, proxying
 
 BODY = json.dumps(
     {"model": "gpt-fake", "messages": [{"role": "user", "content": "q"}]}

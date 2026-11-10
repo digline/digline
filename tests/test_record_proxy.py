@@ -925,7 +925,9 @@ def test_a_client_that_goes_is_one_line_and_its_call_is_counted(
     reset(proxy.port, b"GET /v1/models HTTP/1.1\r\n" + host)
     reset(
         proxy.port,
-        b"POST /v1/chat/completions HTTP/1.1\r\n" + host + b"X-Digline-Suite: triage\r\n"
+        b"POST /v1/chat/completions HTTP/1.1\r\n"
+        + host
+        + b"X-Digline-Suite: triage\r\n"
         b'Content-Length: 100\r\n\r\n{"a"',
     )
     proxy.stop()
