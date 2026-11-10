@@ -174,8 +174,15 @@ updates:
     # OkHttp stays at the major openai-java brings: OkHttp 5's Maven artifact
     # carries none of the okhttp3 or okio classes DiglineOkHttp compiles
     # against, which #921 measured red. Lifted when openai-java moves to 5.
+    #
+    # The CDI API stays at 4.1, the CDI Quarkus 3.x is on: the bean of
+    # docs/walkthroughs/java-quarkus-bedrock.md compiles against its host's.
+    # Lifted when Quarkus moves to CDI 5.
     ignore:
       - dependency-name: "com.squareup.okhttp3:okhttp"
+        update-types:
+          - version-update:semver-major
+      - dependency-name: "jakarta.enterprise:jakarta.enterprise.cdi-api"
         update-types:
           - version-update:semver-major
     groups:
