@@ -714,18 +714,42 @@ thing users rely on.
 - Its floor on `digline` becomes `1.1.1` in its own release, after the core's:
   RELEASING.md, *Owed at the cut*.
 
-## digline-openai — unreleased
+## digline-openai 0.7.0 — 2026-11-10
 
-- **A call recorded with `extra_body` has the setup it has off the wire.** The
-  recorder's map merges `extra_body`'s keys into the setup at the top level,
-  as the SDK merges them into the body it sends, where it kept them under a
-  key of their own, `extra_body`. So a call recorded in process, through
-  `digline record proxy` or by the Java recorder has one setup digest. **A
-  setup that sent `extra_body` records under another digest than before**, so
-  `digline record import` lists its earlier answers under an earlier setup:
-  the number is the cut's to choose (RELEASING.md, *Choosing the version*).
-  The stream readings are typed with `digline.recorder.StreamReading`, for the
-  type checker alone (ADR 0062 §2).
+**A minor, because the package gains a function**: 0.6.0 carried no recording
+map, and this release carries the maps and the reading of the wire that ADR
+0058's recorder and `digline record proxy` load from it.
+
+- **Its floor on `digline` is 1.1.1**, the first core on PyPI that reads the
+  recording maps below and that has `digline.recorder.StreamReading`, which
+  they import.
+- **The package carries its recording maps for ADR 0058's recorder**:
+  `digline_openai.recording`, under the entry point `digline.recording_maps`,
+  for `chat.completions.create` (#874), streamed or not, and
+  `chat.completions.stream` (#883), on `openai.OpenAI` and on
+  `openai.AsyncOpenAI` (#885). The case is the messages after the leading
+  `system` or `developer` ones, which are the setup's `system`; the setup is
+  what else the call decides with, and not how it travels, streaming, or who
+  it is for; the reply is read by the target's own `completion_of`, with no
+  price list, so a reply without usage is recorded as *not recorded*. A stream is read with the SDK's own
+  `ChatCompletionStreamState`, and reaches the application as it passes.
+  Usage arrives in a stream only with `stream_options` `include_usage`, which
+  the recorder never adds: without it the reply is recorded with no counts,
+  and *usage not reported* is noted.
+- **`digline record proxy` reads OpenAI off the wire** (#909): the entry point
+  `digline.recording_wire` names `openai`, for Chat Completions, whole and
+  streamed (ADR 0062 §3).
+- **A call recorded with `extra_body` has the setup it has off the wire**
+  (#919). The recorder's map merges `extra_body`'s keys into the setup at the
+  top level, as the SDK merges them into the body it sends, where it kept them
+  under a key of their own, `extra_body`. So a call recorded in process,
+  through `digline record proxy` or by the Java recorder has one setup digest.
+  No release of this package carried the earlier map, so the digest moves only
+  for a recording made from this repository before #919. The stream readings
+  are typed with `digline.recorder.StreamReading`, for the type checker alone
+  (ADR 0062 §2).
+- **The dependency is `digline>=1.1.1,<2`**. The cap is new since 0.6.0,
+  which declared none (#862).
 
 ## digline-anthropic 0.9.0 — 2026-11-09
 

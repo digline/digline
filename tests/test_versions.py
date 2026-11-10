@@ -117,9 +117,9 @@ def swept() -> list[Path]:
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
     "docs/record-java.md": {
-        "1.1.0": (
-            "'installed digline 1.1.0 from `main` at `98bbf62c`': what the "
-            "install line put in place when it was run, on 2026-11-06, told as "
+        "0.6.0": (
+            "'installed digline 1.1.1 and digline-openai 0.6.0': what the "
+            "install line put in place when it was run, on 2026-11-10, told as "
             "history"
         ),
     },
@@ -1187,7 +1187,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.6.0": "digline-openai's version, pinned to its own pyproject by "
+        "0.7.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "0.8.0": "digline-bedrock's version, pinned to its own pyproject by "
         "tests/test_docker.py",
@@ -1647,7 +1647,6 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
 _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-openai": _OWN_TAG_AFTER_1_1_1,
     "pytest-digline": _OWN_TAG_AFTER_1_1_1,
 }
 

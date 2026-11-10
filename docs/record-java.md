@@ -21,26 +21,20 @@ providers that answer in each provider's shape.
 
 The commands on this page, `digline record on`, `status`, `import`, `proxy`,
 `view` and `run`, are digline's command line, which is Python. In a project
-that is not Python, install it as a tool of its own, apart from the project.
-
-> **Arrives with the next digline-openai, digline-anthropic and digline-bedrock.** digline 1.1.1 is on
-> PyPI, and the provider plugins `digline record proxy` reads the wire
-> through are not yet, so until they are published the line below
-> installs digline and its plugins from this repository.
+that is not Python, install it as a tool of its own, apart from the project:
 
 ```console
-$ uv tool install "digline @ git+https://github.com/digline/digline" \
-    --with "digline-openai @ git+https://github.com/digline/digline#subdirectory=packages/digline-openai" \
-    --with "digline-anthropic @ git+https://github.com/digline/digline#subdirectory=packages/digline-anthropic" \
-    --with "digline-bedrock @ git+https://github.com/digline/digline#subdirectory=packages/digline-bedrock"
+$ uv tool install digline --with digline-openai
 ```
 
-Each `--with` adds the plugin of a provider that the proxy routes to or that
-the suite's judge calls, and the ones you do not use can be left out. The
+`--with` adds the plugin of the provider that the proxy routes to and that the
+suite's judge calls: `digline-anthropic` and `digline-bedrock` are added the
+same way. The
 [Quickstart](https://github.com/digline/digline#quickstart) installs digline
 into a Python project instead, with `uv add digline` or `pip install digline`,
-and says which Python it needs. The line above was run on 2026-11-06, and
-installed digline 1.1.0 from `main` at `98bbf62c`; `pipx` was not tried.
+and says which Python it needs. The line above was run on 2026-11-10, and
+installed digline 1.1.1 and digline-openai 0.6.0, the release before the one
+that reads the wire for the proxy; `pipx` was not tried.
 
 ## With an official SDK: the files to copy
 
