@@ -7,10 +7,10 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.4.0",
-    "@aws-sdk/client-bedrock-runtime": "3.1163.0",
+    "@anthropic-ai/sdk": "1.6.0",
+    "@aws-sdk/client-bedrock-runtime": "3.1164.0",
     "@smithy/node-http-handler": "4.14.2",
-    "openai": "7.50.0"
+    "openai": "7.53.0"
   },
   "scripts": {
     "test": "node --test 'test/*.test.mjs' page.test.mjs"
