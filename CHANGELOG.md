@@ -6,6 +6,41 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **The recorder's own lines on standard error show a control character
+  rather than obey it.** The sentence a plugin says once for a call it does
+  not record, and the warning that a switch file cannot be read, are built
+  from what the recorder did not write: a key of the application's request, a
+  model's id, a key of `recorder.toml`. Both now go through `visible()`, as
+  the command line's own lines do.
+- **A gate marker dated in the future is no longer live for ever.** A marker
+  is live while its modification time is within 120 seconds of now, on
+  either side: a run touches its marker with the time it is, so one dated
+  later is not a run's touch, and taken as live it would never age, filing
+  every recording of the tenant as the gate's. Within the window a clock a
+  little ahead still marks the gate's calls. `digline record status` names
+  such a marker with the stale ones, and its line says *untouched for more
+  than 2 minutes or dated in the future* (ADR 0058, as amended 2026-11-05).
+- **A recording nested deeper than 200 levels is refused, not read.** One
+  deep enough to make Python's parser give up ended `digline record status`
+  with exit 70; now every reader of recordings refuses it by name, and the
+  status counts it unreadable. The limit is `RECORDING_MAX_DEPTH`, and the
+  format's page declares it.
+- **`digline view`'s recorder page is the server's own tenant's.** Another
+  tenant's `/recorder/<tenant>/` was read, and under `--allow-record` its
+  switch was written; it is now the 404 of a page that does not exist, to a
+  GET and to a POST alike, as the where and proposal pages already were
+  (decision 8).
+
+## digline-bedrock — unreleased
+
+- **A model named by its ARN is said without the account.** The sentence the
+  recorder prints once for a model family it does not record names the
+  model, and an application inference profile's ARN carries the AWS account:
+  it is now scrubbed as every message this package records is, `<arn>` in
+  its place.
+
 ## 1.1.1 — 2026-11-09
 
 digline **1.1.1**, the release of what was tagged as 1.1.0. **1.1.0 did not
