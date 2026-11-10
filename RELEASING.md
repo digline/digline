@@ -2530,9 +2530,46 @@ is the one a quiet log cannot supply.
     `docker/Dockerfile`, which pins 0.9.0, 0.7.0 and 0.8.0. No committed
     `examples/*/report.html` names a plugin's version, and the image
     `digline-action` defaults to did not move.
-  - **digline-mcp-v0.9.0 and digline-openai-v0.7.0** were cut by other
-    sessions, `publish` `42777502277` and `42779069518`, both `success`.
-    Their entries are theirs to write; this one does not state them.
+
+- **digline-openai-v0.7.0 — a named tag after the core, one package.** Cut by
+  another session, which measured what follows; this entry was written from
+  its report, and the times re-read here say so. #979 merged at 07:57:48Z,
+  head `aa4029a1`, after `main` was merged into it with two conflicts, in
+  `RELEASING.md` and `tests/test_versions.py`, each resolved by keeping both
+  deletions. `tools/tag_names.py "digline-openai 0.7.0"`: one package. The
+  tag object is `5bce1b80`, on the merge commit `eb8b5683`. `publish`
+  (`42779069518`) read `success`, its last job done at 08:04:03Z, with the
+  `PyPI` job approved at the gate.
+  - **The index**: the wheel uploaded at 08:02:54Z and the sdist at
+    08:02:55Z, re-read here at 09:00:34Z; the session read
+    `/pypi/digline-openai/0.7.0/json` from outside at 08:04:18Z.
+  - **Step 3 had nothing to move:** no example depends on digline-openai.
+
+- **digline-mcp-v0.9.0 — a named tag after the core, one package, and its
+  registry entry.** Cut by another session, which measured what follows;
+  this entry was written from its report, and the times re-read here say so.
+  #977 merged at 07:44:49Z, head `75aee7e5`, after `main` was merged into it
+  with the same two conflicts, resolved the same way. `tools/tag_names.py
+  "digline-mcp 0.9.0"`: one package. The tag object is `43594e24`, on the
+  merge commit `3e189121`, pushed at 07:45:18Z. `publish` (`42777502277`)
+  read `success`, its last job done at 07:49:38Z: five jobs green, the MCP
+  registry among them, with the `PyPI` job approved at the gate.
+  - **The registry**: 0.9.0 published, `isLatest` true and 0.8.1 false, as
+    the session read it; re-read here at 09:00:45Z, the official registry
+    lists `dev.digline/digline-mcp` 0.9.0 `active`, published at
+    07:49:35Z.
+  - **The index**: the wheel uploaded at 07:48:13Z and the sdist at
+    07:48:14Z, re-read here at 09:00:34Z; the session read the version from
+    outside at 07:49:57Z.
+  - **Step 3, and a leg that read the index too early.** No example locks
+    digline-mcp; `operator` admits `digline-mcp>=0.7,<0.10` with no lock.
+    The dispatch `42778062668` installed digline-mcp 0.8.1 in that leg at
+    07:50:48Z, 2 minutes 35 seconds after the upload, because its wait asks
+    for the core alone (*Owed to the next version*, the row added
+    2026-11-10). The `ci` run that followed digline-openai's `publish`
+    (`42779752149`, at `eb8b5683`) installed 0.9.0 there, and its
+    `operator` and `mcp-tools` legs read `success`, the thirteen tools
+    answering, as the session read it.
 
 - **digline-bedrock-v0.8.0 — a named tag after the core and after
   digline-anthropic's, one package.** `tools/tag_names.py "digline-bedrock
