@@ -445,12 +445,6 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/walkthroughs/from-the-ide-over-mcp.md": {
-        "0.8.1": (
-            "the digline-mcp on PyPI when the story was run, with eight tools, "
-            "under the notice that turns false when a digline-mcp with thirteen "
-            "tools is published; RELEASING.md's row owed to the next version "
-            "removes it with that release"
-        ),
         "2.3.0": "the mcp SDK the story's client was run with, not a digline one",
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
@@ -1653,7 +1647,6 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
 _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-mcp": _OWN_TAG_AFTER_1_1_1,
     "pytest-digline": _OWN_TAG_AFTER_1_1_1,
 }
 

@@ -644,7 +644,12 @@ public name is removed or renamed and no exit code changes.
     SIGINT, left alive past two intervals, or sent one call, wrote one
     recording per call.
 
-## digline-mcp — unreleased
+## digline-mcp 0.9.0 — 2026-11-10
+
+Published by its own tag, `digline-mcp-v0.9.0`, after digline 1.1.1 was on
+PyPI. **A minor**, as `RELEASING.md`, *Owed at the cut*, ruled for this
+release: its floor on `digline` rises from 1.0.2 to 1.1.1, and a floor is a
+thing users rely on.
 
 - **Thirteen tools: the five of the first verbs join**, and none of them writes
   ([ADR 0011](docs/adr/0011-the-mcp-server.md) §1, as noted 2026-11-06).
@@ -683,8 +688,11 @@ public name is removed or renamed and no exit code changes.
   name, a setup's key and a model are tokens, digline's own keys stay in clear
   as a run's do, and a cases file's path and the plugins installed are
   withheld.
-- Its floor on `digline` becomes `1.1.1` in its own release, a minor cut with
-  the core's: RELEASING.md, *Owed at the cut*.
+- **The dependency is `digline>=1.1.1,<2`.** The five tools above read
+  through `digline.host`'s `where`, `recorder_status`, `import_listing`,
+  `listed`, `record_compare`, `suggest_for` and `suggest_new`, which 1.1.1
+  is the first release on PyPI to carry (v1.1.0 is tagged and never reached
+  PyPI). Against 1.0.3 the import raises `ImportError`.
 
 ## pytest-digline — unreleased
 
