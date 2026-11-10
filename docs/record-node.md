@@ -31,8 +31,8 @@ event stream Bedrock's streams reply in, and the two hooks:
 
 Every line of JavaScript in this part is a line of
 `recorders/node/page.test.mjs`, which the CI job `recorder-node` runs on every
-pull request against a fake provider on `127.0.0.1`, with openai 7.50.0,
-@anthropic-ai/sdk 1.4.0 and @aws-sdk/client-bedrock-runtime 3.1163.0. A test
+pull request against a fake provider on `127.0.0.1`, with openai 7.53.0,
+@anthropic-ai/sdk 1.6.0 and @aws-sdk/client-bedrock-runtime 3.1164.0. A test
 holds every block here to that file. The job also holds the writer to the
 fixtures digline's own Python makes, the ones Java's recorder is held to, and
 imports what it wrote with digline alone. The CI job `through-the-proxy` sends
