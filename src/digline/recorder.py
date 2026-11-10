@@ -257,9 +257,20 @@ def refused(refusal: Refusal) -> str:
     if first:
         with contextlib.suppress(Exception):
             print(  # noqa: T201 — the application's own stderr, once a family
-                f"digline recorder: {refusal.said}", file=sys.stderr
+                f"digline recorder: {_shown(refusal.said)}", file=sys.stderr
             )
     return refusal.reason
+
+
+def _shown(text: str) -> str:
+    """`text` as the recorder may print it: every control character shown
+    rather than obeyed (`digline.report.visible`). What it prints is built
+    from what it did not write: a key of the switch file, a key of the
+    application's request, a model's id. Imported here and not at the top,
+    so that wrapping a client does not load the report."""
+    from digline.report import visible
+
+    return visible(text)
 
 
 class RecorderStartError(ValueError):
@@ -2001,7 +2012,7 @@ def _warn(exc: BaseException, path: Path) -> None:
     )
     with contextlib.suppress(Exception):
         print(  # noqa: T201 — the application's own stderr, once
-            f"digline recorder: not recording for this tenant: {reason}",
+            f"digline recorder: not recording for this tenant: {_shown(reason)}",
             file=sys.stderr,
         )
 

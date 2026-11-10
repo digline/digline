@@ -668,3 +668,9 @@ land in `_unassigned` (§10).
   for a store to name its project through the `ResultStore` protocol, which
   would close the residual case. It changes the protocol, which fixed decision
   2 governs, so it needs its own decision.
+- **A gate marker dated in the future.**
+
+  *Noted 2026-11-10, by Alessandro Prandini's ruling (P-1643), and §4 kept
+  as written.* A marker dated more than 120 seconds in the future is not the
+  touch of a live run and is ignored, as one untouched for 120 seconds is: a
+  marker is live within -120 to +120 seconds of now.

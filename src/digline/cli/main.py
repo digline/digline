@@ -2009,8 +2009,9 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             )
             say(
                 f"  gate markers: {len(tenant.stale_gate_markers)} left by a run "
-                f"that did not remove it, older than {int(STALE_SECONDS) // 60} "
-                f"minutes and ignored: {runs}"
+                f"that did not remove it, untouched for more than "
+                f"{int(STALE_SECONDS) // 60} minutes or dated in the future, and "
+                f"ignored: {runs}"
             )
         if tenant.uncounted:
             who = (

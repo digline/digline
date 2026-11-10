@@ -194,6 +194,31 @@ CEILING_MARKER_FILENAME = "ceiling-reached.json"
 #: recordings, nor a `*.json` glob, takes it for one.
 COUNTS_FILENAME = ".counts"
 
+#: How deep a recording may nest, arrays and objects counted, before it is
+#: refused as unreadable rather than read. A recording carries what the
+#: application sent: a tool's JSON schema nests a few dozen levels at most,
+#: and Python's parser gives up near a thousand with a `RecursionError` no
+#: reader catches, which ended `digline record status` with exit 70.
+RECORDING_MAX_DEPTH = 200
+
+
+def _depth(value: object) -> int:
+    """How deep `value` nests, its arrays and objects counted, read without
+    recursion."""
+    deepest = 0
+    pending: list[tuple[object, int]] = [(value, 0)]
+    while pending:
+        item, level = pending.pop()
+        if isinstance(item, dict):
+            children: list[object] = list(item.values())  # pyright: ignore[reportUnknownArgumentType]
+        elif isinstance(item, list):
+            children = list(item)  # pyright: ignore[reportUnknownArgumentType]
+        else:
+            continue
+        deepest = max(deepest, level + 1)
+        pending.extend((child, level + 1) for child in children)
+    return deepest
+
 
 def checked_name(value: str, kind: str) -> str:
     """`value`, where it is a single safe path segment, or a refusal that
@@ -585,12 +610,20 @@ class FileResultStore:
             raise RecordingRefusedError(
                 f"{path} cannot be read (errno {exc.errno})"
             ) from None
+        deeper = (
+            f"{path} nests deeper than the {RECORDING_MAX_DEPTH} levels a "
+            "recording may, so it is not read"
+        )
         try:
             raw = json.loads(text)
         except json.JSONDecodeError as exc:
             raise RecordingRefusedError(
                 f"{path} is not JSON (line {exc.lineno}, column {exc.colno})"
             ) from None
+        except RecursionError:
+            raise RecordingRefusedError(deeper) from None
+        if _depth(raw) > RECORDING_MAX_DEPTH:
+            raise RecordingRefusedError(deeper)
         recording = recording_from_dict(raw, where=str(path))
         tenant = resolved.relative_to(self.root.resolve()).parts[0]
         if recording.source_tenant != tenant:

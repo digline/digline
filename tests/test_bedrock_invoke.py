@@ -248,6 +248,29 @@ DECLINED = {
 }
 
 
+def test_a_model_named_by_its_arn_is_said_without_the_account(
+    tmp_path: Path, bedrock: Bedrock, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A model id may be an ARN, and an ARN carries the AWS account. The
+    sentence the recorder says once for a family it does not read names the
+    model, with the ARN scrubbed as the plugin scrubs every message it
+    records, so the account does not reach the application's stderr."""
+    client = wrap(
+        a_bedrock(bedrock.address), app="support", tenant="acme", root=tmp_path
+    )
+    arn = (
+        "arn:aws:bedrock:us-east-1:123456789012:foundation-model/"
+        "meta.llama3-1-8b-instruct-v1:0"
+    )
+    invoke(client, WHOLE, arn)
+    said = capfd.readouterr().err
+    assert (
+        "digline recorder: invoke_model on <arn>: this model family is not recorded"
+        in said
+    )
+    assert "123456789012" not in said
+
+
 def test_in_process_another_family_is_counted_said_once_and_not_written(
     tmp_path: Path, bedrock: Bedrock, capfd: pytest.CaptureFixture[str]
 ) -> None:
