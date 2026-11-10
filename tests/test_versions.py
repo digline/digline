@@ -1197,7 +1197,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_docker.py",
         "0.7.0": "digline-bedrock's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.8.0": "digline-anthropic's version, pinned to its own pyproject by "
+        "0.9.0": "digline-anthropic's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
         "not a digline version",
@@ -1653,7 +1653,6 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
 _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-anthropic": _OWN_TAG_AFTER_1_1_1,
     "digline-bedrock": _OWN_TAG_AFTER_1_1_1 + " and after digline-anthropic's",
     "digline-mcp": _OWN_TAG_AFTER_1_1_1,
     "digline-openai": _OWN_TAG_AFTER_1_1_1,
