@@ -2249,7 +2249,7 @@ wheels = [
 
 [[package]]
 name = "pytest-digline"
-version = "0.5.1"
+version = "0.6.0"
 source = { editable = "packages/pytest-digline" }
 dependencies = [
     { name = "digline" },

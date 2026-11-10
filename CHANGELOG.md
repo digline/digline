@@ -694,7 +694,7 @@ thing users rely on.
   is the first release on PyPI to carry (v1.1.0 is tagged and never reached
   PyPI). Against 1.0.3 the import raises `ImportError`.
 
-## pytest-digline — unreleased
+## pytest-digline 0.6.0 — 2026-11-10
 
 - **`--digline-run` measures as `digline run` does.** Inside
   `digline.recorder.running()`, so with the recorder on none of the target's
@@ -711,8 +711,10 @@ thing users rely on.
   where it said the movement: on a reviewed answer added after the
   reference, *Checked here, not present in the reference*, which names
   nothing that failed.
-- Its floor on `digline` becomes `1.1.1` in its own release, after the core's:
-  RELEASING.md, *Owed at the cut*.
+- **Its floor on `digline` is 1.1.1**, the first core on PyPI with
+  `digline.recorder.running`, `digline.host.around_target`,
+  `digline.core.contradicted` and `AssertionDelta.reviewed`, which the two
+  changes above read.
 
 ## digline-openai 0.7.0 — 2026-11-10
 

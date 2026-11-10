@@ -3,12 +3,6 @@
 This page records the calls of an application with three prompts,
 turns the recordings into one suite per prompt, and ends with three gates.
 
-> **Arrives with the next pytest-digline.** The pytest-digline on PyPI
-> fails a reviewed answer's row by its movement and says
-> the movement, where the `pytest` block below fails it by the
-> contradiction and says the contradiction. Until the next pytest-digline
-> is published, that block needs it installed from this repository.
-
 ## Who this is for
 
 An application in Python that asks a model more than one thing: here, a

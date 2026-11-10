@@ -32,9 +32,10 @@ suite's judge calls: `digline-anthropic` and `digline-bedrock` are added the
 same way. The
 [Quickstart](https://github.com/digline/digline#quickstart) installs digline
 into a Python project instead, with `uv add digline` or `pip install digline`,
-and says which Python it needs. The line above was run on 2026-11-10, and
-installed digline 1.1.1 and digline-openai 0.6.0, the release before the one
-that reads the wire for the proxy; `pipx` was not tried.
+and says which Python it needs. The line above was run again on 2026-11-10,
+after digline-openai 0.7.0 was published, and installed digline 1.1.1 and
+digline-openai 0.7.0, which reads the wire for the proxy; `pipx` was not
+tried.
 
 ## With an official SDK: the files to copy
 
