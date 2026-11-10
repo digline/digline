@@ -191,6 +191,16 @@ ruling (P-1555) on what was measured for it:*
   file per tenant that is not a suite, `recorder.toml`, is the recorder's
   switch. It refuses a key it does not know, and an application in production
   reads it (ADR 0058 §4). This record adds nothing to the layout.
+
+  *Amended 2026-11-10, by Alessandro Prandini's ruling (P-1641, P-1646), and
+  the bullet above kept as written.* **`[suggest] model` names the model and
+  does not authorise the call.** The assistant is called only with `--model`
+  on the command line, which wins, or with `--assist`, which asks the model
+  `[suggest]` names. A bare `digline suggest` on a suite that names one makes
+  no call and says, in one line, the command with `--assist` that would: a
+  committed suite in a cloned repository would otherwise send the tenant's
+  recordings off the machine with nobody asked (fixed decision 9). `--assist`
+  is refused where no `suite.toml` names a model.
 - **How it is called.** Through the provider plugin's judge, built by the code
   that builds a judge from its coordinates, with a reply allowance of 4,000
   tokens. It is asked through the judge's own call, which takes the

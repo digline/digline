@@ -275,8 +275,10 @@ and no tool here writes into it. Run the command, or give it to the person.
 
 No assistant is asked here: what an assistant costs is said before its call,
 and a tool has no before. `assistant.command` is the command with `--model`,
-for the person to run. The proposal is never a verdict and marks nothing, and
-the commit of whatever is adopted from it is the person's."""
+for the person to run. A model `[suggest]` names in the suite.toml is asked
+only with `--assist`, and `--model` wins over it; `command` alone asks none.
+The proposal is never a verdict and marks nothing, and the commit of whatever
+is adopted from it is the person's."""
 
 DESCRIPTIONS: dict[str, str] = {
     "list_runs": LIST_RUNS,

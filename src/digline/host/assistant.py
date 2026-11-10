@@ -1,8 +1,11 @@
 """The assistant `digline suggest` asks, where one is declared. (ADR 0063 §4)
 
-**Declared, or never called.** `[suggest] model` in a `suite.toml`, or
-`--model`, which wins; with neither, no call is made and the proposal is the
-one the rules alone write (fixed decision 5).
+**Asked on the command line, or never called.** `--model`, or `--assist`,
+which asks the model `[suggest]` names in a `suite.toml`; `--model` wins.
+`[suggest] model` alone names the model and asks nothing: a bare `digline
+suggest` makes no call, says the command that would, and the proposal is the
+one the rules alone write (fixed decision 5; ADR 0063 §4, as amended
+2026-11-10).
 
 **Built as a judge is built**, from its coordinates through the provider
 plugin's judge, and asked through the judge's own call, `_ask_as`: priced,
