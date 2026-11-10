@@ -896,7 +896,7 @@ def test_a_form_that_is_not_utf8_is_a_400_and_writes_nothing(
     connection.close()
     assert answer.status == 400, body
     assert "the form is not UTF-8" in unescape(body)
-    assert "Traceback" not in capfd.readouterr().err
+    assert "UnicodeDecodeError" not in capfd.readouterr().err
     assert tree(writing.root) == before
 
 

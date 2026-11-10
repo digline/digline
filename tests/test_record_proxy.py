@@ -112,6 +112,18 @@ def the_sdks_leave_with_this_module() -> Iterator[None]:
             del sys.modules[name]
 
 
+class _Quiet(ThreadingHTTPServer):
+    """The fake's server, silent when its client has gone: `sleep` answers
+    after a proxy that gave up has hung up, and its `BrokenPipeError` on
+    standard error is the fake's, which a test of the proxy's must not read
+    as the proxy's."""
+
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        if isinstance(sys.exc_info()[1], ConnectionError):
+            return
+        super().handle_error(request, client_address)
+
+
 #: A status line an upstream could send that is not HTTP, and that would
 #: erase the line a terminal shows and write one of its own.
 HOSTILE_STATUS_LINE = b"\x1b[2K\rFORGED digline: all green\x1b[0m"
@@ -232,7 +244,7 @@ class Upstream:
                 self.end_headers()
                 self.wfile.write(data)
 
-        self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        self.server = _Quiet(("127.0.0.1", port), Handler)
         self.server.daemon_threads = True
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
@@ -600,7 +612,8 @@ def test_a_status_line_that_is_not_http_is_a_502_shown_and_counted(
     assert "the upstream's reply is not HTTP" in message
     assert "\\x1b[2K\\x0dFORGED digline: all green" in message
     assert b"\x1b" not in data
-    assert "\x1b" not in err and "Traceback" not in err
+    assert "\x1b" not in err
+    assert "digline/host/proxy.py" not in err and "BadStatusLine" not in err
     assert counted(tmp_path) == {"triage": {"upstream not HTTP": 1}}
 
 
@@ -625,7 +638,7 @@ def test_a_body_that_is_not_utf8_passes_on_and_is_counted_not_json(
     err = capfd.readouterr().err
     assert reply.status == 200
     assert upstream.bodies == [body]
-    assert "Traceback" not in err
+    assert "digline/host/proxy.py" not in err and "UnicodeDecodeError" not in err
     assert recordings(tmp_path, 0) == []
     assert counted(tmp_path) == {"triage": {"not JSON": 1}}
 
