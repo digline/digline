@@ -32,7 +32,8 @@ site is the SDK's `User-Agent` and the path.
 travels in the application's own headers; change a reply's body or headers,
 beyond the hop-by-hop ones a connection owns; record a reply that is not a
 200, which passes on as it came; or hold a call silently: an upstream that
-does not answer within `TIMEOUT` seconds is a 504 to the application.
+does not answer within `TIMEOUT` seconds is a 504 to the application, and one
+that cannot be reached, or answers with a reply that is not HTTP, a 502.
 """
 
 from __future__ import annotations
@@ -54,6 +55,7 @@ from urllib.parse import urlsplit
 
 from digline.host.errors import UsageError
 from digline.recorder import WIRE_GROUP, RecordingWire, WireRecorder
+from digline.report.render import visible
 
 __all__ = [
     "DEFAULT_PORT",
@@ -71,6 +73,9 @@ DEFAULT_PORT = 8787
 #: Seconds an upstream has to answer, and between two pieces of a stream:
 #: what the SDKs wait by default.
 TIMEOUT = 600.0
+
+#: How much of an upstream's line that is not HTTP the 502 quotes.
+_QUOTED = 200
 
 #: Seconds without a call after which an episode off the wire is closed and
 #: written, when `--episode-idle` is not given.
@@ -392,6 +397,17 @@ class _Handler(BaseHTTPRequestHandler):
                     + (exc.strerror or type(exc).__name__),
                 )
                 self._missed(records, "upstream unreachable", suite, app, episode)
+                return
+            except http.client.HTTPException as exc:
+                # A status line or a header that is not HTTP: the upstream's
+                # own text, quoted with its control characters written out,
+                # because a line that erases the one above it is a line nobody
+                # can trust, and cut, because the upstream chooses its length.
+                said = visible(str(exc).strip()) or type(exc).__name__
+                if len(said) > _QUOTED:
+                    said = said[:_QUOTED] + "…"
+                self._refuse(502, f"the upstream's reply is not HTTP: {said}")
+                self._missed(records, "upstream not HTTP", suite, app, episode)
                 return
             kept = self._pass_on(reply)
         finally:

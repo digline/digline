@@ -873,6 +873,33 @@ def test_a_tenant_in_an_address_is_a_name_or_a_400_that_says_so(
     ) == ["acme"]
 
 
+def test_a_form_that_is_not_utf8_is_a_400_and_writes_nothing(
+    writing: Served, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A form body that is not UTF-8, from the browser that holds the session,
+    is refused with a sentence, as a form with no usable length is: never a
+    closed connection and a traceback on standard error."""
+    before = tree(writing.root)
+    connection = http.client.HTTPConnection(HOST, writing.port, timeout=10)
+    connection.request(
+        "POST",
+        recorder_address("acme"),
+        body=b"action=\xff",
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Cookie": writing.cookie,
+            "Origin": f"http://{HOST}:{writing.port}",
+        },
+    )
+    answer = connection.getresponse()
+    body = answer.read().decode("utf-8")
+    connection.close()
+    assert answer.status == 400, body
+    assert "the form is not UTF-8" in unescape(body)
+    assert "Traceback" not in capfd.readouterr().err
+    assert tree(writing.root) == before
+
+
 def test_a_303_writes_a_locale_of_its_own_never_the_requests(
     writing: Served,
 ) -> None:
