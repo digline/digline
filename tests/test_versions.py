@@ -117,6 +117,11 @@ def swept() -> list[Path]:
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
     "docs/record-java.md": {
+        "1.1.1": (
+            "'installed digline 1.1.1 and digline-openai 0.7.0': what the "
+            "install line put in place when it was run again, on 2026-11-10, "
+            "told as history"
+        ),
         "0.7.0": (
             "'installed digline 1.1.1 and digline-openai 0.7.0': what the "
             "install line put in place when it was run again, on 2026-11-10, "
@@ -449,6 +454,13 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "1.1.1": (
+            "the release before 1.2.0, told as history: its paragraph in the "
+            "Status block and the named tags of its plugins, the floors and "
+            "the rows of *Owed to the next version* written at its cut, and "
+            "the section on a tag whose publish stops before PyPI, where it "
+            "took 1.1.0's number"
+        ),
         "0.9.1": (
             "digline-anthropic's release that left an MCP server's token out "
             "of the setup, named in digline-openai's row of *Owed to the next "
@@ -1030,6 +1042,16 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "SECURITY.md": {
+        "0.9.1": (
+            "digline-anthropic's release that fixes its half of "
+            "GHSA-v7r8-xg2j-wjx4: a record of which release fixed it, not a "
+            "claim about the current one"
+        ),
+        "1.1.1": (
+            "'and on 1.1.1, after its tag' — the release whose delta-pass ran "
+            "on 2026-11-10 and found the three advisories 1.2.0 fixes, told as "
+            "history"
+        ),
         "1.0.0": (
             "'on every minor release since, and on 1.0.0' — the release whose "
             "delta-pass ran on 2026-10-29, told as history. A patch does not "
@@ -1360,7 +1382,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "which a string comparison of versions silently inverts. Naming them "
         "is what makes the rule checkable, and the pair is history the moment "
         "0.10.0 ships (ADR 0014 §4)",
-        "1.2.0": "'1.2.0rc1, 1.2.0.post1 and 1.2.0 all read as (1, 2, 0)' — not "
+        "7.4.0": "'7.4.0rc1, 7.4.0.post1 and 7.4.0 all read as (7, 4, 0)' — not "
         "a digline version at all. An illustration of what the parser ignores, "
         "chosen far from any real release so nobody reads it as a claim",
         "0.8.1": "'is withheld from 0.8.1' — the release the withholding began "

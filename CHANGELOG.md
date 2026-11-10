@@ -6,7 +6,16 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 1.2.0 — 2026-11-10
+
+digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare
+`digline suggest` on a suite that names `[suggest] model` no longer asks
+that model, and `--assist` does (*Changed*, below; RELEASING.md, *Choosing
+the version*). Beside it, three advisories against the recorder and
+`digline record proxy`, both new in 1.1.1, and repairs found by the same
+delta-pass. No public name is removed or renamed, and no exit code changes.
+**digline-anthropic 0.9.1**, which carries one half of the third advisory,
+follows on a tag of its own, with the other plugins' patches.
 
 ### Security
 

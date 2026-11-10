@@ -76,7 +76,14 @@ it is drawn in one place:
   (low, perimeter fields in comparison deltas); and the delta-pass over
   digline-bedrock 0.6.0, fixed in 0.6.1,
   [GHSA-j589-v38m-4pwh](https://github.com/digline/digline/security/advisories/GHSA-j589-v38m-4pwh)
-  (low, an AWS account in verdict reasons, run files and reports).
+  (low, an AWS account in verdict reasons, run files and reports); and the
+  delta-pass over 1.1.1, fixed in 1.2.0 and digline-anthropic 0.9.1,
+  [GHSA-v524-xvf5-jrf9](https://github.com/digline/digline/security/advisories/GHSA-v524-xvf5-jrf9)
+  (medium, the recorder writing through a symlink committed in the store),
+  [GHSA-mg7q-phfv-2g93](https://github.com/digline/digline/security/advisories/GHSA-mg7q-phfv-2g93)
+  (medium, `digline record proxy` answering a web page), and
+  [GHSA-v7r8-xg2j-wjx4](https://github.com/digline/digline/security/advisories/GHSA-v7r8-xg2j-wjx4)
+  (low, the recorder and the proxy writing or printing a credential).
 
   *Looking at whatever a sentence had to be precise about* — the denominator
   article, fixed across 0.15.1 to 0.15.3,
@@ -156,8 +163,8 @@ boundary, who wrote the value, and what does a hostile value do there.*
 Reproduce on the artifact that actually travels, not on the code that builds it,
 and write the regression test so that it fails against the release just cut.
 
-It has run on 0.7.1, on every minor release of 0.x since, and on 1.0.0.
-The pass over 1.1.1 runs after its tag. A pass
+It has run on 0.7.1, on every minor release of 0.x since, on 1.0.0, and on
+1.1.1, after its tag, where it found the three advisories 1.2.0 fixes. A pass
 that found something is in the changelog, beside the fix it led to. One that
 found nothing often left no line there, and its report is kept in the
 maintainers' notes, which are not public. The pass

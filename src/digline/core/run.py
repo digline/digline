@@ -361,8 +361,8 @@ def release_tuple(version: str) -> tuple[int, ...]:
     is true lexically, so a string comparison would have stopped warning at
     exactly the release after the one that introduced it (ADR 0014 §4).
 
-    Everything after the release segment is ignored — `1.2.0rc1`, `1.2.0.post1`
-    and `1.2.0` all read as `(1, 2, 0)`. A pre-release is not far enough from
+    Everything after the release segment is ignored — `7.4.0rc1`, `7.4.0.post1`
+    and `7.4.0` all read as `(7, 4, 0)`. A pre-release is not far enough from
     its release to justify a second rule, and `packaging` is not a runtime
     dependency of digline: the core has one, and this is not where it takes
     another.

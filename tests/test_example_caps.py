@@ -235,6 +235,7 @@ RELEASED: dict[str, int] = {
     # the tag names it; 1.1.1 is the release of the same schema.
     "1.1.0": 23,
     "1.1.1": 23,
+    "1.2.0": 23,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a
