@@ -32,6 +32,18 @@ notes under them are this file, verbatim.
   switch was written; it is now the 404 of a page that does not exist, to a
   GET and to a POST alike, as the where and proposal pages already were
   (decision 8).
+- **`digline record proxy` answers an upstream whose reply is not HTTP with a
+  502**, as it answers one it cannot reach. A status line that is not HTTP
+  escaped the proxy's handling: the application's connection closed with no
+  answer, the line reached standard error inside a traceback, with whatever
+  control characters it carried obeyed by the terminal, and the call was not
+  counted. The 502 now quotes the line with its control characters written
+  out, never obeyed, cut at 200 characters, and the call is counted `upstream
+  not HTTP`. Nothing reaches standard error.
+- **`digline view` refuses a form that is not UTF-8 with a 400**, as it
+  refuses a form with no usable length. Such a body, sent with the session,
+  raised `UnicodeDecodeError`: the connection closed with no answer and a
+  traceback reached standard error. Nothing is written, as before.
 
 ## digline-bedrock — unreleased
 
