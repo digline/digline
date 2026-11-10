@@ -26,6 +26,8 @@ fixes it.
   they were written: digline writes `000001.json`, `000002.json` and so on.
 - **Write a file whole.** Write it under a name that starts with a dot, which
   no reader reads, and rename it to its name when it is complete.
+- **Nest at most 200 levels**, arrays and objects counted. A file nested
+  deeper is refused as unreadable, and `digline record status` counts it so.
 
 ## The smallest recording
 
@@ -146,9 +148,10 @@ after:
   a marker, that resolves outside `.digline/`, or outside the directory: a
   link out of the store is not read;
 - **takes a marker as live** when its modification time is at most 120
-  seconds old. The run touches it every 30 seconds and removes it when it
-  ends. An older one was left by a run that was killed: it is ignored, and
-  `digline record status` names it;
+  seconds old, and at most 120 seconds in the future. The run touches it
+  every 30 seconds and removes it when it ends. An older one was left by a
+  run that was killed; a later one is not a run's touch, and would otherwise
+  never age. Either is ignored, and `digline record status` names it;
 - **still writes the file** where a marker is live, and adds `origin`,
   written `"gate"`, and `run_id`, the marker's `run_id`. Where more than one
   marker is live, or the one live marker cannot be read as JSON with a

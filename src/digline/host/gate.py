@@ -20,6 +20,11 @@ marker every `HEARTBEAT_SECONDS` and removes it when it ends, in error too,
 with the directory where no other run's marker is left in it. A
 marker not touched for `STALE_SECONDS` is a run that was killed before it
 could remove it: ignored by every writer, and said by `digline record status`.
+**So is one dated more than `STALE_SECONDS` in the future**: a run touches
+its marker with the time it is, so a later one is not a run's touch, and
+taken as live it would never age, and every recording of the tenant would be
+filed as the gate's for ever. Within that window either side it is live: a
+clock a little ahead of the reader's still marks the gate's calls.
 The pid is written for a person to read and is never checked, because a proxy
 in a container does not share the run's process table.
 
@@ -75,14 +80,16 @@ class GateMarker:
     run_id: str | None
     started_at: str | None
     suite: str | None
-    #: Seconds since the run last touched it.
+    #: Seconds since the run last touched it; negative where its time is
+    #: later than the reader's.
     age: float
 
 
 @dataclass(frozen=True, slots=True)
 class GateMarkers:
     live: tuple[GateMarker, ...]
-    #: Left by a run that did not remove them, older than `STALE_SECONDS`.
+    #: Left by a run that did not remove them, older than `STALE_SECONDS`, or
+    #: dated more than `STALE_SECONDS` in the future.
     stale: tuple[GateMarker, ...]
 
     @property
@@ -137,7 +144,7 @@ def gate_markers(root: Path, tenant: str) -> GateMarkers:
         except OSError:
             continue
         marker = _read(path, age)
-        (live if age <= STALE_SECONDS else stale).append(marker)
+        (live if -STALE_SECONDS <= age <= STALE_SECONDS else stale).append(marker)
     return GateMarkers(tuple(live), tuple(stale))
 
 

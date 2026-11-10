@@ -276,6 +276,37 @@ def test_in_development_an_invalid_file_warns_once_and_records_nothing(
     assert counts(client)["not_recorded"] == {"config invalid": 1}
 
 
+def test_the_warning_shows_a_control_character_the_file_carried(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The switch file is anybody's text, and the warning names its unknown
+    keys: an escape in one is shown, never obeyed, on the application's own
+    stderr."""
+    switch(tmp_path, "acme", 'on = true\n"\\u001b[2Kgone" = 1\n')
+    client = wrap(an_anthropic(), app="support", tenant="acme", root=tmp_path)
+    ask(client)
+    err = capsys.readouterr().err
+    assert "digline recorder: not recording for this tenant:" in err
+    assert "\x1b" not in err
+    assert "[2Kgone" in err
+
+
+def test_a_refusal_s_sentence_is_shown_never_obeyed(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """What a plugin's map says once for a call it declines is built from the
+    call: a key of the request, a model's id. Printed through `visible`."""
+    said: set[str] = set()
+    monkeypatch.setattr(recorder, "_SAID", said)
+    reason = recorder.refused(
+        recorder.Refusal(reason="r", family="f", said="key \x1b]0;title\x07 not read")
+    )
+    assert reason == "r"
+    err = capsys.readouterr().err
+    assert "\x1b" not in err and "\x07" not in err
+    assert err.startswith("digline recorder: key ")
+
+
 def test_a_file_that_declares_production_is_held_to_it_in_development(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
