@@ -8,6 +8,35 @@ notes under them are this file, verbatim.
 
 ## Unreleased
 
+### Security
+
+- **The recorder wrote recordings through a symlink committed in the store**
+  (advisory [GHSA-v524-xvf5-jrf9](https://github.com/digline/digline/security/advisories/GHSA-v524-xvf5-jrf9)).
+  `RecordingWriter` created `.digline/<tenant>/recordings/<process>/` and
+  linked each recording into it without checking where the path resolved, and
+  the generated `.gitignore`'s `*/recordings/` does not match a link, so a
+  repository could carry one and send the application's prompts and answers
+  wherever it pointed. The writer and the ceiling marker now refuse a path
+  outside the store, as the readers have since 0.7.2; the call is counted as
+  not recorded. Affected: 1.1.1.
+- **`digline record proxy` answered a web page**
+  (advisory [GHSA-mg7q-phfv-2g93](https://github.com/digline/digline/security/advisories/GHSA-mg7q-phfv-2g93)).
+  It read neither `Host` nor `Origin`, so a page could send a CORS-simple POST
+  through it, spend through an upstream that needs no key and plant
+  recordings under a suite it named. A request that carries `Origin` is now
+  refused with 403, and `Host` is held to `127.0.0.1:<port>` or
+  `localhost:<port>`. Affected: 1.1.1.
+- **The recorder and `digline record proxy` could write or print a
+  credential** (advisory [GHSA-v7r8-xg2j-wjx4](https://github.com/digline/digline/security/advisories/GHSA-v7r8-xg2j-wjx4),
+  with digline-anthropic below). The proxy wrote a call site's path with its
+  query, so a key sent as `?api-key=...` was recorded; and `--upstream` kept a
+  user name and password in its address, printed it on the start line and
+  quoted it in its refusals. The call site now carries the path alone, and an
+  address with a credential is refused without being repeated. Affected:
+  1.1.1.
+
+### Fixed
+
 - **The recorder's own lines on standard error show a control character
   rather than obey it.** The sentence a plugin says once for a call it does
   not record, and the warning that a switch file cannot be read, are built
@@ -44,6 +73,19 @@ notes under them are this file, verbatim.
   refuses a form with no usable length. Such a body, sent with the session,
   raised `UnicodeDecodeError`: the connection closed with no answer and a
   traceback reached standard error. Nothing is written, as before.
+
+## digline-anthropic — unreleased
+
+### Security
+
+- **The recording map wrote an MCP server's token into the setup**
+  (advisory [GHSA-v7r8-xg2j-wjx4](https://github.com/digline/digline/security/advisories/GHSA-v7r8-xg2j-wjx4),
+  with digline above). The map put every key of a Messages request but the
+  messages into the recording's setup, `extra_body`'s keys merged in, so
+  `mcp_servers[].authorization_token` was written in clear into every
+  recording, shown by `digline record compare --show-setup`, and folded into
+  the setup digest. Each server's `authorization_token` is now left out of its
+  entry, and the rest of the entry is kept. Affected: 0.9.0.
 
 ## digline-bedrock — unreleased
 

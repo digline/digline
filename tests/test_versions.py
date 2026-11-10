@@ -449,6 +449,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "0.9.1": (
+            "digline-anthropic's release that left an MCP server's token out "
+            "of the setup, named in digline-openai's row of *Owed to the next "
+            "version* as the change that package owes too: history"
+        ),
         "1.1.0": (
             "the tag that never reached PyPI, told as history: the cut of 1.1.0 "
             "that rewrote the rows of *Owed to the next version* (P-1613 ter, "
