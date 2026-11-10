@@ -110,7 +110,7 @@ follows on a tag of its own, with the other plugins' patches.
   the setup digest. Each server's `authorization_token` is now left out of its
   entry, and the rest of the entry is kept. Affected: 0.9.0.
 
-## digline-bedrock — unreleased
+## digline-bedrock 0.8.1 — 2026-11-10
 
 - **A model named by its ARN is said without the account.** The sentence the
   recorder prints once for a model family it does not record names the
