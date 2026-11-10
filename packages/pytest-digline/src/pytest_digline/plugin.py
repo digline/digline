@@ -426,11 +426,15 @@ class _Opened:
     #: then an older run held against a newer reference, and a red there is
     #: not a regression. (#433)
     note: str = ""
-    #: The reviewed answers of the run the judge contradicted a person about,
-    #: by case: each one's row fails, and no other reviewed row does, whatever
-    #: its score did against the reference. Read off the run alone, by the
-    #: core's own function. (ADR 0059 §1)
-    contradicted: frozenset[str] = frozenset()
+    #: The verdicts of the run that contradicted a person about a reviewed
+    #: answer, by case and `assertion_id`: each one's row fails, and no other
+    #: reviewed row does, whatever its score did against the reference. By
+    #: check and not by case, because an episode's answer is asked the checks
+    #: on its steps too, so one case has several rows, and a row whose check
+    #: agreed with the person does not fail with the one that did not. Read
+    #: off the run alone, by the core's own function. (ADR 0059 §1, amended
+    #: 2026-11-05)
+    contradicted: frozenset[tuple[str, str]] = frozenset()
     #: Which way each check contradicted the person, by case and check, so a
     #: failing row says the contradiction rather than how it moved against
     #: the reference, which for a reviewed answer is not what fails it.
@@ -555,7 +559,7 @@ def _opened(
         reasons_available=head.reasons_available,
         lost=scale_lost(run),
         note=resolved.note,
-        contradicted=frozenset(c.case_id for c in found),
+        contradicted=frozenset((c.case_id, c.assertion_id) for c in found),
         against={(c.case_id, c.check): c.direction for c in found},
     )
 
@@ -907,9 +911,14 @@ def _failing(delta: AssertionDelta, opened: _Opened) -> bool:
         # A reviewed answer's gate is the person's verdict, read off the run
         # alone: its row fails where the judge contradicted the person, and
         # never on a movement against the reference, which for a no that the
-        # judge agreed with is a judge agreeing harder. `exit_code()` reads
+        # judge agreed with is a judge agreeing harder. By its own check: an
+        # episode's other rows say what they measured. `exit_code()` reads
         # the same contradictions off the headline. (ADR 0059 §1)
-        return delta.case_id in opened.contradicted
+        current = delta.current
+        return (
+            current is not None
+            and (delta.case_id, current.assertion_id) in opened.contradicted
+        )
     if delta.calibration:
         # Its only gate is its band, which `setup()` reads. A calibration case
         # that moved inside its band is not a check of the system that got
