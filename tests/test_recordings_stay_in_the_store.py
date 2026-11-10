@@ -135,7 +135,9 @@ def test_a_store_that_is_itself_a_link_still_records(
     (project / ".digline").symlink_to(volume)
     counts = record_one(project, monkeypatch)
     assert counts["recorded"] == 1
-    written = [p for p in files_under(volume) if p.suffix == ".json" and p.name[0] != "."]
+    written = [
+        p for p in files_under(volume) if p.suffix == ".json" and p.name[0] != "."
+    ]
     assert any(SECRET in json.dumps(json.loads(p.read_text())) for p in written)
 
 
