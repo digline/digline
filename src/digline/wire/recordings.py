@@ -91,6 +91,10 @@ class ListedGroup:
     good: int
     bad: int
     refused: Mapping[str, int]
+    #: The cases the answers are to: the same question and context, answered
+    #: once or more. Fewer than `answers` where a case was answered
+    #: differently. (P-1671)
+    cases: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +157,7 @@ def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, o
                     "shape": shape_json(group.shape),
                     "setup": _short(group.setup),
                     "answers": group.answers,
+                    "cases": group.cases,
                     "recordings": group.recordings,
                     "waiting": group.waiting,
                     "good": group.good,

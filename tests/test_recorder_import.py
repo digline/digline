@@ -492,12 +492,17 @@ def test_an_absent_or_empty_capture_file_is_no_refusal(
 
 
 def test_the_listing_groups_by_shape_in_the_files_order(root: Path) -> None:
+    """By shape, and in a shape by case, each case where its first answer
+    stands and its answers in the files' order (ADR 0061, as noted
+    2026-11-12). Until then the answers were in the files' order alone,
+    `[ID_A_OLD, ID_B, ID_A_NEW, ID_C]`, and the two answers to case A stood
+    apart."""
     found = listed(root)
     assert found.setups == {True: S2, False: S2}
     calls, episodes = found.groups
     assert calls.setup == episodes.setup == S2
     assert (calls.shape.episode, calls.shape.kind) == (False, "text")
-    assert [a.id for a in calls.answers] == [ID_A_OLD, ID_B, ID_A_NEW, ID_C]
+    assert [a.id for a in calls.answers] == [ID_A_OLD, ID_A_NEW, ID_B, ID_C]
     assert (episodes.shape.actors, episodes.shape.finish) == (
         ("model", "tool", "model"),
         "end_turn",
@@ -1063,3 +1068,41 @@ def test_one_answer_is_electable_alike_in_the_suite_and_from_unassigned(
     assert mine.id == theirs.id
     assert (mine.electable, mine.in_force) == (theirs.electable, theirs.in_force)
     assert mine.electable
+
+
+# -- By case (ADR 0061, as noted 2026-11-12) -------------------------------------- #
+
+
+def test_a_case_answered_twice_is_listed_under_one_line(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Case A was answered twice, under two setups: one line over both, and
+    each answer below it as before, none marked as the one to choose."""
+    assert main(argv(root)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    head = f"  case {capture_id(A)} · 2 answers to the same question"
+    at = lines.index(head)
+    assert lines[at + 1].startswith(f"  {ID_A_OLD} · ")
+    assert any(line.startswith(f"  {ID_A_NEW} · ") for line in lines[at + 2 :])
+    # A case with one answer has no line of its own.
+    assert not any(f"case {capture_id(B)}" in line for line in lines)
+    assert not any("to choose" in line for line in lines)
+
+
+def test_the_json_counts_the_cases_of_each_group(
+    root: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert main(argv(root, "--json")) == 0
+    calls, episodes = json.loads(capsys.readouterr().out)["groups"]
+    assert (calls["answers"], calls["cases"]) == (4, 3)
+    assert (episodes["answers"], episodes["cases"]) == (1, 1)
+
+
+def test_the_page_puts_the_case_over_its_answers(root: Path) -> None:
+    from digline.cli.recorder_pages import recordings_page
+
+    page = recordings_page(listed(root), locale="en", writes=None)
+    row = f'<tr class="case"><td colspan="6">case {capture_id(A)} · 2 answers'
+    assert row in page
+    assert page.index(row) < page.index(ID_A_OLD) < page.index(ID_A_NEW)
+    assert page.count('<tr class="case">') == 1

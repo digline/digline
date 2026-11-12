@@ -1685,6 +1685,14 @@ _ADDED: tuple[_AddedKey, ...] = (
         _STRINGS,
         "recordings under an earlier setup, 2026-11-12",
     ),
+    # How many cases a group's answers are to: fewer than its answers where a
+    # case was answered differently. A count, never a ranking. (P-1671)
+    _AddedKey(
+        "import_listing.group",
+        "cases",
+        _INT,
+        "recordings grouped by case, 2026-11-12",
+    ),
     _AddedKey(
         "record_status.recordings",
         "stale_gate_markers",

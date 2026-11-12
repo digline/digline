@@ -43,6 +43,8 @@ from digline.host.importing import (
     ImportAnswer,
     ImportListing,
     answer_state,
+    by_case,
+    case_line,
     closing_lines,
     group_line,
     group_setup_line,
@@ -307,9 +309,21 @@ def _answers_table(
     head += _head("view.recordings.column", ("state",), locale)
     if form:
         head += _head("view.recordings.column", ("elect",), locale)
-    rows = "".join(
-        _answer_row(found, answer, order, locale, form=form) for answer in answers
-    )
+    columns = 7 if form else 6
+    rows = ""
+    # By case, as the command line lists them: a case answered more than once
+    # under a row that says so, its answers below in the files' order, and
+    # none marked as the one to choose. (ADR 0061, as noted 2026-11-12)
+    for case, found_answers in by_case(answers):
+        if len(found_answers) > 1:
+            rows += (
+                f'<tr class="case"><td colspan="{columns}">'
+                f"{escape(case_line(case, found_answers))}</td></tr>"
+            )
+        rows += "".join(
+            _answer_row(found, answer, order, locale, form=form)
+            for answer in found_answers
+        )
     return (
         f'<div class="fits"><table class="answers"><thead><tr>{head}</tr></thead>'
         f"<tbody>{rows}</tbody></table></div>\n"

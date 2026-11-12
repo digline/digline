@@ -101,6 +101,13 @@ notes under them are this file, verbatim.
   and the status `setups_in_force`, keys recorded in `_ADDED`. Found in a Java
   application with a judged suite, where a variable in the system prompt made
   a setup per value.
+- **The import's listing puts a case's answers together.** Within a group,
+  the answers to the same question and context stand together, each case where
+  its first answer stands, and a case answered more than once has a line over
+  them, *case cap-… · 2 answers to the same question*; on the command line, on
+  the page, and as a group's `cases` count in `--json`. Nothing is ranked or
+  marked as the one to choose (ADR 0061 §1, as noted 2026-11-12). Found in a
+  Java application with a judged suite.
 
 ## digline-mcp — unreleased
 
@@ -116,6 +123,8 @@ notes under them are this file, verbatim.
   as the command line's `--json` does: `under_earlier_setups`,
   `earlier_setups`, and per suite `setups_in_force`, setups by their eight
   characters under either `--names`.
+- **`record_listing` counts each group's `cases`**, the questions its answers
+  are to, beside `answers`.
 
 ## 1.2.0 — 2026-11-10
 

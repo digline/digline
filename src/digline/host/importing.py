@@ -124,6 +124,8 @@ __all__ = [
     "written_lines",
     "setups_read",
     "setups_said",
+    "by_case",
+    "case_line",
 ]
 
 #: What every case the import writes says about where it came from.
@@ -562,6 +564,7 @@ def listed(listing: ImportListing) -> Listed:
                 shape=group.shape,
                 setup=group.setup,
                 answers=len(group.answers),
+                cases=len(by_case(group.answers)),
                 recordings=group.recordings,
                 waiting=sum(1 for a in group.answers if a.elected is None),
                 good=sum(1 for a in group.answers if a.elected is True),
@@ -677,7 +680,9 @@ def import_listing(
         samples=suite.samples,
         groups=tuple(
             ImportGroup(
-                shape=shape, answers=tuple(answers), setup=in_force[shape.episode]
+                shape=shape,
+                answers=tuple(a for _, found in by_case(answers) for a in found),
+                setup=in_force[shape.episode],
             )
             for shape, answers in groups.items()
         ),
@@ -1030,6 +1035,25 @@ def _many(count: int, noun: str) -> str:
     return f"{count} {noun}{'' if count == 1 else 's'}"
 
 
+def by_case(
+    answers: Sequence[ImportAnswer],
+) -> tuple[tuple[str, tuple[ImportAnswer, ...]], ...]:
+    """`answers` by case, the same question and context, each case where its
+    first answer stands and its answers in the files' order. Grouped, never
+    ranked: no answer is marked as the one to choose. (ADR 0023 §4; ADR 0061,
+    as noted 2026-11-12)"""
+    cases: dict[str, list[ImportAnswer]] = {}
+    for answer in answers:
+        cases.setdefault(answer.case, []).append(answer)
+    return tuple((case, tuple(found)) for case, found in cases.items())
+
+
+def case_line(case: str, answers: Sequence[ImportAnswer]) -> str:
+    """The line over a case that has more than one answer: the same question,
+    answered differently, the answers below it in the files' order."""
+    return f"case {case} · {len(answers)} answers to the same question"
+
+
 def listing_lines(found: ImportListing) -> list[str]:
     """The listing as the person reads it: the declaration, then each group
     with its count, then what is not a case. Built here, laid out by the CLI,
@@ -1044,8 +1068,11 @@ def listing_lines(found: ImportListing) -> list[str]:
         lines.append("")
         lines.append(group_line(number, group))
         lines.append(f"  {group_setup_line(group)}")
-        for answer in group.answers:
-            lines.extend(_say_answer(answer))
+        for case, answers in by_case(group.answers):
+            if len(answers) > 1:
+                lines.append(f"  {case_line(case, answers)}")
+            for answer in answers:
+                lines.extend(_say_answer(answer))
     lines.append("")
     lines.extend(closing_lines(found))
     return lines

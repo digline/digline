@@ -675,11 +675,17 @@ answers to one question are two ids. The answers are grouped by the shape of
 their output: a single call by its kind (`text`, `structured`,
 `conversation`), an episode by the actors of its steps in order and the last
 finish they carry. Each group says how many answers and recordings it holds;
-groups come in the order of their first answer, and answers in the files'
-order. For each answer: its id, its first date, the setups it was recorded
+groups come in the order of their first answer. Within a group the answers
+are put together by case, the same question and context, each case where its
+first answer stands and its answers in the files' order; a case answered more
+than once has a line over its answers, *case cap-… · 2 answers to the same
+question*. For each answer: its id, its first date, the setups it was recorded
 under, how many times it came back, its input and its text, and whether it can
 be written. Nothing is ranked, nothing is proposed, and there is no way to
 write them all.
+
+> **Arrives with digline 1.3.** On 1.2.0 the answers of a group are in the
+> files' order alone, and a case answered twice has no line of its own.
 
 An answer recorded only under an earlier setup is shown and cannot be written:
 a yes about an answer the setup in force did not give says nothing about it.
