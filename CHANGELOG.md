@@ -15,6 +15,11 @@ notes under them are this file, verbatim.
   Each load of the class now takes a name of its own, and
   `docs/record-java.md` says dev mode's reload is covered. Found in a Java
   application with a judged suite.
+- **A judge's reply with `\'` inside a string is read.** JSON has no such
+  escape, and a model writes it for an apostrophe; `loads_lenient` read the
+  whole reply as an error. After the reply fails to parse as it was, that one
+  escape is read as `'`, and nothing else is repaired: a reply broken any
+  other way is still an error.
 
 ## digline-mcp — unreleased
 

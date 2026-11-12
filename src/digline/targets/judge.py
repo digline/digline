@@ -121,22 +121,49 @@ def loads_lenient(text: str) -> Mapping[str, Any]:
         {"score": 1, "reason": "..."}
         ```json\\n{"score": 1, "reason": "..."}\\n```
         Sure! {"score": 1, "reason": "..."}
+
+    One escape is repaired, and only one: `\\'` inside a string, which JSON
+    does not have and a model writes for an apostrophe, is read as `'`. It is
+    tried only after the reply failed to parse as it was, and anything else
+    wrong with the reply still raises.
     """
     stripped = text.strip()
-    try:
-        return _as_object(json.loads(stripped), text)
-    except json.JSONDecodeError:
-        pass
-
+    candidates = [stripped]
     start = stripped.find("{")
     if start != -1:
         end = _matching_brace(stripped, start)
         if end != -1:
+            candidates.append(stripped[start : end + 1])
+    for candidate in candidates:
+        # `dict.fromkeys` keeps the order and drops the repeat: a reply with
+        # nothing to repair is parsed once, not twice.
+        for form in dict.fromkeys((candidate, _quote_escape_repaired(candidate))):
             try:
-                return _as_object(json.loads(stripped[start : end + 1]), text)
+                return _as_object(json.loads(form), text)
             except json.JSONDecodeError:
                 pass
     raise ValueError(f"the judge replied with no JSON object: {text[:200]!r}")
+
+
+def _quote_escape_repaired(text: str) -> str:
+    """`text` with each `\\'` inside a JSON string read as `'`, and nothing
+    else changed: every other escape is copied as it was, valid or not, and
+    nothing outside a string is touched."""
+    out: list[str] = []
+    in_string = False
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if in_string and char == "\\" and index + 1 < len(text):
+            following = text[index + 1]
+            out.append("'" if following == "'" else char + following)
+            index += 2
+            continue
+        if char == '"':
+            in_string = not in_string
+        out.append(char)
+        index += 1
+    return "".join(out)
 
 
 def _as_object(parsed: object, original: str) -> Mapping[str, Any]:
