@@ -5,6 +5,7 @@ promotion are composition on top, not responsibilities of the driver.
 """
 
 from digline.run.driver import (
+    CostCeilingReached,
     HasArtifacts,
     HasConfig,
     Mapper,
@@ -36,6 +37,7 @@ from digline.run.suite import (
 )
 
 __all__ = [
+    "CostCeilingReached",
     "BlindTolerance",
     "Calibration",
     "CaptureSource",

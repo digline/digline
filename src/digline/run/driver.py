@@ -10,6 +10,7 @@ about the baseline would have two reasons to change.
 from __future__ import annotations
 
 import inspect
+import math
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
@@ -77,6 +78,7 @@ from digline.run.suite import (
 
 __all__ = [
     "Billable",
+    "CostCeilingReached",
     "HasArtifacts",
     "HasConfig",
     "Mapper",
@@ -168,6 +170,31 @@ class Preflight(Protocol):
     """
 
     def preflight(self, cases: Sequence[Case]) -> None: ...
+
+
+class CostCeilingReached(RefusedError):
+    """A run stopped by its cost ceiling, between two cases.
+
+    Raised after the case whose calls took the measured spend above
+    `max_cost`, once `on_case` has handed that case over, so a journal holds
+    every case that was paid for and the run can be resumed. The fields are
+    the facts the sentence says, for a front end that adds the command that
+    resumes it. (ADR 0064 §2)
+    """
+
+    def __init__(
+        self, *, done: int, declared: int, spent_usd: float, ceiling_usd: float
+    ) -> None:
+        self.done = done
+        self.declared = declared
+        self.spent_usd = spent_usd
+        self.ceiling_usd = ceiling_usd
+        super().__init__(
+            f"stopped by the cost ceiling of {ceiling_usd:.4f} USD after "
+            f"{done} of {declared} cases: {spent_usd:.4f} USD measured so far, "
+            "the target's calls and the judges' together; nothing more was "
+            "called, and the cases already run are kept for a resume"
+        )
 
 
 @runtime_checkable
@@ -1419,6 +1446,7 @@ def execute(
     judge_samples: int = 0,
     spent: CallTotals | None = None,
     around_target: AroundTarget[Response] | None = None,
+    max_cost: float | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -1466,6 +1494,15 @@ def execute(
     genuinely kept no figures says so explicitly with `CallTotals(calls=n)`.
     Nothing is derived from `done` itself — a number reconstructed by arithmetic
     is one that eventually disagrees with the calls that were made.
+
+    `max_cost` is a ceiling on what the run **has measured** it spent, in USD:
+    after each case, once `on_case` has it, the target's calls and the judges'
+    are added up, with the earlier legs of a resumed run, and above the
+    ceiling the run stops with `CostCeilingReached` before the next case. A
+    call whose cost is not known adds nothing it does not know, so the
+    ceiling reads at least what was spent, never more. It is not compared with
+    any estimate before the run: nothing before the first call can say what a
+    run will cost at most. (ADR 0064)
 
     `judge_samples` asks each judged check that many times per answer. It is a
     measurement of the judge on answers that do not move, so it is refused on
@@ -1537,6 +1574,12 @@ def execute(
     for judge in judges(suite.assertions):
         if _takes_no_cases(judge):
             judge.preflight()
+    # A ceiling nothing can stay under, or that a NaN would never trip, is
+    # refused here rather than read as no ceiling. (ADR 0064 §2)
+    if max_cost is not None and not (math.isfinite(max_cost) and max_cost > 0):
+        raise RefusedError(
+            f"max_cost is {max_cost!r}: a cost ceiling is a positive number of USD"
+        )
 
     # Read before the first case, because a judge's counters are monotone for
     # the life of the object: what this run spent is the difference between
@@ -1620,6 +1663,21 @@ def execute(
                     usage=line,
                 )
             )
+        if max_cost is not None:
+            # After the journal has the case, so a stop keeps what was paid
+            # for. The judges' share is read as the document's will be. (ADR
+            # 0064 §2)
+            measured = (
+                billed.spent_usd
+                + _judge_share(judging_before, judge_totals(suite)).spent_usd
+            )
+            if measured > max_cost:
+                raise CostCeilingReached(
+                    done=len(results),
+                    declared=len(suite.cases),
+                    spent_usd=measured,
+                    ceiling_usd=max_cost,
+                )
     # And asked again, because a target may only be able to *learn* its
     # configuration by answering: the model call an `HttpTarget` evaluates
     # happens on the other side of HTTP, so the application reports it in the

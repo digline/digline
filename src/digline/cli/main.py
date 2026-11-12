@@ -103,6 +103,7 @@ from digline.host import (
     where,
     written_lines,
 )
+from digline.host.estimate import estimate
 from digline.host.gate import STALE_SECONDS
 from digline.report import (
     against_line,
@@ -121,6 +122,7 @@ from digline.report import (
 from digline.report import diff as diff_report
 from digline.report.pages import VIEW_PORT
 from digline.run import (
+    CostCeilingReached,
     ReplayError,
     Suite,
     planned_calls,
@@ -371,6 +373,11 @@ def cmd_run(args: argparse.Namespace) -> int:
     # provider is asked, nothing is priced, and the figure that surprises people
     # is the multiplication itself. (ADR 0006 §8)
     say(f"digline: {prepared.plan.sentence()}", err=True)
+    # And what it is likely to cost, read from the suite's newest stored run,
+    # or the sentence that says there is no figure: an estimate, never a
+    # bound, and never compared with --max-cost. (ADR 0064 §1)
+    guessed = estimate(store, suite, prepared.plan, prepared.header.config_hash)
+    say(f"digline: {guessed.sentence()}", err=True)
     # Named where the author is reading, at the one moment the suite is loaded,
     # and never guessed: a check whose class declares no KIND is left out of the
     # shape reading, and saying so here is what keeps that exclusion from being
@@ -385,18 +392,29 @@ def cmd_run(args: argparse.Namespace) -> int:
     if prepared.retrying:
         say(f"digline: retrying {_retry_note(prepared.retrying)}", err=True)
 
-    measured = measure(
-        suite,
-        target,
-        store=store,
-        prepared=prepared,
-        run_metadata=_meta(args.meta),
-        artifacts=artifacts,
-        pinned=pinned,
-        modules_unchecked=loaded.modules_unchecked,
-        accepting_baseline_schema=args.accepting_baseline_schema,
-        marker_root=Path(args.root),
-    )
+    try:
+        measured = measure(
+            suite,
+            target,
+            store=store,
+            prepared=prepared,
+            run_metadata=_meta(args.meta),
+            artifacts=artifacts,
+            pinned=pinned,
+            modules_unchecked=loaded.modules_unchecked,
+            accepting_baseline_schema=args.accepting_baseline_schema,
+            marker_root=Path(args.root),
+            max_cost=args.max_cost,
+        )
+    except CostCeilingReached as stopped:
+        # The run stopped between two cases, with the journal holding what was
+        # paid for: the sentence says where it was, and the command that
+        # finishes it. 2, not 64: the request was taken and the run did not
+        # judge every case; not 1, because nothing was compared. (ADR 0064 §2)
+        key = key_of(prepared.created_at, prepared.header.config_hash)
+        say(f"digline: {stopped}.", err=True)
+        say(f"digline: finish it with {_finishing(args, key)}", err=True)
+        return EXIT_UNJUDGED
     _say_accepted_schema(args.accepting_baseline_schema)
 
     # After the run is written, so the generated rules exist by then: the
@@ -2300,6 +2318,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--keep-errors",
         action="store_true",
         help="with --resume: keep journalled errors instead of retrying them",
+    )
+    run_p.add_argument(
+        "--max-cost",
+        type=float,
+        metavar="USD",
+        help=(
+            "stop the run, between two cases, once what it has measured it spent "
+            "is above USD; the cases already run are kept for --resume"
+        ),
     )
     accepting_baseline_schema(run_p)
     run_p.set_defaults(func=cmd_run)

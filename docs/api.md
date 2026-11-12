@@ -737,6 +737,18 @@ The totals cross a boundary; the per-call counts on a recorded response do not
   `--names project` each sentence withheld as
   `WITHHELD_WORDS["cost_reason"]`, the list keeping its length.
 
+**A ceiling on the bill, before and during a run.** `execute(max_cost=USD)`
+adds up, after each case and once `on_case` has it, what the run has measured
+it spent, the target's line with the earlier legs' and the judges' share, and
+above `USD` raises `digline.run.CostCeilingReached` before the next case. It
+is a `RefusedError` whose `done`, `declared`, `spent_usd` and `ceiling_usd`
+are the facts its sentence says; `digline run --max-cost USD` prints it with
+the `--resume` command and exits 2. A ceiling that is not a positive finite
+number is refused before the first call. Before the run, `digline run` prints
+an estimate read from the suite's newest stored run, `digline.host.estimate`,
+and never compares the two.
+([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
+
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line

@@ -1509,6 +1509,11 @@ class CallPlan:
     therefore a release of every plugin. Deferred to an ADR of its own, not
     refused. What was *actually* spent is already recorded and the report shows
     it.
+
+    *Decided 2026-11-12, in ADR 0064:* the estimate is not here and not the
+    target's. `digline.host.estimate` reads it from the suite's newest stored
+    run, per case, and says it as an estimate; `execute(max_cost=…)` is the
+    ceiling, read on what the run measures.
     """
 
     #: Cases that will actually be called: a suspended one is never asked, and

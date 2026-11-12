@@ -66,6 +66,17 @@ notes under them are this file, verbatim.
   4 in favour*). The outer fold's `scores` are the inner means, so neither
   number could be read back before. The two keys are driver metadata, numbers,
   and cross a projection in clear as `samples` and `agreement` do.
+- **`digline run` estimates what a run will cost, and `--max-cost` caps it**
+  (ADR 0064, proposed by a first use outside the project). Before the first
+  call, beside the plan, `run` prints what the suite's newest stored run
+  measured per case, scaled to the cases it will call, naming that run: an
+  estimate, said as one, because nothing before the first call can say what a
+  run will cost at most. With no stored run there is no figure, and the line
+  says so. `--max-cost USD` stops the run between two cases once what it has
+  measured, the target's calls and the judges', is above USD: exit 2, where it
+  was, and the `--resume` command that finishes it, the cases already paid for
+  kept. `execute(max_cost=…)` is the library's form, raising
+  `CostCeilingReached`. A new line `digline run` prints on standard error.
 
 ## digline-mcp — unreleased
 
