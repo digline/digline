@@ -32,6 +32,9 @@ the client are `tests/_story_ide_stand_in.py` and
 `tests/_story_ide_mcp_client.py`, and `tests/test_story_from_the_ide.py`
 replays this page against them.
 
+> **Arrives with digline 1.3.** On 1.2.0 the plans `run` says end at
+> *each answer is judged 3 times by llm_rubric*.
+
 ## Day one: from recordings to a suite
 
 **The application records.** It is `app.py`, a call through Anthropic's

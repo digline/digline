@@ -749,6 +749,9 @@ an estimate read from the suite's newest stored run, `digline.host.estimate`,
 and never compares the two.
 ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
 
+> **Arrives with digline 1.3.** 1.2.0 has no `max_cost`, no
+> `CostCeilingReached` and no estimate.
+
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line
@@ -1342,6 +1345,9 @@ through every fold: a `Repeated` of 3 under `Suite(samples=2)` is 6, where
 `scores` holds the two inner means. All numbers, so they cross the boundary:
 the software house sees how unstable a check is without seeing what it was
 judging.
+
+> **Arrives with digline 1.3.** On 1.2.0 the fold records neither
+> `judgements` nor `in_favour`.
 
 ### The interval, and the noise floor
 

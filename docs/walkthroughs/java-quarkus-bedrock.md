@@ -49,6 +49,9 @@ fails under Quarkus dev mode's reload; the fix is on digline's `main` and in no
 release yet, read the same day
 ([dev mode](../record-java.md#when-a-framework-builds-the-client)).
 
+> **Arrives with digline 1.3.** The reload fix is in `DiglineAws.java` from
+> `v1.3.0` on.
+
 **One line on the builder**, in the bean that builds the client:
 
 ```java

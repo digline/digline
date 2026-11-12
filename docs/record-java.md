@@ -209,6 +209,9 @@ one SDK. Before this fix the second load of `DiglineAws` failed its
 initialisation; in the application where that was found, every call
 answered 500 until a cold restart.
 
+> **Arrives with digline 1.3.** At `v1.2.0`, `DiglineAws` takes a fixed
+> name and fails on the second load.
+
 And the one method every call goes through names the suite:
 
 ```java

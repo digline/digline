@@ -302,6 +302,9 @@ and this section is that: nothing in digline checks it.
   run it with a ceiling, `digline run --suite suite.toml --max-cost 0.50`, and
   read what the judge said of each before paying for every case.
 
+> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
+> takes no `--max-cost`.
+
 **Criteria a product assistant is usually held to**, each a check of its own.
 These four, in a suite that loaded on 2026-11-12 at `2aaae91d`:
 
