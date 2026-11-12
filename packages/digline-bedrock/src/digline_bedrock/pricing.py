@@ -23,9 +23,10 @@ and the judge's, which is loud, happens before the first paid call, and is
 fixed by one `pricing=` argument. *Corrected 2026-11-12:* this said the
 refusal was `UnknownModelError`, which is `Pricing.cost`'s, after a call;
 `preflight` raises `RefusedError`. And it was true of a target alone until the
-driver asked each judge's `preflight()` too (ADR 0004 §8.0). *Before #369 this file priced Claude Opus 4.1 and Claude
-3.5 Haiku in eu-west-1, eu-central-1 and eu-west-3, where AWS does not sell
-them, which is the thing this paragraph says it does not do.* (#369)
+driver asked each judge's `preflight()` too (ADR 0004 §8.0). *Before #369
+this file priced Claude Opus 4.1 and Claude 3.5 Haiku in eu-west-1,
+eu-central-1 and eu-west-3, where AWS does not sell them, which is the thing
+this paragraph says it does not do.* (#369)
 
 **Two prices for one model, by endpoint.** From Claude Haiku 4.5 on, AWS bills
 a **global** inference profile (`global.`) about 10% below everything else: a
