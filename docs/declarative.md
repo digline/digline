@@ -43,6 +43,18 @@ max_usd = 0.02
 tolerance = 0.05
 ```
 
+**Two numbers every check carries.** A check scores each case between 0 and 1,
+and **`threshold`** is the score it must reach to pass: a `cost_budget` passes
+at `0.5` unless it says otherwise, and a `contains` at `1.0`. **`tolerance`**
+is read later, by `digline compare`, against the reference: a score that moved
+by no more than the tolerance is *unchanged*, and one that dropped further,
+and beyond the noise the reference measured where it measured any, *got
+worse*. It is what a reviewer decided is acceptable. A judge's check has no
+default for either, and a budget none for its tolerance, because there no
+default could be right ([API reference](api.md#the-assertions)). Where a judge gives the score, how
+far to trust it, and so where to put both numbers, is
+[calibrating the judge](calibration.md).
+
 ```json
 [
   {"id": "where-is-my-order", "vars": {"question": "Where is order 4821?"}},
@@ -298,12 +310,18 @@ above a `repeated` of 3 is **6 judgements a case**. `digline run` says that figu
 run report prints beside each case's mean how many single judgements it rests
 on and how many passed (*6 judgements, 4 in favour*).
 
+> **Arrives with digline 1.3.** On 1.2.0 the plan says no figure a case,
+> and neither the run nor its report counts the judgements.
+
 Those judgements are paid for. `digline run` says before the first call what
 the suite's newest stored run cost per case, scaled to this one, and
 `digline run --suite suite.toml --max-cost 0.50` stops the run between two
 cases once what it has measured is above 0.50 USD, exit 2, with the `--resume`
 command that finishes it. The ceiling is the command line's, not the file's:
 a suite does not declare one. ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
+
+> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
+> takes no `--max-cost`.
 
 ## The judge, by coordinates
 

@@ -337,6 +337,9 @@ two answers' means, so the run report prints beside it the single judgements
 it rests on and how many passed (*6 judgements, 4 in favour*), which the mean
 alone does not say.
 
+> **Arrives with digline 1.3.** On 1.2.0 the plan says no figure a case,
+> and neither the run nor its report counts the judgements.
+
 **What it will cost, and a ceiling on what it does.** Beside that line, `run`
 says what the run is likely to cost, read from the suite's newest stored run:
 *estimated from run `<key>`: 0.2400 USD, its 0.2400 USD over 3 cases scaled to
@@ -357,6 +360,9 @@ and prints the `--resume` command that finishes it: the cases already paid for
 are kept. A call whose cost is not known adds nothing, so the ceiling reads at
 least what was spent, and the run can go one case past it.
 ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
+
+> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
+> takes no `--max-cost`.
 
 ```console
 $ digline run --suite support.py

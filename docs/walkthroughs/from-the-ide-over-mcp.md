@@ -32,6 +32,9 @@ the client are `tests/_story_ide_stand_in.py` and
 `tests/_story_ide_mcp_client.py`, and `tests/test_story_from_the_ide.py`
 replays this page against them.
 
+> **Arrives with digline 1.3.** On 1.2.0 the plans `run` says end at
+> *each answer is judged 3 times by llm_rubric*.
+
 ## Day one: from recordings to a suite
 
 **The application records.** It is `app.py`, a call through Anthropic's
@@ -66,6 +69,19 @@ It answered four tickets, with `ANTHROPIC_BASE_URL` at the stand-in:
 *refund* to *"Where is my refund for the blue jacket?"*, *delivery* to *"The
 parcel never arrived."*, *account* to *"How do I change my password?"*, and
 *other* to *"I want my money back for the shoes."*, which is wrong.
+
+**The server is the package `digline-mcp`**, installed into the project's
+own environment beside the plugin its judge calls, because it imports the
+suite and that plugin. On your machine:
+
+```sh
+uv add --dev digline-mcp digline-anthropic
+```
+
+Run on 2026-11-12, apart from this page's run: it installed digline-mcp 0.9.1,
+digline 1.2.0 and digline-anthropic 0.9.1. In a repository that is not Python,
+and for `claude mcp add`, [digline over MCP](../mcp.md#in-claude-code-by-hand)
+has the lines.
 
 **The server**, in the project's `.mcp.json`:
 

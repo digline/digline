@@ -160,6 +160,9 @@ accuracy           0.500  pass   true_positive, false_positive, true_negative, f
 f1                 0.571  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
 ```
 
+> **Arrives with digline 1.3.** On 1.2.0 the `contains` row under
+> `Repeated` ends at `scores`: `judgements` and `in_favour` are not recorded.
+
 The `llm_rubric` and `faithfulness` rows come from the two judges written
 inline above, not from a model: `JudgeReply(0.8, "civil")` is the 0.800, and
 `ClaimReply(supported=3, total=4, …)` is the 0.750.
@@ -592,6 +595,9 @@ below the required 1.00"*. `min_agreement` must be a fraction `samples` can
 actually produce — `0.67` with three samples is refused at construction with the
 list of the ones that exist. And this is the **judge** wobbling; for the target
 answering differently, the answer is `Suite(samples=…)`.
+
+> **Arrives with digline 1.3.** On 1.2.0 the fold records neither
+> `judgements` nor `in_favour`, and the report prints no count.
 
 ---
 

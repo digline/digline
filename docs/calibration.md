@@ -168,6 +168,19 @@ except on an episode's answer, which carries its steps: the suite's checks on
 the steps run beside it, and on a yes a red one is a contradiction
 ([API reference](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer)).
 
+**A suite of reviewed answers alone never calls the application.** It judges
+the answers already recorded, and the plan `run` prints before the first call
+says so: *0 cases × 3 samples = 0 calls to the target; 4 reviewed answers
+judged 36 times, with no call to the target*. So a change to the application,
+a new prompt or a fix in its code, is invisible to such a suite until the
+application answers again: record, review and import, and the next run judges
+the new answers. Until then a green run says the judge still agrees with the
+person about the old ones. `digline where` reads the order: recordings made
+after the last import hold the suite at `to_import`, and a setup that first
+answered after the newest run is `new_setup`. A suite that should see a code
+change on its own run needs cases the target answers, beside the reviewed
+ones.
+
 The judge passed `said-no`, an answer the person said no to. That is a
 contradiction, and the case fails. Where to read it:
 
@@ -271,6 +284,90 @@ verdict is `error`, never a pass, so the case is unjudged and exits `2`.
 `Suite(samples=…)` is another question: it asks the target again, not the
 judge, and here it asks twice, so each verdict's `agreement`, `spread` and
 `scores` are those two samples'.
+
+## Choosing the judge
+
+The sections above measure a judge once it is chosen. Choosing it is advice,
+and this section is that: nothing in digline checks it.
+
+- **A judge at least as able as the model it judges.** A smaller model asked
+  whether a larger one's answer is right is asked a question it may not be
+  able to answer, and a reviewed answer the judge contradicts is where that
+  shows.
+- **One check per criterion, rather than one long rubric.** A rubric that asks
+  five things gives one score, and a fall in it does not say which of the five
+  fell. Five checks, each named, fall one at a time, and `compare` names the
+  one that did.
+- **A few cases first.** Point the suite's `cases` at a file of three to five,
+  run it with a ceiling, `digline run --suite suite.toml --max-cost 0.50`, and
+  read what the judge said of each before paying for every case.
+
+> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
+> takes no `--max-cost`.
+
+**Criteria a product assistant is usually held to**, each a check of its own.
+These four, in a suite that loaded on 2026-11-12 at `2aaae91d`:
+
+```toml
+[[assertions]]
+type = "llm_rubric"
+name = "addressee"
+rubric = "Does the answer speak to the person who asked, and not about them to someone else?"
+judge = "anthropic/claude-haiku-4-5"
+threshold = 0.7
+tolerance = 0.05
+
+[[assertions]]
+type = "llm_rubric"
+name = "no_internal_ids"
+rubric = "Is the answer free of internal identifiers: ticket numbers, database ids, internal codes the person was not given?"
+judge = "anthropic/claude-haiku-4-5"
+threshold = 0.7
+tolerance = 0.05
+
+[[assertions]]
+type = "llm_rubric"
+name = "clarifies_or_answers"
+rubric = "Does the answer either answer the question, or ask one clarifying question where the question cannot be answered as asked? Asking is a correct answer here."
+judge = "anthropic/claude-haiku-4-5"
+threshold = 0.7
+tolerance = 0.05
+
+[[assertions]]
+type = "llm_rubric"
+name = "same_language"
+rubric = "Is the answer in the language the question was asked in?"
+judge = "anthropic/claude-haiku-4-5"
+threshold = 0.7
+tolerance = 0.05
+```
+
+`name` is what tells them apart: four checks of the same type under the
+default name would be one name four times. The third says what a rubric for
+an assistant usually forgets, that asking back can be the right answer.
+
+## What the application did to the answer
+
+**A recording holds what the model answered, not what the application
+showed.** The recorder and the proxy record the provider's reply. An
+application that post-processes it, taking out internal markers, citation
+tags or a block of reasoning before the person sees the answer, leaves those
+in the recording, and the import writes them into the reviewed answer the
+judge reads. A judge that reads them as part of the answer may fail it for
+text nobody was shown.
+
+Two ways, and where each one works:
+
+- **Say it in the rubric**, for every suite and on the command line: *"Text
+  between `[[` and `]]` is the application's internal markup, removed before
+  the person reads the answer: judge the answer without it."* Whether the judge
+  then leaves it out is what a reviewed answer that carries markers measures.
+- **Judge what the application shows**: a suite's target that is a function
+  of yours can return the answer after the application's own post-processing,
+  so the answers the target gives carry no markers. A recorded answer cannot
+  be changed this way: `digline run` passes the answer to its judge as it was
+  recorded, with no step between, and only a caller of `execute()` in Python
+  can pass a `mapper` that would.
 
 ## See also
 
