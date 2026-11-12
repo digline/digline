@@ -181,6 +181,40 @@ declaration, no longer starts: add `--names clear` to keep what it did.
 The transport is stdio: the client launches the process, so there is no bound
 port and no listening socket.
 
+### In Claude Code, by hand
+
+The server imports the project's suite and the provider plugin its judge
+calls, so it runs from the project's own environment, with the plugin beside
+it. In a repository that is not Python, a `pyproject.toml` of its own holds
+them:
+
+```sh
+uv init --bare
+uv add --dev digline-mcp digline-bedrock
+claude mcp add --scope project digline -- .venv/bin/digline-mcp --root . --names clear
+```
+
+Run on 2026-11-12 in an empty repository, with uv 0.13.7 and Claude Code
+2.1.322: the second line installed digline-mcp 0.9.1 beside digline 1.2.0,
+digline-bedrock 0.8.1 and digline-anthropic 0.9.1, and left
+`.venv/bin/digline-mcp`; the third wrote `.mcp.json`, which is committed, with
+that command and `--root . --names clear`. `digline-bedrock` stands for the
+plugin your suite's judge names: `digline-anthropic` and `digline-openai` go
+in the same way, into the same `.venv`, because a plugin installed anywhere
+else is one the server cannot import. Started as `.mcp.json` says, from the
+repository's root, the server answered and listed its thirteen tools.
+
+Claude Code does not start a server from a project's `.mcp.json` on its own:
+`claude mcp get digline` said *Pending approval (run `claude` to approve)*,
+and the tools appear in a session of `claude` started in that repository once
+a person has approved it there. That approval was not exercised for this
+page.
+
+**What no tool does**, by decision and not by omission: promote a baseline,
+switch the recorder on, write a yes or a no into a suite's cases. Each writes
+what a person answers for, and a person runs it on the command line
+([ADR 0011](adr/0011-the-mcp-server.md) §1).
+
 ### In Claude Code, as a plugin
 
 `digline@digline` is the Claude Code plugin, installed from this repository's
