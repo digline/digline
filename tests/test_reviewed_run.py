@@ -61,6 +61,7 @@ from digline.report.explain import TallyFact, explain_text, facts
 from digline.report.log import _population  # pyright: ignore[reportPrivateUsage]
 from digline.report.render import headline, render_run_html, reviewed_section
 from digline.report.shape import shape
+from digline.report.text import Locale
 from digline.run import Case, Response, ReviewedAnswer, Suite, execute
 from digline.run.replay import Replay
 from digline.run.suite import planned_calls
@@ -222,6 +223,35 @@ def test_a_contradiction_fails_against_a_reference_too(
     assert (head.reviewed_passed_no, head.reviewed_failed_yes) == counted
     assert not head.worse and not head.canary_moved
     assert exit_code(head) == EXIT_WORSE
+
+
+@pytest.mark.parametrize(
+    ("locale", "contradiction", "nothing_worse"),
+    [
+        ("en", "The judge contradicted a person", "Nothing got worse"),
+        ("it", "Il giudice ha contraddetto una persona", "Nulla è peggiorato"),
+    ],
+)
+def test_the_contradiction_is_said_before_nothing_got_worse(
+    locale: Locale, contradiction: str, nothing_worse: str
+) -> None:
+    """Where the exit is 1 because a check contradicted a person, the sentence
+    `compare` prints first says that, the reason that blocks, and then that
+    nothing got worse, which stays true of the checks. Reported the other way
+    round from a Java application with a judged suite; not reproduced here,
+    where the order already held and no test held it."""
+    case = reviewed("no-good", GOOD, good=False)
+    found = run(case, *AGREES)
+    head = headline(
+        compare(found, found),
+        found,
+        found,
+        locale=locale,
+        declared=suite(case, *AGREES).declared(),
+    )
+    assert exit_code(head) == EXIT_WORSE
+    assert head.sentence.startswith(contradiction)
+    assert head.sentence.index(contradiction) < head.sentence.index(nothing_worse)
 
 
 def test_an_errored_verdict_is_unjudged_and_never_a_contradiction() -> None:
