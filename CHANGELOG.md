@@ -27,6 +27,12 @@ notes under them are this file, verbatim.
   <reference>`, with both keys written in. `promote` does not refuse a run
   for this cause (#642). A line `digline compare` prints changed; the guide
   quotes it, and the README does not.
+- **`digline suggest --suite <name>` says why a name was read as a suite.**
+  Where a file of exactly that name is in the directory, the name is read as
+  a suite and its loading fails; the refusal now adds that a file of that name
+  is here, and the rule that names `--tenant` and `--repository`. It exited 64
+  naming neither. And where one of the two flags is given, the refusal
+  explains only the one missing.
 
 ## digline-mcp — unreleased
 

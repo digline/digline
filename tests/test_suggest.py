@@ -484,7 +484,33 @@ def test_without_a_flag_a_suite_that_does_not_exist_is_refused_naming_it(
 ) -> None:
     write(here, EPISODES)
     assert main("suggest", "--suite", "triage", *given) == 64
-    assert f"that needs {named}:" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert f"that needs {named}:" in err
+    # Each reason is said for a flag that is missing, and never for one given.
+    for flag, reason in (
+        ("--tenant", "--tenant because"),
+        ("--repository", "--repository private|public because"),
+    ):
+        assert (reason in err) == (flag not in given)
+    assert not (here / PROPOSAL).exists()
+
+
+def test_a_file_of_the_suite_s_name_is_why_it_was_read_as_a_suite(
+    here: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A bare word is a suite where a file of that name is in the directory,
+    and loading it fails: the refusal says why it was read as a suite, and the
+    rule that names --tenant and --repository. Reported from a Java
+    application with a judged suite as an exit 64 that named neither, and
+    reproduced with a file of the suite's name; what was in that directory
+    was not reported."""
+    write(here, EPISODES)
+    (here / "triage").write_text("not a suite\n", encoding="utf-8")
+    assert main("suggest", "--suite", "triage") == 64
+    err = capsys.readouterr().err
+    assert "cannot import module 'triage'" in err
+    assert "was read as a suite because a file of that name is here" in err
+    assert SUITE_RULE in err
     assert not (here / PROPOSAL).exists()
 
 

@@ -158,19 +158,32 @@ def suggest_new(
             f"{name[:40]!r} has runs under this tenant but no suite file here: "
             "give the path. Nothing was proposed"
         )
+    # Each flag missing, with its reason: a flag given is not explained again.
     missing = [
-        flag
-        for flag, value in (("--tenant", tenant), ("--repository", repository))
+        (flag, why)
+        for flag, value, why in (
+            (
+                "--tenant",
+                tenant,
+                "--tenant because there is no declared tenant to find its "
+                "recordings under",
+            ),
+            (
+                "--repository",
+                repository,
+                "--repository private|public because the regime the proposed "
+                "[capture] declares is yours to say, with no default",
+            ),
+        )
         if value is None
     ]
     if missing:
         raise RefusedError(
             f"no suite file is named {name!r}, so it is read as the name of a "
-            f"suite that does not exist yet, and that needs {' and '.join(missing)}: "
-            "--tenant because there is no declared tenant to find its "
-            "recordings under, and --repository private|public because the "
-            "regime the proposed [capture] declares is yours to say, with no "
-            "default (ADR 0063 §1; ADR 0059 §4)"
+            "suite that does not exist yet, and that needs "
+            f"{' and '.join(flag for flag, _ in missing)}: "
+            f"{', and '.join(why for _, why in missing)} "
+            "(ADR 0063 §1; ADR 0059 §4)"
         )
     assert tenant is not None and repository is not None
     if repository not in ("private", "public"):
