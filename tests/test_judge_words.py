@@ -44,7 +44,9 @@ def target(case):
 
 suite = Suite(
     tenant="acme", environment="dev", name="support",
-    assertions=[LlmRubric(rubric="polite?", judge=judge, threshold=0.5, tolerance=0.05)],
+    assertions=[
+        LlmRubric(rubric="polite?", judge=judge, threshold=0.5, tolerance=0.05)
+    ],
     cases=[Case(id="torn"), Case(id="agreed")],
     samples=3,
     min_agreement="2/3",
