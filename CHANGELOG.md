@@ -43,6 +43,12 @@ notes under them are this file, verbatim.
   is here, and the rule that names `--tenant` and `--repository`. It exited 64
   naming neither. And where one of the two flags is given, the refusal
   explains only the one missing.
+- **The Claude Code plugin passes `--tenant` where its configuration gives
+  one.** `plugin.json` declares an optional `tenant` in `userConfig`;
+  `.mcp.json` hands it to the launcher, which starts digline-mcp with
+  `--tenant <tenant>` when it is set, and without it when it is empty or left
+  unsubstituted. The plugin's version stays the digline release it is tagged
+  with.
 
 ## digline-mcp — unreleased
 

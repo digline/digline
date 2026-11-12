@@ -77,6 +77,16 @@ what `uv` and `python -m venv .venv` make. An environment elsewhere, such as
 Poetry's default, is not found. The scripts are POSIX `sh`, so Windows is not
 supported.
 
+**The tenant, if you give one.** The plugin's configuration has one optional
+value, `tenant`, which Claude Code asks for when the plugin is enabled and
+`/config` lets you change. Given, the launcher starts the server with
+`--tenant <tenant>`, so `where` and `record_status` read that tenant without
+being told it on every call; it verifies and never overrides, so a suite that
+declares another tenant is refused. Left empty, the server starts without one,
+as before. It reaches the launcher as `DIGLINE_PLUGIN_TENANT`, set in
+`.mcp.json` from `${user_config.tenant}`; a Claude Code that does not fill that
+in leaves the placeholder, which the launcher reads as no tenant.
+
 ## What the agent's own commands run
 
 The launcher binds the server and nothing else. When the agent runs `digline`

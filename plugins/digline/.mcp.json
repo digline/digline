@@ -2,7 +2,8 @@
   "mcpServers": {
     "digline": {
       "command": "${CLAUDE_PLUGIN_ROOT}/scripts/serve",
-      "args": ["${CLAUDE_PROJECT_DIR}"]
+      "args": ["${CLAUDE_PROJECT_DIR}"],
+      "env": { "DIGLINE_PLUGIN_TENANT": "${user_config.tenant}" }
     }
   }
 }

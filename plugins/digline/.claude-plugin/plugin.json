@@ -9,5 +9,13 @@
   "homepage": "https://digline.dev",
   "repository": "https://github.com/digline/digline",
   "license": "Apache-2.0",
-  "keywords": ["evaluation", "llm", "baseline", "regression", "mcp"]
+  "keywords": ["evaluation", "llm", "baseline", "regression", "mcp"],
+  "userConfig": {
+    "tenant": {
+      "type": "string",
+      "title": "Tenant",
+      "description": "The tenant whose .digline/ the MCP server reads, passed to it as --tenant. It verifies and never overrides: a suite that declares another tenant is refused. Leave it empty to start the server without one.",
+      "required": false
+    }
+  }
 }

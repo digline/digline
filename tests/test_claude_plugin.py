@@ -254,6 +254,64 @@ def test_the_launcher_declares_clear_to_a_server_that_takes_it(tmp_path: Path) -
     )
 
 
+@pytest.mark.parametrize(
+    ("given", "passed"),
+    [
+        ("acme", ["--tenant", "acme"]),
+        ("", []),
+        (None, []),
+        # A client that does not substitute leaves the placeholder as written.
+        ("${user_config.tenant}", []),
+    ],
+    ids=["given", "empty", "absent", "unsubstituted"],
+)
+def test_the_launcher_passes_the_tenant_the_configuration_gives(
+    tmp_path: Path, given: str | None, passed: list[str]
+) -> None:
+    """`tenant` in the plugin's userConfig reaches the server as `--tenant`,
+    through the variable `.mcp.json` sets; an empty one, or a placeholder no
+    client filled in, starts the server without it."""
+    bin_ = tmp_path / ".venv" / "bin"
+    bin_.mkdir(parents=True)
+    fake = bin_ / "digline-mcp"
+    fake.write_text(
+        '#!/bin/sh\nif [ "$1" = --help ]; then echo "--names {clear,project}"; '
+        'exit 0; fi\necho project "$@"\n',
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if k != "DIGLINE_PLUGIN_TENANT"}
+    if given is not None:
+        env["DIGLINE_PLUGIN_TENANT"] = given
+    done = subprocess.run(
+        [str(SERVE), str(tmp_path)], capture_output=True, text=True, env=env, check=True
+    )
+    assert done.stdout.split() == [
+        "project",
+        "--root",
+        str(tmp_path),
+        "--names",
+        "clear",
+        *passed,
+    ]
+
+
+def test_the_tenant_the_server_is_handed_is_one_the_plugin_declares() -> None:
+    """`.mcp.json` reads `${user_config.tenant}`, so `plugin.json` declares
+    it, optional, and the server's own usage lists `--tenant`."""
+    server = load(PLUGIN / ".mcp.json")["mcpServers"]["digline"]
+    assert server["env"] == {"DIGLINE_PLUGIN_TENANT": "${user_config.tenant}"}
+    option = load(PLUGIN / ".claude-plugin" / "plugin.json")["userConfig"]["tenant"]
+    assert option["type"] == "string" and option["required"] is False
+    shown = subprocess.run(
+        [sys.executable, "-m", "digline_mcp", "--help"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert "--tenant" in shown
+
+
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     """A project the hook counts as digline's: `.digline/` at its root and a
