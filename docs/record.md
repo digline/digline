@@ -117,6 +117,31 @@ wrong while recording, the call returns what the provider returned, and the
 reason it was not recorded is counted (below). An exception of the SDK itself
 propagates as it always did.
 
+## The variables of a prompt
+
+**The system prompt is part of the setup**, not of the case: Anthropic's
+`system`, Bedrock's `system`, and on OpenAI the leading `system` and
+`developer` messages. The Java files read a call the same way. So a value the
+application fills into the system prompt, a customer's name, today's date, a
+document it retrieved, makes **a different setup for each value**. Measured on
+2026-11-12, at `2aaae91d`, with the three plugins' maps: two calls that differ
+only by a name in the system prompt give one case and two setups, and the same
+two calls with the name in the first user message give one setup and two
+cases.
+
+That decides what can be imported. The setup in force is the newest, and an
+answer recorded under another one is shown and
+[cannot be written](#from-recordings-to-cases-digline-record-import). With a
+variable in the system prompt, only the answers given under its newest value
+can be written, and every other one is listed as recorded under an earlier
+setup.
+
+**Put what changes per request in the first message**, and keep the system
+prompt the same for every call; in Python, `digline_vars=` adds the values to
+the case as well. Then the setup changes when the application does, a new
+prompt or a new model, which is what
+[`digline record compare`](#comparing-setups-digline-record-compare) shows.
+
 ## A streamed reply
 
 A streamed call is recorded too: `create(..., stream=True)`, and the methods
@@ -444,6 +469,30 @@ says so.
 application's own code between two calls, and a tool the application runs
 without sending its result back to the model: the last call's tool steps, and
 any whose result never reaches the model, stay `not_reported`.
+
+**Behind a corporate proxy, or a CA of the company's.** What follows was
+measured on 2026-11-12, at `2aaae91d` with Python 3.14.5, against an upstream
+on the same machine whose certificate a private CA had signed:
+
+- **The proxy goes to the upstream directly.** It does not read `HTTPS_PROXY`,
+  `HTTP_PROXY` or `NO_PROXY`: with `HTTPS_PROXY` naming a listener, the call
+  reached the upstream and nothing connected to the listener. Where the network
+  lets HTTPS out only through a company proxy, the provider cannot be reached,
+  and each call is a 502, *the upstream cannot be reached*, with the reason.
+  `--upstream ROUTE=URL` naming an endpoint the machine reaches directly, an
+  internal gateway, is the way through.
+- **It checks the upstream's certificate against Python's default store**, and
+  `SSL_CERT_FILE` in its environment names another. Without it the call was a
+  502 whose reason said `CERTIFICATE_VERIFY_FAILED`; with
+  `SSL_CERT_FILE=/path/to/company-ca.pem` it was a 200 and the reply passed on.
+- **To check a setup**, start the proxy with that environment and make one call
+  of the application through it: a 200 is the route working, and a 502 names
+  which of the two failed, the network or the certificate.
+
+The judge's calls do not go through it. `digline-bedrock`'s judge builds its
+boto3 client with the region alone and passes no proxy and no CA, so they
+are boto3's own settings, which this page did not measure; a judge given
+`client=`, a boto3 client built with them, uses that one.
 
 The proxy is a Python process like any that wraps a client: `digline record
 status` counts it, and Ctrl-C or SIGTERM stops it after writing its open

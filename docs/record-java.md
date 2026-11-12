@@ -230,6 +230,22 @@ chat model, tool use in the same shape, and streaming as events. The two forms
 record a different case and setup, so a suite whose calls mix them has two
 setups, and only the newest one's answers can be written.
 
+## Behind a corporate proxy
+
+The files open no connection: they read the call the SDK makes and write
+beside the application. So a company proxy and a company CA are the SDK's
+settings, as they were before the hook, and the recorder adds none and reads
+none. Which settings the AWS SDK for Java, OpenAI's or Anthropic's reads was
+not measured here.
+
+What does open connections is the Python side: `digline record proxy`, for a
+client the files do not hook, and the judge a suite calls. The proxy goes to
+the provider directly, without `HTTPS_PROXY`, and reads a company CA from
+`SSL_CERT_FILE`; that was measured, and
+[its section](record.md#through-the-proxy-digline-record-proxy) says how, and
+how to check it. The judge's calls are its provider SDK's, boto3 for
+`digline-bedrock`, with no proxy or CA set by digline.
+
 ## With LangChain4j or Quarkus: the proxy
 
 LangChain4j calls OpenAI through its own JDK `HttpClient`, and
