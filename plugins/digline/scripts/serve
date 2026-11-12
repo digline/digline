@@ -32,7 +32,22 @@ fi
 # and a `--name-table`, and do not use this launcher. A digline-mcp from before
 # the declaration refuses the flag, so it is passed only when the server's own
 # usage lists it. (ADR 0054 §1)
-if "$server" --help 2>/dev/null | grep -q -- "--names"; then
-    exec "$server" --root "$project" --names clear
+#
+# The tenant, where the plugin's configuration gives one: `tenant` in its
+# userConfig, which `.mcp.json` hands over as DIGLINE_PLUGIN_TENANT. Empty is
+# no tenant, and so is the placeholder left as written, which is what a client
+# that does not substitute `${user_config.tenant}` passes. It verifies and
+# never overrides, as on the command line.
+tenant="${DIGLINE_PLUGIN_TENANT:-}"
+case "$tenant" in
+    *'${'*) tenant="" ;;
+esac
+if [ -n "$tenant" ]; then
+    set -- --tenant "$tenant"
+else
+    set --
 fi
-exec "$server" --root "$project"
+if "$server" --help 2>/dev/null | grep -q -- "--names"; then
+    exec "$server" --root "$project" --names clear "$@"
+fi
+exec "$server" --root "$project" "$@"

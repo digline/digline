@@ -46,7 +46,7 @@ which state holds is the whole of the reading.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType
 
@@ -66,7 +66,7 @@ from digline.host.listing import suite_runs
 from digline.host.proposal import found_proposal, proposal_places, relative_to_root
 from digline.host.recording import recorder_status
 from digline.recorder import UNASSIGNED
-from digline.run.suite import Suite
+from digline.run.suite import Suite, idle_checks
 from digline.store.file_store import FileResultStore
 from digline.wire.contract import run_exit_code
 from digline.wire.where import STATES, State, Where
@@ -149,7 +149,28 @@ def where(
     In `no_suite_yet` it also says whether `digline suggest` wrote a proposal
     for the suite: beside `suite_file` where there is one, in `root` and `cwd`
     otherwise (`proposal_places`), the process's own directory where `cwd`
-    is not given."""
+    is not given.
+
+    Beside the state, whichever it is, the suite's checks that no case is
+    asked (`idle_checks`)."""
+    found = _state(
+        root, tenant, suite=suite, module=module, suite_file=suite_file, cwd=cwd
+    )
+    if suite is None:
+        return found
+    return replace(found, idle_checks=idle_checks(suite))
+
+
+def _state(
+    root: Path,
+    tenant: str,
+    *,
+    suite: Suite | None,
+    module: ModuleType | None,
+    suite_file: Path | None,
+    cwd: Path | None,
+) -> Where:
+    """The first state that holds, with the counts that put it there."""
     store = FileResultStore(root)
     everything, _unreadable = read_recordings(store, tenant)
     named = sorted({r.suite for r in everything} - {UNASSIGNED})

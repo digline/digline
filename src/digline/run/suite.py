@@ -59,6 +59,8 @@ __all__ = [
     "TRAJECTORY_CHECKS",
     "Suite",
     "blind_tolerances",
+    "checks_asked",
+    "idle_checks",
     "planned_calls",
     "suite_notes",
     "undeclared_kinds",
@@ -1283,10 +1285,48 @@ def blind_tolerances(suite: Suite) -> tuple[BlindTolerance, ...]:
     )
 
 
+def checks_asked(suite: Suite, case: Case) -> frozenset[str]:
+    """The identities the driver puts to `case`, read off the same conditions
+    that choose its branch, in the same order.
+
+    A suspended case is asked nothing, a calibration case its one check, a
+    reviewed answer the check it names and those on its steps, and every
+    other case — a canary included — every declared assertion. This is the
+    dispatch read back rather than a list of exclusions, so a new kind of
+    case is a new branch here and in the driver's `_run_case`, side by side,
+    and nothing else has to learn about it. (ADR 0027 §1)
+    """
+    if case.suspended is not None:
+        return frozenset()
+    if case.calibration is not None:
+        return frozenset({suite.calibrated(case.calibration).identity})
+    if case.reviewed_answer is not None:
+        answer = case.reviewed_answer
+        return frozenset(
+            a.identity for a in (suite.reviewed(answer), *suite.on_the_steps(answer))
+        )
+    return frozenset(a.identity for a in suite.assertions)
+
+
+def idle_checks(suite: Suite) -> tuple[str, ...]:
+    """The names of the declared checks no case is asked, in the order the
+    suite declares them: every case of the suite is suspended, or is a
+    calibration case or a reviewed answer for another check. Such a check
+    judges nothing in any run of the suite, and its name in the suite reads as
+    if it did. Empty when every check is asked of a case.
+
+    Read from the suite, never from a run: the same dispatch the driver
+    follows (`checks_asked`), so what this names is what a run will not ask.
+    """
+    asked = frozenset[str]().union(*(checks_asked(suite, case) for case in suite.cases))
+    return tuple(a.name for a in suite.assertions if a.identity not in asked)
+
+
 def suite_notes(suite: Suite, *, mint: Minter | None = None) -> tuple[str, ...]:
     """What every front end that runs `suite` says before the first call: the
     checks `undeclared_kinds` names, in one sentence, then each blind
-    tolerance in one sentence of its own. Empty when there is nothing to say.
+    tolerance in one sentence of its own, then the checks `idle_checks` names,
+    in one sentence. Empty when there is nothing to say.
 
     Here, beside the two readings, so that `digline run`, `digline rejudge`,
     MCP's `run` and `pytest --digline-run` say the same lines in the same
@@ -1314,7 +1354,25 @@ def suite_notes(suite: Suite, *, mint: Minter | None = None) -> tuple[str, ...]:
         replace(blind, name=named(blind.name)).sentence()
         for blind in blind_tolerances(suite)
     )
+    idle = idle_checks(suite)
+    if idle:
+        notes.append(_idle_sentence([named(check) for check in idle]))
     return tuple(notes)
+
+
+def _idle_sentence(names: Sequence[str]) -> str:
+    listed = ", ".join(names)
+    if len(names) == 1:
+        return (
+            f"{listed} judges no case: every case is suspended, or is a "
+            "calibration case or a reviewed answer for another check, so it "
+            "measures nothing in this suite; give it a case, or remove it"
+        )
+    return (
+        f"{listed} judge no case: every case is suspended, or is a calibration "
+        "case or a reviewed answer for another check, so they measure nothing "
+        "in this suite; give them a case, or remove them"
+    )
 
 
 def _undeclared_sentence(names: Sequence[str]) -> str:

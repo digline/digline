@@ -91,6 +91,12 @@ class Where:
     #: suite and nobody adopted yet, relative to the store's root, or `None`
     #: where none is where `suggest` writes one. A path, never its text.
     proposal: str | None = None
+    #: The suite's checks that no case is asked, by name, in the order the
+    #: suite declares them (`digline.run.suite.idle_checks`): a fact beside
+    #: whichever state holds, since a check that judges nothing gates nothing
+    #: in any of them. Empty where every check has a case, or no suite was
+    #: given.
+    idle_checks: tuple[str, ...] = ()
 
 
 #: Where the documentation is read, on the site that publishes `docs/`.
@@ -206,6 +212,7 @@ def where_json(
             # and not adopted is a fact of `no_suite_yet`. (ADR 0063, ruled
             # 2026-11-09)
             **({"proposal": found.proposal} if found.state == "no_suite_yet" else {}),
+            "idle_checks": list(found.idle_checks),
             "next": {
                 "say": where_said(
                     found, suite_named=suite_arg is not None, locale="en"

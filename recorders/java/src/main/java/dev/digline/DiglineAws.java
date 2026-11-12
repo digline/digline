@@ -80,8 +80,17 @@ public final class DiglineAws implements ExecutionInterceptor {
     /** The families already said on standard error in this process. */
     private static final Set<String> SAID = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
+    /**
+     * The call under way, carried between the hooks of one execution. The SDK
+     * keeps every attribute's name in a registry of its own for the life of its
+     * class loader and refuses a name it has seen, with no way to look the first
+     * one up. A framework that loads this class again while the SDK stays loaded,
+     * as Quarkus's dev mode does on a reload, would fail this class's
+     * initialisation on a fixed name, so each load of the class takes a name of
+     * its own.
+     */
     private static final ExecutionAttribute<Watched> WATCHED = new ExecutionAttribute<>(
-            "digline.watched");
+            "digline.watched." + java.util.UUID.randomUUID());
 
     private final DiglineRecorder recorder;
 

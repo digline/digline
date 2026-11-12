@@ -8,6 +8,8 @@ what judging cost.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from digline.core import (
@@ -171,6 +173,52 @@ def test_a_nested_object_does_not_end_the_outer_one_early() -> None:
 def test_a_brace_inside_a_string_is_not_a_brace() -> None:
     parsed = loads_lenient('prose {"reason": "it wrote {\\"a\\": 1}"} more prose')
     assert parsed == {"reason": 'it wrote {"a": 1}'}
+
+
+#: A judge's reply in the shape one gave in a Java application with a judged
+#: suite: an apostrophe escaped as `\'`, which JSON does not have. Not the reply
+#: itself, which quoted the application's text, and stays where it was born.
+QUOTE_ESCAPED = (
+    "```json\n"
+    r'{"score": 0, "reason": "The answer gives the customer\'s order number '
+    r'and says it can\'t \"confirm\" it, with a path C:\\orders."}'
+    "\n```"
+)
+
+
+def test_an_apostrophe_escaped_inside_a_string_is_read_as_one() -> None:
+    assert loads_lenient(QUOTE_ESCAPED) == {
+        "score": 0,
+        "reason": (
+            "The answer gives the customer's order number and says it can't "
+            '"confirm" it, with a path C:\\orders.'
+        ),
+    }
+
+
+def test_the_reply_with_the_bad_escape_does_not_parse_as_json_on_its_own() -> None:
+    """The control: the case above is a repair, not a reply `json` reads."""
+    body = QUOTE_ESCAPED.removeprefix("```json\n").removesuffix("\n```")
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(body)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Another invalid escape beside the repaired one: still an error.
+        r'{"score": 0, "reason": "it\'s \q"}',
+        # A comma missing: the repair does not make it JSON.
+        r'{"score": 0 "reason": "it\'s"}',
+        # Single quotes for the strings themselves: not an escape, not repaired.
+        "{'score': 0, 'reason': 'no'}",
+        # `\'` outside any string is not inside a string, and stays.
+        r'{"score": 0, \'reason\': "no"}',
+    ],
+)
+def test_a_reply_broken_otherwise_still_raises(text: str) -> None:
+    with pytest.raises(ValueError, match="no JSON object"):
+        loads_lenient(text)
 
 
 @pytest.mark.parametrize("text", ["I would rather not.", "[1, 2, 3]", '{"unclosed": 1'])

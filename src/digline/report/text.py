@@ -136,6 +136,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "run hold a different check under each name: {pairs}. Whether each "
             "was changed or replaced, the two documents cannot say."
         ),
+        # The way back in line, after what the two documents cannot say: the
+        # run made the reference, which `promote` does not refuse for this.
+        "fact.unpaired.step": (
+            "If the change was meant, make this run the reference to compare "
+            "them again: digline promote --suite <suite> --run {run} "
+            "--replacing {reference}."
+        ),
         "fact.unpaired.pair": (
             "{case} · {check}, {before} in the reference and {after} here"
         ),
@@ -916,6 +923,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.where.suites": "The suites tenant {tenant} holds",
         "view.where.suite_found": "{suite}: {recordings} recording(s), {runs} run(s)",
         "view.title.where": "Where you are — {suite}",
+        "view.where.idle_checks": "Checks that judge no case: {checks}",
         "view.where.command": "The command",
         "view.where.docs": "The page that says more",
         "view.where.open": "Open it here",
@@ -1971,6 +1979,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{pairs}. Se ciascuno sia stato modificato o sostituito, i due "
             "documenti non possono dirlo."
         ),
+        "fact.unpaired.step": (
+            "Se il cambiamento era voluto, rendi questa esecuzione il riferimento "
+            "per confrontarli di nuovo: digline promote --suite <suite> --run "
+            "{run} --replacing {reference}."
+        ),
         "fact.unpaired.pair": (
             "{case} · {check}, {before} nel riferimento e {after} qui"
         ),
@@ -2659,6 +2672,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{suite}: {recordings} registrazione/i, {runs} esecuzione/i"
         ),
         "view.title.where": "Dove sei — {suite}",
+        "view.where.idle_checks": "Controlli che non giudicano nessun caso: {checks}",
         "view.where.command": "Il comando",
         "view.where.docs": "La pagina che dice di più",
         "view.where.open": "Aprila qui",

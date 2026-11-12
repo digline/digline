@@ -491,16 +491,25 @@ def build_server(
         return given
 
     @answered
-    def where_(tenant: str, suite: str | None = None) -> dict[str, Any]:
+    def where_(tenant: str | None = None, suite: str | None = None) -> dict[str, Any]:
         # The CLI's composition: the suite where one is named, its tenant held
         # against the one given, and the reading from the host, which writes
         # nothing. The command it names is written from the repository's root.
+        # A tenant not given is the server's, as in `record_status`, and with
+        # neither, the suite's: the suite decides, and this only verifies.
         named_tenant = tenant_named(tenant)
-        assert named_tenant is not None
         if suite is None:
+            if named_tenant is None:
+                refuse(
+                    "where needs a tenant: none was given, this server was "
+                    "started without --tenant, and no suite was named to "
+                    "declare one"
+                )
             found = where(perimeter, named_tenant, suite=None, module=None)
         else:
             open_ = opened(suite)
+            if named_tenant is None:
+                named_tenant = open_.loaded.suite.tenant
             if open_.loaded.suite.tenant != named_tenant:
                 refuse(
                     f"tenant {named_tenant!r} does not match the suite, which "

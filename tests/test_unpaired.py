@@ -332,6 +332,27 @@ def test_the_clause_says_what_the_documents_cannot(locale: Locale) -> None:
 
 
 @pytest.mark.parametrize("locale", LOCALES)
+def test_the_clause_ends_on_the_step_back_in_line(locale: Locale) -> None:
+    """After what the two documents cannot say, the way to compare again: this
+    run made the reference, with the command and both keys, the run's and the
+    reference's it replaces. The command is one the store takes, which
+    `test_the_rebaseline_after_a_moved_bar_is_not_refused` holds."""
+    reference, run, head = compared(
+        wrapped(0.7, 0.75), wrapped(0.6, 0.65), locale=locale
+    )
+    tail = phrase(locale, "fact.unpaired.one", pairs="{pairs}").split("{pairs}")[1]
+    step = phrase(
+        locale,
+        "fact.unpaired.step",
+        run=key_of(run.created_at, run.config_hash),
+        reference=key_of(reference.created_at, reference.config_hash),
+    )
+
+    assert "digline promote --suite <suite> --run " in step
+    assert f"{tail} {step}" in head.sentence
+
+
+@pytest.mark.parametrize("locale", LOCALES)
 def test_the_clause_counts_several_pairs(locale: Locale) -> None:
     reference = execute(
         Suite(

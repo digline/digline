@@ -6,6 +6,61 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **The Java recorder's `DiglineAws` survives a reload.** A framework that
+  loads the application's classes again while the AWS SDK stays loaded, as
+  Quarkus's dev mode does, failed the class's initialisation: the SDK refuses
+  an execution attribute's name it has already seen, and the name was fixed.
+  Each load of the class now takes a name of its own, and
+  `docs/record-java.md` says dev mode's reload is covered. Found in a Java
+  application with a judged suite.
+- **A check that judges no case is said.** Where every case of a suite is
+  suspended, or is a calibration case or a reviewed answer for another check,
+  a declared check is asked of no case and measures nothing, while its name in
+  the suite reads as if it did. `digline run`, `rejudge`, MCP's `run` and
+  `pytest --digline-run` now say it before the first call, among the suite's
+  notes (*contains judges no case: …*), and `digline where` carries the names
+  among its facts: `idle_checks` in `--json`, a list, empty where every check
+  has a case or no suite was given, and a line in the text. Said, never
+  refused: no exit code moves. Found in a Java application with a judged
+  suite.
+- **A judge's reply with `\'` inside a string is read.** JSON has no such
+  escape, and a model writes it for an apostrophe; `loads_lenient` read the
+  whole reply as an error. After the reply fails to parse as it was, that one
+  escape is read as `'`, and nothing else is repaired: a reply broken any
+  other way is still an error.
+- **A check that was not compared says how to compare it again.** The
+  sentence *N checks were not compared … the two documents cannot say* now
+  ends on the step back in line: if the change was meant, make this run the
+  reference, `digline promote --suite <suite> --run <run> --replacing
+  <reference>`, with both keys written in. `promote` does not refuse a run
+  for this cause (#642). A line `digline compare` prints changed; the guide
+  quotes it, and the README does not.
+- **`digline suggest --suite <name>` says why a name was read as a suite.**
+  Where a file of exactly that name is in the directory, the name is read as
+  a suite and its loading fails; the refusal now adds that a file of that name
+  is here, and the rule that names `--tenant` and `--repository`. It exited 64
+  naming neither. And where one of the two flags is given, the refusal
+  explains only the one missing.
+- **The Claude Code plugin passes `--tenant` where its configuration gives
+  one.** `plugin.json` declares an optional `tenant` in `userConfig`;
+  `.mcp.json` hands it to the launcher, which starts digline-mcp with
+  `--tenant <tenant>` when it is set, and without it when it is empty or left
+  unsubstituted. The plugin's version stays the digline release it is tagged
+  with.
+
+## digline-mcp — unreleased
+
+- **`where`'s `tenant` is optional, as `record_status`'s is.** Without it,
+  `where` reads the tenant the server was started for with `--tenant`, and
+  with neither, the one the named suite declares. With no tenant anywhere and
+  no suite, it refuses and says so. A tenant given still verifies and never
+  overrides.
+- **`where` carries `idle_checks`**, the suite's checks no case is asked,
+  as `digline where --json` does; under `--names project` each by the token
+  its run carries.
+
 ## 1.2.0 — 2026-11-10
 
 digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare

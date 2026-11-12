@@ -1831,6 +1831,16 @@ def cmd_where(args: argparse.Namespace) -> int:
     say(where_said(found, suite_named=suite is not None, locale=args.locale))
     for shape, count in found.shapes:
         say(f"  {shape.says()} · {count}")
+    # A fact beside the state: a check no case is asked gates nothing, in any
+    # state. (`digline.run.suite.idle_checks`)
+    if found.idle_checks:
+        say(
+            phrase(
+                args.locale,
+                "view.where.idle_checks",
+                checks=", ".join(found.idle_checks),
+            )
+        )
     command = where_command(found, args.suite, flags)
     if command:
         say(f"{phrase(args.locale, 'view.where.command')}: {shlex.join(command)}")
@@ -1851,7 +1861,26 @@ def cmd_suggest(args: argparse.Namespace) -> int:
             raise UsageError(
                 f"--suite {args.suite!r} is no file that is there: {SUITE_RULE}"
             )
-        suite, loaded = load_suite(args.suite, root=root)
+        try:
+            suite, loaded = load_suite(args.suite, root=root)
+        except UsageError as exc:
+            # A bare word is a suite here only because a file of that name is
+            # in the directory, and a name meant for a suite that does not
+            # exist yet lands here too. The refusal says why it was read as a
+            # suite, and the rule that names --tenant and --repository.
+            if args.suite.endswith((".py", SUITE_SUFFIX)) or any(
+                mark in args.suite for mark in "/:"
+            ):
+                raise
+            raise UsageError(
+                Written.of(
+                    exc,
+                    "",
+                    f". --suite {args.suite!r} was read as a suite because a "
+                    f"file of that name is here: {SUITE_RULE}",
+                    named=False,
+                )
+            ) from exc
         _check_perimeter(suite, args.tenant, None)
         suite_file = suite_file_of(args.suite, loaded.module)
         # `[suggest]` is read from a suite.toml alone. It names the model and
