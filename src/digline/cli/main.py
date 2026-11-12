@@ -1873,8 +1873,13 @@ def cmd_suggest(args: argparse.Namespace) -> int:
             ):
                 raise
             raise UsageError(
-                f"{exc}. --suite {args.suite!r} was read as a suite because a "
-                f"file of that name is here: {SUITE_RULE}"
+                Written.of(
+                    exc,
+                    "",
+                    f". --suite {args.suite!r} was read as a suite because a "
+                    f"file of that name is here: {SUITE_RULE}",
+                    named=False,
+                )
             ) from exc
         _check_perimeter(suite, args.tenant, None)
         suite_file = suite_file_of(args.suite, loaded.module)
