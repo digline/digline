@@ -19,10 +19,35 @@ variable is left out and Bedrock answers. Paths are shortened to `…`.
 
 ## Day one: recording
 
+**The command line first.** digline's CLI is Python, and in a Java project it
+is installed as a tool of its own, with the Bedrock plugin that the judge on
+day two calls
+([why a tool](../record-java.md#install-the-digline-cli)):
+
+```console
+$ uv tool install digline --with digline-bedrock
+```
+
+Run again on 2026-11-12, apart from this page's run: it installed digline
+1.2.0 and digline-bedrock 0.8.1, which brings digline-anthropic 0.9.1 with it.
+
 **Three files.** Copy `DiglineRecorder.java`, `DiglineAws.java` and
 `DiglineMessages.java` from `recorders/java/src/main/java/dev/digline/` into
 your project, in the package `dev.digline`
 ([which files, for which client](../record-java.md#with-an-official-sdk-the-files-to-copy)).
+Take them at the tag of the digline you installed, `digline --version`, so
+the recorder writes what that CLI reads; for 1.2.0:
+
+```sh
+for f in DiglineRecorder DiglineAws DiglineMessages; do
+  curl -fsSLO "https://raw.githubusercontent.com/digline/digline/v1.2.0/recorders/java/src/main/java/dev/digline/$f.java"
+done
+```
+
+Run on 2026-11-12: the three files came down. `DiglineAws.java` at `v1.2.0`
+fails under Quarkus dev mode's reload; the fix is on digline's `main` and in no
+release yet, read the same day
+([dev mode](../record-java.md#when-a-framework-builds-the-client)).
 
 **One line on the builder**, in the bean that builds the client:
 
