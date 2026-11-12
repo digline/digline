@@ -108,6 +108,15 @@ notes under them are this file, verbatim.
   the page, and as a group's `cases` count in `--json`. Nothing is ranked or
   marked as the one to choose (ADR 0061 §1, as noted 2026-11-12). Found in a
   Java application with a judged suite.
+- **The judge's words where its samples disagreed.** Where the samples of a
+  judged check do not all reach the same verdict, each one's reason closes the
+  folded verdict's, kept in the run whatever `record_responses` says, and
+  `digline explain`'s terminal reading closes with *What the judge said, where
+  its samples disagreed*, each such case under its check, a sample that could
+  not judge included. No fact carries them: `explain --json` and the MCP
+  `explain` do not (ADR 0012 §4, as amended 2026-11-12). The run report's
+  Reason column shows the same reason. Found in a Java application with a
+  judged suite.
 
 ## digline-mcp — unreleased
 

@@ -134,10 +134,13 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 | `samples` | how many times to ask the target per case. Default 1 |
 | `min_agreement` | mandatory as soon as `samples > 1`. Written as a count: `"2/3"` |
 | `artifacts` | files that *are* the thing under test — a prompt above all |
-| `record_responses` | `true` to keep what the target answered in the run, one entry per sample, so `digline rejudge` can judge it again. Default `false`. It is written inside the perimeter and never crosses it. Outside `config_hash` |
+| `record_responses` | `true` to keep what the target answered in the run, one entry per sample, so `digline rejudge` can judge it again. Default `false`. It is written inside the perimeter and never crosses it. It governs the answers and not the judge's words: where a judged check's samples disagree, what each said is kept in the run either way. Outside `config_hash` |
 | `deterministic_output` | `true` where the same input gives the same answer. Default `false`, never deduced from the checks. Read only by `digline record import`, where a yes then also writes the answer as an `expected`. Outside `config_hash` |
 
 `disclosure` is **not** settable here. See "What it cannot say".
+
+> **Arrives with digline 1.3.** On 1.2.0 a judged check whose samples
+> disagree keeps the mean's reason alone, whatever `record_responses` says.
 
 ## `[capture]`
 

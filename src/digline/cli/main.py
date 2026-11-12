@@ -114,6 +114,7 @@ from digline.report import (
     explain_text,
     headline,
     judge_reading,
+    judge_words,
     log_text,
     module_lines,
     phrase,
@@ -1375,6 +1376,14 @@ def cmd_explain(args: argparse.Namespace) -> int:
 
     for line in explain_text(read.facts, locale=args.locale):
         say(line)
+    # The judge's words, after the facts and in the terminal alone: read off
+    # the run, never a fact, never in --json. (ADR 0012 §4, as amended
+    # 2026-11-12)
+    words = judge_words(read.run, locale=args.locale)
+    if words:
+        say()
+        for line in words:
+            say(line)
     return read.exit_code
 
 

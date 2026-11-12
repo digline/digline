@@ -78,6 +78,7 @@ __all__ = [
     "contradicted_said",
     "explain_text",
     "facts",
+    "judge_words",
 ]
 
 #: What a check-shaped fact can say: `Outcome`'s vocabulary, plus the states a
@@ -866,6 +867,39 @@ def _band_left(item: ScaleLost, locale: Locale) -> str:
         low=fmt_score(item.low),
         high=fmt_score(item.high),
     )
+
+
+def judge_words(run: Run, *, locale: Locale) -> tuple[str, ...]:
+    """What the judge said, case by case under each check, where its samples
+    did not reach the same verdict or one of them could not judge: the reason
+    the fold kept, which closes with each sample's words. Empty where there is
+    none, and for a redacted run, which carries no reason.
+
+    **Not a fact, and read beside them.** No fact carries a reason (§4), so
+    this reads the run, and only `digline explain`'s terminal reading prints
+    it, after the facts; `explain --json` and the MCP `explain` never do, and
+    no sentence that sums the run up quotes it. (ADR 0012 §4, as amended
+    2026-11-12)
+    """
+    if run.redacted:
+        return ()
+    lines: list[str] = []
+    for case in run.results:
+        for verdict in case.verdicts:
+            metadata = verdict.score.metadata
+            samples = metadata.get("samples")
+            if not verdict.judged or not isinstance(samples, int) or samples < 2:
+                continue
+            unanimous = metadata.get("agreement") == 1 and not metadata.get(
+                "errored_samples"
+            )
+            if unanimous or not verdict.reason:
+                continue
+            lines.append(f"{case.case_id} · {verdict.score.name}")
+            lines.append(f"  {verdict.reason}")
+    if not lines:
+        return ()
+    return (phrase(locale, "explain.heading.judge"), *lines)
 
 
 def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
