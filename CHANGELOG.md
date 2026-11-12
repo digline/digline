@@ -6,6 +6,16 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## Unreleased
+
+- **The Java recorder's `DiglineAws` survives a reload.** A framework that
+  loads the application's classes again while the AWS SDK stays loaded, as
+  Quarkus's dev mode does, failed the class's initialisation: the SDK refuses
+  an execution attribute's name it has already seen, and the name was fixed.
+  Each load of the class now takes a name of its own, and
+  `docs/record-java.md` says dev mode's reload is covered. Found in a Java
+  application with a judged suite.
+
 ## 1.2.0 — 2026-11-10
 
 digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare

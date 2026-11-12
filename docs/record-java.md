@@ -201,6 +201,14 @@ BedrockRuntimeClient client = BedrockRuntimeClient.builder()
 In a CDI bean, `root` comes from configuration, since the working directory
 differs between tests, dev mode and a deployed jar.
 
+Dev mode's reload is covered: Quarkus loads the application's classes again
+while the AWS SDK stays loaded, and `DiglineAws` takes a name of its own for
+its execution attribute on each load, because the SDK refuses a name it has
+already seen. `ReloadTest` loads each hook twice, in two class loaders over
+one SDK. Before this fix the second load of `DiglineAws` failed its
+initialisation; in the application where that was found, every call
+answered 500 until a cold restart.
+
 And the one method every call goes through names the suite:
 
 ```java
