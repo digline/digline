@@ -20,7 +20,8 @@ time, at `d746ec12`, after #958 took the class's name out of it, against the
 same stand-in; the run key in it is the second run's, where the third named
 its own. Two lines were added after those runs, with the code that prints
 them, and are what this page's replay prints there: `where`'s
-`idle_checks`, and the first of `run`'s notes on day two. **No call
+`idle_checks`, and the first of `run`'s notes on day two. So were the words
+*9 judgements a case* in the two plans `run` says. **No call
 reached a model.** A
 stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
@@ -359,7 +360,8 @@ Run on a copy of the project taken before the button, it wrote the same
 refused until it said the count back: *"this suite plans 0 calls to the
 target. tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 4
 reviewed answers judged 36 times, with no call to the target; each answer is
-judged 3 times by llm_rubric. Call again with acknowledge_calls=0 to run it.
+judged 3 times by llm_rubric, 9 judgements a case. Call again with
+acknowledge_calls=0 to run it.
 The count is calls to the target; where an assertion judges each answer
 several times the sentence above names the multiplier, and that is the figure
 to report."* With `"acknowledge_calls": 0` it ran: 36 calls to the judge,
@@ -427,7 +429,7 @@ refusal, now for 5 answers judged 45 times. Of its answer:
 ```json
 {
   "key": "2026-11-07T14-18-40-132240-00-00-5540731bb0925c86",
-  "sentence": "tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric",
+  "sentence": "tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric, 9 judgements a case",
   "notes": [
     "length, latency_budget judge no case: every case is suspended, or is a calibration case or a reviewed answer for another check, so they measure nothing in this suite; give them a case, or remove them",
     "the judge contradicted a person on 1 reviewed answer"

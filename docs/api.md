@@ -1324,8 +1324,12 @@ does not repeat is not a failure, it is a judgement that could not be given —
 and it means a suite that is too noisy cannot be promoted to reference.
 
 In `Score.metadata`: `samples`, `agreement`, `spread`, `errored_samples`,
-`scores` (the raw scores). All numbers, so they cross the boundary: the software
-house sees how unstable a check is without seeing what it was judging.
+`scores` (the raw scores), and `judgements` and `in_favour`, the single
+judgements the folded score rests on and how many of them passed, summed
+through every fold: a `Repeated` of 3 under `Suite(samples=2)` is 6, where
+`scores` holds the two inner means. All numbers, so they cross the boundary:
+the software house sees how unstable a check is without seeing what it was
+judging.
 
 ### The interval, and the noise floor
 

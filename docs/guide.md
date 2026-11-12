@@ -329,6 +329,14 @@ suite = Suite(
 `Suite(samples=…)` asks the **target** several times: that is system noise. Two
 different questions, and mixing them up measures neither.
 
+The two multiply. `Suite(samples=2)` around a `Repeated` of 3 is two answers a
+case, each judged three times: **6 judgements a case**, and the line `run`
+prints before the first call says so (*each answer is judged 3 times by
+llm_rubric, 6 judgements a case*). The score a case records is the mean of the
+two answers' means, so the run report prints beside it the single judgements
+it rests on and how many passed (*6 judgements, 4 in favour*), which the mean
+alone does not say.
+
 ```console
 $ digline run --suite support.py
 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26

@@ -187,6 +187,10 @@ DRIVER_METADATA_KEYS: frozenset[str] = frozenset(
         "errored_samples",
         "scores",
         "total_cost_usd",
+        # `sampling.JUDGEMENTS_KEY` and `IN_FAVOUR_KEY`: the single judgements a
+        # fold rests on and how many passed, counts summed through each fold.
+        "judgements",
+        "in_favour",
         # `fold_judgements`.
         "judge_samples",
         "judge_errored",

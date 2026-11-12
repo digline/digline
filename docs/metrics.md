@@ -151,7 +151,7 @@ faithfulness       0.750  pass   claims_total, claims_supported
 pii_absent         0.000  fail   pii_iban, pii_codice_fiscale, pii_partita_iva, pii_email, pii_phone_it, pii_total
 cost_budget        0.667  pass   cost_usd, max_usd, ratio
 latency_budget     0.800  pass   latency_ms, max_ms, ratio
-contains           1.000  pass   samples, agreement, spread, errored_samples, scores
+contains           1.000  pass   samples, agreement, spread, errored_samples, scores, judgements, in_favour
 
 aggregate          score  status  metadata keys
 precision          0.500  pass   true_positive, false_positive, true_negative, false_negative, considered, suspended_excluded, errored_excluded, unlabelled_excluded, canary_excluded
@@ -583,7 +583,9 @@ Repeated(
 tolerance come from `inner`, and so does the name.
 **Produces** the folded score, plus `samples`, `agreement`, `spread`,
 `errored_samples`, and `scores` — the raw votes, which is the column `digline
-view` shows under the combined number.
+view` shows under the combined number — and `judgements` and `in_favour`, the
+single judgements behind it and how many passed, which the run report prints
+beside the mean (*6 judgements, 4 in favour*).
 **Watch out** below the agreement floor the verdict is **`error`**, never a
 pass: *"the samples did not agree: 0.67 of them share the majority verdict,
 below the required 1.00"*. `min_agreement` must be a fraction `samples` can

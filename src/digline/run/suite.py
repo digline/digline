@@ -1634,8 +1634,14 @@ class CallPlan:
                 f"; each {answer} is judged {self.judge_samples} times by "
                 f"{', '.join(self.judged)}"
             )
+        # Per answer, and per case where a case has more than one answer: a
+        # `Repeated` of 3 under `samples=2` is 6 judgements a case, which is the
+        # number the report counts beside the mean, and "3 times" alone reads
+        # as the whole of it.
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
+            if self.samples > 1:
+                text += f", {self.samples * count} judgements a case"
         return f"tenant {self.tenant!r} · {text}"
 
 

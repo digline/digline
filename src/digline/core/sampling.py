@@ -39,6 +39,8 @@ from digline.core.types import (
 
 __all__ = [
     "COST_KEY",
+    "IN_FAVOUR_KEY",
+    "JUDGEMENTS_KEY",
     "TOTAL_COST_KEY",
     "Repeated",
     "budget_exceedances",
@@ -58,6 +60,13 @@ __all__ = [
 #: `Score.metadata` still originates from something that measured it.
 COST_KEY = "cost_usd"
 TOTAL_COST_KEY = "total_cost_usd"
+
+#: How many single judgements a folded verdict rests on, and how many of them
+#: passed: a `Repeated` of 3 under `Suite(samples=2)` is 6 and however many of
+#: the 6 passed. Summed through every fold, so the outer fold keeps what the
+#: inner one counted; its `scores` are the inner means and could not say it.
+JUDGEMENTS_KEY = "judgements"
+IN_FAVOUR_KEY = "in_favour"
 
 
 def _agreement(statuses: Sequence[Status]) -> float:
@@ -99,6 +108,26 @@ def _numeric(verdicts: Sequence[Verdict], key: str) -> list[float]:
             return []
         found.append(float(value))
     return found
+
+
+def _judgement_counts(verdicts: Sequence[Verdict]) -> dict[str, int]:
+    """`judgements` and `in_favour` over `verdicts`: a sample that is itself a
+    fold brings its own two counts, and any other sample is one judgement if it
+    returned a pass or a fail, in favour if it passed. An errored leaf sample
+    judged nothing and counts in neither."""
+    judged = in_favour = 0
+    for verdict in verdicts:
+        inner = (
+            verdict.score.metadata.get(JUDGEMENTS_KEY),
+            verdict.score.metadata.get(IN_FAVOUR_KEY),
+        )
+        if all(isinstance(n, int) and not isinstance(n, bool) for n in inner):
+            judged += cast(int, inner[0])
+            in_favour += cast(int, inner[1])
+        elif verdict.status != "error":
+            judged += 1
+            in_favour += verdict.status == "pass"
+    return {JUDGEMENTS_KEY: judged, IN_FAVOUR_KEY: in_favour}
 
 
 def _folded_metadata(verdicts: Sequence[Verdict]) -> Mapping[str, object]:
@@ -314,6 +343,7 @@ def combine_samples(
                 "agreement": agreement,
                 "errored_samples": errored,
                 "scores": list(scores),
+                **_judgement_counts(verdicts),
             },
         )
 
@@ -332,6 +362,7 @@ def combine_samples(
             "spread": max(scores) - min(scores),
             "errored_samples": len(verdicts) - len(scores),
             "scores": list(scores),
+            **_judgement_counts(verdicts),
         }
     )
     costs = _numeric(verdicts, COST_KEY)

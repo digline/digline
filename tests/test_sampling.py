@@ -347,8 +347,11 @@ def test_the_recorded_metadata_is_all_numbers() -> None:
         "spread",
         "errored_samples",
         "scores",
+        "judgements",
+        "in_favour",
     }
     assert metadata["samples"] == 3
+    assert (metadata["judgements"], metadata["in_favour"]) == (3, 3)
     assert metadata["scores"] == [0.90, 0.80, 0.85]
 
 
