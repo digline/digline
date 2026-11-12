@@ -177,23 +177,41 @@ class CostCeilingReached(RefusedError):
 
     Raised after the case whose calls took the measured spend above
     `max_cost`, once `on_case` has handed that case over, so a journal holds
-    every case that was paid for and the run can be resumed. The fields are
-    the facts the sentence says, for a front end that adds the command that
-    resumes it. (ADR 0064 §2)
+    every case that was paid for and the run can be resumed. Built like every
+    refusal, from its sentence (`stopped` writes it); the facts it says are
+    beside it for a front end that adds the command that resumes the run, and
+    `None` on one built from a sentence alone. (ADR 0064 §2)
     """
 
     def __init__(
-        self, *, done: int, declared: int, spent_usd: float, ceiling_usd: float
+        self,
+        message: str,
+        *,
+        done: int | None = None,
+        declared: int | None = None,
+        spent_usd: float | None = None,
+        ceiling_usd: float | None = None,
     ) -> None:
+        super().__init__(message)
         self.done = done
         self.declared = declared
         self.spent_usd = spent_usd
         self.ceiling_usd = ceiling_usd
-        super().__init__(
+
+    @classmethod
+    def stopped(
+        cls, *, done: int, declared: int, spent_usd: float, ceiling_usd: float
+    ) -> CostCeilingReached:
+        """The refusal for a run stopped after `done` of `declared` cases."""
+        return cls(
             f"stopped by the cost ceiling of {ceiling_usd:.4f} USD after "
             f"{done} of {declared} cases: {spent_usd:.4f} USD measured so far, "
             "the target's calls and the judges' together; nothing more was "
-            "called, and the cases already run are kept for a resume"
+            "called, and the cases already run are kept for a resume",
+            done=done,
+            declared=declared,
+            spent_usd=spent_usd,
+            ceiling_usd=ceiling_usd,
         )
 
 
@@ -1672,7 +1690,7 @@ def execute(
                 + _judge_share(judging_before, judge_totals(suite)).spent_usd
             )
             if measured > max_cost:
-                raise CostCeilingReached(
+                raise CostCeilingReached.stopped(
                     done=len(results),
                     declared=len(suite.cases),
                     spent_usd=measured,

@@ -176,6 +176,9 @@ def test_a_ceiling_that_cannot_hold_is_refused_before_any_call(
 
 
 def test_the_refusal_carries_the_facts_it_says() -> None:
-    stopped = CostCeilingReached(done=2, declared=3, spent_usd=0.16, ceiling_usd=0.1)
+    stopped = CostCeilingReached.stopped(
+        done=2, declared=3, spent_usd=0.16, ceiling_usd=0.1
+    )
     assert (stopped.done, stopped.declared) == (2, 3)
+    assert "after 2 of 3 cases: 0.1600 USD" in str(stopped)
     assert isinstance(stopped, RefusedError)
