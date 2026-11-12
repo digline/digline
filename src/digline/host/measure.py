@@ -452,6 +452,7 @@ def measure(
     mapper: Mapper = default_mapper,
     accepting_baseline_schema: int | None = None,
     marker_root: Path | None | Literal[_Derived.FROM_STORE] = _Derived.FROM_STORE,
+    max_cost: float | None = None,
 ) -> Measured:
     """Run the suite, recording as it goes, and store what came out.
 
@@ -462,6 +463,11 @@ def measure(
     First, before anything is called: a baseline at a schema this digline
     cannot read is refused unless `accepting_baseline_schema` names it — see
     `refuse_unreadable_baseline`. (#621)
+
+    `max_cost` is `execute()`'s ceiling on what the run measures it spent,
+    in USD. Above it the run stops between two cases with
+    `CostCeilingReached`, and the journal, which is not completed, keeps the
+    cases already paid for, so `--resume` finishes it. (ADR 0064 §2)
 
     `marker_root` is the project whose `.digline/<suite.tenant>/` holds the
     gate's marker while the run is in progress (`host.gate`), so that an
@@ -515,6 +521,7 @@ def measure(
             on_case=journal.append,
             on_unpriced=unpriced.append,
             around_target=around_target(target),
+            max_cost=max_cost,
         )
     ref = store.write_run(run)
     journal.complete()

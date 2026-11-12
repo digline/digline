@@ -58,6 +58,7 @@ from digline.core import (
 )
 from digline.core.compare import WIDTH_FIELD
 from digline.core.reviewed import Against
+from digline.core.sampling import IN_FAVOUR_KEY, JUDGEMENTS_KEY
 from digline.report.sheet import SHEET
 from digline.report.text import Locale, phrase, strings
 
@@ -3114,6 +3115,7 @@ def _run_verdict_row(
     case_id = case.case_id
     score = verdict.score.score
     result = phrase(locale, "detail.errored") if score is None else fmt_score(score)
+    counted = judgements_said(verdict, locale)
     why = (
         verdict.reason
         if reasons
@@ -3125,10 +3127,28 @@ def _run_verdict_row(
         "<tr>"
         f"<td><code>{escape(case_id)}</code></td>"
         f"<td><code>{escape(verdict.score.name)}</code></td>"
-        f"<td><b>{escape(result)}</b> / {fmt_score(verdict.threshold)}</td>"
+        f"<td><b>{escape(result)}</b> / {fmt_score(verdict.threshold)}"
+        f"{'' if not counted else ' · ' + escape(counted)}</td>"
         f"<td>{escape(why)}</td>"
         "</tr>"
     )
+
+
+def judgements_said(verdict: Verdict, locale: Locale) -> str:
+    """*6 judgements, 4 in favour*: how many single judgements a folded score
+    rests on and how many passed, or nothing where it rests on one. Read off
+    the counts the fold wrote (`JUDGEMENTS_KEY`), never recomputed from
+    `scores`, which after an outer fold are the inner means."""
+    count = verdict.score.metadata.get(JUDGEMENTS_KEY)
+    favour = verdict.score.metadata.get(IN_FAVOUR_KEY)
+    if (
+        not isinstance(count, int)
+        or isinstance(count, bool)
+        or not isinstance(favour, int)
+        or count <= 1
+    ):
+        return ""
+    return phrase(locale, "detail.judgements", count=count, favour=favour)
 
 
 def _run_section(

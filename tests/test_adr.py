@@ -227,6 +227,10 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no step in `_STEPS` renames a key; the gate its §7 owes is "
         "`tests/test_migration_steps.py`, run on a renaming step built there"
     ),
+    "0064-a-runs-cost-estimated-before-and-capped-during": (
+        "accepted and built in this tree, in no release tag: the newest tag "
+        "at its landing is v1.2.0"
+    ),
     "0056-a-migration-step-that-transforms": (
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
         "`tests/test_migration_steps.py`, run on a transforming step built there"

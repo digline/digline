@@ -9,11 +9,13 @@ about the baseline would have two reasons to change.
 
 from __future__ import annotations
 
+import inspect
+import math
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import Protocol, cast, runtime_checkable
+from typing import Protocol, TypeGuard, cast, runtime_checkable
 
 from digline import __version__
 from digline.core import (
@@ -76,6 +78,7 @@ from digline.run.suite import (
 
 __all__ = [
     "Billable",
+    "CostCeilingReached",
     "HasArtifacts",
     "HasConfig",
     "Mapper",
@@ -167,6 +170,62 @@ class Preflight(Protocol):
     """
 
     def preflight(self, cases: Sequence[Case]) -> None: ...
+
+
+class CostCeilingReached(RefusedError):
+    """A run stopped by its cost ceiling, between two cases.
+
+    Raised after the case whose calls took the measured spend above
+    `max_cost`, once `on_case` has handed that case over, so a journal holds
+    every case that was paid for and the run can be resumed. Built like every
+    refusal, from its sentence (`stopped` writes it); the facts it says are
+    beside it for a front end that adds the command that resumes the run, and
+    `None` on one built from a sentence alone. (ADR 0064 §2)
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        done: int | None = None,
+        declared: int | None = None,
+        spent_usd: float | None = None,
+        ceiling_usd: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.done = done
+        self.declared = declared
+        self.spent_usd = spent_usd
+        self.ceiling_usd = ceiling_usd
+
+    @classmethod
+    def stopped(
+        cls, *, done: int, declared: int, spent_usd: float, ceiling_usd: float
+    ) -> CostCeilingReached:
+        """The refusal for a run stopped after `done` of `declared` cases."""
+        return cls(
+            f"stopped by the cost ceiling of {ceiling_usd:.4f} USD after "
+            f"{done} of {declared} cases: {spent_usd:.4f} USD measured so far, "
+            "the target's calls and the judges' together; nothing more was "
+            "called, and the cases already run are kept for a resume",
+            done=done,
+            declared=declared,
+            spent_usd=spent_usd,
+            ceiling_usd=ceiling_usd,
+        )
+
+
+@runtime_checkable
+class JudgePreflight(Protocol):
+    """A judge that can refuse a run before the first call: `JudgeBase`'s
+    `preflight()`, which asks whether the judge's model has a price.
+
+    Not `Preflight`: a judge is not handed the cases. Asked of every judge
+    `judges()` finds, wrappers followed through, before the target or any
+    judge is called. (ADR 0004 §8.0, as decided 2026-11-12)
+    """
+
+    def preflight(self) -> None: ...
 
 
 @runtime_checkable
@@ -543,6 +602,19 @@ def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
             None if before.every_cost_known is False else after.every_cost_known
         ),
     )
+
+
+def _takes_no_cases(judge: object) -> TypeGuard[JudgePreflight]:
+    """Whether `judge` has a `preflight()` callable with nothing: a judge's,
+    not a target's `preflight(cases)`. A judge that is also a target, or one
+    whose `preflight` asks for something, is not guessed at."""
+    if not isinstance(judge, JudgePreflight) or not callable(judge.preflight):
+        return False
+    try:
+        inspect.signature(judge.preflight).bind()
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def judges(assertions: Sequence[object]) -> list[HasConfig]:
@@ -1392,6 +1464,7 @@ def execute(
     judge_samples: int = 0,
     spent: CallTotals | None = None,
     around_target: AroundTarget[Response] | None = None,
+    max_cost: float | None = None,
 ) -> Run:
     """Run `suite` against `target` and return the resulting `Run`.
 
@@ -1439,6 +1512,15 @@ def execute(
     genuinely kept no figures says so explicitly with `CallTotals(calls=n)`.
     Nothing is derived from `done` itself — a number reconstructed by arithmetic
     is one that eventually disagrees with the calls that were made.
+
+    `max_cost` is a ceiling on what the run **has measured** it spent, in USD:
+    after each case, once `on_case` has it, the target's calls and the judges'
+    are added up, with the earlier legs of a resumed run, and above the
+    ceiling the run stops with `CostCeilingReached` before the next case. A
+    call whose cost is not known adds nothing it does not know, so the
+    ceiling reads at least what was spent, never more. It is not compared with
+    any estimate before the run: nothing before the first call can say what a
+    run will cost at most. (ADR 0064)
 
     `judge_samples` asks each judged check that many times per answer. It is a
     measurement of the judge on answers that do not move, so it is refused on
@@ -1501,6 +1583,21 @@ def execute(
     # that names no price or no instrument should say so before the suite is
     # paid for. The answer recorded is the one taken after the last case.
     judge_config(suite)
+    # And each judge's own preflight, wherever it sits — inside `Repeated` or
+    # any other wrapper — before the first call to the target or a judge: a
+    # judge whose model has no price refuses the run here, and no call is
+    # made. Until this, a plugin's tests called it and the driver did not, so
+    # an unpriced judge answered, its price raised in `_ask`, and every case
+    # was paid for and errored. (ADR 0004 §8.0, as decided 2026-11-12)
+    for judge in judges(suite.assertions):
+        if _takes_no_cases(judge):
+            judge.preflight()
+    # A ceiling nothing can stay under, or that a NaN would never trip, is
+    # refused here rather than read as no ceiling. (ADR 0064 §2)
+    if max_cost is not None and not (math.isfinite(max_cost) and max_cost > 0):
+        raise RefusedError(
+            f"max_cost is {max_cost!r}: a cost ceiling is a positive number of USD"
+        )
 
     # Read before the first case, because a judge's counters are monotone for
     # the life of the object: what this run spent is the difference between
@@ -1584,6 +1681,21 @@ def execute(
                     usage=line,
                 )
             )
+        if max_cost is not None:
+            # After the journal has the case, so a stop keeps what was paid
+            # for. The judges' share is read as the document's will be. (ADR
+            # 0064 §2)
+            measured = (
+                billed.spent_usd
+                + _judge_share(judging_before, judge_totals(suite)).spent_usd
+            )
+            if measured > max_cost:
+                raise CostCeilingReached.stopped(
+                    done=len(results),
+                    declared=len(suite.cases),
+                    spent_usd=measured,
+                    ceiling_usd=max_cost,
+                )
     # And asked again, because a target may only be able to *learn* its
     # configuration by answering: the model call an `HttpTarget` evaluates
     # happens on the other side of HTTP, so the application reports it in the

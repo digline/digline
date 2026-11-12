@@ -811,6 +811,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.new.errored": ("New here, and the check could not run."),
         "detail.missing": "Present in the reference, not checked here.",
         "detail.errored": "The check could not run.",
+        # Beside a folded score, the single judgements it rests on: a mean of
+        # 0.67 over 6 is 4 in favour, and the mean alone does not say it.
+        "detail.judgements": "{count} judgements, {favour} in favour",
         "detail.three_way": (
             " The samples went three ways: {passed} passed, {failed} failed, "
             "{errored} could not be judged."
@@ -2549,6 +2552,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "detail.missing": "Presente nel riferimento, non controllato qui.",
         "detail.errored": "Il controllo non ha potuto essere eseguito.",
+        "detail.judgements": "{count} giudizi, {favour} a favore",
         "detail.three_way": (
             " I campioni sono andati in tre direzioni: {passed} superati, "
             "{failed} falliti, {errored} non giudicabili."

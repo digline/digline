@@ -1509,6 +1509,11 @@ class CallPlan:
     therefore a release of every plugin. Deferred to an ADR of its own, not
     refused. What was *actually* spent is already recorded and the report shows
     it.
+
+    *Decided 2026-11-12, in ADR 0064:* the estimate is not here and not the
+    target's. `digline.host.estimate` reads it from the suite's newest stored
+    run, per case, and says it as an estimate; `execute(max_cost=…)` is the
+    ceiling, read on what the run measures.
     """
 
     #: Cases that will actually be called: a suspended one is never asked, and
@@ -1634,8 +1639,14 @@ class CallPlan:
                 f"; each {answer} is judged {self.judge_samples} times by "
                 f"{', '.join(self.judged)}"
             )
+        # Per answer, and per case where a case has more than one answer: a
+        # `Repeated` of 3 under `samples=2` is 6 judgements a case, which is the
+        # number the report counts beside the mean, and "3 times" alone reads
+        # as the whole of it.
         for name, count in self.repeats:
             text += f"; each answer is judged {count} times by {name}"
+            if self.samples > 1:
+                text += f", {self.samples * count} judgements a case"
         return f"tenant {self.tenant!r} · {text}"
 
 

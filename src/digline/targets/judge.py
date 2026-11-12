@@ -450,9 +450,13 @@ class JudgeBase(ABC):
     def preflight(self) -> None:
         """Is this model priced? Ask before spending, not after.
 
-        Not the `preflight(cases)` a target answers — a judge is not called by
-        the driver and gets no cases. A plugin's own tests call this, and so can
-        a suite that would rather find out at import time.
+        Not the `preflight(cases)` a target answers: a judge gets no cases.
+        The driver calls it on every judge the suite holds, inside `Repeated`
+        and every other wrapper, after the target's own preflight and before
+        the first call to either, so a judge with no price refuses the run
+        and nothing is paid for. A plugin's tests call it too, and so can a
+        suite that would rather find out at import time. (ADR 0004 §8.0, as
+        decided 2026-11-12)
         """
         if not self.pricing.knows(self.model):
             known = ", ".join(sorted(self.pricing.per_model)) or "none"

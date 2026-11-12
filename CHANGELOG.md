@@ -49,6 +49,34 @@ notes under them are this file, verbatim.
   `--tenant <tenant>` when it is set, and without it when it is empty or left
   unsubstituted. The plugin's version stays the digline release it is tagged
   with.
+- **A judge with no price refuses the run before the first call.** The driver
+  now calls `preflight()` on every judge the suite holds, inside `Repeated`
+  and every other wrapper, after the target's own preflight. Until now only a
+  plugin's tests called it, so an unpriced judge let the run pay for every
+  case, the target's call and the judge's, before each errored on the price.
+  The refusal is the one `preflight()` already raised, and no call is made
+  (ADR 0004 §8.0, decided 2026-11-12). Found in a Java application with a
+  judged suite.
+- **How many judgements a case gets, before and after.** `Repeated` under
+  `Suite(samples=…)` multiplies: a `Repeated` of 3 under `samples=2` is 6
+  judgements a case. The line `run` prints before the first call now says
+  that figure (*each answer is judged 3 times by llm_rubric, 6 judgements a
+  case*), and the fold records `judgements` and `in_favour`, summed through
+  every level, which the run report prints beside each mean (*6 judgements,
+  4 in favour*). The outer fold's `scores` are the inner means, so neither
+  number could be read back before. The two keys are driver metadata, numbers,
+  and cross a projection in clear as `samples` and `agreement` do.
+- **`digline run` estimates what a run will cost, and `--max-cost` caps it**
+  (ADR 0064, proposed by a first use outside the project). Before the first
+  call, beside the plan, `run` prints what the suite's newest stored run
+  measured per case, scaled to the cases it will call, naming that run: an
+  estimate, said as one, because nothing before the first call can say what a
+  run will cost at most. With no stored run there is no figure, and the line
+  says so. `--max-cost USD` stops the run between two cases once what it has
+  measured, the target's calls and the judges', is above USD: exit 2, where it
+  was, and the `--resume` command that finishes it, the cases already paid for
+  kept. `execute(max_cost=…)` is the library's form, raising
+  `CostCeilingReached`. A new line `digline run` prints on standard error.
 
 ## digline-mcp — unreleased
 

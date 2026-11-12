@@ -329,6 +329,35 @@ suite = Suite(
 `Suite(samples=…)` asks the **target** several times: that is system noise. Two
 different questions, and mixing them up measures neither.
 
+The two multiply. `Suite(samples=2)` around a `Repeated` of 3 is two answers a
+case, each judged three times: **6 judgements a case**, and the line `run`
+prints before the first call says so (*each answer is judged 3 times by
+llm_rubric, 6 judgements a case*). The score a case records is the mean of the
+two answers' means, so the run report prints beside it the single judgements
+it rests on and how many passed (*6 judgements, 4 in favour*), which the mean
+alone does not say.
+
+**What it will cost, and a ceiling on what it does.** Beside that line, `run`
+says what the run is likely to cost, read from the suite's newest stored run:
+*estimated from run `<key>`: 0.2400 USD, its 0.2400 USD over 3 cases scaled to
+3; an estimate, not a ceiling*. It is an estimate and says so: before the first
+call nothing can say what a run will cost at most, because the judge reads an
+answer that does not exist yet. With no stored run there is no figure, and the
+line says that instead. To stop a run that costs more than you meant to spend,
+pass `--max-cost`:
+
+```sh
+digline run --suite support.py --max-cost 0.10
+```
+
+After each case the run adds up what it has measured, the target's calls and
+the judges', and above 0.10 USD it stops before the next case, exits 2, says
+where it was (*stopped by the cost ceiling of 0.1000 USD after 2 of 3 cases*)
+and prints the `--resume` command that finishes it: the cases already paid for
+are kept. A call whose cost is not known adds nothing, so the ceiling reads at
+least what was spent, and the run can go one case past it.
+([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
+
 ```console
 $ digline run --suite support.py
 2026-08-26T16-06-48-447223-00-00-ec1ed2cb8ce70c26

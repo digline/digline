@@ -324,6 +324,13 @@ its own blast radius, which belongs in an ADR of its own rather than in a
 subclause of this one. Deferred, not refused. What is *actually* spent is
 already recorded — `TOTAL_COST_KEY` sums it per check, and the report shows it.
 
+*Noted 2026-11-12:* the money estimate is decided in
+[ADR 0064](0064-a-runs-cost-estimated-before-and-capped-during.md) §1, and not
+as the target's method sketched above: it is read from the suite's newest
+stored run, per case, and said as an estimate, because nothing before the first
+call can bound what a run will cost. ADR 0064 §2 adds a ceiling on what a run
+measures as it goes.
+
 ### 9. "Within noise" is a fact beside the verdict
 
 `AssertionDelta` gains `within_noise: bool` and the interval it was judged

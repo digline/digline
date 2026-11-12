@@ -291,6 +291,20 @@ min_agreement = "2/3"
 `[assertions.inner]` is a check written the same way as any other — the rules
 above, applied again.
 
+The suite's own `samples`, at the top of the file, asks the target for that
+many answers a case, and the `repeated` grades each of them: `samples = 2`
+above a `repeated` of 3 is **6 judgements a case**. `digline run` says that figure before the first call
+(*each answer is judged 3 times by llm_rubric, 6 judgements a case*), and the
+run report prints beside each case's mean how many single judgements it rests
+on and how many passed (*6 judgements, 4 in favour*).
+
+Those judgements are paid for. `digline run` says before the first call what
+the suite's newest stored run cost per case, scaled to this one, and
+`digline run --suite suite.toml --max-cost 0.50` stops the run between two
+cases once what it has measured is above 0.50 USD, exit 2, with the `--resume`
+command that finishes it. The ceiling is the command line's, not the file's:
+a suite does not declare one. ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
+
 ## The judge, by coordinates
 
 ```toml
