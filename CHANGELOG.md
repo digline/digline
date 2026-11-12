@@ -49,6 +49,14 @@ notes under them are this file, verbatim.
   `--tenant <tenant>` when it is set, and without it when it is empty or left
   unsubstituted. The plugin's version stays the digline release it is tagged
   with.
+- **A judge with no price refuses the run before the first call.** The driver
+  now calls `preflight()` on every judge the suite holds, inside `Repeated`
+  and every other wrapper, after the target's own preflight. Until now only a
+  plugin's tests called it, so an unpriced judge let the run pay for every
+  case, the target's call and the judge's, before each errored on the price.
+  The refusal is the one `preflight()` already raised, and no call is made
+  (ADR 0004 §8.0, decided 2026-11-12). Found in a Java application with a
+  judged suite.
 
 ## digline-mcp — unreleased
 

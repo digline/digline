@@ -18,9 +18,12 @@ release; one that prices **above** fails a budget loudly and can wait. (#293)
 by endpoint, and a figure invented for a region nobody checked is worse than no
 figure at all: it would price a run confidently and wrongly. So a model is
 seeded only in the regions where the source lists it, and only under the ids
-that route there; everything else raises `UnknownModelError` at `preflight`,
-which is loud, happens before the first paid call, and is fixed by one
-`pricing=` argument. *Before #369 this file priced Claude Opus 4.1 and Claude
+that route there; everything else is refused at `preflight`, the target's
+and the judge's, which is loud, happens before the first paid call, and is
+fixed by one `pricing=` argument. *Corrected 2026-11-12:* this said the
+refusal was `UnknownModelError`, which is `Pricing.cost`'s, after a call;
+`preflight` raises `RefusedError`. And it was true of a target alone until the
+driver asked each judge's `preflight()` too (ADR 0004 §8.0). *Before #369 this file priced Claude Opus 4.1 and Claude
 3.5 Haiku in eu-west-1, eu-central-1 and eu-west-3, where AWS does not sell
 them, which is the thing this paragraph says it does not do.* (#369)
 

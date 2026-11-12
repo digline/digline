@@ -9,11 +9,12 @@ about the baseline would have two reasons to change.
 
 from __future__ import annotations
 
+import inspect
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, fields, is_dataclass, replace
 from pathlib import Path
-from typing import Protocol, cast, runtime_checkable
+from typing import Protocol, TypeGuard, cast, runtime_checkable
 
 from digline import __version__
 from digline.core import (
@@ -167,6 +168,19 @@ class Preflight(Protocol):
     """
 
     def preflight(self, cases: Sequence[Case]) -> None: ...
+
+
+@runtime_checkable
+class JudgePreflight(Protocol):
+    """A judge that can refuse a run before the first call: `JudgeBase`'s
+    `preflight()`, which asks whether the judge's model has a price.
+
+    Not `Preflight`: a judge is not handed the cases. Asked of every judge
+    `judges()` finds, wrappers followed through, before the target or any
+    judge is called. (ADR 0004 §8.0, as decided 2026-11-12)
+    """
+
+    def preflight(self) -> None: ...
 
 
 @runtime_checkable
@@ -543,6 +557,19 @@ def _judge_share(before: CallTotals, after: CallTotals) -> CallTotals:
             None if before.every_cost_known is False else after.every_cost_known
         ),
     )
+
+
+def _takes_no_cases(judge: object) -> TypeGuard[JudgePreflight]:
+    """Whether `judge` has a `preflight()` callable with nothing: a judge's,
+    not a target's `preflight(cases)`. A judge that is also a target, or one
+    whose `preflight` asks for something, is not guessed at."""
+    if not isinstance(judge, JudgePreflight) or not callable(judge.preflight):
+        return False
+    try:
+        inspect.signature(judge.preflight).bind()
+    except (TypeError, ValueError):
+        return False
+    return True
 
 
 def judges(assertions: Sequence[object]) -> list[HasConfig]:
@@ -1501,6 +1528,15 @@ def execute(
     # that names no price or no instrument should say so before the suite is
     # paid for. The answer recorded is the one taken after the last case.
     judge_config(suite)
+    # And each judge's own preflight, wherever it sits — inside `Repeated` or
+    # any other wrapper — before the first call to the target or a judge: a
+    # judge whose model has no price refuses the run here, and no call is
+    # made. Until this, a plugin's tests called it and the driver did not, so
+    # an unpriced judge answered, its price raised in `_ask`, and every case
+    # was paid for and errored. (ADR 0004 §8.0, as decided 2026-11-12)
+    for judge in judges(suite.assertions):
+        if _takes_no_cases(judge):
+            judge.preflight()
 
     # Read before the first case, because a judge's counters are monotone for
     # the life of the object: what this run spent is the difference between

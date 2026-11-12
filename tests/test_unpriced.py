@@ -31,6 +31,7 @@ from digline.core import (
     RunUsage,
     Withheld,
 )
+from digline.core.refused import RefusedError
 from digline.core.tokens import Minter
 from digline.run import CallPlan, Case, Response, Suite, execute
 from digline.run.driver import (
@@ -437,18 +438,21 @@ def test_a_price_that_raises_errors_the_check_naming_the_price() -> None:
     )
 
 
-def test_an_unknown_judge_model_is_the_same_true_line() -> None:
-    """The judge's `preflight()` is not called by the driver, so a model the
-    list does not know answers and its price raises."""
+def test_an_unknown_judge_model_is_refused_before_the_first_call() -> None:
+    """ADR 0004 §8.0, point 1, as decided 2026-11-12: the driver calls the
+    judge's `preflight()`, so a model the list does not know is refused before
+    the judge, or the target, is called. Until then this test held the other
+    branch, *"The judge's `preflight()` is not called by the driver, so a
+    model the list does not know answers and its price raises"*, with a line
+    of one call, one counted, `every_cost_known` false. A price that raises
+    after the call is still §8.6's, held by the two tests above."""
     judge = ReplyingJudge(
         Completion(text=VERDICT, usage=COUNTS),
         pricing=Pricing(per_model={}),
     )
-    run = execute(suite(rubric(judge)), Answering(), created_at=CREATED)
-    line = usage_of(run).judge
-    assert (line.calls, line.counted, line.every_cost_known) == (1, 1, False)
-    (verdict,) = run.results[0].verdicts
-    assert "pricing its reply raised UnknownModelError: no price" in verdict.reason
+    with pytest.raises(RefusedError, match="judge model 'j-1' has no price"):
+        execute(suite(rubric(judge)), Answering(), created_at=CREATED)
+    assert (judge.calls, len(judge.replies)) == (0, 1)
 
 
 # --------------------------------------------------------------------------- #

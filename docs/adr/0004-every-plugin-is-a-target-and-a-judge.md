@@ -803,6 +803,18 @@ Three things, each found in the writing and ruled on by none of the seven.
 
    Whether that refusal also becomes an unpriced call, or the driver calls
    the judge's `preflight()` before the first case, is not decided here.
+
+   *Decided 2026-11-12, proposed by a first use outside the project, on a
+   Java application with a judged suite, where an unpriced judge inside
+   `Repeated` let every case be paid for before each errored on the price.*
+   **The driver calls the judge's `preflight()`**: every judge `judges()`
+   finds, wrappers followed through, after the target's `preflight(cases)`
+   and before the first call to the target or to any judge, so a judge with
+   no price refuses the run with the sentence `preflight()` already raised,
+   and no call is made. A `preflight` that asks for an argument is not a
+   judge's and is not called. The branch in `Pricing.cost` stays where §8.6
+   left it, for a judge whose price is known at the start and raises later.
+   `tests/test_judge_preflight.py` holds it.
 2. **Where the sentences go when the bill is not printed.** §8.3 prints them
    on standard error after the bill line. Two front ends print no bill line
    there:
