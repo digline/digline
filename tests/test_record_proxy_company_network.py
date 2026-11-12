@@ -19,6 +19,7 @@ import select
 import socket
 import ssl
 import subprocess
+import sys
 import threading
 import urllib.error
 import urllib.request
@@ -28,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from tests.test_record_proxy import SDKS
 
 from digline import recorder
 from digline.host.proxy import Proxy, start_proxy, upstream_proxy
@@ -60,6 +62,19 @@ PROXY_VARIABLES = (
     "SSL_CERT_DIR",
     "REQUESTS_CA_BUNDLE",
 )
+
+
+@pytest.fixture(autouse=True, scope="module")
+def the_sdks_leave_with_this_module() -> Iterator[None]:
+    """The proxy loads the plugins' wires, and they import their SDKs: taken
+    out of `sys.modules` after this module, as `test_record_proxy.py` does, so
+    a later test that holds an SDK unimported until its first call is not
+    reading this module's import."""
+    before = set(sys.modules)
+    yield
+    for name in set(sys.modules) - before:
+        if name.split(".", 1)[0] in SDKS:
+            del sys.modules[name]
 
 
 @pytest.fixture(autouse=True)
@@ -129,7 +144,9 @@ class Company:
     and keeps each request line and its `Proxy-Authorization`."""
 
     port: int = 0
-    asked: list[tuple[str, str | None]] = field(default_factory=list)
+    asked: list[tuple[str, str | None]] = field(
+        default_factory=list[tuple[str, str | None]]
+    )
 
 
 @pytest.fixture
