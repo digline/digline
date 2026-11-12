@@ -228,6 +228,18 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.setups.single_calls": ("a", gate.form(_SETUP)),
         "$.setups.episodes[]": ("a", gate.form(_SETUP)),
         "$.setups.single_calls[]": ("a", gate.form(_SETUP)),
+        # A suite's recordings by setup (P-1671): setups by their eight
+        # characters, as `$.setups` above.
+        "$.earlier_setups[]": ("a", gate.form(_SETUP)),
+        "$.tenants[].recordings.suites[].earlier_setups[]": ("a", gate.form(_SETUP)),
+        "$.tenants[].recordings.suites[].setups_in_force.episodes": (
+            "a",
+            gate.form(_SETUP),
+        ),
+        "$.tenants[].recordings.suites[].setups_in_force.single_calls": (
+            "a",
+            gate.form(_SETUP),
+        ),
         "$.examined_through": ("a", time),
         "$.next.docs[].page": ("a", gate.form(_PAGE)),
         "$.next.docs[].anchor": ("a", gate.form(_ANCHOR)),

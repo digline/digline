@@ -118,6 +118,10 @@ class Listed:
     oversize: int
     unreadable: int
     examined_through: str | None
+    #: Of the eligible recordings, those under a setup that is not the one in
+    #: force for their form, and those setups, in the files' order.
+    under_earlier_setups: int = 0
+    earlier_setups: tuple[str, ...] = ()
 
 
 def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, object]:
@@ -140,6 +144,8 @@ def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, o
                 "single_calls": _short(listed.setups.get(False)),
                 "episodes": _short(listed.setups.get(True)),
             },
+            "under_earlier_setups": listed.under_earlier_setups,
+            "earlier_setups": [_short(digest) for digest in listed.earlier_setups],
             "samples": listed.samples,
             "deterministic_output": listed.deterministic_output,
             "groups": [

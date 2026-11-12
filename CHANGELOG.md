@@ -93,6 +93,14 @@ notes under them are this file, verbatim.
   the first reply. An empty reply and an object with a wrong field are not
   asked again (ADR 0004 §4, as noted 2026-11-12). Found in a Java application
   with a judged suite.
+- **`record status` and `record import` say how many recordings are under an
+  earlier setup.** Per suite, and at the head of the import's listing before
+  any answer: *N recordings under an earlier setup <setup>: an answer recorded
+  only there cannot be imported; in force: <setup>*, from the reading the
+  import makes. `--json` carries `under_earlier_setups` and `earlier_setups`,
+  and the status `setups_in_force`, keys recorded in `_ADDED`. Found in a Java
+  application with a judged suite, where a variable in the system prompt made
+  a setup per value.
 
 ## digline-mcp — unreleased
 
@@ -104,6 +112,10 @@ notes under them are this file, verbatim.
 - **`where` carries `idle_checks`**, the suite's checks no case is asked,
   as `digline where --json` does; under `--names project` each by the token
   its run carries.
+- **`record_listing` and `record_status` carry the recordings by setup**,
+  as the command line's `--json` does: `under_earlier_setups`,
+  `earlier_setups`, and per suite `setups_in_force`, setups by their eight
+  characters under either `--names`.
 
 ## 1.2.0 — 2026-11-10
 

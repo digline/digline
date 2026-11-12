@@ -48,6 +48,7 @@ from digline.host.importing import (
     group_setup_line,
     input_line,
     setup_line,
+    setups_said,
 )
 from digline.host.proposal import Mark, ProposalFile, ProposedBlock
 from digline.host.where import SuiteFound, record_lines
@@ -255,6 +256,9 @@ def recordings_page(
         _p(declaration.line(), "declaration"),
         _p(setup_line(found), "note"),
     ]
+    earlier = setups_said(found.read)
+    if earlier is not None:
+        body.append(_p(earlier, "note"))
     fields = import_fields(found)
     form = writes is not None and len(fields) > 1
     if form:

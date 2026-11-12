@@ -54,6 +54,16 @@ class SuiteRecordings:
     #: Recordings of the gate's own calls, made while a `digline run` was in
     #: progress (`origin: "gate"`), counted here and in none of the above.
     from_gate: int = 0
+    #: The setup in force per form, `single_calls` and `episodes`, as the
+    #: import holds it, `None` for a form with no eligible recording; the
+    #: eligible recordings under another setup, and those setups in the order
+    #: the files first show them. An answer recorded only under them cannot be
+    #: imported. (P-1671)
+    setups_in_force: Mapping[str, str | None] = field(
+        default_factory=dict[str, str | None]
+    )
+    under_earlier_setups: int = 0
+    earlier_setups: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -142,6 +152,15 @@ def _tenant_json(tenant: TenantRecorder) -> dict[str, object]:
                     "imported": suite.imported,
                     "since_last_import": suite.since_last_import,
                     "from_gate": suite.from_gate,
+                    "setups_in_force": {
+                        form: None if digest is None else digest[:8]
+                        for form, digest in (
+                            (form, suite.setups_in_force.get(form))
+                            for form in ("single_calls", "episodes")
+                        )
+                    },
+                    "under_earlier_setups": suite.under_earlier_setups,
+                    "earlier_setups": [digest[:8] for digest in suite.earlier_setups],
                 }
                 for suite in tenant.suites
             ],

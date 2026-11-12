@@ -683,6 +683,18 @@ write them all.
 
 An answer recorded only under an earlier setup is shown and cannot be written:
 a yes about an answer the setup in force did not give says nothing about it.
+**How many are under an earlier setup is said at the head**, before any
+answer, and by `digline record status` for each suite: *2 recordings under
+an earlier setup 1a2b3c4d: an answer recorded only there cannot be imported;
+in force: 5e6f7a8b*, with each form's setup where both have recordings. A
+recording under an earlier setup whose answer the setup in force also gave is
+still electable through that answer. `--json` carries the same, as
+`under_earlier_setups` and `earlier_setups`, and `record status --json`, per
+suite, `setups_in_force` beside them.
+
+> **Arrives with digline 1.3.** On 1.2.0 the head says nothing of it, and
+> each answer says *recorded only under earlier setups* on its own.
+
 **The setup in force is per form**, the newest among the episodes for an
 episode and among the single calls for a single call, and each group says
 its own under its heading, `setup in force for single calls: …`. An episode
