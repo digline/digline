@@ -18,7 +18,10 @@ run again at `1b5cf083`, where `where` says the next step in words and
 line `promote` prints when it refuses the second day's run was run a third
 time, at `d746ec12`, after #958 took the class's name out of it, against the
 same stand-in; the run key in it is the second run's, where the third named
-its own. **No call reached a model.** A
+its own. Two lines were added after those runs, with the code that prints
+them, and are what this page's replay prints there: `where`'s
+`idle_checks`, and the first of `run`'s notes on day two. **No call
+reached a model.** A
 stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
 stand-in's. **No IDE was driven**: the tool calls were made by a client of the
@@ -119,6 +122,7 @@ with the tenant alone, `{"tenant": "acme"}`, it answered:
   "last_import": null,
   "capture": null,
   "proposal": null,
+  "idle_checks": [],
   "next": {
     "say": "The recordings name suite category, and no suite declares where its captured cases go, so nothing reads them as cases. Write the suite with a capture declaration, or let an agent propose one by digline's method.",
     "command": null,
@@ -425,6 +429,7 @@ refusal, now for 5 answers judged 45 times. Of its answer:
   "key": "2026-11-07T14-18-40-132240-00-00-5540731bb0925c86",
   "sentence": "tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric",
   "notes": [
+    "length, latency_budget judge no case: every case is suspended, or is a calibration case or a reviewed answer for another check, so they measure nothing in this suite; give them a case, or remove them",
     "the judge contradicted a person on 1 reviewed answer"
   ],
   "errored_checks": 0,
@@ -439,8 +444,9 @@ refusal, now for 5 answers judged 45 times. Of its answer:
 }
 ```
 
-Its `notes` say what `digline run` says on standard error beside the bill:
-the judge contradicted a person. Which answer, and which way, `compare`
+Its `notes` say what `digline run` says on standard error: before the first
+call, that `length` and `latency_budget` judge no case, as day one found,
+and beside the bill, that the judge contradicted a person. Which answer, and which way, `compare`
 says. Of its answer:
 
 ```json
