@@ -417,8 +417,14 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/walkthroughs/java-quarkus-bedrock.md": {
-        "0.8.1": "'digline-bedrock 0.8.1': what the install line put in place when it was run on 2026-11-12, told as history in the sentence that dates it",
-        "0.9.1": "'digline-anthropic 0.9.1': what the install line put in place when it was run on 2026-11-12, told as history in the sentence that dates it",
+        "0.8.1": (
+            "'digline-bedrock 0.8.1': what the install line put in place when it was "
+            "run on 2026-11-12, told as history in the sentence that dates it"
+        ),
+        "0.9.1": (
+            "'digline-anthropic 0.9.1': what the install line put in place when it "
+            "was run on 2026-11-12, told as history in the sentence that dates it"
+        ),
         "2.57.8": (
             "'the SDK 2.57.8': the AWS SDK for Java v2 the story was run with, on "
             "2026-11-06, not a digline version; written by hand, and no test "
@@ -459,7 +465,11 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/walkthroughs/from-the-ide-over-mcp.md": {
-        "0.9.1": "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line put in place when it was run on 2026-11-12, told as history in the sentence that dates it",
+        "0.9.1": (
+            "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line "
+            "put in place when it was run on 2026-11-12, told as history in the "
+            "sentence that dates it"
+        ),
         "2.3.0": "the mcp SDK the story's client was run with, not a digline one",
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
@@ -1015,10 +1025,23 @@ RECORDED: dict[str, dict[str, str]] = {
         "page",
     },
     "docs/mcp.md": {
-        "0.13.7": "'with uv 0.13.7': the uv the lines were run with on 2026-11-12, not a digline version",
-        "2.1.322": "'Claude Code 2.1.322': the Claude Code the lines were run with on 2026-11-12, not a digline version",
-        "0.9.1": "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line put in place when it was run on 2026-11-12, told as history in the sentence that dates it",
-        "0.8.1": "'digline-bedrock 0.8.1': what the install line put in place when it was run on 2026-11-12, told as history in the sentence that dates it",
+        "0.13.7": (
+            "'with uv 0.13.7': the uv the lines were run with on 2026-11-12, not a "
+            "digline version"
+        ),
+        "2.1.322": (
+            "'Claude Code 2.1.322': the Claude Code the lines were run with on "
+            "2026-11-12, not a digline version"
+        ),
+        "0.9.1": (
+            "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line "
+            "put in place when it was run on 2026-11-12, told as history in the "
+            "sentence that dates it"
+        ),
+        "0.8.1": (
+            "'digline-bedrock 0.8.1': what the install line put in place when it was "
+            "run on 2026-11-12, told as history in the sentence that dates it"
+        ),
         "0.16.0": "'Since 0.16.0 the run document marks…' — the release the "
         "instrument's own flags began crossing, told as history on the page "
         "that also records, dated, what it used to promise instead",
