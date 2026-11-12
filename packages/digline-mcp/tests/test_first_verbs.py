@@ -450,6 +450,47 @@ def test_where_refuses_a_tenant_the_suite_does_not_declare(root: Path) -> None:
     assert "does not match the suite" in said
 
 
+def _where_on_a_server_started_for(
+    root: Path, tenant: str | None, **arguments: Any
+) -> dict[str, Any]:
+    async def go() -> dict[str, Any]:
+        server = build_server(str(root), tenant, None, names="clear", table=None)
+        result = await server.call_tool("where", arguments)
+        assert isinstance(result, CallToolResult)
+        assert result.structured_content is not None
+        return dict(result.structured_content)
+
+    return anyio.run(go)
+
+
+def test_where_without_a_tenant_reads_the_server_s(tmp_path: Path) -> None:
+    """`tenant` is optional, as in `record_status`: the server's `--tenant`
+    stands in for it, and the answer is the command line's with the tenant
+    named."""
+    write_suite(tmp_path)
+    record(tmp_path, *EARLY)
+    printed = cli_json(tmp_path, "where", "--tenant", TENANT, "--json")
+    assert _where_on_a_server_started_for(tmp_path, TENANT) == printed
+    assert _where_on_a_server_started_for(tmp_path, TENANT, suite=SUITE) == cli_json(
+        tmp_path, "where", "--tenant", TENANT, "--suite", SUITE, "--json"
+    )
+
+
+def test_where_without_any_tenant_takes_the_suite_s(tmp_path: Path) -> None:
+    write_suite(tmp_path)
+    record(tmp_path, *EARLY)
+    printed = cli_json(
+        tmp_path, "where", "--tenant", TENANT, "--suite", SUITE, "--json"
+    )
+    assert server_call(tmp_path, "where", suite=SUITE) == printed
+
+
+def test_where_with_no_tenant_anywhere_says_tenant_is_missing(root: Path) -> None:
+    said = server_refusal(root, "where")
+    assert "where needs a tenant" in said
+    assert "--tenant" in said
+
+
 # No model, and nothing written.
 
 

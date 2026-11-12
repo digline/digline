@@ -16,6 +16,14 @@ notes under them are this file, verbatim.
   `docs/record-java.md` says dev mode's reload is covered. Found in a Java
   application with a judged suite.
 
+## digline-mcp — unreleased
+
+- **`where`'s `tenant` is optional, as `record_status`'s is.** Without it,
+  `where` reads the tenant the server was started for with `--tenant`, and
+  with neither, the one the named suite declares. With no tenant anywhere and
+  no suite, it refuses and says so. A tenant given still verifies and never
+  overrides.
+
 ## 1.2.0 — 2026-11-10
 
 digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare

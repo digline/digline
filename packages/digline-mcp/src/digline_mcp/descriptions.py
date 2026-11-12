@@ -199,9 +199,10 @@ runs `digline register` and puts the reason in the commit message."""
 WHERE = """\
 Where the project is, read from `.digline/`: the first of eleven states that
 holds, the counts that put it there, the command for the next step and the
-pages that say more. `tenant` is the tenant whose recordings are read; with
-`suite`, a suite file inside this repository, the states about its runs can
-hold too.
+pages that say more. `tenant` is the tenant whose recordings are read; without
+it, the tenant this server was started for, and with neither, the one `suite`
+declares. With `suite`, a suite file inside this repository, the states about
+its runs can hold too.
 
 Equivalent on the command line: `digline where --tenant <tenant> --suite
 <suite> --json`, which returns this same answer.
