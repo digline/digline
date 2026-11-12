@@ -573,3 +573,23 @@ def test_under_project_the_plugins_installed_are_withheld(root: Path) -> None:
     projected = server_call(root, "suggest", table=RecordingTable(), **arguments)
     assert projected["judge"]["plugins"] == []
     assert projected["judge"]["check"] != "llm_rubric"
+
+
+def test_where_names_a_check_no_case_is_asked_by_its_token_under_project() -> None:
+    """`idle_checks` holds names of the suite's checks: in clear under
+    `clear`, and under `project` each by the token its run carries, as every
+    other check's name this server answers with."""
+    from digline_mcp.recordings import where_answer
+
+    def mint(kind: str, value: str) -> str:
+        return f"<{kind}>"
+
+    def document() -> dict[str, Any]:
+        return {"shapes": [], "idle_checks": ["contains", "llm_rubric[group=en]"]}
+
+    assert where_answer(document(), mint=None)["idle_checks"] == [
+        "contains",
+        "llm_rubric[group=en]",
+    ]
+    projected = where_answer(document(), mint=mint)["idle_checks"]
+    assert projected == ["<verdict_name>", "<verdict_name>[group=<group>]"]

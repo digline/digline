@@ -15,6 +15,16 @@ notes under them are this file, verbatim.
   Each load of the class now takes a name of its own, and
   `docs/record-java.md` says dev mode's reload is covered. Found in a Java
   application with a judged suite.
+- **A check that judges no case is said.** Where every case of a suite is
+  suspended, or is a calibration case or a reviewed answer for another check,
+  a declared check is asked of no case and measures nothing, while its name in
+  the suite reads as if it did. `digline run`, `rejudge`, MCP's `run` and
+  `pytest --digline-run` now say it before the first call, among the suite's
+  notes (*contains judges no case: …*), and `digline where` carries the names
+  among its facts: `idle_checks` in `--json`, a list, empty where every check
+  has a case or no suite was given, and a line in the text. Said, never
+  refused: no exit code moves. Found in a Java application with a judged
+  suite.
 - **A judge's reply with `\'` inside a string is read.** JSON has no such
   escape, and a model writes it for an apostrophe; `loads_lenient` read the
   whole reply as an error. After the reply fails to parse as it was, that one
@@ -41,6 +51,9 @@ notes under them are this file, verbatim.
   with neither, the one the named suite declares. With no tenant anywhere and
   no suite, it refuses and says so. A tenant given still verifies and never
   overrides.
+- **`where` carries `idle_checks`**, the suite's checks no case is asked,
+  as `digline where --json` does; under `--names project` each by the token
+  its run carries.
 
 ## 1.2.0 — 2026-11-10
 

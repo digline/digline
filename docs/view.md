@@ -166,7 +166,10 @@ reading for a program: the state, its count, the shapes of `no_suite_yet`
 and, in that state alone, `proposal`, the path of a proposal nobody adopted
 relative to the root or `null`,
 the newest run's key and exit code where the state read one, the last import,
-the next step's command and the pages. The MCP server's `where` returns it,
+`idle_checks`, the suite's checks that no case is asked, by name, in every
+state (a list, empty where every check has a case or no suite was given;
+the text says them on a line of their own), the next step's command and the
+pages. The MCP server's `where` returns it,
 equal field for field ([digline over MCP](mcp.md)). It exits 0 whenever it
 could read the store: it is a reading, not a gate.
 

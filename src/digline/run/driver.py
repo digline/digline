@@ -66,7 +66,13 @@ from digline.core.run import (
     record_tools,
     step_calls,
 )
-from digline.run.suite import Calibration, Case, ReviewedAnswer, Suite
+from digline.run.suite import (
+    Calibration,
+    Case,
+    ReviewedAnswer,
+    Suite,
+    checks_asked,
+)
 
 __all__ = [
     "Billable",
@@ -1139,25 +1145,10 @@ def _review(
 
 
 def _asked(suite: Suite, case: Case) -> frozenset[str]:
-    """The identities `_run_case` puts to `case`, read off the same conditions
-    that choose its branch, in the same order.
-
-    A suspended case is asked nothing, a calibration case its one check, and
-    every other case — a canary included — every declared assertion. This is
-    the dispatch read back rather than a list of exclusions, so a new kind of
-    case is a new branch here and in `_run_case`, side by side, and nothing
-    else has to learn about it. (ADR 0027 §1)
-    """
-    if case.suspended is not None:
-        return frozenset()
-    if case.calibration is not None:
-        return frozenset({suite.calibrated(case.calibration).identity})
-    if case.reviewed_answer is not None:
-        answer = case.reviewed_answer
-        return frozenset(
-            a.identity for a in (suite.reviewed(answer), *suite.on_the_steps(answer))
-        )
-    return frozenset(a.identity for a in suite.assertions)
+    """The identities `_run_case` puts to `case`: `checks_asked`, which reads
+    them off the same conditions that choose its branch, beside the suite so
+    that `idle_checks` reads the same dispatch. (ADR 0027 §1)"""
+    return checks_asked(suite, case)
 
 
 def _reconciled(suite: Suite, results: Sequence[CaseResult]) -> list[CaseResult]:

@@ -1831,6 +1831,16 @@ def cmd_where(args: argparse.Namespace) -> int:
     say(where_said(found, suite_named=suite is not None, locale=args.locale))
     for shape, count in found.shapes:
         say(f"  {shape.says()} · {count}")
+    # A fact beside the state: a check no case is asked gates nothing, in any
+    # state. (`digline.run.suite.idle_checks`)
+    if found.idle_checks:
+        say(
+            phrase(
+                args.locale,
+                "view.where.idle_checks",
+                checks=", ".join(found.idle_checks),
+            )
+        )
     command = where_command(found, args.suite, flags)
     if command:
         say(f"{phrase(args.locale, 'view.where.command')}: {shlex.join(command)}")

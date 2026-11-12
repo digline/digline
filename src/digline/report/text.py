@@ -923,6 +923,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.where.suites": "The suites tenant {tenant} holds",
         "view.where.suite_found": "{suite}: {recordings} recording(s), {runs} run(s)",
         "view.title.where": "Where you are — {suite}",
+        "view.where.idle_checks": "Checks that judge no case: {checks}",
         "view.where.command": "The command",
         "view.where.docs": "The page that says more",
         "view.where.open": "Open it here",
@@ -2671,6 +2672,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{suite}: {recordings} registrazione/i, {runs} esecuzione/i"
         ),
         "view.title.where": "Dove sei — {suite}",
+        "view.where.idle_checks": "Controlli che non giudicano nessun caso: {checks}",
         "view.where.command": "Il comando",
         "view.where.docs": "La pagina che dice di più",
         "view.where.open": "Aprila qui",

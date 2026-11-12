@@ -101,9 +101,14 @@ def listing_answer(document: dict[str, Any], *, mint: Minter | None) -> dict[str
 
 def where_answer(document: dict[str, Any], *, mint: Minter | None) -> dict[str, Any]:
     """`where_json`, and under `project` each shape's finish as `_finish`
-    lets it through."""
+    lets it through, and each check no case is asked by its token."""
     for shape in cast(list[dict[str, Any]], document["shapes"]):
         _finish(shape, mint)
+    if mint is not None:
+        document["idle_checks"] = [
+            project_check_name(str(check), mint)
+            for check in cast(list[object], document["idle_checks"])
+        ]
     return document
 
 

@@ -1695,6 +1695,10 @@ _ADDED: tuple[_AddedKey, ...] = (
         _k("string", "null", optional=True),
         "ADR 0063, the read-only view ruled 2026-11-09",
     ),
+    # The suite's checks no case is asked, by name, in every state; an empty
+    # list where every check has a case or no suite was given. Added for a
+    # check left with no case in a Java application with a judged suite.
+    _AddedKey("where", "idle_checks", _STRINGS, "a check no case is asked, 2026-11-12"),
     *_shape_added(
         "import_listing",
         {
