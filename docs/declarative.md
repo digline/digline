@@ -43,6 +43,18 @@ max_usd = 0.02
 tolerance = 0.05
 ```
 
+**Two numbers every check carries.** A check scores each case between 0 and 1,
+and **`threshold`** is the score it must reach to pass: a `cost_budget` passes
+at `0.5` unless it says otherwise, and a `contains` at `1.0`. **`tolerance`**
+is read later, by `digline compare`, against the reference: a score that moved
+by no more than the tolerance is *unchanged*, and one that dropped further,
+and beyond the noise the reference measured where it measured any, *got
+worse*. It is what a reviewer decided is acceptable. A judge's check has no
+default for either, and a budget none for its tolerance, because there no
+default could be right ([API reference](api.md#the-assertions)). Where a judge gives the score, how
+far to trust it, and so where to put both numbers, is
+[calibrating the judge](calibration.md).
+
 ```json
 [
   {"id": "where-is-my-order", "vars": {"question": "Where is order 4821?"}},
