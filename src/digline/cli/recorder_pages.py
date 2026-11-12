@@ -258,7 +258,7 @@ def recordings_page(
         _p(declaration.line(), "declaration"),
         _p(setup_line(found), "note"),
     ]
-    earlier = setups_said(found.read)
+    earlier = setups_said(found.by_setup)
     if earlier is not None:
         body.append(_p(earlier, "note"))
     fields = import_fields(found)

@@ -254,7 +254,7 @@ class ImportListing:
     examined_through: str | None
     #: The recordings by setup, which the listing says at its head: those
     #: under an earlier setup, and the setup in force.
-    read: SetupsRead = field(
+    by_setup: SetupsRead = field(
         default_factory=lambda: SetupsRead(
             in_force={True: None, False: None}, earlier=(), under_earlier=0
         )
@@ -591,8 +591,8 @@ def listed(listing: ImportListing) -> Listed:
         oversize=listing.oversize,
         unreadable=listing.unreadable,
         examined_through=listing.examined_through,
-        under_earlier_setups=listing.read.under_earlier,
-        earlier_setups=listing.read.earlier,
+        under_earlier_setups=listing.by_setup.under_earlier,
+        earlier_setups=listing.by_setup.earlier,
     )
 
 
@@ -693,7 +693,7 @@ def import_listing(
         oversize=split.oversize,
         unreadable=unreadable,
         examined_through=max(stamps, key=instant_of) if stamps else None,
-        read=setups_read(split.eligible),
+        by_setup=setups_read(split.eligible),
     )
 
 
@@ -1061,7 +1061,7 @@ def listing_lines(found: ImportListing) -> list[str]:
     lines = [found.declaration.line(), f"  {setup_line(found)}"]
     # At the head, before any answer: how many recordings sit under an
     # earlier setup, and which setup is in force. (P-1671)
-    earlier = setups_said(found.read)
+    earlier = setups_said(found.by_setup)
     if earlier is not None:
         lines.append(f"  {earlier}")
     for number, group in enumerate(found.groups, start=1):
