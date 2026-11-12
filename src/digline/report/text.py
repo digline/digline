@@ -136,6 +136,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "run hold a different check under each name: {pairs}. Whether each "
             "was changed or replaced, the two documents cannot say."
         ),
+        # The way back in line, after what the two documents cannot say: the
+        # run made the reference, which `promote` does not refuse for this.
+        "fact.unpaired.step": (
+            "If the change was meant, make this run the reference to compare "
+            "them again: digline promote --suite <suite> --run {run} "
+            "--replacing {reference}."
+        ),
         "fact.unpaired.pair": (
             "{case} · {check}, {before} in the reference and {after} here"
         ),
@@ -1970,6 +1977,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "e questa esecuzione hanno un controllo diverso sotto ciascun nome: "
             "{pairs}. Se ciascuno sia stato modificato o sostituito, i due "
             "documenti non possono dirlo."
+        ),
+        "fact.unpaired.step": (
+            "Se il cambiamento era voluto, rendi questa esecuzione il riferimento "
+            "per confrontarli di nuovo: digline promote --suite <suite> --run "
+            "{run} --replacing {reference}."
         ),
         "fact.unpaired.pair": (
             "{case} · {check}, {before} nel riferimento e {after} qui"

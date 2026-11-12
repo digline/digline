@@ -801,15 +801,25 @@ def errored_verdicts(run: Run) -> tuple[ErroredVerdict, ...]:
 
 
 def _unpaired_text(
-    pairs: Sequence[tuple[AssertionDelta, AssertionDelta]], locale: Locale
+    pairs: Sequence[tuple[AssertionDelta, AssertionDelta]],
+    locale: Locale,
+    *,
+    run: Run,
+    baseline: Run,
 ) -> str:
     """The clause for the checks `compare()` could not pair, or empty.
 
     Each pair says where it is, what each side scored and whether it passed,
     and which of the bar's two values differ between the two verdicts: the
-    facts both documents hold. It ends on what they do not, whether the check
+    facts both documents hold. It says what they do not, whether the check
     was edited or replaced, because a clause that guessed would be the
     fabricated cause the rules table refuses. (#642)
+
+    And it ends on the way back in line: this run made the reference, with
+    the command that does it, naming both keys. `promote` does not refuse a
+    run for `unpaired` (`refusal_for_unaccepted_pins`), so the step it names
+    is one the store takes. The suite is `<suite>`, because a document does
+    not know the file it was run from.
     """
     if not pairs:
         return ""
@@ -840,12 +850,19 @@ def _unpaired_text(
                     after=fmt_score(now),
                 )
         described.append(text)
-    return phrase(
+    said = phrase(
         locale,
         f"fact.unpaired.{'one' if len(pairs) == 1 else 'many'}",
         count=len(pairs),
         pairs="; ".join(described),
     )
+    step = phrase(
+        locale,
+        "fact.unpaired.step",
+        run=key_of(run.created_at, run.config_hash),
+        reference=key_of(baseline.created_at, baseline.config_hash),
+    )
+    return f"{said} {step}"
 
 
 def _unpaired_state(verdict: Verdict, locale: Locale) -> str:
@@ -921,7 +938,7 @@ def headline(
     # Read off the causes like every flag that is one, so the clause, the count
     # and the code cannot disagree about whether a check went unpaired.
     pairs = unpaired(comparison) if "unpaired" in causes else ()
-    unpaired_text = _unpaired_text(pairs, locale)
+    unpaired_text = _unpaired_text(pairs, locale, run=run, baseline=baseline)
 
     suspended = suspended_cases(run)
 

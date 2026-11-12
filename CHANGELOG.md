@@ -20,6 +20,13 @@ notes under them are this file, verbatim.
   whole reply as an error. After the reply fails to parse as it was, that one
   escape is read as `'`, and nothing else is repaired: a reply broken any
   other way is still an error.
+- **A check that was not compared says how to compare it again.** The
+  sentence *N checks were not compared … the two documents cannot say* now
+  ends on the step back in line: if the change was meant, make this run the
+  reference, `digline promote --suite <suite> --run <run> --replacing
+  <reference>`, with both keys written in. `promote` does not refuse a run
+  for this cause (#642). A line `digline compare` prints changed; the guide
+  quotes it, and the README does not.
 
 ## digline-mcp — unreleased
 
