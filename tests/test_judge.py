@@ -349,11 +349,15 @@ def test_a_call_that_raises_is_not_counted() -> None:
 
 def test_an_unparseable_reply_still_counted_the_call() -> None:
     """The opposite case, and the reason the two are separate: the provider
-    answered and billed for it. What failed was the reading."""
+    answered and billed for it. What failed was the reading.
+
+    *Since ADR 0004 §4's note of 2026-11-12* a reply with no JSON object is
+    asked for once more, so the canned prose is two calls, both billed. Until
+    then this held `judge.calls == 1` and `spent_usd == 1.0`."""
     judge = FakeScoreJudge("no JSON here")
     with pytest.raises(ValueError):
         judge("p")
-    assert judge.calls == 1 and judge.spent_usd == pytest.approx(1.0)
+    assert judge.calls == 2 and judge.spent_usd == pytest.approx(2.0)
 
 
 def test_an_unpriced_model_is_refused_by_preflight() -> None:

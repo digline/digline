@@ -86,6 +86,13 @@ notes under them are this file, verbatim.
   `REQUESTS_CA_BUNDLE` names beside it. Until now the proxy went to the
   upstream directly, so behind a company proxy every call was a 502. Found in a
   Java application with a judged suite.
+- **A judge that answers in prose is asked once more for the object.** Where
+  a reply holds no JSON object, a second call quotes it and asks for the
+  object alone, timed, priced and counted on the judge's line like the first.
+  Where that holds none either, the sample is an `error` whose reason quotes
+  the first reply. An empty reply and an object with a wrong field are not
+  asked again (ADR 0004 §4, as noted 2026-11-12). Found in a Java application
+  with a judged suite.
 
 ## digline-mcp — unreleased
 
