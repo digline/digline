@@ -77,6 +77,15 @@ notes under them are this file, verbatim.
   was, and the `--resume` command that finishes it, the cases already paid for
   kept. `execute(max_cost=…)` is the library's form, raising
   `CostCeilingReached`. A new line `digline run` prints on standard error.
+- **`digline record proxy` goes through a company proxy.** An HTTPS upstream
+  is reached through the proxy `HTTPS_PROXY` names, with a `CONNECT` tunnel and
+  the proxy URL's credentials as `Proxy-Authorization`, except a host
+  `NO_PROXY` names; the start line says which routes go through it, never the
+  credentials. The upstream's certificate is checked against Python's default
+  store, which `SSL_CERT_FILE` and `SSL_CERT_DIR` replace, and the bundle
+  `REQUESTS_CA_BUNDLE` names beside it. Until now the proxy went to the
+  upstream directly, so behind a company proxy every call was a 502. Found in a
+  Java application with a judged suite.
 
 ## digline-mcp — unreleased
 

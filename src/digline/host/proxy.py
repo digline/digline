@@ -38,12 +38,16 @@ that cannot be reached, or answers with a reply that is not HTTP, a 502.
 
 from __future__ import annotations
 
+import base64
 import gzip
 import http.client
 import json
+import os
+import ssl
 import sys
 import threading
 import time
+import urllib.request
 import zlib
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -51,7 +55,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlsplit
+from urllib.parse import SplitResult, unquote, urlsplit
 
 from digline.host.errors import UsageError
 from digline.recorder import WIRE_GROUP, RecordingWire, WireRecorder
@@ -108,6 +112,80 @@ _HOP = frozenset(
 )
 
 _OURS = "x-digline-"
+
+
+def upstream_proxy(host: str) -> SplitResult | None:
+    """The company proxy an HTTPS call to `host` goes through, or `None`.
+
+    `HTTPS_PROXY` (or `https_proxy`), unless `NO_PROXY` (or `no_proxy`) names
+    the host, read as the clients the plugins drive read them: the
+    environment's own variables, never a machine's system settings, so the
+    route is the same on every machine that has the same environment. A proxy
+    is reached over plain HTTP and asked to `CONNECT`, which is what an
+    `http://` proxy URL means.
+    """
+    found = urllib.request.getproxies_environment().get("https")
+    if not found or _bypassed(host):
+        return None
+    if "://" not in found:
+        found = "http://" + found
+    return urlsplit(found)
+
+
+def _bypassed(host: str) -> bool:
+    """Whether `NO_PROXY` (or `no_proxy`) names `host`, by the rule curl and
+    requests read it with: `*` names every host, and an entry names the host
+    itself and every host under it, with or without a leading dot. A port in
+    an entry is not read."""
+    listed = os.environ.get("NO_PROXY") or os.environ.get("no_proxy") or ""
+    host = host.lower().rstrip(".")
+    for entry in listed.split(","):
+        name = entry.strip().lower().split(":")[0].lstrip(".")
+        if name == "*" or (name and (host == name or host.endswith("." + name))):
+            return True
+    return False
+
+
+def upstream_tls() -> ssl.SSLContext:
+    """The certificates an upstream is checked against: Python's default
+    store, which `SSL_CERT_FILE` and `SSL_CERT_DIR` replace, as httpx reads
+    them for Anthropic's and OpenAI's SDKs, and beside it the bundle
+    `REQUESTS_CA_BUNDLE` names, as botocore reads it for Bedrock's."""
+    context = ssl.create_default_context()
+    bundle = os.environ.get("REQUESTS_CA_BUNDLE")
+    if bundle:
+        context.load_verify_locations(cafile=bundle)
+    return context
+
+
+def upstream_connection(
+    target: SplitResult, timeout: float
+) -> http.client.HTTPConnection:
+    """The connection a call goes to its upstream on: straight to it, or, for
+    an HTTPS upstream `upstream_proxy` routes, through the company proxy with
+    a `CONNECT` tunnel, the proxy's credentials, where its URL has them, sent
+    as `Proxy-Authorization`. TLS runs end to end with the upstream, checked
+    by `upstream_tls`. An `http://` upstream, a gateway on the machine's own
+    network, is reached directly."""
+    host, port = target.hostname or "", target.port
+    if target.scheme != "https":
+        return http.client.HTTPConnection(host, port, timeout=timeout)
+    via = upstream_proxy(host)
+    if via is None:
+        return http.client.HTTPSConnection(
+            host, port, timeout=timeout, context=upstream_tls()
+        )
+    connection = http.client.HTTPSConnection(
+        via.hostname or "", via.port or 80, timeout=timeout, context=upstream_tls()
+    )
+    headers: dict[str, str] = {}
+    if via.username is not None:
+        pair = f"{unquote(via.username)}:{unquote(via.password or '')}"
+        headers["Proxy-Authorization"] = "Basic " + base64.b64encode(
+            pair.encode()
+        ).decode("ascii")
+    connection.set_tunnel(host, port or 443, headers=headers)
+    return connection
 
 
 def load_wires() -> dict[str, RecordingWire]:
@@ -443,11 +521,7 @@ class _Handler(BaseHTTPRequestHandler):
         gate = self.recorder.gate_now() if records else (None, None)
         if records:
             self.recorder.begin(episode)
-        connection = (
-            http.client.HTTPSConnection
-            if target.scheme == "https"
-            else http.client.HTTPConnection
-        )(target.hostname or "", target.port, timeout=self.timeout_s)
+        connection = upstream_connection(target, self.timeout_s)
         try:
             try:
                 connection.request(

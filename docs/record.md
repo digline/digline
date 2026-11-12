@@ -470,24 +470,37 @@ application's own code between two calls, and a tool the application runs
 without sending its result back to the model: the last call's tool steps, and
 any whose result never reaches the model, stay `not_reported`.
 
-**Behind a corporate proxy, or a CA of the company's.** What follows was
-measured on 2026-11-12, at `2aaae91d` with Python 3.14.5, against an upstream
-on the same machine whose certificate a private CA had signed:
+**Behind a corporate proxy, or a CA of the company's.** The proxy reads the
+environment the provider SDKs read:
 
-- **The proxy goes to the upstream directly.** It does not read `HTTPS_PROXY`,
-  `HTTP_PROXY` or `NO_PROXY`: with `HTTPS_PROXY` naming a listener, the call
-  reached the upstream and nothing connected to the listener. Where the network
-  lets HTTPS out only through a company proxy, the provider cannot be reached,
-  and each call is a 502, *the upstream cannot be reached*, with the reason.
-  `--upstream ROUTE=URL` naming an endpoint the machine reaches directly, an
-  internal gateway, is the way through.
-- **It checks the upstream's certificate against Python's default store**, and
-  `SSL_CERT_FILE` in its environment names another. Without it the call was a
-  502 whose reason said `CERTIFICATE_VERIFY_FAILED`; with
-  `SSL_CERT_FILE=/path/to/company-ca.pem` it was a 200 and the reply passed on.
+- **`HTTPS_PROXY`** (or `https_proxy`) names the company proxy an HTTPS upstream
+  is reached through, with a `CONNECT` tunnel; TLS still runs end to end with
+  the provider. Credentials in the proxy's URL, `http://user:password@proxy:3128`,
+  are sent as `Proxy-Authorization` and never said. **`NO_PROXY`** (or
+  `no_proxy`) names hosts reached directly, as curl reads it: `*` for every
+  host, and an entry for the host and every host under it. An `http://`
+  upstream, a gateway on the machine's own network, is reached directly. A
+  route that goes through the proxy says so on its start line, *route openai:
+  https://api.openai.com/v1, through proxy.corp:3128 (HTTPS_PROXY)*.
+- **The upstream's certificate** is checked against Python's default store,
+  which `SSL_CERT_FILE` or `SSL_CERT_DIR` replaces, as httpx reads them for
+  Anthropic's and OpenAI's SDKs, and against the bundle `REQUESTS_CA_BUNDLE`
+  names beside it, as botocore reads it for Bedrock's.
 - **To check a setup**, start the proxy with that environment and make one call
   of the application through it: a 200 is the route working, and a 502 names
-  which of the two failed, the network or the certificate.
+  what failed, the network or the certificate.
+
+`tests/test_record_proxy_company_network.py` holds the four against a fake
+company proxy that counts the tunnels it is asked for, and an upstream whose
+certificate a private CA signed: through `HTTPS_PROXY`, one `CONNECT` and a
+200; around it by `NO_PROXY`, none; the CA by `SSL_CERT_FILE` or
+`REQUESTS_CA_BUNDLE`, a 200, and without either a 502 that says
+`CERTIFICATE_VERIFY_FAILED`.
+
+> **Arrives with digline 1.3.** On 1.2.0 the proxy goes to the upstream
+> directly and reads neither `HTTPS_PROXY`, `NO_PROXY` nor
+> `REQUESTS_CA_BUNDLE`: measured on 2026-11-12 at `2aaae91d`, nothing connected
+> to the listener `HTTPS_PROXY` named. `SSL_CERT_FILE` it reads.
 
 The judge's calls do not go through it. `digline-bedrock`'s judge builds its
 boto3 client with the region alone and passes no proxy and no CA, so they

@@ -243,10 +243,10 @@ not measured here.
 
 What does open connections is the Python side: `digline record proxy`, for a
 client the files do not hook, and the judge a suite calls. The proxy goes to
-the provider directly, without `HTTPS_PROXY`, and reads a company CA from
-`SSL_CERT_FILE`; that was measured, and
+the provider through `HTTPS_PROXY` where it is set, and reads a company CA
+from `SSL_CERT_FILE` or `REQUESTS_CA_BUNDLE`;
 [its section](record.md#through-the-proxy-digline-record-proxy) says how, and
-how to check it. The judge's calls are its provider SDK's, boto3 for
+how to check it. On 1.2.0 it goes to the provider directly. The judge's calls are its provider SDK's, boto3 for
 `digline-bedrock`, with no proxy or CA set by digline.
 
 ## With LangChain4j or Quarkus: the proxy

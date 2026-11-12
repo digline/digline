@@ -1586,6 +1586,10 @@ def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
     it. The recording line is the switch the proxy read, which
     `DIGLINE_RECORD=1` gives where no file does: the status reads the file
     alone."""
+    from urllib.parse import urlsplit
+
+    from digline.host.proxy import upstream_proxy
+
     [status] = recorder_status(root, tenant)
     switch = proxy.recorder.switch
     say(f"digline record proxy: listening on {proxy.address}")
@@ -1608,6 +1612,16 @@ def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
             where = wire.upstream
         else:
             where = f"{upstream} (--upstream)"
+        # The company proxy a route goes through, by host and port: its
+        # credentials, where its URL has them, are never said. (P-1671)
+        target = urlsplit(upstream or wire.upstream)
+        via = (
+            upstream_proxy(target.hostname or "")
+            if problem is None and target.scheme == "https"
+            else None
+        )
+        if via is not None:
+            where += f", through {via.hostname}:{via.port or 80} (HTTPS_PROXY)"
         say(f"  route {route}: {where}")
     if not proxy.wires:
         say("  no route: install digline-openai, digline-anthropic or digline-bedrock")
