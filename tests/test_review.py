@@ -254,17 +254,17 @@ def test_an_answer_already_reviewed_is_shown_as_such_and_offered_no_button(
 
 
 def test_next_writes_nothing_and_skips_what_is_reviewed(writing: Served) -> None:
-    assert press(writing, LONG_ID, "good", "Ada")[0] == 303
+    """The second answer waiting is reviewed; the first's *next* goes to the
+    third, past it, and following it writes nothing."""
+    waiting = [a for a in review_order(listing(writing.root)) if a.electable]
+    assert len(waiting) >= 3, [a.id for a in waiting]
+    first, second, third = waiting[:3]
+    assert press(writing, second.id, "good", "Ada")[0] == 303
     before = tree(writing.root)
-    found = listing(writing.root)
-    first = review_order(found)[0]
     page = writing.ask("GET", review_address("acme", "triage", first.id)).body
-    links = [
-        urllib.parse.unquote(link.split("?")[0])
-        for link in page.split('href="')[1:]
-        if link.startswith("/review/")
-    ]
-    assert f"/review/acme/triage/{LONG_ID}" not in links
+    following = review_address("acme", "triage", third.id)
+    assert f'href="{following}?locale=' in page
+    assert writing.ask("GET", following).status == 200
     assert tree(writing.root) == before
 
 
