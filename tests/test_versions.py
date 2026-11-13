@@ -116,7 +116,34 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
+    "docs/record.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
+    },
+    "docs/metrics.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
+    },
+    "docs/calibration.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
+    },
     "docs/record-java.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it; and, in the proxy's section, "
+            "what 1.2.0 does with a company proxy, measured on 2026-11-12"
+        ),
         "1.1.1": (
             "'installed digline 1.1.1 and digline-openai 0.7.0': what the "
             "install line put in place when it was run again, on 2026-11-10, "
@@ -410,6 +437,11 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/walkthroughs/java-quarkus-bedrock.md": {
+        "1.2.0": (
+            "the digline the walkthrough was run with on 2026-11-12, and the "
+            "tag its recorder's files were taken from: what was run, told as "
+            "history"
+        ),
         "0.8.1": (
             "'digline-bedrock 0.8.1': what the install line put in place when it was "
             "run on 2026-11-12, told as history in the sentence that dates it"
@@ -458,6 +490,12 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/walkthroughs/from-the-ide-over-mcp.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it; and the digline the "
+            "walkthrough installed when it was run, told as history"
+        ),
         "0.9.1": (
             "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line "
             "put in place when it was run on 2026-11-12, told as history in the "
@@ -467,6 +505,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "1.2.0": (
+            "the release before 1.3.0, told as history: its paragraph in the "
+            "Status block, with the tags, the index, the image, the examples "
+            "and the action it moved, and the named tags after it"
+        ),
         "1.12.0": (
             "not a digline version: digline-action's tag v1.12.0, the one v1 "
             "moved to for digline 1.2.0, in v1.2.0's paragraph of the Status "
@@ -965,6 +1008,11 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/explain.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
         "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
@@ -1018,6 +1066,10 @@ RECORDED: dict[str, dict[str, str]] = {
         "page",
     },
     "docs/mcp.md": {
+        "1.2.0": (
+            "'installed digline-mcp 0.9.1 beside digline 1.2.0': what the "
+            "install line put in place when it was run, told as history"
+        ),
         "0.13.7": (
             "'with uv 0.13.7': the uv the lines were run with on 2026-11-12, not a "
             "digline version"
@@ -1040,11 +1092,21 @@ RECORDED: dict[str, dict[str, str]] = {
         "that also records, dated, what it used to promise instead",
     },
     "docs/guide.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
         "0.15.3": "'has since `0.15.3` closed GHSA-8c38-f965-cgww' — the release "
         "that closed the fifth advisory, told as history in chapter 6 where a "
         "hand-computed median meets the same denominator",
     },
     "docs/api.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
         "0.34.0": "'Measured on digline 0.34.0', 'including 0.34.0' and the keys "
         "added under version 3 that 'shipped under it in 0.34.0' — the release "
         "a measurement was made on, the last release before a repair, and the "
@@ -1077,6 +1139,11 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "SECURITY.md": {
+        "1.2.0": (
+            "the release that fixed the three advisories the delta-pass over "
+            "1.1.1 found: a record of which release fixed them, not a claim "
+            "about the current one"
+        ),
         "0.9.1": (
             "digline-anthropic's release that fixes its half of "
             "GHSA-v7r8-xg2j-wjx4: a record of which release fixed it, not a "
@@ -1522,6 +1589,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "sends API version 2026-10-21, which refuses `temperature` with a 400",
     },
     "docs/declarative.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
         "1.0.0": "'since 1.0.0' — not a digline version: the `anthropic` SDK "
         "release whose `Messages.create` first has no `temperature`. It left "
         "this table while digline was 1.0.0 itself, and is registered again "
