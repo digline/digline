@@ -427,7 +427,7 @@ Under [`--allow-record`](#-allow-record) come two buttons, `--good` and
 answer**, through `import_listing` and `import_elect`, the path
 `digline record import` takes, and under each button is the command it runs:
 
-```console
+```sh
 digline record import --tenant acme --suite eval/suite.py --good cap-… --by 'Ada Lovelace'
 ```
 
