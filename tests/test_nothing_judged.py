@@ -337,8 +337,14 @@ def test_the_cause_is_refused_before_the_symptom(tmp_path: Path) -> None:
 
 def test_the_refusal_names_a_declared_case_the_run_does_not_carry() -> None:
     """Absent is one of the three ways a case went unjudged, and a name the
-    person can look for is what the refusal owes them."""
-    (refusal,) = refusals_for(run(canary()), CFG, declared=SUBJECT)
+    person can look for is what the refusal owes them.
+
+    First, and not alone since ADR 0065 §2: the run carries other cases than
+    the suite declares, and condition 13 follows 10 in the tuple. It was
+    `(refusal,) = …`; what this holds is 10's sentence, and 10 still comes
+    first."""
+    refusal, *_ = refusals_for(run(canary()), CFG, declared=SUBJECT)
+    assert isinstance(refusal, NothingJudgedError)
     assert "s1" in str(refusal) and "s2" in str(refusal)
 
 
@@ -359,8 +365,12 @@ def test_the_refusal_says_which_state_each_case_is_in() -> None:
 
 
 def test_a_run_with_one_judged_subject_case_is_not_refused() -> None:
+    """Declared as the run's own cases: since ADR 0065 §2 a run that lacks a
+    declared case is refused by 13, which this does not test. It read
+    `declared=SUBJECT`, whose canary and calibration case the run lacks."""
+    exactly = Declared(subject=frozenset({"s1", "s2"}), watching=frozenset())
     assert (
-        refusals_for(run(subject("s1"), suspended("s2")), CFG, declared=SUBJECT) == ()
+        refusals_for(run(subject("s1"), suspended("s2")), CFG, declared=exactly) == ()
     )
 
 

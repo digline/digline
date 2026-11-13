@@ -529,6 +529,17 @@ list. What the test cannot see is stated in its own docstring.*
    *Added 2026-11-04 by the maintainer's ruling, recorded in a dated note to
    [ADR 0059](0059-a-reviewed-answer-a-grouped-listing-a-source-as-data.md) §1, and
    brought here by the change that implements it.*
+13. **`CasesChangedError`** — the case ids the run carries, less the ones the
+   promotion excludes by name, are not the ones the suite declares now: a case the
+   suite no longer declares, named with `--exclude CASE --by NAME` as the way to leave
+   it out of the reference, or a declared case the run never ran, named with *run the
+   suite again*. Read beside `config_hash` and never inside it, which covers the checks
+   and not the cases. Answered by `refusals_for`, after 10 and before 3, 5 and 12, from
+   the run and the declaration beside it, and asked of nothing where there is no
+   declaration. What a promotion may exclude is refused before any condition, as
+   `ExclusionRefusedError`.
+   *Added 2026-11-13 by [ADR 0065](0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)
+   §2, and brought here by the change that implements it.*
 
 *Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run that judged
 nothing as ADR 0049 §3 defines it, whether or not the suite declares an

@@ -156,9 +156,10 @@ def test_the_origin_round_trips_and_absent_is_not_recorded() -> None:
         suite([Contains(needle="Rome"), Foreign()]), answering, created_at=CREATED
     )
     document = json.loads(run_to_json(run))
-    # 23 since `finish` and `tools` on a recorded response (ADR 0057); the
-    # provenance this file holds rode 22 and is unchanged by it.
-    assert document["schema_version"] == SCHEMA_VERSION == 23
+    # 24 since `excluded_at_promotion` on a reference (ADR 0065 §1), after 23
+    # for `finish` and `tools` (ADR 0057); the provenance this file holds rode
+    # 22 and is unchanged by either.
+    assert document["schema_version"] == SCHEMA_VERSION == 24
     verdicts = document["results"][0]["verdicts"]
     assert [v["origin"] for v in verdicts] == ["builtin", "foreign"]
     assert run_from_json(run_to_json(run)) == run

@@ -15,8 +15,9 @@ from statistics import stdev
 from typing import Literal
 
 from digline.core.aggregate import split_grouped_name
+from digline.core.declared import CasesChanged, cases_changed
 from digline.core.reconcile import unreconciled
-from digline.core.run import Run, SystemConfig
+from digline.core.run import Exclusion, Run, SystemConfig
 from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 
 __all__ = [
@@ -435,6 +436,18 @@ class Comparison:
     #: Reported and never gated, because where the bar sits is a person's
     #: declaration and `promote_baseline` is where they sign it. (ADR 0028)
     suite_deltas: Sequence[SuiteDelta] = ()
+
+    #: The case ids this run has and the reference has not (`added`), and the
+    #: reverse (`removed`). Said as one fact, *cases changed*, beside the rows
+    #: `new` and `missing` already list: the cases both sides share are compared
+    #: as before, and the checks did not change, so this is never *the suite
+    #: changed*. Reported, and it moves no exit code. (ADR 0065 §2)
+    cases: CasesChanged = CasesChanged()
+    #: The cases a person left out of the reference at its promotion, read off
+    #: the reference, in its order. Said as a fact about the reference while it
+    #: is in force, beside `promoted_at`: it is not a movement, and it moves no
+    #: exit code. (ADR 0065 §1)
+    excluded_at_promotion: tuple[Exclusion, ...] = ()
 
     @property
     def artifacts_changed(self) -> bool:
@@ -1637,6 +1650,11 @@ def compare(run: Run, baseline: Run) -> Comparison:
         target_config_deltas=config_deltas(run.target_config, baseline.target_config),
         judge_config_deltas=config_deltas(run.judge_config, baseline.judge_config),
         reference_unreconciled=unreconciled(baseline),
+        cases=cases_changed(
+            frozenset(case.case_id for case in baseline.results),
+            frozenset(case.case_id for case in run.results),
+        ),
+        excluded_at_promotion=baseline.excluded_at_promotion,
         # Computed whatever `config_hash` says, rather than only when it moved.
         # Gating it on the flag would make the flag the source of truth for the
         # rows and the rows the explanation of the flag, which is two answers to

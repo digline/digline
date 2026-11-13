@@ -82,7 +82,7 @@ from digline.core.compare import (
     suite_deltas,
     withhold_artifacts,
 )
-from digline.core.declared import Declared, nothing_judged
+from digline.core.declared import CasesChanged, Declared, cases_changed, nothing_judged
 from digline.core.diff import (
     CheckDifference,
     Difference,
@@ -182,6 +182,7 @@ from digline.core.run import (
     CaseResult,
     CrossingRefusedError,
     DocumentRefusedError,
+    Exclusion,
     RecordedResponse,
     RecordedToolCall,
     Run,
@@ -324,6 +325,7 @@ __all__ = [
     "CheckKind",
     "Comparison",
     "ErrorKind",
+    "Exclusion",
     "Origin",
     "DRIVER_METADATA_KEYS",
     "AGREEMENT_FIELD",
@@ -400,7 +402,9 @@ __all__ = [
     "Difference",
     "DifferentJudgesError",
     "DifferentRegimesError",
+    "CasesChanged",
     "Declared",
+    "cases_changed",
     "DifferentTenantsError",
     "DifferentSuitesError",
     "DocumentRefusedError",

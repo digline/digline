@@ -461,6 +461,12 @@ COMPARE_KEYS = {
     # read, so `--run latest` says which run it picked. An added key, the same
     # rule again, and it moves no exit code.
     "run_key",
+    # ADR 0065: the cases on one side only, and the cases a person left out of
+    # the reference at its promotion, as three counts. Added keys, and none
+    # moves an exit code.
+    "cases_added",
+    "cases_removed",
+    "cases_excluded",
 }
 
 
@@ -517,6 +523,10 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
         # ADR 0024 §6.3: the shape reading's counts, beside the deltas they are
         # read from, under `full` only.
         "shape",
+        # ADR 0065: the names behind the three counts, under `full` with the
+        # other lists.
+        "cases_changed",
+        "excluded_at_promotion",
     }
 
 

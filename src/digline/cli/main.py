@@ -1042,6 +1042,13 @@ def cmd_list(args: argparse.Namespace) -> int:
 
 
 def cmd_promote(args: argparse.Namespace) -> int:
+    # A name with nothing to put it beside would be dropped in silence, and a
+    # person who typed it meant something by it. (ADR 0065 §1)
+    if args.by is not None and not args.excluding:
+        raise UsageError(
+            "--by names who leaves a case out of the reference, and no case "
+            "was named: add --exclude CASE, or drop --by"
+        )
     suite, loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
     # The clock is read here, in the layer allowed to read it, and handed down
@@ -1058,6 +1065,8 @@ def cmd_promote(args: argparse.Namespace) -> int:
         replacing=args.replacing,
         promoted_at=utc_now_iso(),
         accepting_pins=frozenset(args.accepting_pins),
+        excluding=frozenset(args.excluding),
+        excluded_by=args.by or "",
     )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards. And the tenant first, read off the stored run and
@@ -1077,6 +1086,11 @@ def cmd_promote(args: argparse.Namespace) -> int:
             "accepted, by --accepting-pin, the movement of the files declared "
             f"not to change: {', '.join(sorted(set(args.accepting_pins)))}"
         )
+    # Said here and recorded in the reference, unlike a pin's acceptance: who
+    # left which case out is what every comparison against it says again.
+    # (ADR 0065 §1)
+    for item in promoted.excluded_at_promotion:
+        say(f"excluded at promotion: {item.case_id}, by {item.by}")
     return EXIT_OK
 
 
@@ -2469,6 +2483,26 @@ def build_parser() -> argparse.ArgumentParser:
             "accept the drift or loss of this pinned file, once per path; "
             "the paths must be exactly the ones the comparison implicates, "
             "or the promotion is refused and the refusal names them"
+        ),
+    )
+    prom_p.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="CASE",
+        dest="excluding",
+        help=(
+            "leave this case out of the reference, once per case: a case the "
+            "run carries and the suite no longer declares; the reference "
+            "records it with --by and the time, and the run is not touched"
+        ),
+    )
+    prom_p.add_argument(
+        "--by",
+        metavar="NAME",
+        help=(
+            "with --exclude, mandatory: your own name, recorded beside each "
+            "excluded case; never read from git or the environment"
         ),
     )
     prom_p.set_defaults(func=cmd_promote)

@@ -784,8 +784,9 @@ def test_the_schema_did_not_move(tmp_path: Path) -> None:
     # moved to 23 for `finish` and `tools` on a recorded response (ADR 0057),
     # which a leg carries inside the response it already writes, each absent
     # where not recorded. The journal's version stands by its own rule, as it
-    # did for `pid` and `host`.
-    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (23, 3)
+    # did for `pid` and `host`. It moved to 24 for `excluded_at_promotion`
+    # (ADR 0065 §1), which only a reference carries and no leg writes.
+    assert (SCHEMA_VERSION, JOURNAL_VERSION) == (24, 3)
     key = killed(tmp_path, a_suite(), Counting(die_at=3))
     store, prepared = launch(tmp_path, a_suite(), Counting(), resume_key=key)
     resumed = measure(

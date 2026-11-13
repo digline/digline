@@ -25,18 +25,26 @@ The states, in the order they are asked, and the predicate each one is:
 5. `to_import`: the suite declares a capture source and has recordings made
    after the last import, or was never imported.
 6. `never_run`: the suite has never run.
-7. `judge_disagrees`: the newest run has a reviewed answer the judge
+7. `cases_changed`: the newest run's case ids are not the ones the suite
+   declares now: it holds a case the suite dropped, or lacks one the suite
+   added and no answer under a new setup accounts for (those are
+   `new_setup`'s, whose next step is more specific). Before
+   `judge_disagrees`, so a contradiction on a case the suite no longer
+   declares does not hold the page there; the next step is to run the suite
+   again, or to leave a dropped case out at the promotion. Read beside
+   `config_hash`, which covers the checks and never the cases. (ADR 0065 §2)
+8. `judge_disagrees`: the newest run has a reviewed answer the judge
    contradicted, or a calibration case outside its band.
-8. `green_without_red`: the newest run exits 0 and no run of the suite ever
+9. `green_without_red`: the newest run exits 0 and no run of the suite ever
    failed a check. A suite that cannot fail measures nothing.
-9. `new_setup`: the setup in force first answered after the newest run,
+10. `new_setup`: the setup in force first answered after the newest run,
    and some cases have answers under it and under an earlier setup: what
    changed can be read across setups before the suite runs again. Not
    *answers no reviewed answer was made under*: every recording after the
    last import holds the page at `to_import`, and an import that names one
    records the setup in force, so that state could never be reached.
-10. `nothing_to_do`: the newest run exits 0.
-11. `last_run_red`: the newest run exits 1 or 2 for a reason none of the
+11. `nothing_to_do`: the newest run exits 0.
+12. `last_run_red`: the newest run exits 1 or 2 for a reason none of the
     states above names: `digline explain` reads it.
 
 Never a verdict beyond the state: the numbers are counts the store holds, and
@@ -52,6 +60,7 @@ from types import ModuleType
 
 from digline.core.calibration import scale_lost
 from digline.core.capture import capture_id
+from digline.core.declared import cases_changed
 from digline.core.recording import Recording, instant_of
 from digline.core.reviewed import contradicted
 from digline.core.run import Run
@@ -226,6 +235,25 @@ def _state(
 
     key, newest = runs[-1]
     code = run_exit_code(newest, declared=suite.declared())
+    moved = cases_changed(
+        frozenset(case.case_id for case in newest.results), suite.declared().every
+    )
+    # A case the run holds and the suite dropped, always; a case the suite
+    # added and the run lacks, unless it came from answers under a new setup,
+    # whose state below has the more specific next step: compare the setups,
+    # then run. Without that exception `new_setup` could never be reached,
+    # since an import that elects an answer adds its case. (ADR 0065 §2)
+    if moved.removed or (
+        moved.added and not _answers_from_a_new_setup(everything, suite.name, newest)
+    ):
+        return Where(
+            "cases_changed",
+            tenant,
+            count=len(moved.added) + len(moved.removed),
+            suite=suite.name,
+            run_key=key,
+            exit_code=code,
+        )
     disagreements = len(contradicted(newest)) + len(scale_lost(newest))
     if disagreements:
         return Where(

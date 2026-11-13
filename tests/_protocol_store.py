@@ -81,6 +81,8 @@ class MemoryStore:
         declared: Declared | None,
         promoted_at: str,
         accepting_pins: Collection[str] = frozenset(),
+        excluding: Collection[str] = frozenset(),
+        excluded_by: str = "",
     ) -> Run:
         raise NotImplementedError(
             "MemoryStore does not promote: condition 8 is not asserted through a "

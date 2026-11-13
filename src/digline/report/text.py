@@ -401,6 +401,23 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} checks, including {gaps}. What the reference measured is "
             "not known, and this comparison is made against it."
         ),
+        # The cases a person left out of the reference at its promotion, by
+        # name, and the cases on one side only. Neither moves an exit code.
+        # (ADR 0065)
+        "fact.excluded.one": (
+            "1 case was excluded at promotion from the reference: {cases}."
+        ),
+        "fact.excluded.many": (
+            "{count} cases were excluded at promotion from the reference: {cases}."
+        ),
+        "fact.excluded.case": "{case}, by {by}",
+        "fact.cases_changed": (
+            "The cases changed since the reference: {changes}. The cases both "
+            "hold are compared as before."
+        ),
+        "fact.cases_changed.added": "{count} added ({names})",
+        "fact.cases_changed.removed": "{count} removed ({names})",
+        "fact.names.more": "{names} and {count} more",
         # A verdict named otherwise than its assertion was refused, and each is
         # one of the checks the unjudged clause counts: this says why, so it
         # sits directly before that clause. (ADR 0027 §6, amended 2026-09-28)
@@ -972,6 +989,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "to read what its checks say: this page shows the command and never "
             "runs it."
         ),
+        "view.where.cases_changed.title": ("The newest run was made with other cases"),
+        "view.where.cases_changed.say": (
+            "The newest run of suite {suite} differs from the cases the suite "
+            "declares now by {count} case(s): it holds a case the suite no "
+            "longer declares, or lacks one the suite added. Run the suite "
+            "again; or, for a case the suite dropped, leave it out at the "
+            "promotion with digline promote --exclude CASE --by NAME."
+        ),
         "view.where.judge_disagrees.title": (
             "The judge disagrees with a person on {count}"
         ),
@@ -1229,6 +1254,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "A calibration case fell outside its declared band, so the judge lost "
             "its scale in this run and it cannot become a baseline. Promote a run "
             "whose calibration held."
+        ),
+        "view.chip.cases_changed": "other cases than the suite's",
+        "view.promote.cases_changed": (
+            "This run was made with other cases than the suite declares now: "
+            "it holds a case the suite no longer declares, or lacks one the "
+            "suite added, so it cannot become a baseline as it is. A case the "
+            "suite dropped can be left out by name with digline promote "
+            "--exclude CASE --by NAME; a case it added needs a new run."
         ),
         "view.chip.contradicted": "contradicts a person",
         "view.promote.contradicted": (
@@ -2190,6 +2223,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} controlli, fra cui {gaps}. Non si sa che cosa il "
             "riferimento abbia misurato, e questo confronto è fatto contro di esso."
         ),
+        "fact.excluded.one": (
+            "1 caso è stato escluso alla promozione dal riferimento: {cases}."
+        ),
+        "fact.excluded.many": (
+            "{count} casi sono stati esclusi alla promozione dal riferimento: {cases}."
+        ),
+        "fact.excluded.case": "{case}, da {by}",
+        "fact.cases_changed": (
+            "I casi sono cambiati rispetto al riferimento: {changes}. I casi "
+            "presenti in entrambi sono confrontati come prima."
+        ),
+        "fact.cases_changed.added": "{count} aggiunti ({names})",
+        "fact.cases_changed.removed": "{count} tolti ({names})",
+        "fact.names.more": "{names} e altri {count}",
         "fact.misnamed.one": (
             "1 controllo ha restituito un verdetto con un nome che non è quello "
             "della sua asserzione, ed è stato rifiutato: {gaps}. Il difetto è "
@@ -2726,6 +2773,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "esecuzione. Falla girare per leggere che cosa dicono i suoi "
             "controlli: questa pagina mostra il comando e non lo lancia mai."
         ),
+        "view.where.cases_changed.title": ("L'ultimo run è stato fatto con altri casi"),
+        "view.where.cases_changed.say": (
+            "L'ultimo run della suite {suite} si discosta dai casi che la suite "
+            "dichiara ora per {count} caso/i: contiene un caso che la suite non "
+            "dichiara più, o gliene manca uno che la suite ha aggiunto. Fai "
+            "girare di nuovo la suite; oppure, per un caso tolto dalla suite, "
+            "escludilo alla promozione con digline promote --exclude CASO --by "
+            "NOME."
+        ),
         "view.where.judge_disagrees.title": (
             "Il giudice non è d'accordo con una persona su {count}"
         ),
@@ -2991,6 +3047,15 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Un caso di calibrazione è uscito dalla sua banda dichiarata: in questo "
             "run il giudice ha perso la scala, quindi non può diventare un "
             "riferimento. Promuovi un run in cui la calibrazione ha tenuto."
+        ),
+        "view.chip.cases_changed": "casi diversi da quelli della suite",
+        "view.promote.cases_changed": (
+            "Questo run è stato fatto con casi diversi da quelli che la suite "
+            "dichiara ora: contiene un caso che la suite non dichiara più, o "
+            "gliene manca uno che la suite ha aggiunto, quindi così com'è non "
+            "può diventare un riferimento. Un caso tolto dalla suite si può "
+            "escludere per nome con digline promote --exclude CASO --by NOME; "
+            "un caso aggiunto richiede un run nuovo."
         ),
         "view.chip.contradicted": "contraddice una persona",
         "view.promote.contradicted": (

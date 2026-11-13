@@ -44,6 +44,7 @@ from digline.core import (
     CalibrationBand,
     CaseResult,
     Disclosure,
+    Exclusion,
     RegisterEntry,
     Reviewed,
     Run,
@@ -524,6 +525,30 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "compare_json full without a run",
         "compare.full",
         compare_json(comparison, head, baseline=before, full=True),
+    )
+    # A reference a person left a case out of, by name: the exclusion's shape
+    # reached on `compare.full` and on the run document. (ADR 0065)
+    excluding = dataclasses.replace(
+        before,
+        promoted_at=CREATED,
+        excluded_at_promotion=(Exclusion(case_id="gone", by="Ada", at=CREATED),),
+    )
+    against = compare(now, excluding)
+    yield (
+        "compare_json full against a reference with an exclusion",
+        "compare.full",
+        compare_json(
+            against,
+            headline(against, now, excluding, locale="en", declared=None),
+            baseline=excluding,
+            full=True,
+            run=now,
+        ),
+    )
+    yield (
+        "run_document of a reference with an exclusion",
+        "run_document",
+        run_document(excluding, Disclosure()),
     )
 
     # A diff refuses two suites, so its right side is `before`'s suite with

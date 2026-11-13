@@ -206,6 +206,8 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
       word and stays as it is (ADR 0034 §17.2);
     - a judge's `provider/model` label: `judge_identity`;
     - an application module a check could not reach: `module_name` (#712);
+    - a case left out of a reference at its promotion: `case_id`, and the
+      person who left it out: `person` (ADR 0065 §1);
     - a metadata key on a verdict that is not `builtin`: `metadata_key`.
       **Except the keys the driver writes**, `DRIVER_METADATA_KEYS`, which stay
       as they are on every verdict (ADR 0034 §17.3, §17.4).
@@ -223,6 +225,14 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
             None
             if run.modules_unchecked is None
             else tuple(name("module_name", m) for m in run.modules_unchecked)
+        ),
+        excluded_at_promotion=tuple(
+            replace(
+                item,
+                case_id=name("case_id", item.case_id),
+                by=name("person", item.by),
+            )
+            for item in run.excluded_at_promotion
         ),
         target_config=_config(
             run.target_config,

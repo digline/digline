@@ -49,6 +49,9 @@ SAMPLES: dict[State, Where] = {
     ),
     "to_import": Where("to_import", "acme", count=2, suite="triage"),
     "never_run": Where("never_run", "acme", count=6, suite="triage"),
+    "cases_changed": Where(
+        "cases_changed", "acme", count=2, suite="triage", run_key="k", exit_code=1
+    ),
     "judge_disagrees": Where(
         "judge_disagrees", "acme", count=1, suite="triage", run_key="k", exit_code=1
     ),
@@ -80,6 +83,7 @@ HEADINGS: dict[State, str] = {
     "no_suite_yet": "5 recording(s) in triage, no suite yet",
     "to_import": "2 since the last import",
     "never_run": "The suite has never run",
+    "cases_changed": "The newest run was made with other cases",
     "judge_disagrees": "The judge disagrees with a person on 1",
     "green_without_red": "Green without a red",
     "new_setup": "5 answer(s) from a new setup",
@@ -97,6 +101,7 @@ COMMANDS: dict[State, str | None] = {
     "no_suite_yet": None,
     "to_import": "digline record import --tenant acme --suite suites/suite.py",
     "never_run": "digline run --suite suites/suite.py",
+    "cases_changed": "digline run --suite suites/suite.py",
     "judge_disagrees": "digline explain --suite suites/suite.py --run latest",
     "green_without_red": None,
     "new_setup": "digline record compare --tenant acme --suite suites/suite.py",

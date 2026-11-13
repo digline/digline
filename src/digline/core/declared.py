@@ -17,7 +17,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from digline.core.run import Run
 
-__all__ = ["Declared", "cases_that_count", "nothing_judged"]
+__all__ = [
+    "CasesChanged",
+    "Declared",
+    "cases_changed",
+    "cases_that_count",
+    "nothing_judged",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +40,28 @@ class Declared:
 
     subject: frozenset[str]
     watching: frozenset[str]
+
+    @property
+    def every(self) -> frozenset[str]:
+        """Every case the suite declares, of either kind."""
+        return self.subject | self.watching
+
+
+@dataclass(frozen=True, slots=True)
+class CasesChanged:
+    """The case ids on one side and not the other, each sorted. (ADR 0065 §2)
+
+    Read from the newer side: `added` are the ids it has and the older side
+    has not, `removed` the ones the older side has and it has not. Between a
+    run and its suite the suite is the newer side, and between a run and a
+    reference the run is. Empty, and false, where the two sets are the same.
+    """
+
+    added: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+
+    def __bool__(self) -> bool:
+        return bool(self.added or self.removed)
 
 
 def nothing_judged(run: Run, declared: Declared | None) -> bool:
@@ -81,3 +109,12 @@ def cases_that_count(run: Run, declared: Declared | None) -> frozenset[str]:
     # a calibration case or a reviewed answer: the second clause, read off the
     # run.
     return subject or frozenset(case.case_id for case in run.results)
+
+
+def cases_changed(older: frozenset[str], newer: frozenset[str]) -> CasesChanged:
+    """The ids `newer` has and `older` has not, and the reverse, each sorted.
+    The one place the difference is taken, so a refusal, a comparison and a
+    state of `where` cannot disagree about it. (ADR 0065 §2)"""
+    return CasesChanged(
+        added=tuple(sorted(newer - older)), removed=tuple(sorted(older - newer))
+    )

@@ -392,16 +392,17 @@ def _before(version: int, step: Step) -> Document:
 
 
 def test_every_entry_declares_a_nature_and_the_counts_are_fixed() -> None:
-    """19 entries, 7 that add and 12 that write nothing; the twelfth is 22 -> 23,
+    """20 entries, 7 that add and 13 that write nothing; the twelfth is 22 -> 23,
     `finish`, `tools` and `steps` on a recorded response (ADR 0057, ADR 0060
-    §5): three passengers on one step, so the count does not move. A new entry
-    moves a
-    count, so it cannot join without saying what it is; and the day the first
-    rename or transformation lands, this is the line that says so."""
+    §5): three passengers on one step, so the count does not move. The
+    thirteenth is 23 -> 24, `excluded_at_promotion` on a reference (ADR 0065
+    §1). A new entry moves a count, so it cannot join without saying what it
+    is; and the day the first rename or transformation lands, this is the line
+    that says so."""
     faults = {version: _faults(step) for version, step in _STEPS.items()}
     assert {v: f for v, f in faults.items() if f} == {}
     natures = Counter(type(step.nature).__name__ for step in _STEPS.values())
-    assert natures == {"Adds": 7, "WritesNothing": 12}
+    assert natures == {"Adds": 7, "WritesNothing": 13}
 
 
 @pytest.mark.parametrize("version", sorted(_STEPS))

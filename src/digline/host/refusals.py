@@ -48,10 +48,12 @@ from digline.run.replay import ReplayError
 from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
     BaselineMovedError,
+    CasesChangedError,
     ConfigMismatchError,
     ContradictedRunError,
     DirectoryUnreadableError,
     ErroredRunError,
+    ExclusionRefusedError,
     JournalBusyError,
     JournalRefusedError,
     KeylessRunError,
@@ -103,6 +105,8 @@ REFUSALS: tuple[type[Exception], ...] = (
     ReplayedRunError,
     UncalibratedRunError,
     ContradictedRunError,
+    CasesChangedError,
+    ExclusionRefusedError,
     NothingJudgedError,
     TenantMismatchError,
     SuiteMismatchError,

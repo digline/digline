@@ -806,7 +806,9 @@ def test_the_migration_to_twelve_writes_nothing() -> None:
     # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
     # 22 -> 23 writes nothing either: an absent `finish` and an absent `tools`
     # on a recorded response are *not recorded* (ADR 0057).
-    assert SCHEMA_VERSION == 23
+    # 23 -> 24 writes nothing either: an absent `excluded_at_promotion`
+    # is a reference promoted whole (ADR 0065 §1).
+    assert SCHEMA_VERSION == 24
     assert upgrade_document(at_eleven) == current
 
 
