@@ -20,6 +20,9 @@
   dated note quoting what they replace. Rule 1 is read per scope: a side with
   no case verdict gives no row about the cases, and the run scope is unchanged.
   Rule 2's title names the field its reason was always about (#671)
+- Amended: 2026-11-13 — a sentence of the Context is corrected in place, with
+  a dated note quoting what it replaces: an added test case never moved
+  `config_hash`, and an added check does
 - Opens: **nothing.** No schema bump, and not a passenger on one. The run
   document gains no field. §1 is why it does not need to: everything
   `config_hash` fingerprints is already written down, bar one value, and §5
@@ -70,9 +73,19 @@ was no precedent for a delta that explains.
 
 **What the asymmetry costs has a name.** Somebody who lowers a threshold from
 0.6 to 0.5 and re-promotes produces a report indistinguishable from somebody who
-added a test case. Both move `config_hash`; both print that one sentence. This
+added a check. Both move `config_hash`; both print that one sentence. This
 is the side a silent weakening of the gates lives on, and today it is the side
 with no reading at all.
+
+*Corrected in place 2026-11-13. It said: "indistinguishable from somebody who
+added a test case. Both move `config_hash`". That was never true: a case is
+outside `config_hash`. The hash's docstring has said "Nothing here ever sees a
+case" since `ae4a2af1` (2026-08-26), before this record, and
+[ADR 0014](0014-what-may-ride-a-schema-bump.md) §1 rules it. Measured at
+`7264c725`: a suite of one case, run, and a second case then declared, has the
+same `config_hash` before and after. An added check is what moves the hash
+with that sentence. Where cases are read against the suite instead is
+[ADR 0065](0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md) §2.*
 
 There is one partial exception and it is narrower than it looks.
 `detail.threshold_moved` names a moved bar — but only inside the sentence for a
