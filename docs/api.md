@@ -808,6 +808,17 @@ it. Strict about the content: a missing `score`, a score outside `[0, 1]`, a
 missing `reason` or a fractional claim count all raise, and `LlmRubric` turns
 the exception into **`error`** — neither green nor a regression.
 
+**A reply with no JSON object is asked for once more.** The second call quotes
+the first reply and asks for the object alone; it is timed, priced and counted
+on the judge's line like the first. Where it holds no object either, the
+sample is an `error` whose reason quotes the first reply, so the judge's prose
+is what a reader sees. An empty reply, and an object with a wrong field, are
+not asked again. ([ADR 0004](adr/0004-every-plugin-is-a-target-and-a-judge.md)
+§4, as noted 2026-11-12)
+
+> **Arrives with digline 1.3.** On 1.2.0 a reply with no JSON object is an
+> `error` after one call.
+
 ### `PromptTemplate`
 
 A prompt file, its digest, and the variables it asks for. Read at construction,

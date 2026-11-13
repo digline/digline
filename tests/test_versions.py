@@ -116,13 +116,6 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
-    "docs/record.md": {
-        "3.14.5": (
-            "'with Python 3.14.5': the Python the proxy was measured on, on "
-            "2026-11-12, behind a company proxy and a private CA; not a "
-            "digline version"
-        ),
-    },
     "docs/record-java.md": {
         "1.1.1": (
             "'installed digline 1.1.1 and digline-openai 0.7.0': what the "

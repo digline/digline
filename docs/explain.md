@@ -399,6 +399,17 @@ the types, which is what makes the payload boundary something no later edit can
 open by accident. **For the judge's words, `digline report` is one command
 away**, and it renders them in a Reason column.
 
+**Except where its samples disagreed.** Where the samples of a judged check did
+not all reach the same verdict, or one of them could not judge, the terminal
+reading closes with *What the judge said, where its samples disagreed*: each
+such case under its check, with what each sample said. It is read off the run
+and printed after the facts; it is not a fact, `--json` and the MCP `explain`
+do not carry it, and no sentence that sums the run up quotes the judge
+([ADR 0012](adr/0012-the-reading.md) §4, as amended 2026-11-12).
+
+> **Arrives with digline 1.3.** On 1.2.0 the terminal reading ends at the
+> facts, and a judged check's disagreeing samples keep the mean's reason alone.
+
 The same rule takes the stated reason a case was suspended: that a case was set
 aside travels, because it is a fact about coverage; *why* somebody set it aside
 does not, because a developer writes things like "fails on the Rossi account".

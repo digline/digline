@@ -73,7 +73,7 @@ import hashlib
 import json
 import os
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 from typing import cast
@@ -98,6 +98,7 @@ __all__ = [
     "Declaration",
     "ImportAnswer",
     "ImportGroup",
+    "SetupsRead",
     "ImportListing",
     "Shape",
     "SuiteRecorded",
@@ -121,6 +122,10 @@ __all__ = [
     "split_recordings",
     "unloaded_capture",
     "written_lines",
+    "setups_read",
+    "setups_said",
+    "by_case",
+    "case_line",
 ]
 
 #: What every case the import writes says about where it came from.
@@ -247,6 +252,13 @@ class ImportListing:
     oversize: int
     unreadable: int
     examined_through: str | None
+    #: The recordings by setup, which the listing says at its head: those
+    #: under an earlier setup, and the setup in force.
+    by_setup: SetupsRead = field(
+        default_factory=lambda: SetupsRead(
+            in_force={True: None, False: None}, earlier=(), under_earlier=0
+        )
+    )
 
     @property
     def answers(self) -> tuple[ImportAnswer, ...]:
@@ -552,6 +564,7 @@ def listed(listing: ImportListing) -> Listed:
                 shape=group.shape,
                 setup=group.setup,
                 answers=len(group.answers),
+                cases=len(by_case(group.answers)),
                 recordings=group.recordings,
                 waiting=sum(1 for a in group.answers if a.elected is None),
                 good=sum(1 for a in group.answers if a.elected is True),
@@ -578,6 +591,8 @@ def listed(listing: ImportListing) -> Listed:
         oversize=listing.oversize,
         unreadable=listing.unreadable,
         examined_through=listing.examined_through,
+        under_earlier_setups=listing.by_setup.under_earlier,
+        earlier_setups=listing.by_setup.earlier,
     )
 
 
@@ -665,7 +680,9 @@ def import_listing(
         samples=suite.samples,
         groups=tuple(
             ImportGroup(
-                shape=shape, answers=tuple(answers), setup=in_force[shape.episode]
+                shape=shape,
+                answers=tuple(a for _, found in by_case(answers) for a in found),
+                setup=in_force[shape.episode],
             )
             for shape, answers in groups.items()
         ),
@@ -676,6 +693,64 @@ def import_listing(
         oversize=split.oversize,
         unreadable=unreadable,
         examined_through=max(stamps, key=instant_of) if stamps else None,
+        by_setup=setups_read(split.eligible),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class SetupsRead:
+    """A suite's eligible recordings, read by setup: the setup in force per
+    form, as the import holds it, and those not under it.
+
+    `under_earlier` counts the recordings whose setup is not the one in force
+    for their form, and `earlier` names those setups, in the order the files
+    first show them. An answer recorded only under them cannot be imported;
+    one the setup in force also gave can. Read by `digline record status` and
+    at the head of `digline record import`, from the same recordings the
+    import lists. (P-1671)
+    """
+
+    in_force: Mapping[bool, str | None]
+    earlier: tuple[str, ...]
+    under_earlier: int
+
+
+def setups_read(eligible: Sequence[Recording]) -> SetupsRead:
+    """`SetupsRead` over a suite's eligible recordings."""
+    in_force = _setups_in_force(eligible)
+    under = [r for r in eligible if r.setup_digest != in_force[r.id is not None]]
+    return SetupsRead(
+        in_force=in_force,
+        earlier=tuple(dict.fromkeys(r.setup_digest for r in under)),
+        under_earlier=len(under),
+    )
+
+
+def setups_said(read: SetupsRead) -> str | None:
+    """The line that says it, or `None` where every recording is under the
+    setup in force. Setups by the eight characters the listing prints."""
+    if not read.under_earlier:
+        return None
+    many = read.under_earlier != 1
+    earlier = ", ".join(digest[:SHORT] for digest in read.earlier)
+    forms = [
+        (name, digest)
+        for name, digest in (
+            ("single calls", read.in_force[False]),
+            ("episodes", read.in_force[True]),
+        )
+        if digest is not None
+    ]
+    in_force = (
+        forms[0][1][:SHORT]
+        if len(forms) == 1
+        else ", ".join(f"{name} {digest[:SHORT]}" for name, digest in forms)
+    )
+    return (
+        f"{read.under_earlier} recording{'s' if many else ''} under "
+        f"{'earlier setups' if len(read.earlier) > 1 else 'an earlier setup'} "
+        f"{earlier}: an answer recorded only there cannot be imported; "
+        f"in force: {in_force}"
     )
 
 
@@ -960,17 +1035,44 @@ def _many(count: int, noun: str) -> str:
     return f"{count} {noun}{'' if count == 1 else 's'}"
 
 
+def by_case(
+    answers: Sequence[ImportAnswer],
+) -> tuple[tuple[str, tuple[ImportAnswer, ...]], ...]:
+    """`answers` by case, the same question and context, each case where its
+    first answer stands and its answers in the files' order. Grouped, never
+    ranked: no answer is marked as the one to choose. (ADR 0023 §4; ADR 0061,
+    as noted 2026-11-12)"""
+    cases: dict[str, list[ImportAnswer]] = {}
+    for answer in answers:
+        cases.setdefault(answer.case, []).append(answer)
+    return tuple((case, tuple(found)) for case, found in cases.items())
+
+
+def case_line(case: str, answers: Sequence[ImportAnswer]) -> str:
+    """The line over a case that has more than one answer: the same question,
+    answered differently, the answers below it in the files' order."""
+    return f"case {case} · {len(answers)} answers to the same question"
+
+
 def listing_lines(found: ImportListing) -> list[str]:
     """The listing as the person reads it: the declaration, then each group
     with its count, then what is not a case. Built here, laid out by the CLI,
     and in no order but the files'."""
     lines = [found.declaration.line(), f"  {setup_line(found)}"]
+    # At the head, before any answer: how many recordings sit under an
+    # earlier setup, and which setup is in force. (P-1671)
+    earlier = setups_said(found.by_setup)
+    if earlier is not None:
+        lines.append(f"  {earlier}")
     for number, group in enumerate(found.groups, start=1):
         lines.append("")
         lines.append(group_line(number, group))
         lines.append(f"  {group_setup_line(group)}")
-        for answer in group.answers:
-            lines.extend(_say_answer(answer))
+        for case, answers in by_case(group.answers):
+            if len(answers) > 1:
+                lines.append(f"  {case_line(case, answers)}")
+            for answer in answers:
+                lines.extend(_say_answer(answer))
     lines.append("")
     lines.extend(closing_lines(found))
     return lines

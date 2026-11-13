@@ -105,6 +105,7 @@ from digline.host import (
 )
 from digline.host.estimate import estimate
 from digline.host.gate import STALE_SECONDS
+from digline.host.importing import SetupsRead, setups_said
 from digline.report import (
     against_line,
     artifact_lines,
@@ -113,6 +114,7 @@ from digline.report import (
     explain_text,
     headline,
     judge_reading,
+    judge_words,
     log_text,
     module_lines,
     phrase,
@@ -1374,6 +1376,14 @@ def cmd_explain(args: argparse.Namespace) -> int:
 
     for line in explain_text(read.facts, locale=args.locale):
         say(line)
+    # The judge's words, after the facts and in the terminal alone: read off
+    # the run, never a fact, never in --json. (ADR 0012 §4, as amended
+    # 2026-11-12)
+    words = judge_words(read.run, locale=args.locale)
+    if words:
+        say()
+        for line in words:
+            say(line)
     return read.exit_code
 
 
@@ -1586,6 +1596,10 @@ def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
     it. The recording line is the switch the proxy read, which
     `DIGLINE_RECORD=1` gives where no file does: the status reads the file
     alone."""
+    from urllib.parse import urlsplit
+
+    from digline.host.proxy import upstream_proxy
+
     [status] = recorder_status(root, tenant)
     switch = proxy.recorder.switch
     say(f"digline record proxy: listening on {proxy.address}")
@@ -1608,6 +1622,16 @@ def _say_proxy(proxy: Proxy, root: Path, tenant: str) -> None:
             where = wire.upstream
         else:
             where = f"{upstream} (--upstream)"
+        # The company proxy a route goes through, by host and port: its
+        # credentials, where its URL has them, are never said. (P-1671)
+        target = urlsplit(upstream or wire.upstream)
+        via = (
+            upstream_proxy(target.hostname or "")
+            if problem is None and target.scheme == "https"
+            else None
+        )
+        if via is not None:
+            where += f", through {via.hostname}:{via.port or 80} (HTTPS_PROXY)"
         say(f"  route {route}: {where}")
     if not proxy.wires:
         say("  no route: install digline-openai, digline-anthropic or digline-bedrock")
@@ -2034,6 +2058,20 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             else:
                 since = f"never imported, {suite.since_last_import} in all"
             say(f"  suite {suite.suite}: {_suite_counts(suite)}; {since}")
+            # The same sentence the import says at its head, from the same
+            # reading of the recordings. (P-1671)
+            earlier = setups_said(
+                SetupsRead(
+                    in_force={
+                        False: suite.setups_in_force.get("single_calls"),
+                        True: suite.setups_in_force.get("episodes"),
+                    },
+                    earlier=suite.earlier_setups,
+                    under_earlier=suite.under_earlier_setups,
+                )
+            )
+            if earlier is not None:
+                say(f"    {earlier}")
             if suite.not_recorded:
                 missed = ", ".join(
                     f"{reason} {n}" for reason, n in suite.not_recorded.items()

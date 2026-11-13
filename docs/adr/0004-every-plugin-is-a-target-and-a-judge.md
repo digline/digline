@@ -168,6 +168,18 @@ Lenient about the wrapping, strict about the content: a missing `score`, a
 regression: the judge failed to answer, which is a third thing, and ADR 0001
 already decided that a judgement that could not be made is not a passing one.
 
+*Noted 2026-11-12, by Alessandro Prandini's decision, from a first use outside
+the project on a Java application with a judged suite, where a judge answered
+in prose and the sample errored.* **A reply that holds no JSON object is asked
+for once more.** The second call carries the first prompt, the reply it got,
+and *"Answer again with the JSON object only, as the instruction asks, and
+nothing else."*; it is timed, priced and counted on the judge's line like the
+first. Where it holds no object either, the judgement is `error` and its
+reason quotes the first reply, so the prose is what the reader sees. Asked
+once, never in a loop. An empty reply is not asked again, and neither is an
+object with a missing or wrong field: that is the strictness above, not the
+wrapping. `tests/test_judge_reformat.py` holds both outcomes.
+
 ### 5. No plugin reads the environment, and a sentinel is only for a custom endpoint
 
 The key resolution rule, which is what makes "the same target covers Ollama" a

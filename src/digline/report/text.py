@@ -1349,6 +1349,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.heading.settings.alone": "How it was set up",
         "explain.heading.checks.compared": "What moved",
         "explain.heading.checks.alone": "What it found",
+        # After the facts, in the terminal alone: the judge's words where its
+        # samples disagreed or one could not judge. (ADR 0012 §4, amended)
+        "explain.heading.judge": "What the judge said, where its samples disagreed",
         "explain.tally.cases.none": "No case ran.",
         "explain.tally.cases.one": "1 case ran.",
         "explain.tally.cases.many": "{count} cases ran.",
@@ -3111,6 +3114,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "explain.heading.settings.alone": "Com'era configurato",
         "explain.heading.checks.compared": "Che cosa si è mosso",
         "explain.heading.checks.alone": "Che cosa ha rilevato",
+        "explain.heading.judge": (
+            "Che cosa ha detto il giudice, dove i campioni non concordavano"
+        ),
         "explain.tally.cases.none": "Nessun caso è stato eseguito.",
         "explain.tally.cases.one": "È stato eseguito 1 caso.",
         "explain.tally.cases.many": "Sono stati eseguiti {count} casi.",

@@ -91,6 +91,10 @@ class ListedGroup:
     good: int
     bad: int
     refused: Mapping[str, int]
+    #: The cases the answers are to: the same question and context, answered
+    #: once or more. Fewer than `answers` where a case was answered
+    #: differently. (P-1671)
+    cases: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +122,10 @@ class Listed:
     oversize: int
     unreadable: int
     examined_through: str | None
+    #: Of the eligible recordings, those under a setup that is not the one in
+    #: force for their form, and those setups, in the files' order.
+    under_earlier_setups: int = 0
+    earlier_setups: tuple[str, ...] = ()
 
 
 def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, object]:
@@ -140,6 +148,8 @@ def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, o
                 "single_calls": _short(listed.setups.get(False)),
                 "episodes": _short(listed.setups.get(True)),
             },
+            "under_earlier_setups": listed.under_earlier_setups,
+            "earlier_setups": [_short(digest) for digest in listed.earlier_setups],
             "samples": listed.samples,
             "deterministic_output": listed.deterministic_output,
             "groups": [
@@ -147,6 +157,7 @@ def import_listing_json(listed: Listed, *, review: Sequence[str]) -> dict[str, o
                     "shape": shape_json(group.shape),
                     "setup": _short(group.setup),
                     "answers": group.answers,
+                    "cases": group.cases,
                     "recordings": group.recordings,
                     "waiting": group.waiting,
                     "good": group.good,

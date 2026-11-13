@@ -507,6 +507,27 @@ The rest of the boundary follows the records that already set it:
   are measurements of the system, and `SystemConfig.redacted()` has already kept
   back the one field that is topology.
 
+*Amended 2026-11-12, by Alessandro Prandini's decision, from a first use
+outside the project on a Java application with a judged suite, where a judge's
+samples disagreed and nothing read could say what it had said.* **The judge's
+words are kept where they say something the mean does not**, and read under
+the case:
+
+- **kept**: where the samples that judged did not all reach the same verdict,
+  each one's reason closes the folded verdict's reason, as a check that asks
+  for it already had (ADR 0018 §1); a sample that could not judge was already
+  said there. `Verdict.reason` is the field, in every run, whatever
+  `record_responses` says: that flag governs the answers, not the verdicts;
+- **read under the case**: `digline explain`'s terminal reading closes with
+  *What the judge said*, each such case under its check, its reason as kept,
+  read off the run by `judge_words`, a function beside the facts and not one
+  of them;
+- **and still no fact carries a reason.** The facts, `explain --json` and the
+  MCP `explain` hold none, the sentences that sum a run up never quote the
+  judge, and fixed decision 9 is unchanged: the terminal is the perimeter of
+  the person who ran the command. The run report's *Reason* column was
+  already that reader's, and shows the same reason.
+
 ### 5. Depth is the dossier's layers 1 and 2, restricted to one run and its
 reference
 

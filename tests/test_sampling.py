@@ -313,11 +313,14 @@ def test_the_reason_says_which_side_an_error_counts_on() -> None:
 
 
 def test_a_vote_with_no_error_keeps_the_reason_it_always_had() -> None:
+    """*Since ADR 0012 §4's amendment of 2026-11-12* the samples that judged
+    and disagreed close the reason with what they said, here all `judged`.
+    Until then the reason ended at the scores."""
     combined = combine_samples(voted(("pass",) * 3 + ("fail",) * 2), min_agreement=0.8)
     assert combined.reason == (
         "the samples did not agree: 0.60 of them share the majority verdict, "
         "below the required 0.80 (scores: 1.000000, 1.000000, 1.000000, "
-        "0.000000, 0.000000)"
+        "0.000000, 0.000000); every sample: judged"
     )
 
 
@@ -583,7 +586,7 @@ def test_a_vote_that_did_not_agree_names_what_its_errored_sample_said() -> None:
         "the samples did not agree: 0.33 of them share the majority verdict, "
         "below the required 0.67 (scores: 1.000000, error, 0.000000); "
         "an errored sample counts against agreement, never for it; "
-        "1 of 3 could not be judged: hit the cap"
+        "1 of 3 could not be judged: hit the cap; every sample: judged"
     )
 
 
@@ -602,7 +605,7 @@ def test_a_vote_that_did_not_agree_reports_differing_causes_as_a_distribution() 
         "below the required 0.75 (scores: 1.000000, error, error, 0.000000); "
         "an errored sample counts against agreement, never for it; "
         "2 of 4 could not be judged, for 2 different reasons — "
-        "1 of 4: hit the cap; 1 of 4: was filtered"
+        "1 of 4: hit the cap; 1 of 4: was filtered; every sample: judged"
     )
 
 

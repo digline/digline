@@ -77,6 +77,46 @@ notes under them are this file, verbatim.
   was, and the `--resume` command that finishes it, the cases already paid for
   kept. `execute(max_cost=…)` is the library's form, raising
   `CostCeilingReached`. A new line `digline run` prints on standard error.
+- **`digline record proxy` goes through a company proxy.** An HTTPS upstream
+  is reached through the proxy `HTTPS_PROXY` names, with a `CONNECT` tunnel and
+  the proxy URL's credentials as `Proxy-Authorization`, except a host
+  `NO_PROXY` names; the start line says which routes go through it, never the
+  credentials. The upstream's certificate is checked against Python's default
+  store, which `SSL_CERT_FILE` and `SSL_CERT_DIR` replace, and the bundle
+  `REQUESTS_CA_BUNDLE` names beside it. Until now the proxy went to the
+  upstream directly, so behind a company proxy every call was a 502. Found in a
+  Java application with a judged suite.
+- **A judge that answers in prose is asked once more for the object.** Where
+  a reply holds no JSON object, a second call quotes it and asks for the
+  object alone, timed, priced and counted on the judge's line like the first.
+  Where that holds none either, the sample is an `error` whose reason quotes
+  the first reply. An empty reply and an object with a wrong field are not
+  asked again (ADR 0004 §4, as noted 2026-11-12). Found in a Java application
+  with a judged suite.
+- **`record status` and `record import` say how many recordings are under an
+  earlier setup.** Per suite, and at the head of the import's listing before
+  any answer: *N recordings under an earlier setup <setup>: an answer recorded
+  only there cannot be imported; in force: <setup>*, from the reading the
+  import makes. `--json` carries `under_earlier_setups` and `earlier_setups`,
+  and the status `setups_in_force`, keys recorded in `_ADDED`. Found in a Java
+  application with a judged suite, where a variable in the system prompt made
+  a setup per value.
+- **The import's listing puts a case's answers together.** Within a group,
+  the answers to the same question and context stand together, each case where
+  its first answer stands, and a case answered more than once has a line over
+  them, *case cap-… · 2 answers to the same question*; on the command line, on
+  the page, and as a group's `cases` count in `--json`. Nothing is ranked or
+  marked as the one to choose (ADR 0061 §1, as noted 2026-11-12). Found in a
+  Java application with a judged suite.
+- **The judge's words where its samples disagreed.** Where the samples of a
+  judged check do not all reach the same verdict, each one's reason closes the
+  folded verdict's, kept in the run whatever `record_responses` says, and
+  `digline explain`'s terminal reading closes with *What the judge said, where
+  its samples disagreed*, each such case under its check, a sample that could
+  not judge included. No fact carries them: `explain --json` and the MCP
+  `explain` do not (ADR 0012 §4, as amended 2026-11-12). The run report's
+  Reason column shows the same reason. Found in a Java application with a
+  judged suite.
 
 ## digline-mcp — unreleased
 
@@ -88,6 +128,12 @@ notes under them are this file, verbatim.
 - **`where` carries `idle_checks`**, the suite's checks no case is asked,
   as `digline where --json` does; under `--names project` each by the token
   its run carries.
+- **`record_listing` and `record_status` carry the recordings by setup**,
+  as the command line's `--json` does: `under_earlier_setups`,
+  `earlier_setups`, and per suite `setups_in_force`, setups by their eight
+  characters under either `--names`.
+- **`record_listing` counts each group's `cases`**, the questions its answers
+  are to, beside `answers`.
 
 ## 1.2.0 — 2026-11-10
 

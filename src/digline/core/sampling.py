@@ -331,7 +331,7 @@ def combine_samples(
             f"the samples did not agree: {agreement:.2f} of them share the "
             f"majority verdict, below the required {min_agreement:.2f} "
             f"(scores: {_rendered(verdicts)}){against}"
-            f"{_each_said(verdicts) if each else ''}",
+            f"{_said(verdicts, each=each)}",
             # The counts the fold has just computed, carried onto the verdict
             # that refuses. Without them the one check a reader most needs
             # explained — the one that errored *because* the samples disagreed —
@@ -395,11 +395,29 @@ def combine_samples(
         reason=(
             f"mean of {len(verdicts)} samples ({_rendered(verdicts)})"
             f"{_could_not_be_judged(verdicts)}"
-            f"{_each_said(verdicts) if each else ''}"
+            f"{_said(verdicts, each=each)}"
         ),
         assertion_id=first.assertion_id,
         floor_standard_errors=first.floor_standard_errors,
     )
+
+
+def _said(verdicts: Sequence[Verdict], *, each: bool) -> str:
+    """What the samples that judged said, where the fold keeps it: always for
+    a check whose class asks (`each`, ADR 0018 §1), and for any check where
+    those samples did not all reach the same verdict. A judge that passed an
+    answer once and failed it twice gave three readings, and the mean says
+    none of them; its words are what a reader of the case needs. The samples
+    that could not judge are said by `_could_not_be_judged`. (ADR 0012 §4, as
+    amended 2026-11-12)"""
+    judged = [v for v in verdicts if v.score.score is not None]
+    if not judged:
+        return ""
+    if each:
+        return _each_said(verdicts)
+    if len({v.status for v in judged}) > 1:
+        return _each_said(judged)
+    return ""
 
 
 def _each_said(verdicts: Sequence[Verdict]) -> str:

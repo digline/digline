@@ -24,6 +24,7 @@ import importlib
 import json
 import os
 import random
+import re
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -633,6 +634,19 @@ def test_record_status_counts_by_suite_and_orphans(
     assert tenant["switch"]["declared"] == ["on", "ceiling"]
     assert tenant["switch"]["sample"] == 1.0
     assert "no declared redaction" in tenant["switch"]["production_refusal"]
+    # Each suite by setup (P-1671): the setup in force per form by its eight
+    # characters, and here nothing under an earlier one.
+    in_force: dict[str, dict[str, str | None]] = {}
+    for suite in tenant["recordings"]["suites"]:
+        assert (suite.pop("under_earlier_setups"), suite.pop("earlier_setups")) == (
+            0,
+            [],
+        )
+        in_force[suite["suite"]] = suite.pop("setups_in_force")
+    assert in_force["agent"]["single_calls"] is None
+    assert re.fullmatch(r"[0-9a-f]{8}", str(in_force["agent"]["episodes"]))
+    assert in_force["triage"]["episodes"] is None
+    assert re.fullmatch(r"[0-9a-f]{8}", str(in_force["triage"]["single_calls"]))
     assert tenant["recordings"]["suites"] == [
         {
             "suite": "agent",

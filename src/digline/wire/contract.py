@@ -1646,6 +1646,53 @@ _ADDED: tuple[_AddedKey, ...] = (
     # and the markers a run left behind that no writer reads any more, by
     # the run's key, `null` where the marker could not be read.
     _AddedKey("record_status.suite", "from_gate", _INT, _GATE),
+    # Each suite's recordings by setup, as the import reads them: the setup in
+    # force per form by its eight characters, how many eligible recordings sit
+    # under another setup, and those setups. The same three on the import's
+    # listing. (P-1671)
+    _AddedKey(
+        "record_status.suite",
+        "setups_in_force",
+        _k(_Obj("record_status.setups_in_force")),
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    *_shape_added(
+        "record_status.setups_in_force",
+        {"single_calls": _STR_OR_NULL, "episodes": _STR_OR_NULL},
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    _AddedKey(
+        "record_status.suite",
+        "under_earlier_setups",
+        _INT,
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    _AddedKey(
+        "record_status.suite",
+        "earlier_setups",
+        _STRINGS,
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    _AddedKey(
+        "import_listing",
+        "under_earlier_setups",
+        _INT,
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    _AddedKey(
+        "import_listing",
+        "earlier_setups",
+        _STRINGS,
+        "recordings under an earlier setup, 2026-11-12",
+    ),
+    # How many cases a group's answers are to: fewer than its answers where a
+    # case was answered differently. A count, never a ranking. (P-1671)
+    _AddedKey(
+        "import_listing.group",
+        "cases",
+        _INT,
+        "recordings grouped by case, 2026-11-12",
+    ),
     _AddedKey(
         "record_status.recordings",
         "stale_gate_markers",

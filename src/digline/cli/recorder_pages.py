@@ -43,11 +43,14 @@ from digline.host.importing import (
     ImportAnswer,
     ImportListing,
     answer_state,
+    by_case,
+    case_line,
     closing_lines,
     group_line,
     group_setup_line,
     input_line,
     setup_line,
+    setups_said,
 )
 from digline.host.proposal import Mark, ProposalFile, ProposedBlock
 from digline.host.where import SuiteFound, record_lines
@@ -255,6 +258,9 @@ def recordings_page(
         _p(declaration.line(), "declaration"),
         _p(setup_line(found), "note"),
     ]
+    earlier = setups_said(found.by_setup)
+    if earlier is not None:
+        body.append(_p(earlier, "note"))
     fields = import_fields(found)
     form = writes is not None and len(fields) > 1
     if form:
@@ -303,9 +309,21 @@ def _answers_table(
     head += _head("view.recordings.column", ("state",), locale)
     if form:
         head += _head("view.recordings.column", ("elect",), locale)
-    rows = "".join(
-        _answer_row(found, answer, order, locale, form=form) for answer in answers
-    )
+    columns = 7 if form else 6
+    rows = ""
+    # By case, as the command line lists them: a case answered more than once
+    # under a row that says so, its answers below in the files' order, and
+    # none marked as the one to choose. (ADR 0061, as noted 2026-11-12)
+    for case, found_answers in by_case(answers):
+        if len(found_answers) > 1:
+            rows += (
+                f'<tr class="case"><td colspan="{columns}">'
+                f"{escape(case_line(case, found_answers))}</td></tr>"
+            )
+        rows += "".join(
+            _answer_row(found, answer, order, locale, form=form)
+            for answer in found_answers
+        )
     return (
         f'<div class="fits"><table class="answers"><thead><tr>{head}</tr></thead>'
         f"<tbody>{rows}</tbody></table></div>\n"

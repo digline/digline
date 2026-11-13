@@ -21,7 +21,8 @@ same stand-in; the run key in it is the second run's, where the third named
 its own. Two lines were added after those runs, with the code that prints
 them, and are what this page's replay prints there: `where`'s
 `idle_checks`, and the first of `run`'s notes on day two. So were the words
-*9 judgements a case* in the two plans `run` says. **No call
+*9 judgements a case* in the two plans `run` says, and in `record_listing`'s
+answer `under_earlier_setups`, `earlier_setups` and a group's `cases`. **No call
 reached a model.** A
 stand-in for Anthropic's Messages API on 127.0.0.1 answered the application
 and the judge, and every answer, score and token count below is the
@@ -296,6 +297,8 @@ $ diff suite.proposed.toml suite.toml
     "single_calls": "6d20afaa",
     "episodes": null
   },
+  "under_earlier_setups": 0,
+  "earlier_setups": [],
   "samples": 3,
   "deterministic_output": false,
   "groups": [
@@ -308,6 +311,7 @@ $ diff suite.proposed.toml suite.toml
       },
       "setup": "6d20afaa",
       "answers": 4,
+      "cases": 4,
       "recordings": 4,
       "waiting": 4,
       "good": 0,

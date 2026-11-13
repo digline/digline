@@ -18,9 +18,12 @@ import contextlib
 import json
 import os
 from collections.abc import Mapping
+from dataclasses import replace
 from pathlib import Path
 
+from digline.core.recording import Recording
 from digline.host.gate import gate_markers
+from digline.host.importing import SetupsRead, setups_read, split_recordings
 from digline.recorder import SWITCH_KEYS, RecorderStartError, Switch, parse_switch
 from digline.store.file_store import (
     COUNTS_FILENAME,
@@ -217,6 +220,20 @@ def _suite(
     )
 
 
+def _with_setups(suite: SuiteRecordings, read: SetupsRead) -> SuiteRecordings:
+    """`suite` with what its eligible recordings say by setup, read as the
+    import reads them. (P-1671)"""
+    return replace(
+        suite,
+        setups_in_force={
+            "single_calls": read.in_force[False],
+            "episodes": read.in_force[True],
+        },
+        under_earlier_setups=read.under_earlier,
+        earlier_setups=read.earlier,
+    )
+
+
 def _tenant(
     store: FileResultStore,
     tenant: str,
@@ -243,6 +260,7 @@ def _tenant(
     suites: dict[str, list[int]] = {}
     unreadable = 0
     size = 0
+    everything: list[Recording] = []
     for item in sorted(directory.glob("*/*.json")):
         if item.name.startswith("."):
             continue
@@ -253,6 +271,7 @@ def _tenant(
         except (ValueError, OSError):
             unreadable += 1
             continue
+        everything.append(recording)
         counts = suites.setdefault(recording.suite, [0, 0, 0, 0, 0, 0])
         if recording.origin is not None:
             counts[5] += 1
@@ -299,12 +318,15 @@ def _tenant(
         production_refusal=production_refusal,
         recordings_path=str(directory),
         suites=tuple(
-            _suite(
-                name,
-                counts,
-                imports.get(name),
-                missed.get(name, {}),
-                noted.get(name, {}),
+            _with_setups(
+                _suite(
+                    name,
+                    counts,
+                    imports.get(name),
+                    missed.get(name, {}),
+                    noted.get(name, {}),
+                ),
+                setups_read(split_recordings(everything, name).eligible),
             )
             for name, counts in sorted(suites.items())
         ),

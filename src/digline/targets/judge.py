@@ -219,6 +219,18 @@ _WHY_JUDGE_SILENT: Mapping[Finish, str] = {
 }
 
 
+#: What the second call asks, after a reply that held no JSON object.
+AGAIN = (
+    "Answer again with the JSON object only, as the instruction asks, and nothing else."
+)
+
+
+def _asked_again(prompt: str, reply: str) -> str:
+    """The prompt of the one second call: the first prompt, the reply it got,
+    and `AGAIN`. The reply is the judge's own text, quoted as such."""
+    return f"{prompt}\n\nYour reply was:\n{reply}\n\n{AGAIN}"
+
+
 def _no_text(reply: Completion, max_tokens: int) -> str:
     """Why a judge that said nothing said nothing.
 
@@ -347,7 +359,33 @@ class JudgeBase(ABC):
         return self._ask_as(self.system, prompt)
 
     def _ask_as(self, system: str, prompt: str) -> Mapping[str, Any]:
-        """One call under `system`: timed, priced, counted, parsed.
+        """A judgement under `system`: one call, and a second only where the
+        first reply holds no JSON object.
+
+        The second asks for the object alone, quoting the first reply, and is
+        a call like the first: timed, priced and counted on the judge's line.
+        It is asked once. Where it holds no object either, the judgement is an
+        error whose reason quotes the first reply, so the prose the judge wrote
+        is what the reader sees. An empty reply is not asked again: its
+        sentence already says why it is empty. (ADR 0004 §4, as noted
+        2026-11-12)
+        """
+        text = self._answered(system, prompt)
+        try:
+            return loads_lenient(text)
+        except ValueError:
+            pass
+        again = self._answered(system, _asked_again(prompt, text))
+        try:
+            return loads_lenient(again)
+        except ValueError:
+            raise ValueError(
+                "the judge replied twice with no JSON object, the second time "
+                f"asked for the object alone; it said: {text[:400]!r}"
+            ) from None
+
+    def _answered(self, system: str, prompt: str) -> str:
+        """One call under `system`: timed, priced, counted, and its text.
 
         The judging call's body, with the instruction as an argument, so that
         `digline suggest`'s assistant is asked through the same code that
@@ -426,7 +464,7 @@ class JudgeBase(ABC):
             raise ValueError(_no_text(reply, self.max_tokens))
         # The whole text, prefill included: the prefill is part of the reply to
         # be parsed, it is only not part of what the *model* said.
-        return loads_lenient(reply.text)
+        return reply.text
 
     @property
     def config(self) -> Mapping[str, ConfigValue]:

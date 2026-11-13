@@ -132,6 +132,18 @@ write: §2's two stay the only two, and the view takes no POST. ADR 0037 §6
 holds there as at the import: the checks are in the file's order, and
 nothing is ranked or chosen.
 
+*Noted 2026-11-12, by Alessandro Prandini's decision, from a first use outside
+the project on a Java application with a judged suite.* **Within a group, the
+answers are put together by case**, the same question and context: each case
+where its first answer stands, its answers in the files' order, and a case
+answered more than once under a line that says so, *case cap-… · 2 answers to
+the same question*. The command line, the page and `record_listing`'s count
+of `cases` read one function, `by_case`. **It ranks nothing**: no answer is
+marked as the one to choose, and no flag names the answers of every case, so
+ADR 0023 §4 and ADR 0037 §6 hold as written. A mark of the newest answer
+under the setup in force, and a `--latest` that named them, were proposed the
+same day and not taken, for that reason.
+
 **Every view calls the function the command calls, and renders what it
 returns.** A page and a command that compute the same fact twice are two
 places that can disagree, and the one that is wrong is the one nobody runs.
