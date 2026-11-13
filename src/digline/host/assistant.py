@@ -45,7 +45,7 @@ from digline.core.recording import Recording, instant_of
 from digline.core.refused import RefusedError
 from digline.core.suggest import Proposed, handle
 from digline.host.toml_suite import assistant_of, check_of
-from digline.run.suite import Case
+from digline.run.suite import Case, reviewed_counts
 from digline.targets import JudgeBase
 from digline.targets.pricing import Usage
 
@@ -258,15 +258,15 @@ def material(
 ) -> Material:
     """The prompt, under the capture's regime. Never an `_unassigned` call:
     `eligible` holds the suite's recordings alone."""
-    yes = sum(1 for c in reviewed if c.reviewed_answer and c.reviewed_answer.good)
+    counted = reviewed_counts(reviewed)
     document: dict[str, object] = {
         "suite": suite,
         "regime": regime,
         "checks": _checks(checks),
         "counts": {
             "recordings": len(eligible),
-            "reviewed_yes": yes,
-            "reviewed_no": len(reviewed) - yes,
+            "reviewed_yes": counted.good,
+            "reviewed_no": counted.bad,
         },
     }
     if regime != "private":

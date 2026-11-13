@@ -112,6 +112,7 @@ from digline.host.resolve import (
     replacing,
     resolve_key,
 )
+from digline.host.state import CaseChecks, SuiteState, suite_state
 from digline.host.suggest import (
     PROPOSAL,
     SUITE_RULE,
@@ -143,6 +144,7 @@ __all__ = [
     "read_proposal",
     "suggest_lines",
     "suite_file_of",
+    "suite_state",
     "DIRTY_SUFFIX",
     "Explained",
     "LATEST",
@@ -164,6 +166,8 @@ __all__ = [
     "Prepared",
     "SourceOnlyLoader",
     "SuiteRuns",
+    "SuiteState",
+    "CaseChecks",
     "UsageError",
     "entry_for",
     "explained",

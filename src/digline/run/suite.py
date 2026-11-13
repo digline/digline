@@ -56,12 +56,14 @@ __all__ = [
     "CallPlan",
     "Case",
     "ReviewedAnswer",
+    "ReviewedCounts",
     "TRAJECTORY_CHECKS",
     "Suite",
     "blind_tolerances",
     "checks_asked",
     "idle_checks",
     "planned_calls",
+    "reviewed_counts",
     "suite_notes",
     "undeclared_kinds",
 ]
@@ -1306,6 +1308,27 @@ def checks_asked(suite: Suite, case: Case) -> frozenset[str]:
             a.identity for a in (suite.reviewed(answer), *suite.on_the_steps(answer))
         )
     return frozenset(a.identity for a in suite.assertions)
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedCounts:
+    """The reviewed answers among some cases, by the person's yes and no."""
+
+    good: int
+    bad: int
+
+
+def reviewed_counts(cases: Iterable[Case]) -> ReviewedCounts:
+    """How many of `cases` are a reviewed answer a person said yes to, and how
+    many one they said no to. A case of another kind counts in neither.
+
+    One count, read by `digline suggest --assist`'s material and by the state
+    of a suite in `digline view`, so the two cannot count it twice two ways.
+    (ADR 0066 §1)
+    """
+    answers = [case.reviewed_answer for case in cases if case.reviewed_answer]
+    good = sum(1 for answer in answers if answer.good)
+    return ReviewedCounts(good=good, bad=len(answers) - good)
 
 
 def idle_checks(suite: Suite) -> tuple[str, ...]:

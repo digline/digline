@@ -80,6 +80,7 @@ from digline.report.pages import (
     recorder_address,
     recordings_address,
     setups_address,
+    state_address,
     where_address,
 )
 from digline.report.text import LOCALES
@@ -762,6 +763,9 @@ def views(served: Served) -> list[str]:
         where_address("acme", "triage") + "?locale=it",
         proposal_address("acme", "triage"),
         proposal_address("acme", "triage") + "?locale=it",
+        # The state of the suite, which reads and takes no POST (ADR 0066 §1).
+        state_address("acme", "triage"),
+        state_address("acme", "triage") + "?locale=it",
     ]
 
 
@@ -811,6 +815,7 @@ def test_every_screen_links_the_three_views(served: Served) -> None:
     for target in ("/", "/suspend/x?reason=r", *views(served)):
         page = served.ask("GET", target).body
         for href in (
+            state_address("acme", "triage"),
             where_address("acme", "triage"),
             recordings_address("acme", "triage"),
             setups_address("acme", "triage"),

@@ -87,6 +87,7 @@ __all__ = [
     "SuiteFound",
     "Where",
     "record_lines",
+    "runs_of",
     "suites_of",
     "tenants_under",
     "where",
@@ -183,7 +184,7 @@ def _state(
     store = FileResultStore(root)
     everything, _unreadable = read_recordings(store, tenant)
     named = sorted({r.suite for r in everything} - {UNASSIGNED})
-    runs = _runs(store, tenant, suite)
+    runs = runs_of(store, tenant, suite)
 
     if not everything and not runs:
         return Where("nothing_recorded", tenant, suite=_name(suite))
@@ -311,10 +312,12 @@ def _name(suite: Suite | None) -> str | None:
     return None if suite is None else suite.name
 
 
-def _runs(
+def runs_of(
     store: FileResultStore, tenant: str, suite: Suite | None
 ) -> list[tuple[str, Run]]:
-    """The suite's readable runs, oldest first, or none without a suite."""
+    """The suite's readable runs, oldest first, or none without a suite: the
+    newest is the last. Read by `where` and by the state of a suite in
+    `digline view`, which name the same newest run. (ADR 0066 §1)"""
     if suite is None:
         return []
     listed = suite_runs(store, tenant, suite.name, mint=None)

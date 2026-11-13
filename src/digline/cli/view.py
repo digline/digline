@@ -103,6 +103,7 @@ from digline.host import (
     suggest_lines,
     suite_file_of,
     suite_runs,
+    suite_state,
     suites_of,
     switch_off,
     switch_on,
@@ -829,6 +830,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_setups(locale, path, query)
             elif path.startswith("/recorder/"):
                 self._screen_recorder(locale, path)
+            elif path.startswith("/suite/"):
+                self._screen_state(locale, path)
             elif path.startswith("/where/"):
                 self._screen_where(locale, path)
             elif path.startswith("/proposal/"):
@@ -897,6 +900,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 refused=refused,
                 ignored=left_out_parts(listed, locale=locale),
                 excluded=(() if reference is None else reference.excluded_at_promotion),
+                state=pages.state_address(self.suite.tenant, self.suite.name),
             )
         except Exception as exc:  # noqa: BLE001 — the baseline must arrive whatever the list does
             self._plain(
@@ -1229,6 +1233,46 @@ class ViewHandler(BaseHTTPRequestHandler):
                 suites=suites_of(Path(self.root), self.tenant),
             ),
             here="where",
+            locale=locale,
+        )
+
+    def _screen_state(self, locale: Locale, path: str) -> None:
+        """`/suite/<tenant>/<suite>/`: the state of the suite, whole, from
+        `digline.host.state`, which puts side by side what each command
+        reads and writes nothing. GET alone: no route of it writes, and a
+        POST is the 404 of any unknown path. (ADR 0066 §1)"""
+        parts = self._segments(path, "/suite/", 2)
+        if parts is None or parts[2]:
+            self._error(404, f"no such page: {path}")
+            return
+        named, suite, _ = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None or not self._this_suite(suite):
+            return
+        if tenant != self.suite.tenant:
+            # Another tenant's store is another perimeter, as at `/where/`
+            # (decision 8).
+            self._error(
+                404,
+                f"no such page: suite {self.suite.name!r} is tenant "
+                f"{self.suite.tenant!r}'s, not {tenant!r}'s",
+            )
+            return
+        found = suite_state(
+            Path(self.root),
+            self.suite,
+            self.module,
+            suite_file=suite_file_of(self.suite_arg, self.module),
+        )
+        self._page(
+            recorder_pages.state_page(
+                found,
+                suite=self.suite.name,
+                suite_arg=self.suite_arg,
+                root=self._root_flags(),
+                locale=locale,
+            ),
+            here="state",
             locale=locale,
         )
 

@@ -609,6 +609,10 @@ def test_the_four_routes_answer(served: tuple[str, str], repo: Path) -> None:
     assert status == 200
     assert "Case(id='capital-it', suspended='flaky provider')" in unescape(body)
 
+    # The state of the suite, whole (ADR 0066 §1).
+    status, body = get(f"{base}suite/acme-bank/qa/")
+    assert status == 200 and "capital-it" in body
+
 
 def test_before_the_first_promotion_compare_shows_the_run(repo: Path) -> None:
     """It answered 404 "this suite has no baseline yet", which left the first
