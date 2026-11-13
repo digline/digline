@@ -22,6 +22,7 @@ from digline.host.where import RECORD_LINES, STATES, State, Where, record_lines
 from digline.report.pages import (
     nav,
     recorder_address,
+    state_address,
     where_address,
     with_screens,
     with_tenant_screens,
@@ -286,9 +287,10 @@ def test_each_page_named_exists_and_has_its_anchor(state: State) -> None:
             assert anchor in slugs(doc), (doc, anchor)
 
 
-def test_where_you_are_opens_the_bar() -> None:
-    """The first entry of every screen's bar, before the runs, and the runs
-    stay at `/`."""
+def test_where_you_are_opens_the_bar_after_the_state_of_the_suite() -> None:
+    """The second entry of every screen's bar, after the state of the suite
+    and before the runs, and the runs stay at `/`. It was the first until
+    ADR 0066 §1 put the state of the suite before it."""
     bar = with_screens(
         nav("en", here="runs", suite="triage"),
         tenant="acme",
@@ -296,7 +298,11 @@ def test_where_you_are_opens_the_bar() -> None:
         locale="en",
     )
     links = re.findall(r'<a href="([^"?]+)', bar)
-    assert links[:2] == [where_address("acme", "triage"), "/"]
+    assert links[:3] == [
+        state_address("acme", "triage"),
+        where_address("acme", "triage"),
+        "/",
+    ]
     assert ">Where you are</a>" in bar
     italian = with_screens(
         nav("it", here="runs", suite="triage"),
