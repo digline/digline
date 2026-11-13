@@ -443,7 +443,7 @@
       ]
     }
   ],
-  "schema_version": 23,
+  "schema_version": 24,
   "suite": "dispatch",
   "target_config": {},
   "tenant": "northwind",
