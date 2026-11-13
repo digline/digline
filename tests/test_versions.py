@@ -1383,6 +1383,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "why the classification exists. History",
     },
     "docs/view.md": {
+        "1.2.0": (
+            "the release before 1.3, which the page's *Arrives with digline "
+            "1.3.* mark says the paragraph above it differs from; the mark goes "
+            "at the cut, and the number with it"
+        ),
         "0.21.0": "'In 0.21.0, a process that read that file could promote' — "
         "the release whose reusable launch key was K-1, told as why the "
         "address now works once. History",
