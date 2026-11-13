@@ -231,6 +231,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "accepted and built in this tree, in no release tag: the newest tag "
         "at its landing is v1.2.0"
     ),
+    "0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time": (
+        "accepted and not built: the construction is the three pull requests of its §7"
+    ),
     "0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with": (
         "accepted and built in this tree, in no release tag: the newest tag "
         "at its landing is v1.2.0"
