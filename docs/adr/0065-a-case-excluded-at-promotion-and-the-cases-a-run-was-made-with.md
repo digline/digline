@@ -6,8 +6,9 @@
   the session that wrote this record: the cases are read **beside**
   `config_hash` and never inside it. It is stated here in this record's own
   words. Accepted as proposed, with the points this record left to acceptance:
-  the three limits of §1, and no new field in §2. Not built yet: the
-  construction is a pull request of its own.
+  the three limits of §1, and no new field in §2. Built in the pull request
+  after the one that accepted it, on 2026-11-13; two places where the build
+  says more than this text are dated notes in §2.
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: `SCHEMA_VERSION`, by one key on the reference (§1), under
@@ -147,6 +148,9 @@ What is read, and where:
   - It is asked **before** conditions 3, 5 and 12. In the measured case, the
     person is told first that the run holds a case the suite dropped, and
     which flag says so. They are not sent to the judge first.
+    *Noted at the build, 2026-11-13:* and after 10. A run that judged
+    nothing says that first, and 10 already names a declared case the run
+    does not carry as *absent* (ADR 0049 §3).
   - ADR 0002 §8 takes a dated note.
 - **`compare` between two runs** is unchanged in what it pairs. Today it does
   not compare a case present on one side only: it lists it as `new` or
@@ -156,7 +160,13 @@ What is read, and where:
   changed"*: the checks did not change, and the cases both sides share are
   compared as before.
 - **`where`: a state `cases_changed`**, asked after `never_run` and before
-  `judge_disagrees`. The newest run's case ids differ from the suite's
+  `judge_disagrees`.
+  *Noted at the build, 2026-11-13:* a case the suite added holds this state
+  only where no answer under a new setup accounts for it. An import that
+  elects an answer adds its case, so without that exception `new_setup`,
+  asked later, could never be reached; its next step, compare the setups and
+  then run, is the more specific one. A case the run holds and the suite
+  dropped holds this state always. The newest run's case ids differ from the suite's
   declared ids, and the next step is to run the suite again, or to exclude at
   promotion.
   - Without it, a contradiction on a case the suite dropped would hold the
