@@ -1,13 +1,14 @@
 # ADR 0066 — The state of a suite, and a review one answer at a time
 
-- Status: proposed 2026-11-13, from a first use outside the project, on an
-  application with a judged suite. Its decisions were dictated before this
-  record was written, in the conversation of the session that wrote it, and
-  are stated here in this record's own words. **What this record adds is
-  marked *decided here***: the routes, where the name lives, what the
-  page does after a press, and the two facts the state needs that no command
-  prints yet. Each is proposed, for acceptance to take or remove item by item.
-  Nothing is built until this record is accepted
+- Status: accepted 2026-11-13, by Alessandro Prandini, proposed the same day
+  from a first use outside the project, on an application with a judged
+  suite. Its decisions were dictated before this record was written, in the
+  conversation of the session that wrote it, and are stated here in this
+  record's own words. **What this record adds is marked *decided here***: the
+  routes, where the name lives, what the page does after a press, and the two
+  facts the state needs that no command prints yet. Accepted as proposed,
+  with the six items marked *decided here* and the note on ADR 0061 §2. Not
+  built yet: the construction is the three pull requests of §7
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -47,7 +48,7 @@
 
 **How to read the clauses.** *Dictated* is a decision taken before this
 record and transcribed. *Decided here* is a name or a detail this record
-proposes, and acceptance rules on it.
+proposed, and each was accepted with the record.
 
 ## Context
 
@@ -119,7 +120,7 @@ calls and renders what it returns, which is ADR 0061 §1's rule, *one
 function that can be wrong*.
 
 **Two facts the list needs are computed today and printed by no command**,
-read at `71f0fbad`. *Decided here*, for each: the function moves, and is not
+read at `71f0fbad`. *Decided here, and accepted with the record*, for each: the function moves, and is not
 written again.
 
 - **The reviewed answers by yes and no** are counted in one place,
@@ -132,7 +133,7 @@ written again.
   what `idle_checks` unions over every case. The page calls it once per case
   and renders the result. No command prints it per case today.
 
-**Where it is served.** *Decided here.* At `/suite/<tenant>/<suite>/`, the
+**Where it is served.** *Decided here, and accepted with the record.* At `/suite/<tenant>/<suite>/`, the
 **first entry of the menu**, before *Where you are*, and linked from the head
 of the run list. It is not `/`: the run list stays there, because the
 browser that spends the launch key is sent to the constant `/` and that
@@ -183,7 +184,7 @@ threshold under which the page writes on its own. **No order is suggested
 beyond the file's**: the next answer is the next one in `by_case`'s order
 that has not been reviewed.
 
-**After a press.** *Decided here.* A press that writes is answered, as every
+**After a press.** *Decided here, and accepted with the record.* A press that writes is answered, as every
 write of the page is, with a `303` (ADR 0061 §4.2), to the page of the next
 answer not yet reviewed. That page opens with what the press wrote, **read
 back from the draft**, not carried from the request: *ID written, `--good`,
@@ -198,7 +199,7 @@ line in an address. After the last answer, the `303` leads to the state of
 reviewed, for the person who wants to leave one for later. It is the file's
 order, and suggests nothing.
 
-**Where it is served.** *Decided here.* `/review/<tenant>/<suite>/` is the
+**Where it is served.** *Decided here, and accepted with the record.* `/review/<tenant>/<suite>/` is the
 first answer not yet reviewed, and `/review/<tenant>/<suite>/<id>` is one
 answer. The POST goes to the second. Without `--allow-record` the pages read
 and show no button, and say where the writes are, as the recordings do; the
@@ -211,7 +212,7 @@ answers waiting.
 *Dictated.* **The person writes their name once per session of the page, and
 it is shown on every answer.** It is the `--by` each press writes.
 
-*Decided here, where it lives.* **In the server's memory, beside the session
+*Decided here, where it lives, and accepted with the record.* **In the server's memory, beside the session
 the launch key was traded for** (`Launch.session`, `view.py:365`), for as
 long as the server runs, and nowhere else: not in a file, not in a cookie,
 not in an address. The first press carries it in the form; the server keeps
