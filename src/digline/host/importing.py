@@ -92,6 +92,7 @@ from digline.host.toml_suite import read_cases, within_perimeter
 from digline.recorder import UNASSIGNED
 from digline.run.suite import CaptureSource, Case, Suite
 from digline.store.file_store import FileResultStore
+from digline.wire.recorder import SuiteRecordings
 from digline.wire.recordings import Listed, ListedGroup, Shape
 
 __all__ = [
@@ -124,6 +125,7 @@ __all__ = [
     "written_lines",
     "setups_read",
     "setups_said",
+    "status_setups_said",
     "by_case",
     "case_line",
 ]
@@ -751,6 +753,22 @@ def setups_said(read: SetupsRead) -> str | None:
         f"{'earlier setups' if len(read.earlier) > 1 else 'an earlier setup'} "
         f"{earlier}: an answer recorded only there cannot be imported; "
         f"in force: {in_force}"
+    )
+
+
+def status_setups_said(entry: SuiteRecordings) -> str | None:
+    """`setups_said` for a suite's line of `digline record status`, read back
+    from the fields that line carries. The command and the state of a suite
+    in `digline view` say it from here. (P-1671; ADR 0066 §1)"""
+    return setups_said(
+        SetupsRead(
+            in_force={
+                False: entry.setups_in_force.get("single_calls"),
+                True: entry.setups_in_force.get("episodes"),
+            },
+            earlier=entry.earlier_setups,
+            under_earlier=entry.under_earlier_setups,
+        )
     )
 
 

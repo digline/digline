@@ -7,8 +7,9 @@
   record's own words. **What this record adds is marked *decided here***: the
   routes, where the name lives, what the page does after a press, and the two
   facts the state needs that no command prints yet. Accepted as proposed,
-  with the six items marked *decided here* and the note on ADR 0061 §2. Not
-  built yet: the construction is the three pull requests of §7
+  with the six items marked *decided here* and the note on ADR 0061 §2.
+  Built in part on 2026-11-13: §1, the first of the three pull requests of
+  §7. Where the build says more than this text, a dated note in §1 says so
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -132,6 +133,24 @@ written again.
   (`src/digline/run/suite.py:1288`): the dispatch the driver follows, and
   what `idle_checks` unions over every case. The page calls it once per case
   and renders the result. No command prints it per case today.
+
+*Noted 2026-11-13, at the build of §1; the text above is kept as written.*
+Three things the build says more precisely:
+
+- **`checks_asked` does not move.** It is already a public function of
+  `digline.run.suite`, which the page's host layer may import, so the page
+  calls it where it is. *"The function moves"* holds for the reviewed
+  count alone: `reviewed_counts`, beside `checks_asked`, which
+  `material` now calls.
+- **Two readings shared rather than copied.** `where`'s list of a suite's
+  runs, oldest first, is `runs_of` in `digline.host.where`, so the page and
+  `where` name the same newest run. And the sentence on the recordings under
+  an earlier setup, which `digline record status` composed in the command,
+  is `status_setups_said` in `digline.host.importing`, said by both.
+- **The recordings under an earlier setup are counted as `record status`
+  counts them**: over the suite's eligible recordings, not over those since
+  the last import alone. Item 6 above reads *of them*; the page says what
+  the command says.
 
 **Where it is served.** *Decided here, and accepted with the record.* At `/suite/<tenant>/<suite>/`, the
 **first entry of the menu**, before *Where you are*, and linked from the head

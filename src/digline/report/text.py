@@ -943,6 +943,41 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.where.suites": "The suites tenant {tenant} holds",
         "view.where.suite_found": "{suite}: {recordings} recording(s), {runs} run(s)",
         "view.title.where": "Where you are — {suite}",
+        # The state of a suite, whole: what each command says of it, side by
+        # side. (ADR 0066 §1)
+        "view.nav.state": "The suite",
+        "view.title.state": "The suite — {suite}",
+        "view.state.heading": "The state of suite {suite}",
+        "view.state.cases": "The cases it declares",
+        "view.state.cases.count": (
+            "{count} case(s), each with the checks a run asks of it."
+        ),
+        "view.state.cases.none": "The suite declares no case.",
+        "view.state.column.case": "Case",
+        "view.state.column.checks": "The checks it is asked",
+        "view.state.case.asked_nothing": "none: it is suspended",
+        "view.state.reviewed": "The answers a person reviewed",
+        "view.state.reviewed.count": "{good} said good, {bad} said bad.",
+        "view.state.newest": "The newest run",
+        "view.state.newest.none": "The suite has never run.",
+        "view.state.newest.run": "{run}, exit code {exit_code}.",
+        "view.state.reference": "The reference in force",
+        "view.state.reference.none": "No reference yet: no run has been promoted.",
+        "view.state.reference.key": "{reference}, promoted {at}.",
+        "view.state.unknown": "at a time it does not record",
+        "view.state.recordings": "The recordings waiting",
+        "view.state.recordings.none": (
+            "Tenant {tenant} holds no recording of this suite."
+        ),
+        "view.state.recordings.not_read": (
+            "Since the last import: not read, because the suite declares no "
+            "capture source."
+        ),
+        "view.state.recordings.since": "{count} recorded since the last import.",
+        "view.state.recordings.never": "Never imported: {count} recorded in all.",
+        "view.state.next": "The next step",
+        "view.state.where": "Where you are says more",
+        "view.runs.state": "The state of this suite, whole",
         "view.where.idle_checks": "Checks that judge no case: {checks}",
         "view.where.command": "The command",
         "view.where.docs": "The page that says more",
@@ -2726,6 +2761,41 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{suite}: {recordings} registrazione/i, {runs} esecuzione/i"
         ),
         "view.title.where": "Dove sei — {suite}",
+        "view.nav.state": "La suite",
+        "view.title.state": "La suite — {suite}",
+        "view.state.heading": "Lo stato della suite {suite}",
+        "view.state.cases": "I casi che dichiara",
+        "view.state.cases.count": (
+            "{count} caso/i, ciascuno con i controlli che un'esecuzione gli chiede."
+        ),
+        "view.state.cases.none": "La suite non dichiara nessun caso.",
+        "view.state.column.case": "Caso",
+        "view.state.column.checks": "I controlli che gli sono chiesti",
+        "view.state.case.asked_nothing": "nessuno: è sospeso",
+        "view.state.reviewed": "Le risposte riviste da una persona",
+        "view.state.reviewed.count": "{good} dette buone, {bad} dette cattive.",
+        "view.state.newest": "L'esecuzione più recente",
+        "view.state.newest.none": "La suite non ha mai girato.",
+        "view.state.newest.run": "{run}, codice di uscita {exit_code}.",
+        "view.state.reference": "Il riferimento in vigore",
+        "view.state.reference.none": (
+            "Nessun riferimento ancora: nessuna esecuzione è stata promossa."
+        ),
+        "view.state.reference.key": "{reference}, promosso {at}.",
+        "view.state.unknown": "in un momento che non registra",
+        "view.state.recordings": "Le registrazioni in attesa",
+        "view.state.recordings.none": (
+            "Il tenant {tenant} non ha registrazioni di questa suite."
+        ),
+        "view.state.recordings.not_read": (
+            "Dall'ultimo import: non letto, perché la suite non dichiara una "
+            "fonte di cattura."
+        ),
+        "view.state.recordings.since": "{count} registrate dall'ultimo import.",
+        "view.state.recordings.never": "Mai importata: {count} registrate in tutto.",
+        "view.state.next": "Il passo dopo",
+        "view.state.where": "Dove sei dice di più",
+        "view.runs.state": "Lo stato di questa suite, intero",
         "view.where.idle_checks": "Controlli che non giudicano nessun caso: {checks}",
         "view.where.command": "Il comando",
         "view.where.docs": "La pagina che dice di più",

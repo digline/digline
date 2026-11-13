@@ -93,9 +93,33 @@ that used to be built by hand with a script.
 writes nothing. A suspension lives in the code, so the reason travels with the
 case in the same review as everything else.
 
+## The suite
+
+The first entry of the menu, `/suite/<tenant>/<suite>/`, says the state of
+the suite whole, and the run list links to it under its heading. Each line
+is what a command already says about the same store, read by the function
+that command calls, so the page and the command cannot say two things:
+
+| On the page | What says it on the command line |
+|---|---|
+| the cases the suite declares, each with the checks a run asks of it | no command prints it case by case: it is the dispatch `digline run` follows; the checks no case is asked are `digline where --json`'s `idle_checks` |
+| the answers a person reviewed, good and bad | the counts `digline suggest --assist` sends |
+| the newest run, its key and exit code | `digline where --json`, `run_key` and `run_exit_code` |
+| the reference in force, when it was promoted, and the cases excluded at its promotion, each with who | the run list's sentence, and `digline compare` ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)) |
+| the recordings since the last import, and those under an earlier setup | `digline record status --suite` |
+| the next step, its command shown and never run | `digline where` |
+
+It reads and writes nothing, and takes no POST: a POST to it gets the `404`
+any unknown path gets, with or without `--allow-record`. A server started
+without `--suite` has no such page, because a suite's state needs the suite.
+([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §1)
+
+> **Arrives with digline 1.3.** 1.2.0 has no page for the state of a suite:
+> its menu opens with *Where you are*.
+
 ## Where you are
 
-The first entry of the menu, `/where/<tenant>/<suite>/`, says where the
+The second entry of the menu, `/where/<tenant>/<suite>/`, says where the
 project is and what comes next, read from `.digline/`: one state, the first
 of these that holds, with two sentences, the command for the next step, and
 the page that says more. The runs stay at `/`.

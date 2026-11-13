@@ -155,6 +155,11 @@ def proposal_address(tenant: str, suite: str) -> str:
     return f"/proposal/{_segment(tenant)}/{_segment(suite)}/"
 
 
+def state_address(tenant: str, suite: str) -> str:
+    """Where the state of a suite is shown, whole. (ADR 0066 §1)"""
+    return f"/suite/{_segment(tenant)}/{_segment(suite)}/"
+
+
 def where_address(tenant: str, suite: str) -> str:
     """Where the view of what comes next is shown, for a suite of a tenant."""
     return f"/where/{_segment(tenant)}/{_segment(suite)}/"
@@ -189,25 +194,29 @@ def with_tenant_screens(
 def with_screens(
     document: str, *, tenant: str, suite: str, locale: Locale, here: str = ""
 ) -> str:
-    """A page's navigation bar, with the view of where the project is first
-    and the recorder's three views after the runs.
+    """A page's navigation bar, with the state of the suite and the view of
+    where the project is first, and the recorder's three views after the runs.
 
     They are digline's own and sit beside the runs, before the suite's name:
     the recordings, the answers across setups and the recorder (ADR 0061 §1).
-    *Where you are* opens the bar, because it is the one to read when you do
-    not know which of the others comes next; the runs stay at `/`. `here`
-    names the one being shown.
+    *The suite* opens the bar, the state of the suite whole, and *Where you
+    are* follows it, the one to read when you do not know which of the others
+    comes next (ADR 0066 §1); the runs stay at `/`. `here` names the one being
+    shown.
     """
     marker = '<span class="suite">'
     bar = '<nav class="bar">'
     if document.count(marker) != 1 or document.count(bar) != 1:
         raise ValueError("this document has no navigation bar to add a view to")
-    mark = ' class="here"' if here == "where" else ""
-    first = (
-        f'<a href="{escape(where_address(tenant, suite))}?locale={locale}"{mark}>'
-        f"{escape(phrase(locale, 'view.nav.where'))}</a>"
-    )
-    document = document.replace(bar, bar + first, 1)
+    opening: list[str] = []
+    for name, href in (
+        ("state", state_address(tenant, suite)),
+        ("where", where_address(tenant, suite)),
+    ):
+        mark = ' class="here"' if name == here else ""
+        label = escape(phrase(locale, f"view.nav.{name}"))
+        opening.append(f'<a href="{escape(href)}?locale={locale}"{mark}>{label}</a>')
+    document = document.replace(bar, bar + "".join(opening), 1)
     links: list[str] = []
     for name, href in (
         ("recordings", recordings_address(tenant, suite)),
@@ -502,8 +511,12 @@ def runs_page(
     refused: Mapping[str, str],
     ignored: str | Sequence[LeftOutPart] = "",
     excluded: Sequence[Exclusion] = (),
+    state: str = "",
 ) -> str:
     """Every readable run, newest first, with its aggregates beside it.
+
+    `state` is the address of the suite's state, linked under the heading,
+    where the server serves one; empty, no link (ADR 0066 §1).
 
     `excluded` is what the reference records of the cases a person left out
     of it by name at its promotion, said under the table in the sentence a
@@ -570,6 +583,11 @@ def runs_page(
     ]
     title = phrase(locale, "view.title.runs", suite=suite)
     body.append(f"<h1>{escape(title)}</h1>\n")
+    if state:
+        body.append(
+            f'<p><a href="{escape(state)}?locale={locale}">'
+            f"{escape(phrase(locale, 'view.runs.state'))}</a></p>\n"
+        )
 
     if not ordered:
         body.append(f'<p class="empty">{escape(phrase(locale, "view.no_runs"))}</p>\n')

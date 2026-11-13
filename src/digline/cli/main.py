@@ -105,7 +105,7 @@ from digline.host import (
 )
 from digline.host.estimate import estimate
 from digline.host.gate import STALE_SECONDS
-from digline.host.importing import SetupsRead, setups_said
+from digline.host.importing import status_setups_said
 from digline.report import (
     against_line,
     artifact_lines,
@@ -2079,16 +2079,7 @@ def cmd_record_status(args: argparse.Namespace) -> int:
             say(f"  suite {suite.suite}: {_suite_counts(suite)}; {since}")
             # The same sentence the import says at its head, from the same
             # reading of the recordings. (P-1671)
-            earlier = setups_said(
-                SetupsRead(
-                    in_force={
-                        False: suite.setups_in_force.get("single_calls"),
-                        True: suite.setups_in_force.get("episodes"),
-                    },
-                    earlier=suite.earlier_setups,
-                    under_earlier=suite.under_earlier_setups,
-                )
-            )
+            earlier = status_setups_said(suite)
             if earlier is not None:
                 say(f"    {earlier}")
             if suite.not_recorded:

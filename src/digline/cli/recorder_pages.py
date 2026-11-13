@@ -51,8 +51,10 @@ from digline.host.importing import (
     input_line,
     setup_line,
     setups_said,
+    status_setups_said,
 )
 from digline.host.proposal import Mark, ProposalFile, ProposedBlock
+from digline.host.state import SuiteState
 from digline.host.where import SuiteFound, record_lines
 from digline.report import Locale, escape, phrase
 from digline.report.pages import (
@@ -62,7 +64,9 @@ from digline.report.pages import (
     recordings_address,
     screen,
     setups_address,
+    where_address,
 )
+from digline.report.render import excluded_fact
 from digline.wire.record_compare import (
     SHORT,
     ComparedCase,
@@ -89,6 +93,7 @@ __all__ = [
     "recorder_page",
     "recordings_page",
     "setups_page",
+    "state_page",
     "WHERE_DOCS",
     "where_command",
     "where_page",
@@ -1153,6 +1158,155 @@ def where_page(
         title = phrase(locale, "view.title.where", suite=suite)
         label = suite
     return screen(title, "".join(body), locale=locale, suite=label, here="where")
+
+
+# -- the state of a suite ------------------------------------------------------ #
+
+
+def state_page(
+    state: SuiteState,
+    *,
+    suite: str,
+    suite_arg: str | None,
+    root: Sequence[str],
+    locale: Locale,
+) -> str:
+    """The state of a suite, whole, in the order of ADR 0066 §1: the cases
+    and the checks each is asked, the reviewed answers, the checks no case is
+    asked, the newest run, the reference in force, the recordings waiting,
+    and the next step. Each line renders a field of `SuiteState`, which reads
+    it where its command does; nothing is worked out here. It reads, and
+    takes no POST."""
+    tenant = state.where.tenant
+    body = [
+        f"<h1>{escape(phrase(locale, 'view.state.heading', suite=suite))}</h1>\n",
+        f"<h2>{escape(phrase(locale, 'view.state.cases'))}</h2>\n",
+    ]
+    if state.cases:
+        body.append(
+            _p(phrase(locale, "view.state.cases.count", count=len(state.cases)))
+        )
+        rows = "".join(
+            f"<tr><td><code>{escape(item.case_id)}</code></td><td>"
+            + (
+                escape(", ".join(item.checks))
+                if item.checks
+                else escape(phrase(locale, "view.state.case.asked_nothing"))
+            )
+            + "</td></tr>\n"
+            for item in state.cases
+        )
+        body.append(
+            "<table><thead><tr>"
+            + _head("view.state.column", ("case", "checks"), locale)
+            + f"</tr></thead>\n<tbody>\n{rows}</tbody></table>\n"
+        )
+    else:
+        body.append(_p(phrase(locale, "view.state.cases.none")))
+    if state.idle_checks:
+        body.append(
+            _p(
+                phrase(
+                    locale,
+                    "view.where.idle_checks",
+                    checks=", ".join(state.idle_checks),
+                ),
+                "note",
+            )
+        )
+    body.append(f"<h2>{escape(phrase(locale, 'view.state.reviewed'))}</h2>\n")
+    body.append(
+        _p(
+            phrase(
+                locale,
+                "view.state.reviewed.count",
+                good=state.reviewed.good,
+                bad=state.reviewed.bad,
+            )
+        )
+    )
+    body.append(f"<h2>{escape(phrase(locale, 'view.state.newest'))}</h2>\n")
+    if state.newest is None:
+        body.append(_p(phrase(locale, "view.state.newest.none")))
+    else:
+        key, code = state.newest
+        body.append(
+            _p(phrase(locale, "view.state.newest.run", run=key, exit_code=code))
+        )
+    body.append(f"<h2>{escape(phrase(locale, 'view.state.reference'))}</h2>\n")
+    if state.baseline_refused:
+        body.append(_p(state.baseline_refused, "note"))
+    elif state.baseline_key is None:
+        body.append(_p(phrase(locale, "view.state.reference.none")))
+    else:
+        body.append(
+            _p(
+                phrase(
+                    locale,
+                    "view.state.reference.key",
+                    reference=state.baseline_key,
+                    at=state.promoted_at or phrase(locale, "view.state.unknown"),
+                )
+            )
+        )
+        excluded = excluded_fact(state.excluded, locale)
+        if excluded:
+            body.append(_p(excluded))
+    body.append(f"<h2>{escape(phrase(locale, 'view.state.recordings'))}</h2>\n")
+    body.append(_waiting(state, tenant, locale))
+    body.append(f"<h2>{escape(phrase(locale, 'view.state.next'))}</h2>\n")
+    values = {
+        "count": state.where.count,
+        "suite": suite,
+        "tenant": tenant,
+        "exit_code": state.where.exit_code,
+        "last_import": state.where.last_import or phrase(locale, "view.where.never"),
+    }
+    body.append(_p(phrase(locale, f"view.where.{state.where.state}.title", **values)))
+    command = where_command(state.where, suite_arg, root)
+    if command:
+        body.append(f'<pre class="snippet">{escape(shlex.join(command))}</pre>\n')
+    body.append(
+        f'<p><a href="{escape(where_address(tenant, suite))}?locale={locale}">'
+        f"{escape(phrase(locale, 'view.state.where'))}</a></p>\n"
+    )
+    title = phrase(locale, "view.title.state", suite=suite)
+    return screen(title, "".join(body), locale=locale, suite=suite, here="state")
+
+
+def _waiting(state: SuiteState, tenant: str, locale: Locale) -> str:
+    """The suite's recordings waiting, as `digline record status --suite`
+    says them: how many came after the last import, and the line on the
+    recordings under an earlier setup, in the sentence the import says."""
+    entry = state.recordings
+    if entry is None:
+        return _p(phrase(locale, "view.state.recordings.none", tenant=tenant))
+    if entry.since_last_import is None:
+        lines = [_p(phrase(locale, "view.state.recordings.not_read"))]
+    elif entry.imported:
+        lines = [
+            _p(
+                phrase(
+                    locale,
+                    "view.state.recordings.since",
+                    count=entry.since_last_import,
+                )
+            )
+        ]
+    else:
+        lines = [
+            _p(
+                phrase(
+                    locale,
+                    "view.state.recordings.never",
+                    count=entry.since_last_import,
+                )
+            )
+        ]
+    earlier = status_setups_said(entry)
+    if earlier is not None:
+        lines.append(_p(earlier))
+    return "".join(lines)
 
 
 # -- the proposal ------------------------------------------------------------- #

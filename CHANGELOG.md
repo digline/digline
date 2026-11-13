@@ -47,6 +47,20 @@ Written when the number moved; the cut writes the rest of this opening.
   two optional parameters;
   an implementation of `ResultStore` outside digline accepts them to keep
   satisfying the protocol. Found in a Java application with a judged suite.
+- **`digline view` says the state of a suite, whole** (ADR 0066 §1). A new
+  page, `/suite/<tenant>/<suite>/`, the first entry of the menu and linked
+  from the run list: the cases the suite declares and the checks each is
+  asked, the answers a person reviewed, good and bad, the checks no case is
+  asked, the newest run, the reference in force with the cases excluded at
+  its promotion, the recordings waiting, and the next step. Each is what a
+  command already says, read by the function it calls: `where`, `record
+  status --suite`, and the counts `suggest --assist` sends, which now come
+  from one function, `reviewed_counts`, beside `checks_asked` in
+  `digline.run.suite`. The page reads and takes no POST. A new route and
+  none changed; no schema, no `--json` moves. New public names:
+  `reviewed_counts` and `ReviewedCounts` in `digline.run.suite`;
+  `suite_state`, `SuiteState` and `CaseChecks` in `digline.host`. From an
+  application with a judged suite, where nothing showed the suite whole.
 - **The Java recorder's `DiglineAws` survives a reload.** A framework that
   loads the application's classes again while the AWS SDK stays loaded, as
   Quarkus's dev mode does, failed the class's initialisation: the SDK refuses

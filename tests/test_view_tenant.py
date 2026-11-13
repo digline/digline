@@ -207,6 +207,10 @@ def test_without_a_suite_the_pages_of_a_suite_are_no_page(tmp_path: Path) -> Non
         status, page, _ = get(f"{base}compare?run=x")
         assert status == 404
         assert "started without --suite" in page
+        # The state of a suite needs the suite (ADR 0066 §1).
+        status, page, _ = get(f"{base}suite/acme/x/")
+        assert status == 404
+        assert "started without --suite" in page
 
 
 def test_without_a_suite_the_suites_the_store_holds_are_listed(tmp_path: Path) -> None:
