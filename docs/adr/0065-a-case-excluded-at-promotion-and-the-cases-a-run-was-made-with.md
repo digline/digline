@@ -1,10 +1,13 @@
 # ADR 0065 — A case excluded at promotion, by name, and the cases a run was made with
 
-- Status: proposed 2026-11-13, by a first use outside the project, on a Java
-  application with a judged suite. Part of decision B was ruled on 2026-11-13,
-  in the conversation of the session that wrote this record: the cases are
-  read **beside** `config_hash` and never inside it. It is stated here in this
-  record's own words. Nothing is built until this record is accepted.
+- Status: accepted 2026-11-13, by Alessandro Prandini, proposed the same day
+  by a first use outside the project, on a Java application with a judged
+  suite. Part of decision B was ruled on 2026-11-13, in the conversation of
+  the session that wrote this record: the cases are read **beside**
+  `config_hash` and never inside it. It is stated here in this record's own
+  words. Accepted as proposed, with the points this record left to acceptance:
+  the three limits of §1, and no new field in §2. Not built yet: the
+  construction is a pull request of its own.
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: `SCHEMA_VERSION`, by one key on the reference (§1), under
@@ -83,7 +86,7 @@ them **against the suite in force**, at `promote` and in `where`.
 
 ### 1. A: `promote --exclude CASE`, by name, recorded in the reference
 
-*Proposed.* `digline promote` takes `--exclude CASE`, which may be repeated.
+*Decided.* `digline promote` takes `--exclude CASE`, which may be repeated.
 
 - **The reference is written without that case's result.** The run file is not
   touched: the run records everything it measured, and stays the measurement.
@@ -107,7 +110,7 @@ them **against the suite in force**, at `promote` and in `where`.
   - It is a fact about the reference, beside `promoted_at`. It is not a
     movement, and it changes no exit code.
 
-*Decided here, beyond the brief; acceptance takes each or removes it.* Three
+*Decided here, beyond the brief, and accepted with the record.* Three
 limits on what `--exclude` accepts, each refused by name:
 
 1. **A case the run does not carry** is refused, as a typo would be.
@@ -126,10 +129,11 @@ limits on what `--exclude` accepts, each refused by name:
 *Ruled 2026-11-13: beside `config_hash`, never inside it.* The run keys, the
 existing references and ADR 0014 §1 do not move.
 
-*Proposed, on what was measured:* **no new field.** The fingerprint is the set
-of case ids the run already carries in `results`. §3 gives the reason, and the
-form the ruling named, a digest over those ids, among the alternatives. That is
-for acceptance to read.
+*Decided, on what was measured:* **no new field.** The fingerprint is the set
+of case ids the run already carries in `results`. *Alternatives considered*
+gives the reason, and lists the form the ruling named, a digest over those
+ids. *Corrected at acceptance, 2026-11-13: this sentence said "§3 gives the
+reason", which it never did; the reason is in* Alternatives considered.
 
 What is read, and where:
 
@@ -198,7 +202,7 @@ What is read, and where:
   - Every added case would make each run *"suite changed"* against its
     reference, which is the outcome ADR 0014 §1 was written to prevent.
 - **A digest over the case ids, written beside `config_hash`.** The form the
-  ruling named. *Not proposed*, on the measurement above:
+  ruling named. *Not adopted*, on the measurement above:
   - the ids it would digest are already in every run and every reference;
   - every reading this record needs, promote's, `compare`'s and `where`'s,
     has to name the cases, and a digest names none;
@@ -206,8 +210,8 @@ What is read, and where:
     (`tests/test_projection_gate.py`, ADR 0034 §4), and a second schema key
     with nothing to fill in on the documents already written.
 
-  If acceptance wants it anyway, it rides the same schema step as §1.
-- **A `promote --dry-run`.** Not proposed. With §1 and §2, every refusal
+  Accepted without it.
+- **A `promote --dry-run`.** Not adopted. With §1 and §2, every refusal
   `promote` can raise about the cases names its own remedy, and a refused
   promotion writes nothing, so a refusal is already a dry run. It is said here
   so it is not read as forgotten. `digline view`'s page keeps asking

@@ -232,7 +232,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "at its landing is v1.2.0"
     ),
     "0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with": (
-        "proposed and not built: nothing is written until it is accepted"
+        "accepted and not built: no `promote --exclude`, no "
+        "`CasesChangedError`, no `excluded_at_promotion` key and no "
+        "`cases_changed` exist in `src/` or `packages/`"
     ),
     "0056-a-migration-step-that-transforms": (
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
