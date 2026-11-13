@@ -43,6 +43,8 @@ __all__ = [
     "ReplayedRunError",
     "UncalibratedRunError",
     "ContradictedRunError",
+    "CasesChangedError",
+    "ExclusionRefusedError",
     "ResultStore",
     "RunRef",
     "SupportsJournal",
@@ -147,6 +149,33 @@ class ContradictedRunError(Exception):
     answer: a baseline where the judge contradicts the person is not a
     baseline. The lost scale's refusal, for the judge's other fault.
     (ADR 0059 §1, as noted 2026-11-04)
+    """
+
+
+class CasesChangedError(Exception):
+    """Raised when promoting a run whose cases are not the ones its suite
+    declares now: a case the suite no longer declares, still carried by the
+    run, or a case the suite declares that the run never ran. (ADR 0065 §2)
+
+    A reference is a measurement of the suite in force, and `config_hash`
+    covers the checks and never the cases (ADR 0014 §1), so this is read
+    beside it, from the case ids the run carries and the suite's declaration.
+    Asked after 10 and before 3, 5 and 12, so a case the suite dropped is
+    named as dropped, with `--exclude` as the way to leave it out, and never
+    sent to the judge first.
+    """
+
+
+class ExclusionRefusedError(Exception):
+    """Raised when a promotion asks to leave out a case it may not. (ADR 0065
+    §1)
+
+    Each refused by name: an exclusion with nobody's name on it; one with no
+    suite's declaration to read it against; a case the run does not carry; a
+    case the suite still declares, which would get round conditions 3, 5 and
+    12 for a case the suite still asks about; and any case of a run with
+    run-level verdicts, whose aggregates were computed over every case it
+    carries, the excluded one among them.
     """
 
 
@@ -670,8 +699,20 @@ class ResultStore(Protocol):
         declared: Declared | None,
         promoted_at: str,
         accepting_pins: Collection[str] = frozenset(),
+        excluding: Collection[str] = frozenset(),
+        excluded_by: str = "",
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
+
+        `excluding` names the cases this promotion leaves out of the reference,
+        and `excluded_by` the person who says so, mandatory whenever a case is
+        named. The reference is written without those cases and records each in
+        `Run.excluded_at_promotion`, with the person and `promoted_at`; the run
+        is not touched, and the conditions below are asked of the cases the
+        reference keeps. What may be excluded is `refusal_for_exclusions`'s,
+        raised as `ExclusionRefusedError` before any condition is asked. Empty
+        excludes nothing, which is the ordinary case, and the shape
+        `accepting_pins` took (ADR 0065 §1, ADR 0053).
 
         `expected_baseline` is the key of the reference this promotion replaces,
         as `compare` printed it, or `None` where the suite has no baseline yet.
@@ -759,14 +800,22 @@ class ResultStore(Protocol):
             said yes to. The person's verdict is the expected one, and a
             reference scored by a check that disagrees with it is not one
             (ADR 0059 §1, as noted 2026-11-04, amended 2026-11-05).
+        13. `CasesChangedError`, after 10 and before 3, 5 and 12, if the
+            case ids the run carries, less the excluded ones, are not the ones
+            `declared` declares: a case the suite no longer declares, named
+            with `--exclude` as the way to leave it out, or a declared case
+            the run never ran, named with *run the suite again*. Read beside
+            `config_hash` and never inside it, which covers the checks and not
+            the cases (ADR 0014 §1). `None` is a document with no suite behind
+            it, and asks nothing (ADR 0065 §2).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:
 
         - **1 and 7 belong to the reading** — whether the document says it is
           where it was found — and are met as you read the run.
-        - **2 to 6, 9, 10 and 12 answer from the document**, and 10 from the
-          declaration beside it. They are
+        - **2 to 6, 9, 10, 12 and 13 answer from the document**, and 10 and 13
+          from the declaration beside it. They are
           `digline.store.refusals_for(run, expected_config_hash, declared=...)`,
           which returns them in the order they are owed. **Call it rather than restating
           them**: a second copy drifts from this one the first time a condition

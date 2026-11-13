@@ -61,6 +61,7 @@ from dataclasses import replace
 from digline.core import (
     DRIVER_METADATA_KEYS,
     NAMED_CONFIG_KEYS,
+    Exclusion,
     Run,
     is_token,
     project,
@@ -138,6 +139,11 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.aggregate[].assertion": ("c", _grouped_token),
     "$.pinned[]": ("c", is_token),
     "$.modules_unchecked[]": ("c", is_token),
+    # A case left out of a reference at its promotion, and the person who left
+    # it out: both tokens; the time is digline's. (ADR 0065 §1)
+    "$.excluded_at_promotion[].case_id": ("c", is_token),
+    "$.excluded_at_promotion[].by": ("c", is_token),
+    "$.excluded_at_promotion[].at": ("a", _form(_TIME)),
     "$.target_config.values{}": ("c", is_token),
     "$.target_config.withheld[]": ("a|c", _token_or_named),
     "$.target_config.identities[]": ("c", is_token),
@@ -211,6 +217,9 @@ FIELDS: dict[str, str] = {
     "Run.promoted_at": "$.promoted_at",
     "Run.resumed_at": "$.resumed_at[]",
     "Run.modules_unchecked": "$.modules_unchecked[]",
+    "Exclusion.case_id": "$.excluded_at_promotion[].case_id",
+    "Exclusion.by": "$.excluded_at_promotion[].by",
+    "Exclusion.at": "$.excluded_at_promotion[].at",
     "Score.name": "$.results[].verdicts[].assertion",
     "Score.metadata": "$.results[].verdicts[].metadata",
     "SystemConfig.values": "$.target_config.values{}",
@@ -263,6 +272,15 @@ def _projected() -> dict[str, object]:
         digline_version="0.33.0",
         git_commit="0123456789abcdef0123456789abcdef01234567",
         resumed_at=("2026-09-30T11:00:00+00:00",),
+        # A case a person left out at the promotion, with their name: both
+        # walked as tokens. (ADR 0065 §1)
+        excluded_at_promotion=(
+            Exclusion(
+                case_id="rossi-left-out",
+                by="Mario Rossi",
+                at="2026-09-30T12:00:00+00:00",
+            ),
+        ),
     )
     return json.loads(run_to_json(project(run, Table())))
 

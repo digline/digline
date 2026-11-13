@@ -120,6 +120,7 @@ from digline.report import (
     pages,
 )
 from digline.report.pages import VIEW_PORT
+from digline.report.render import excluded_fact
 from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
 from digline.store import PathRefusedError, ResultStore, RunRef, checked_name
@@ -871,6 +872,9 @@ class ViewHandler(BaseHTTPRequestHandler):
             # The baseline's own run, for the pins: the same document the
             # baseline was promoted from, but for the time it was signed.
             baseline = dict(listed.runs).get(listed.baseline_key or "")
+            # The reference itself, for what only it records: the cases a
+            # person left out of it by name. (ADR 0065 §1)
+            reference = self.store.read_baseline(self.suite.tenant, self.suite.name)
             # Asked of the store's functions once per row, in the store's
             # order: the page draws the answer and decides nothing.
             refused = {
@@ -892,6 +896,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 allow_promote=self.allow_promote,
                 refused=refused,
                 ignored=left_out_parts(listed, locale=locale),
+                excluded=(() if reference is None else reference.excluded_at_promotion),
             )
         except Exception as exc:  # noqa: BLE001 — the baseline must arrive whatever the list does
             self._plain(
@@ -913,13 +918,19 @@ class ViewHandler(BaseHTTPRequestHandler):
             return pages.phrase(locale, "view.baseline.none")
         key = key_of(baseline.created_at, baseline.config_hash)
         if not baseline.promoted_at:
-            return pages.phrase(locale, "view.baseline.is", run_key=key)
-        return pages.phrase(
-            locale,
-            "view.baseline.promoted",
-            run_key=key,
-            promoted_at=baseline.promoted_at,
-        )
+            said = pages.phrase(locale, "view.baseline.is", run_key=key)
+        else:
+            said = pages.phrase(
+                locale,
+                "view.baseline.promoted",
+                run_key=key,
+                promoted_at=baseline.promoted_at,
+            )
+        # And the cases a person left out of it by name, in the sentence a
+        # comparison against it says: shown where the baseline is shown.
+        # (ADR 0065 §1)
+        excluded = excluded_fact(baseline.excluded_at_promotion, locale)
+        return f"{said} {excluded}" if excluded else said
 
     def _screen_compare(
         self, locale: Locale, query: Mapping[str, Sequence[str]]

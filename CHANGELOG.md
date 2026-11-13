@@ -6,8 +6,47 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## Unreleased
+## 1.3.0 — unreleased
 
+digline **1.3.0**, a minor, because its stored document moves to schema 24
+(ADR 0065), and a schema that has moved belongs to no release until one
+carries it. Beside it, the repairs found in a first use outside the project,
+on a Java application with a judged suite: `--max-cost` and a cost estimate,
+the judge's preflight and the judgements a case gets, a company proxy for
+`digline record proxy`, and the rest below. No public name is removed or
+renamed. One command refuses what it accepted: `digline promote` exits 64 on
+a run made with other cases than the suite declares, which 1.2.0 promoted.
+Written when the number moved; the cut writes the rest of this opening.
+
+- **Schema 24: a case left out of a reference by name, and the cases a run was
+  made with** (ADR 0065). A case removed from the suite after a run stayed in
+  the run with its verdicts, and `promote` refused the run on them with no way
+  to leave the case out. `digline promote --exclude CASE --by NAME` now writes
+  the reference without that case and records it, with the person and the time
+  of the promotion, as `excluded_at_promotion`; the run file is not touched.
+  It refuses, each by name, an exclusion with no `--by`, a case the run does
+  not carry, a case the suite still declares, and any case of a run with
+  run-level checks. A thirteenth promotion condition, `CasesChangedError`,
+  reads the run's case ids against the suite's beside `config_hash`, never
+  inside it, after condition 10 and before 3, 5 and 12: a case the suite
+  dropped is named with `--exclude`, a case it added with *run the suite
+  again*. `compare` says two new facts, *the cases changed since the
+  reference* with the added and the removed named, and *excluded at promotion*,
+  neither moving an exit code, and `explain`'s terminal reading says both
+  after its counts, as text; `--json` adds `cases_added`, `cases_removed`
+  and `cases_excluded`, and under `full` the names, `cases_changed` and
+  `excluded_at_promotion`, which the run document also carries. `digline
+  where` has a twelfth state, `cases_changed`, before `judge_disagrees`, and
+  `digline view` says the exclusions under its list of runs. The step from 23
+  writes nothing: absent is a reference promoted whole. Run `digline migrate`
+  on a store written by 1.2; an older digline refuses a schema-24 document. A
+  minor: a new option, two new refusals and new public names (`Exclusion`,
+  `CasesChanged` and `cases_changed` in `digline.core`; `CasesChangedError`,
+  `ExclusionRefusedError`, `refusal_for_exclusions` and `kept_at_promotion` in
+  `digline.store`), with `promote` and `ResultStore.promote_baseline` taking
+  two optional parameters;
+  an implementation of `ResultStore` outside digline accepts them to keep
+  satisfying the protocol. Found in a Java application with a judged suite.
 - **The Java recorder's `DiglineAws` survives a reload.** A framework that
   loads the application's classes again while the AWS SDK stays loaded, as
   Quarkus's dev mode does, failed the class's initialisation: the SDK refuses

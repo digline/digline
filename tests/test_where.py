@@ -150,9 +150,10 @@ def root(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def test_the_states_are_eleven_in_order() -> None:
+def test_the_states_are_twelve_in_order() -> None:
+    """Twelve since ADR 0065 §2 added `cases_changed`; it read eleven."""
     assert STATES[0] == "nothing_recorded" and STATES[-1] == "last_run_red"
-    assert len(STATES) == len(set(STATES)) == 11
+    assert len(STATES) == len(set(STATES)) == 12
 
 
 # 1 ------------------------------------------------------------------------ #

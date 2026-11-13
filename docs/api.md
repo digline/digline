@@ -2075,6 +2075,22 @@ causes implicate, no more and no fewer; on the command line that is
 `--accepting-pin`, once per path
 ([ADR 0053](adr/0053-promote-refuses-a-pin-nobody-named.md)).
 
+`promote` also takes `excluding`, the cases this promotion leaves out of the
+reference, and `excluded_by`, the person who says so, mandatory beside any case
+and never read from git or the environment. Both are empty by default. A run
+whose case ids are not the ones the suite declares now is refused as
+`CasesChangedError`, and a case the suite no longer declares can be named in
+`excluding`: the reference is written without it and records it, with the
+person and `promoted_at`, in `Run.excluded_at_promotion`, a tuple of
+`Exclusion`; the run is not touched. A case the run does not carry, a case the
+suite still declares, any case of a run with run-level checks, and a case with
+nobody's name beside it are refused as `ExclusionRefusedError`. Both refusals
+are in `REFUSALS`. On the command line that is `--exclude CASE --by NAME`
+([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)).
+
+> **Arrives with digline 1.3.** 1.2.0's `promote` takes neither, and refuses
+> no run for its cases.
+
 ### Reading: `read_run` and `read_baseline`
 
 - **`FileResultStore.read_run(ref)`** returns the `Run` stored under a

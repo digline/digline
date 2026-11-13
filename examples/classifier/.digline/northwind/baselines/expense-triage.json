@@ -1135,7 +1135,7 @@
       ]
     }
   ],
-  "schema_version": 23,
+  "schema_version": 24,
   "suite": "expense-triage",
   "target_config": {},
   "tenant": "northwind",

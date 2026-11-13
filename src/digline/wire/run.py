@@ -586,6 +586,14 @@ def run_document(
             # was not recorded, and on any document that is not a baseline.
             # (ADR 0014 §3)
             "promoted_at": run.promoted_at,
+            # On a baseline, the cases a person left out of it at its promotion,
+            # each with who and when; empty on a run and on a reference promoted
+            # whole. A fact about our own process, like `promoted_at`. An added
+            # key. (ADR 0065 §1)
+            "excluded_at_promotion": [
+                {"case_id": item.case_id, "by": item.by, "at": item.at}
+                for item in run.excluded_at_promotion
+            ],
             # The run whose recorded answers this one was judged from, or empty.
             # The sharpest of the six: a consumer that reads a replay as a fresh
             # measurement concludes the system improved on a day nothing was

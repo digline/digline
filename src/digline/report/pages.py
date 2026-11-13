@@ -37,6 +37,7 @@ from digline.core import (
     CheckDifference,
     Declared,
     Difference,
+    Exclusion,
     Run,
     Verdict,
     artifacts_sha,
@@ -46,7 +47,7 @@ from digline.core import (
 from digline.core import diff as core_diff
 from digline.report import diff as diff_report
 from digline.report.history import CaseEntry, CaseHistory
-from digline.report.render import escape, render_html, render_run_html
+from digline.report.render import escape, excluded_fact, render_html, render_run_html
 from digline.report.sheet import SHEET
 from digline.report.text import LOCALES, MONTHS, Locale, phrase
 from digline.report.views import MenuEntry, address
@@ -500,8 +501,14 @@ def runs_page(
     allow_promote: bool,
     refused: Mapping[str, str],
     ignored: str | Sequence[LeftOutPart] = "",
+    excluded: Sequence[Exclusion] = (),
 ) -> str:
     """Every readable run, newest first, with its aggregates beside it.
+
+    `excluded` is what the reference records of the cases a person left out
+    of it by name at its promotion, said under the table in the sentence a
+    comparison against it says. Empty where the reference holds every case
+    its run did, or there is none (ADR 0065 §1).
 
     The aggregates are the point. Choosing which run to promote means reading
     precision and accuracy down a column and taking the median — with key, date
@@ -591,6 +598,9 @@ def runs_page(
         if len(ordered) > 1:
             body.append(_compare_form(ordered, labels, locale))
 
+    said = excluded_fact(excluded, locale)
+    if said:
+        body.append(f'<p class="note">{escape(said)}</p>\n')
     body.append(_left_out(ignored))
     return _document(title, locale, "".join(body), wide=True)
 
@@ -803,6 +813,7 @@ REFUSAL_CHIPS: Mapping[str, tuple[str, str]] = {
     "CrossingRefusedError": ("view.chip.crossing", "view.promote.crossing"),
     "ConfigMismatchError": ("view.chip.older_config", "view.promote.older"),
     "ReplayedRunError": ("view.chip.replayed", "view.promote.replayed"),
+    "CasesChangedError": ("view.chip.cases_changed", "view.promote.cases_changed"),
     "ErroredRunError": ("view.chip.errored", "view.promote.errored"),
     "NothingJudgedError": ("view.chip.nothing_judged", "view.promote.nothing_judged"),
     "UncalibratedRunError": ("view.chip.uncalibrated", "view.promote.uncalibrated"),

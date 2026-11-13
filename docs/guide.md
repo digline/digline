@@ -1147,6 +1147,57 @@ case that disappears quietly is the one failure mode a green suite cannot
 survive. Set aside, fix, and put it back — the trigger is the sentence, and the
 sentence does not go away on its own.
 
+### When a case leaves the suite after the run
+
+Sometimes the case is what was wrong. You read a run, decide that one of its
+cases asked the wrong question, and remove it from the suite. The run you want
+to promote still holds that case, and whatever happened to it there.
+
+`promote` reads the run against the suite as it is now, beside
+`config_hash`: `config_hash` covers the checks and never the cases, so the
+cases are read on their own. A run that holds a case the suite no longer
+declares, or lacks a case the suite has added, is refused as
+`CasesChangedError`, and the refusal names each case. A case the suite added
+needs a new run. A case the suite dropped can be left out of the reference by
+name:
+
+```text
+digline promote --suite support.py --run latest --replacing <the baseline compare printed> --exclude stale-case --by "Ada Rossi"
+```
+
+- `--exclude CASE` may be repeated, once per case, and `--by NAME` is
+  mandatory beside it: your own name, never read from git or the environment.
+- The reference is written without the case and records it, with your name and
+  the time of the promotion. The run file is not touched: the run still holds
+  everything it measured.
+- Every `compare` against that reference says so, as *"1 case was excluded at
+  promotion from the reference: stale-case, by Ada Rossi."*, and `digline view`
+  says it under the list of runs. It is a fact about the reference, and it
+  moves no exit code.
+
+Three things are refused, each by name, so an exclusion cannot become a way to
+make a red disappear:
+
+- a case the run does not carry, as a typo would be;
+- **a case the suite still declares.** Leaving it out would stop gating a case
+  the suite still asks about. To stop counting a case, remove it from the
+  suite, where the change is reviewed, then promote;
+- any case of a run with run-level checks. An aggregate was computed over every
+  case the run carries, the excluded one among them, and a reference must not
+  hold a figure its own cases did not produce. Run the suite again.
+
+`compare` says the other half too. Where the run and the reference hold
+different cases, the headline ends with *"The cases changed since the
+reference: 1 added (…); 1 removed (…)."*, and the cases both hold are compared
+as before. And `digline where` stops at *The newest run was made with other
+cases* when the newest run holds a case the suite dropped, before it reads what
+the judge said about that case.
+([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md))
+
+> **Arrives with digline 1.3.** On 1.2.0 a case removed from the suite after
+> the run stays in the run with its verdicts, `promote` refuses the run on
+> them, and nothing leaves a case out of a reference.
+
 ### Trigger four — the model changed under you
 
 You changed nothing. The provider shipped a new version of the model, or
@@ -1350,10 +1401,13 @@ $ digline run --suite support.py
 2026-08-26T16-24-36-803385-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 1 check moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules.
+Nothing got worse compared with the reference. 1 check moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules. The cases changed since the reference: 1 added (return-a-gift). The cases both hold are compared as before.
 ```
 
-Two things are missing from that page, and only one of them is missing on
+> **Arrives with digline 1.3.** On 1.2.0 that sentence ends at *so these
+> numbers compare different rules.*, and the case just added is not named.
+
+Two things are not said on that page, and only one of them is left unsaid on
 purpose.
 
 The second sentence is the one that moved. The rubric on `how-do-i-return`
@@ -1371,9 +1425,10 @@ are two different states of the world, and a reader is owed both.
 computed from.
 
 And there is the trap, in the other silence. The case you just added, the one
-that reproduces the customer's complaint, **is not mentioned at all.** It is
-`new`, not `regressed`: there is nothing in the baseline to compare it with, so
-`compare` has nothing to say about it. On the day a case is added, the run is
+that reproduces the customer's complaint, is named in the last sentence, and
+**how it went is not said at all.** It is `new`, not `regressed`: there is
+nothing in the baseline to compare it with, so `compare` can say that it
+arrived and nothing about its result. On the day a case is added, the run is
 what you read.
 
 ```python

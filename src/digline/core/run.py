@@ -297,7 +297,14 @@ __all__ = [
 #    a case: `reviewed`, the check a reviewed answer is for, by identity and
 #    by name, and the person's yes or no, written on that kind of case alone
 #    and absent on every other, which is every case before 23 (ADR 0059 §1).
-SCHEMA_VERSION = 23
+#
+# 24: one passenger, additive, and the step writes nothing for it:
+#    `excluded_at_promotion` on a reference, the cases a person left out of it
+#    by name at `promote --exclude`, each with who and when. Written only where
+#    a case was excluded; absent is *nothing excluded*, which is every document
+#    before 24. Outside `config_hash`: it is something a person did at the
+#    promotion, not something the suite declared (ADR 0065 §1, ADR 0014 §1).
+SCHEMA_VERSION = 24
 
 
 class DocumentRefusedError(ValueError):
@@ -1809,6 +1816,32 @@ class CaseProgress:
 
 
 @dataclass(frozen=True, slots=True)
+class Exclusion:
+    """A case a person left out of a reference by name, at its promotion.
+    (ADR 0065 §1)
+
+    `case_id` is the case left out; `by` is the person's own mark, as they
+    typed it with `--by`, never read from git or the environment (ADR 0059 §1's
+    reason); `at` is the promotion's `promoted_at`, empty where the caller
+    recorded none, as that field is. The run the reference came from still
+    holds the case: only the reference does not.
+    """
+
+    case_id: str
+    by: str
+    at: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.case_id:
+            raise ValueError("Exclusion.case_id must not be empty")
+        if not self.by:
+            raise ValueError(
+                "Exclusion.by must not be empty: a case leaves a reference only "
+                "by a person who said so"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class Run:
     """One execution of the suite, with its anchors.
 
@@ -1943,10 +1976,36 @@ class Run:
     #: names and all: they come from the perimeter artifact and pinned paths
     #: already cross from. (ADR 0052, decision 2 and the field on the run)
     modules_unchecked: tuple[str, ...] | None = None
+    #: The cases a person left out of this reference by name at its promotion,
+    #: in the order of their ids. `()` on a run, and on every reference
+    #: promoted whole, which is what a document written before schema 24 says
+    #: by omitting it. Each id is a case the run carried and this document does
+    #: not: the run file is not touched. A fact about our own process, like
+    #: `promoted_at`, so it survives `redact()`; a projection tokenises the case
+    #: and the person. Outside `config_hash`. (ADR 0065 §1)
+    excluded_at_promotion: tuple[Exclusion, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant:
             raise ValueError("Run.tenant must not be empty")
+        if self.excluded_at_promotion:
+            left_out = [item.case_id for item in self.excluded_at_promotion]
+            if len(set(left_out)) != len(left_out):
+                raise ValueError(
+                    "Run.excluded_at_promotion names a case twice: a case is "
+                    "left out of a reference once"
+                )
+            kept = {case.case_id for case in self.results}
+            carried = sorted(set(left_out) & kept)
+            if carried:
+                raise ValueError(
+                    Written.said(
+                        "Run.excluded_at_promotion names ",
+                        NameRef("case_id", carried[0]),
+                        ", which this document still carries: an excluded "
+                        "case is the one a reference does not hold",
+                    )
+                )
         if not self.environment:
             raise ValueError("Run.environment must not be empty")
         if not self.suite:
@@ -2191,6 +2250,12 @@ def _check_projected(run: Run) -> None:
     formed("promoted_at", run.promoted_at, "a time", _is_time(run.promoted_at))
     for resumed in run.resumed_at:
         formed("a resume time", resumed, "a time", _is_time(resumed))
+    # A case left out at the promotion is a case, and the person who left it
+    # out a name: both are tokens here, and the time is digline's. (ADR 0065)
+    for item in run.excluded_at_promotion:
+        token("case_id", "an excluded case", item.case_id)
+        token("person", "the person who excluded a case", item.by)
+        formed("an exclusion time", item.at, "a time", _is_time(item.at))
 
     def verdict(v: Verdict, where: str, *, grouped: bool) -> None:
         family, group = (
@@ -2761,6 +2826,11 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # a projected one, where those paths are tokens: `project` tokenises
         # these names too, as `module_name`. (#712)
         modules_unchecked=run.modules_unchecked,
+        # Carried, for `promoted_at`'s reason: who left which case out of the
+        # reference, and when, is a fact about our own process. A case id
+        # crosses a redaction as every case id does, and the person is the
+        # committing party's own mark; a projection tokenises both. (ADR 0065)
+        excluded_at_promotion=run.excluded_at_promotion,
     )
 
 
@@ -3035,6 +3105,19 @@ def run_to_dict(run: Run) -> dict[str, object]:
         **(
             {"modules_unchecked": list(run.modules_unchecked)}
             if run.modules_unchecked is not None
+            else {}
+        ),
+        # Absent on a run and on a reference promoted whole, which is what a
+        # document before schema 24 says: absent is *nothing excluded*.
+        # (ADR 0065 §1)
+        **(
+            {
+                "excluded_at_promotion": [
+                    {"case_id": item.case_id, "by": item.by, "at": item.at}
+                    for item in run.excluded_at_promotion
+                ]
+            }
+            if run.excluded_at_promotion
             else {}
         ),
     }
@@ -3331,6 +3414,39 @@ def _module_names_from(raw: object) -> tuple[str, ...]:
             f"run: modules_unchecked is {raw!r}, which is not a list of module names"
         )
     return tuple(cast(list[str], raw))
+
+
+def _exclusions_from(raw: object) -> tuple[Exclusion, ...]:
+    """`excluded_at_promotion` back. Called only where the key is present, so
+    a null is refused, as `modules_unchecked`'s is. Each entry holds three
+    strings and nothing else. (ADR 0065 §1)"""
+    if not isinstance(raw, list):
+        raise ValueError(
+            f"run: excluded_at_promotion is {raw!r}, which is not a list of exclusions"
+        )
+    found: list[Exclusion] = []
+    for entry in cast(list[object], raw):
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"run: an entry of excluded_at_promotion is {entry!r}, which is "
+                "not an exclusion"
+            )
+        fields = cast(Mapping[str, object], entry)
+        if set(fields) != {"case_id", "by", "at"} or not all(
+            isinstance(value, str) for value in fields.values()
+        ):
+            raise ValueError(
+                "run: an entry of excluded_at_promotion holds "
+                f"{sorted(fields)!r}; it holds three strings, case_id, by and at"
+            )
+        found.append(
+            Exclusion(
+                case_id=str(fields["case_id"]),
+                by=str(fields["by"]),
+                at=str(fields["at"]),
+            )
+        )
+    return tuple(found)
 
 
 def _run_usage_from_dict(raw: object) -> RunUsage:
@@ -4134,6 +4250,13 @@ def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
             None
             if "modules_unchecked" not in raw
             else _module_names_from(raw["modules_unchecked"])
+        ),
+        # Absent is *nothing excluded*; a present key is read strictly, and a
+        # null is refused rather than read as absent. (ADR 0065 §1)
+        excluded_at_promotion=(
+            ()
+            if "excluded_at_promotion" not in raw
+            else _exclusions_from(raw["excluded_at_promotion"])
         ),
     )
 

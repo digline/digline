@@ -216,6 +216,12 @@ and never pass the flag on your own initiative. (ADR 0053) `unpaired` is never
 refused, because it holds on the very promotion that re-baselines a redefined
 check; whether to make that promotion is still a person's decision.
 
+A run that holds a case the suite no longer declares is refused by `promote`
+as `CasesChangedError`, and `--exclude CASE --by NAME` leaves that case out of
+the reference. `--by` is the name of the person who decided it, never yours
+and never read from git: put the case and the refusal in the evidence, and let
+the person type it. (ADR 0065)
+
 A `run` or a `rejudge` whose baseline is at a schema this digline cannot read
 is refused before it spends, until the schema the refusal names is passed with
 `--accepting-baseline-schema`, or over digline-mcp with
@@ -230,7 +236,7 @@ is whichever install is first on your shell's `PATH`. A run records the digline
 that wrote it (`digline_version`). A comparison, a view and an explanation
 record nothing, so ask the same executable: `uv run digline --version`. It
 holds for that command only, because your shell can change before the next
-one. When it differs from the release these rules describe (**1.2.0**), say so
+one. When it differs from the release these rules describe (**1.3.0**), say so
 beside the result. A difference is a hypothesis, not a cause: before blaming
 it, re-run the same command on the release these rules describe.
 

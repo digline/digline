@@ -135,11 +135,16 @@ no longer loads is said on the page, as the command would say it.
 | *N recordings in S, no suite yet* | the suite has recordings and no capture declaration | the recordings counted by the shape of their output, and [an agent's proposal](proposing-a-suite.md) or [the capture declaration](declarative.md#capture); where `digline suggest` wrote a proposal nobody adopted, its path and the Proposal view |
 | *N since the last import* | recordings after the last import, or never imported | the Recordings view |
 | *The suite has never run* | no run | `digline run`, shown and never run |
+| *The newest run was made with other cases* | the newest run holds a case the suite no longer declares, or lacks one the suite added that no answer under a new setup accounts for | `digline run`, shown and never run; for a case the suite dropped, `digline promote --exclude` ([When a case leaves the suite after the run](guide.md#when-a-case-leaves-the-suite-after-the-run)) |
 | *The judge disagrees with a person on N* | the newest run has a contradicted reviewed answer or a calibration case outside its band | [Calibrating a judge](calibration.md), `digline explain` |
 | *Green without a red* | the newest run exits 0 and no run ever failed a check | a counterexample, as [an agent's proposal](proposing-a-suite.md) adds one |
 | *N answers from a new setup* | the setup in force first answered after the newest run, on cases an earlier setup answered too | the Across setups view |
 | *Nothing to do* | the newest run exits 0 | none: the counts, and the last import |
 | *The newest run exits N* | the newest run exits 1 or 2 for a reason none of the above names | `digline explain` |
+
+> **Arrives with digline 1.3.** 1.2.0 has no *The newest run was made with
+> other cases*: a contradiction on a case the suite dropped holds the page at
+> *The judge disagrees with a person on N*.
 
 It is `digline.host.where`, which reads the store, writes nothing and renders
 nothing: the page lays out what it returns, and a command can print the same

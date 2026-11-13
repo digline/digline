@@ -7,11 +7,11 @@ answer three different questions:
 1. **The reading.** Conditions 1 and 7 — tenant and suite — ask whether the
    document says it is where it was found. That is a question about the read,
    and it is answered as the run is read (`read_run`).
-2. **The document.** Conditions 2 to 6, 9, 10 and 12 answer from the run, and 10
-   from the suite's declaration beside it, which a run document does not carry
-   and the caller hands in as it hands in the configuration hash. Anybody,
-   anywhere, holding the same two gets the same answer, so they are a
-   function: `refusals_for`.
+2. **The document.** Conditions 2 to 6, 9, 10, 12 and 13 answer from the run,
+   and 10 and 13 from the suite's declaration beside it, which a run document
+   does not carry and the caller hands in as it hands in the configuration
+   hash. Anybody, anywhere, holding the same two gets the same answer, so they
+   are a function: `refusals_for`.
 3. **The write.** Condition 8 asks whether the baseline present *now* is still
    the one the run was compared against. That is a question about the store at
    this instant, and it belongs to each backend, beside its own write.
@@ -45,19 +45,27 @@ from __future__ import annotations
 
 import shlex
 from collections.abc import Collection, Sequence
+from dataclasses import replace
 
 from digline.core.calibration import scale_lost
 from digline.core.compare import compare
-from digline.core.declared import Declared, cases_that_count, nothing_judged
+from digline.core.declared import (
+    Declared,
+    cases_changed,
+    cases_that_count,
+    nothing_judged,
+)
 from digline.core.gate import causes_of_two, pins_implicated
 from digline.core.reconcile import unreconciled
 from digline.core.reviewed import Contradiction, contradicted
 from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
 from digline.store.protocol import (
     BaselineMovedError,
+    CasesChangedError,
     ConfigMismatchError,
     ContradictedRunError,
     ErroredRunError,
+    ExclusionRefusedError,
     NothingJudgedError,
     ReplayedRunError,
     UnacceptedPinsError,
@@ -67,7 +75,9 @@ from digline.store.protocol import (
 __all__ = [
     "PromotionRefusal",
     "contradicted_said_en",
+    "kept_at_promotion",
     "refusal_for_a_moved_baseline",
+    "refusal_for_exclusions",
     "refusal_for_unaccepted_pins",
     "refusals_for",
 ]
@@ -81,6 +91,7 @@ type PromotionRefusal = (
     | ErroredRunError
     | UncalibratedRunError
     | ContradictedRunError
+    | CasesChangedError
     | CrossingRefusedError
     | NothingJudgedError
 )
@@ -214,6 +225,41 @@ def refusals_for(
             )
         )
 
+    # Condition 13, after 10 and before 3, 5 and 12: a case the suite
+    # dropped is named as dropped, with the flag that leaves it out, and never
+    # sent to the judge first; a case the suite added and the run never ran is
+    # named with the one remedy there is. Read beside `config_hash`, which
+    # covers the checks and never the cases (ADR 0014 §1), from the ids the run
+    # carries and the declaration beside it. After 10, because a run that
+    # judged nothing says that first, and 10 already names a declared case
+    # the run does not carry as absent. Nothing to read it against where there
+    # is no declaration. (ADR 0065 §2)
+    if declared is not None:
+        moved = cases_changed(
+            frozenset(case.case_id for case in run.results), declared.every
+        )
+        if moved:
+            parts: list[str] = []
+            if moved.removed:
+                parts.append(
+                    f"it carries {len(moved.removed)} case(s) the suite no longer "
+                    f"declares ({', '.join(moved.removed)}), each of which can be "
+                    "left out of the reference by name: --exclude CASE --by NAME"
+                )
+            if moved.added:
+                parts.append(
+                    f"the suite declares {len(moved.added)} case(s) the run never "
+                    f"ran ({', '.join(moved.added)}): run the suite again"
+                )
+            refusals.append(
+                CasesChangedError(
+                    f"run {key} was made with other cases than the suite "
+                    f"declares now: {'; and '.join(parts)}. A reference is a "
+                    "measurement of the suite in force, and config_hash covers "
+                    "its checks, never its cases"
+                )
+            )
+
     errored = sorted(
         {
             case.case_id
@@ -283,6 +329,84 @@ def refusals_for(
         )
 
     return tuple(refusals)
+
+
+def refusal_for_exclusions(
+    run: Run,
+    excluding: Collection[str],
+    excluded_by: str,
+    *,
+    declared: Declared | None,
+) -> ExclusionRefusedError | None:
+    """The refusal for leaving `excluding` out of `run`'s reference, or `None`
+    where it may be, which it always may be where `excluding` is empty.
+    (ADR 0065 §1)
+
+    Asked before any condition, because what the conditions read is the run
+    less these cases. Refused, in this order, each by name:
+
+    - nobody's name on it: a case leaves a reference only by a person who said
+      so, and `excluded_by` is that person's own mark;
+    - no declaration to read it against: whether a case is still declared is
+      the suite's to say, and `None` is a document with no suite behind it;
+    - a case the run does not carry, as a typo would be;
+    - a case the suite still declares: excluding one would get round
+      conditions 3, 5 and 12 for a case the suite still asks about, and a
+      person who means it no longer counts removes it from the suite;
+    - any case of a run with run-level verdicts: an aggregate was computed
+      over every case the run carries, the excluded one among them, and a
+      reference must not hold a figure its own cases did not produce.
+    """
+    if not excluding:
+        return None
+    key = key_of(run.created_at, run.config_hash)
+    if not excluded_by.strip():
+        return ExclusionRefusedError(
+            f"run {key}: an exclusion names the person who makes it, and this "
+            "one names nobody. Say who with --by NAME, your own name; it is "
+            "never read from git or the environment"
+        )
+    if declared is None:
+        return ExclusionRefusedError(
+            f"run {key}: a case is left out only where the suite no longer "
+            "declares it, and there is no suite's declaration here to read "
+            "that against"
+        )
+    carried = {case.case_id for case in run.results}
+    unknown = sorted(set(excluding) - carried)
+    if unknown:
+        return ExclusionRefusedError(
+            f"run {key} carries no case {', '.join(unknown)}: nothing was "
+            "excluded. The cases it carries are the ones its results name"
+        )
+    still = sorted(set(excluding) & declared.every)
+    if still:
+        return ExclusionRefusedError(
+            f"run {key}: the suite still declares {', '.join(still)}, so "
+            "leaving it out of the reference would stop gating a case the suite "
+            "still asks about. To stop counting a case, remove it from the "
+            "suite, where that change is reviewed, then promote"
+        )
+    if run.aggregate:
+        return ExclusionRefusedError(
+            f"run {key} has run-level checks, computed over every case it "
+            "carries, the excluded ones among them: a reference without those "
+            "cases would hold figures its own cases did not produce. Run the "
+            "suite again"
+        )
+    return None
+
+
+def kept_at_promotion(run: Run, excluding: Collection[str]) -> Run:
+    """`run` without the cases `excluding` names: what a reference that
+    excludes them holds, and what the conditions are asked of. The run itself
+    is not touched. (ADR 0065 §1)"""
+    if not excluding:
+        return run
+    return replace(
+        run,
+        results=tuple(case for case in run.results if case.case_id not in excluding),
+    )
 
 
 #: Which way a judge contradicted a person, as condition 12 names it.

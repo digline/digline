@@ -73,6 +73,7 @@ from digline.core.run import (
     CaseProgress,
     CaseResult,
     DocumentRefusedError,
+    Exclusion,
     Run,
     SystemConfig,
     case_from_dict,
@@ -92,7 +93,9 @@ from digline.core.run import (
 from digline.core.types import Cause
 from digline.store.deletion import refusal_for_a_promoted_run
 from digline.store.promotion import (
+    kept_at_promotion,
     refusal_for_a_moved_baseline,
+    refusal_for_exclusions,
     refusal_for_unaccepted_pins,
     refusals_for,
 )
@@ -870,11 +873,23 @@ class FileResultStore:
         declared: Declared | None,
         promoted_at: str,
         accepting_pins: Collection[str] = frozenset(),
+        excluding: Collection[str] = frozenset(),
+        excluded_by: str = "",
     ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant,
         # and a document that declares another suite — conditions 1 and 7, made
         # as the run is read.
-        run = self.read_run(ref)
+        stored = self.read_run(ref)
+
+        # Before any condition, because what the conditions read is the run
+        # less the cases a person left out by name; the run file itself is
+        # never touched. (ADR 0065 §1)
+        excluded = refusal_for_exclusions(
+            stored, excluding, excluded_by, declared=declared
+        )
+        if excluded is not None:
+            raise excluded
+        run = kept_at_promotion(stored, excluding)
 
         # The conditions that answer from the document alone, in the order
         # they are owed. The first is raised and the rest are not looked at, which is
@@ -913,7 +928,16 @@ class FileResultStore:
         # later, and until now the document could not tell the two apart.
         # Stamped from what the caller passed — the store reads no clock.
         # (ADR 0014 §3)
-        reference = replace(without_responses(run), promoted_at=promoted_at)
+        reference = replace(
+            without_responses(run),
+            promoted_at=promoted_at,
+            # Who left which case out, and when: the reference says it, and
+            # every comparison against it says it again. (ADR 0065 §1)
+            excluded_at_promotion=tuple(
+                Exclusion(case_id=case_id, by=excluded_by, at=promoted_at)
+                for case_id in sorted(set(excluding))
+            ),
+        )
         write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
 

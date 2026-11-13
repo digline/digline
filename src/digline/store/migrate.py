@@ -525,6 +525,17 @@ def _add_schema_twenty_three(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty_four(raw: dict[str, Any]) -> dict[str, Any]:
+    """23 -> 24. One passenger, and the step writes nothing for it: the cases
+    a person left out of a reference at its promotion (ADR 0065 §1).
+
+    - `excluded_at_promotion` on a reference: no digline before 24 could leave
+      a case out of one, so every reference it wrote holds every case its run
+      carried, which is what absent says. Nothing is written.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one, and what the step declares it
 #: does. A version absent from this table is one whose bump was not additive,
 #: and the absence is the whole statement. Every entry declares its nature, and
@@ -561,6 +572,7 @@ _STEPS: Mapping[int, Step] = {
     20: Step(_add_schema_twenty_one, WritesNothing()),
     21: Step(_add_schema_twenty_two, WritesNothing()),
     22: Step(_add_schema_twenty_three, WritesNothing()),
+    23: Step(_add_schema_twenty_four, WritesNothing()),
 }
 
 #: The steps whose default states something that was not true of the run, by

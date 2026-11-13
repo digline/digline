@@ -1466,6 +1466,12 @@ _BANDS = "ADR 0024 §4.5; the reading of a lost band, beside the count"
 #: digline's words, never a recorded word (fixed decision 9).
 _FIRST_VERBS = "ADR 0011 §1 and ADR 0023 §9, as noted 2026-11-06; the first verbs"
 
+#: The cases a person left out of a reference at its promotion, and the cases
+#: on one side of a comparison only: three counts on the headline, the names
+#: under `full`, the exclusions on the run document, and a state of `where`.
+#: Names of cases, as every case id crosses, and the person's own mark.
+_CASES = "ADR 0065; a case excluded at promotion, and the cases a run was made with"
+
 #: A shape of an output, as the listing groups by it.
 _SHAPE: Mapping[str, _Key] = {
     "episode": _BOOL,
@@ -1893,6 +1899,27 @@ _ADDED: tuple[_AddedKey, ...] = (
         {"asked": _BOOL, "sentence": _STR, "command": _STR},
         _FIRST_VERBS,
     ),
+    _AddedKey("compare", "cases_added", _INT, _CASES),
+    _AddedKey("compare", "cases_removed", _INT, _CASES),
+    _AddedKey("compare", "cases_excluded", _INT, _CASES),
+    _AddedKey("compare.full", "cases_added", _INT, _CASES),
+    _AddedKey("compare.full", "cases_removed", _INT, _CASES),
+    _AddedKey("compare.full", "cases_excluded", _INT, _CASES),
+    _AddedKey("compare.full", "cases_changed", _k(_Obj("cases_changed")), _CASES),
+    *_shape_added("cases_changed", {"added": _STRINGS, "removed": _STRINGS}, _CASES),
+    _AddedKey(
+        "compare.full",
+        "excluded_at_promotion",
+        _k(_arr(_Obj("exclusion"))),
+        _CASES,
+    ),
+    _AddedKey(
+        "run_document",
+        "excluded_at_promotion",
+        _k(_arr(_Obj("exclusion"))),
+        _CASES,
+    ),
+    *_shape_added("exclusion", {"case_id": _STR, "by": _STR, "at": _STR}, _CASES),
 )
 
 

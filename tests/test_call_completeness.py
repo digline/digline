@@ -541,7 +541,9 @@ def test_migrating_a_schema_20_line_writes_no_marker() -> None:
     # an absent `named` on a configuration are *not recorded* (ADR 0034 §17).
     # 22 -> 23 writes nothing either: an absent `finish` and an absent `tools`
     # on a recorded response are *not recorded* (ADR 0057).
-    assert SCHEMA_VERSION == 23
+    # 23 -> 24 writes nothing either: an absent `excluded_at_promotion`
+    # is a reference promoted whole (ADR 0065 §1).
+    assert SCHEMA_VERSION == 24
     current = run_to_dict(execute(suite(), Answering(), created_at=CREATED))
     for line in lines(current).values():
         line.pop("every_call_seen")

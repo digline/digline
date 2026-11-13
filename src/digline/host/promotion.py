@@ -142,6 +142,8 @@ def promote(
     replacing: str,
     promoted_at: str,
     accepting_pins: Collection[str] = frozenset(),
+    excluding: Collection[str] = frozenset(),
+    excluded_by: str = "",
 ) -> Run:
     """Promote the run `key` to be the baseline of the loaded suite.
 
@@ -159,6 +161,11 @@ def promote(
       refused. Empty accepts nothing, which is the prudent default. It is not
       recorded in the reference, so a caller that accepts says so where it
       reports the promotion (ADR 0053).
+    - `excluding` names the cases this promotion leaves out of the reference,
+      each a case the run carries and the suite no longer declares, and
+      `excluded_by` the person who says so, as they typed it. The reference
+      records both, with `promoted_at`, and the run is not touched. Empty
+      excludes nothing (ADR 0065 §1).
 
     Returns the reference written, which is what `promote_baseline` returns and
     what a projection starts from (ADR 0034 §2). Every refusal is in `REFUSALS`.
@@ -173,6 +180,8 @@ def promote(
         replacing=replacing,
         promoted_at=promoted_at,
         accepting_pins=accepting_pins,
+        excluding=excluding,
+        excluded_by=excluded_by,
     )
 
 
@@ -185,6 +194,8 @@ def promote_priced(
     replacing: str,
     promoted_at: str,
     accepting_pins: Collection[str] = frozenset(),
+    excluding: Collection[str] = frozenset(),
+    excluded_by: str = "",
 ) -> Run:
     """`promote`, for a caller that computed `pricing_for` once already.
 
@@ -208,4 +219,6 @@ def promote_priced(
         declared=suite.declared(),
         promoted_at=promoted_at,
         accepting_pins=accepting_pins,
+        excluding=excluding,
+        excluded_by=excluded_by,
     )

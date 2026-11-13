@@ -253,4 +253,16 @@ def compare_json(
         # their reason, and an added key under `OUTPUT_VERSION = 2`'s rule
         # rather than a bump. (ADR 0028 §8)
         payload["suite_deltas"] = [rule_json(d) for d in comparison.suite_deltas]
+        # The cases on one side only, by name, and the cases a person left out
+        # of the reference at its promotion, with who and when: the names
+        # behind the headline's three counts. Under `full`, with the other
+        # lists. Added keys. (ADR 0065)
+        payload["cases_changed"] = {
+            "added": list(comparison.cases.added),
+            "removed": list(comparison.cases.removed),
+        }
+        payload["excluded_at_promotion"] = [
+            {"case_id": item.case_id, "by": item.by, "at": item.at}
+            for item in comparison.excluded_at_promotion
+        ]
     return neutralised(payload)

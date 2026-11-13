@@ -22,6 +22,7 @@ from digline.core import (
     ArtifactDelta,
     AssertionDelta,
     CaseResult,
+    CasesChanged,
     CauseOfTwo,
     Comparison,
     ConfigDelta,
@@ -30,6 +31,7 @@ from digline.core import (
     Declared,
     Denominator,
     ErrorKind,
+    Exclusion,
     Noise,
     Outcome,
     Run,
@@ -96,6 +98,8 @@ __all__ = [
     "suspended_cases",
     "unjudged_cases",
     "unjudged_sentence",
+    "cases_changed_fact",
+    "excluded_fact",
     "misnamed_fact",
     "reference_unreconciled_fact",
     "unreconciled_fact",
@@ -347,6 +351,16 @@ class Headline:
     #: judged, which a redacted reader has no other way to learn.
     #: (ADR 0027 §6, amended 2026-09-28)
     misnamed: int = 0
+    #: How many cases this run has that the reference has not, and how many
+    #: the reference has that this run has not: one fact, *cases changed*,
+    #: said with their names. It moves no exit code: the cases both share are
+    #: compared as before, and the checks did not change. (ADR 0065 §2)
+    cases_added: int = 0
+    cases_removed: int = 0
+    #: How many cases a person left out of the reference at its promotion,
+    #: by name. A fact about the reference while it is in force; it moves no
+    #: exit code. (ADR 0065 §1)
+    cases_excluded: int = 0
 
 
 def fmt_value(value: ConfigValue) -> str:
@@ -1118,6 +1132,8 @@ def headline(
     reference_unreconciled_text = reference_unreconciled_fact(reference_gaps, locale)
     refused = misnamed(run)
     misnamed_text = misnamed_fact(refused, locale)
+    cases_text = cases_changed_fact(comparison.cases, locale)
+    excluded_text = excluded_fact(comparison.excluded_at_promotion, locale)
     # Before the configuration clause, because it qualifies what the numbers
     # *are* rather than how the system was set up: a replay did not ask the
     # target anything. The configuration clause still prints below it — it
@@ -1196,6 +1212,9 @@ def headline(
         unreconciled=len(gaps),
         reference_unreconciled=len(reference_gaps),
         misnamed=len(refused),
+        cases_added=len(comparison.cases.added),
+        cases_removed=len(comparison.cases.removed),
+        cases_excluded=len(comparison.excluded_at_promotion),
         unjudged_causes=causes,
         # Config and artifacts last, because they modify the meaning of
         # everything before them: same rules, different prompt, different run.
@@ -1214,6 +1233,10 @@ def headline(
                 # gaps to come first — but they must come before any count that
                 # was measured *against* that reference. (F-10)
                 reference_unreconciled_text,
+                # And what a person left out of the reference by name, beside
+                # the reference's other fact: every count below was measured
+                # against a reference without these cases. (ADR 0065 §1)
+                excluded_text,
                 # First of all, before the counts and not only before the
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
@@ -1257,6 +1280,11 @@ def headline(
                 unjudged_text,
                 suspended_text,
                 config_text,
+                # Beside the rules that moved, because it says what else about
+                # the suite moved: its cases. Never *the suite changed*: the
+                # checks did not, and the cases both share were compared.
+                # (ADR 0065 §2)
+                cases_text,
                 artifact_text,
                 # Straight after the tally they qualify: *2 files under test
                 # changed* then *1 of them must not have*. The unchecked clause
@@ -1366,6 +1394,51 @@ def reference_unreconciled_fact(gaps: Sequence[tuple[str, str]], locale: Locale)
     else:
         key = "fact.reference_unreconciled.capped"
     return phrase(locale, key, count=len(gaps), gaps=named)
+
+
+def _named(ids: Sequence[str], locale: Locale) -> str:
+    """At most `NAMED_GAPS` ids, then how many more: the cap
+    `unreconciled_fact` gives its gaps, for its reason."""
+    named = ", ".join(ids[:NAMED_GAPS])
+    if len(ids) <= NAMED_GAPS:
+        return named
+    return phrase(locale, "fact.names.more", names=named, count=len(ids) - NAMED_GAPS)
+
+
+def cases_changed_fact(cases: CasesChanged, locale: Locale) -> str:
+    """*Cases changed*, with the added and the removed named, or nothing where
+    both sides hold the same cases. (ADR 0065 §2)"""
+    if not cases:
+        return ""
+    parts = [
+        phrase(
+            locale,
+            f"fact.cases_changed.{side}",
+            count=len(ids),
+            names=_named(ids, locale),
+        )
+        for side, ids in (("added", cases.added), ("removed", cases.removed))
+        if ids
+    ]
+    return phrase(locale, "fact.cases_changed", changes="; ".join(parts))
+
+
+def excluded_fact(excluded: Sequence[Exclusion], locale: Locale) -> str:
+    """The cases a person left out of the reference at its promotion, each
+    with who, or nothing where the reference holds every case its run did.
+    (ADR 0065 §1)"""
+    if not excluded:
+        return ""
+    named = [
+        phrase(locale, "fact.excluded.case", case=item.case_id, by=item.by)
+        for item in excluded
+    ]
+    return phrase(
+        locale,
+        f"fact.excluded.{'one' if len(excluded) == 1 else 'many'}",
+        count=len(excluded),
+        cases=_named(named, locale),
+    )
 
 
 def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:

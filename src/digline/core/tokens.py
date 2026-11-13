@@ -42,6 +42,10 @@ type TokenKind = Literal[
     # can build from its data. A builtin verdict's keys, and the keys the
     # driver writes, cross in clear. (ADR 0034 §17.3; #711)
     "metadata_key",
+    # The person who left a case out of a reference at its promotion, as they
+    # typed it with `--by`: a person's name, which a projection never carries.
+    # (ADR 0065 §1)
+    "person",
 ]
 
 #: Look-up-or-mint: the token for a (kind, text), minting one if the owning
