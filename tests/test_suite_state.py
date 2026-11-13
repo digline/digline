@@ -65,12 +65,13 @@ def _status(root: Path, suite: str) -> dict[str, object]:
 
 
 def reviewed(root: Path) -> None:
-    """Two answers reviewed through the import's own path: one good, one bad."""
+    """Three answers reviewed through the import's own path: two good, one
+    bad, so that a count that swapped the two would be seen."""
     found = loaded(root)
     listing = import_listing(root, found.suite, found.module, "acme")
     electable = [answer.id for answer in listing.answers if answer.electable]
-    assert len(electable) >= 2, electable
-    import_elect(listing, good=[electable[0]], bad=[electable[1]], by="Ada")
+    assert len(electable) >= 3, electable
+    import_elect(listing, good=electable[:2], bad=[electable[2]], by="Ada")
 
 
 # -- each fact, against the command that says it ----------------------------- #
@@ -104,7 +105,7 @@ def test_the_reviewed_answers_are_counted_as_suggest_counts_them(
     reviewed(root)
     found = loaded(root)
     state = suite_state(root, found.suite, found.module)
-    assert state.reviewed == ReviewedCounts(good=1, bad=1)
+    assert state.reviewed == ReviewedCounts(good=2, bad=1)
     answers = [c for c in found.suite.cases if c.reviewed_answer is not None]
     given = material(
         suite="triage",
@@ -115,7 +116,7 @@ def test_the_reviewed_answers_are_counted_as_suggest_counts_them(
         declared=(),
     )
     counts = json.loads(given.prompt)["counts"]
-    assert (counts["reviewed_yes"], counts["reviewed_no"]) == (1, 1)
+    assert (counts["reviewed_yes"], counts["reviewed_no"]) == (2, 1)
 
 
 def test_a_case_of_another_kind_counts_in_neither() -> None:
@@ -125,14 +126,16 @@ def test_a_case_of_another_kind_counts_in_neither() -> None:
     assert reviewed_counts([Case(id="plain")]) == ReviewedCounts(good=0, bad=0)
 
 
-def test_each_case_is_asked_the_checks_the_driver_asks(root: Path) -> None:
-    reviewed(root)
-    found = loaded(root)
-    state = suite_state(root, found.suite, found.module)
-    assert [item.case_id for item in state.cases] == [
-        case.id for case in found.suite.cases
-    ]
-    assert all(item.checks == ("llm_rubric",) for item in state.cases)
+def test_each_case_is_asked_the_checks_the_driver_asks(tmp_path: Path) -> None:
+    """A plain case is asked every check; a reviewed answer the one it names
+    (ADR 0059 §1), which is what `checks_asked` reads off the dispatch."""
+    write(tmp_path, KEPT, SAID_NO)
+    suite, found = load_suite(str(tmp_path / "suite.py"), root=tmp_path)
+    state = suite_state(tmp_path, suite, found.module)
+    assert state.cases == (
+        CaseChecks("kept", ("llm_rubric", "agrees")),
+        CaseChecks("said-no", ("llm_rubric",)),
+    )
 
 
 @pytest.fixture
