@@ -231,6 +231,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "accepted and built in this tree, in no release tag: the newest tag "
         "at its landing is v1.2.0"
     ),
+    "0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with": (
+        "proposed and not built: nothing is written until it is accepted"
+    ),
     "0056-a-migration-step-that-transforms": (
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "
         "`tests/test_migration_steps.py`, run on a transforming step built there"
