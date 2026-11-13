@@ -39,6 +39,7 @@ from digline.core import (
     SystemConfig,
     Verdict,
     case_count,
+    cases_changed,
     checked_denominator,
     contradicted,
     counted_cases,
@@ -50,6 +51,7 @@ from digline.core import (
 from digline.report.render import (
     ABSENT,
     SECTIONS,
+    cases_changed_fact,
     contradicted_answers,
     contradicted_said,
     denominator_sentence,
@@ -57,6 +59,7 @@ from digline.report.render import (
     diff_tally,
     echoed_model,
     errored_verdicts,
+    excluded_fact,
     field_verb,
     fmt_score,
     fmt_value,
@@ -75,6 +78,7 @@ __all__ = [
     "SettingKind",
     "TallyFact",
     "TallyKind",
+    "case_words",
     "contradicted_said",
     "explain_text",
     "facts",
@@ -902,7 +906,35 @@ def judge_words(run: Run, *, locale: Locale) -> tuple[str, ...]:
     return (phrase(locale, "explain.heading.judge"), *lines)
 
 
-def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
+def case_words(run: Run, baseline: Run | None, *, locale: Locale) -> tuple[str, ...]:
+    """The two sentences of ADR 0065 that `compare` says, for `explain`: the
+    cases on one side only, by name, and the cases a person left out of the
+    reference at its promotion, with who. Empty without a reference, and
+    where neither holds.
+
+    **Not facts, and read beside them**, as the judge's words are: the fact
+    list is closed by ADR 0012 §3, and these move no exit code. Only
+    `digline explain`'s terminal reading prints them, after the counts;
+    `explain --json` and the MCP `explain` never do. The sentences are
+    `compare`'s own, so the two commands cannot say the change two ways.
+    (P-1676)
+    """
+    if baseline is None:
+        return ()
+    moved = cases_changed(
+        frozenset(case.case_id for case in baseline.results),
+        frozenset(case.case_id for case in run.results),
+    )
+    lines = (
+        cases_changed_fact(moved, locale),
+        excluded_fact(baseline.excluded_at_promotion, locale),
+    )
+    return tuple(line for line in lines if line)
+
+
+def explain_text(
+    reading: Sequence[Fact], *, locale: Locale, cases: Sequence[str] = ()
+) -> tuple[str, ...]:
     """The reading, in sentences. One line per fact, in the list's order, but
     for the unjudged tally of a run that judged no case, which says nothing
     rather than something false of it (#576).
@@ -915,6 +947,10 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
 
     Headings are structure, not facts. They name a group and state nothing, so
     they are the one thing here that answers to no entry in the list.
+
+    `cases` is the other: `case_words()`'s sentences, which are text and not
+    facts, printed after the counts as they were handed in. `()` prints
+    nothing, which is every reading but a terminal one. (P-1676)
     """
     strings(locale)  # fail here, not halfway through a reading
 
@@ -935,6 +971,7 @@ def explain_text(reading: Sequence[Fact], *, locale: Locale) -> tuple[str, ...]:
     lines.extend(
         line for fact in tallies if (line := _tally_line(fact, locale, counts))
     )
+    lines.extend(cases)
 
     lines.append("")
     lines.append(phrase(locale, f"explain.heading.settings.{where}"))

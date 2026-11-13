@@ -109,6 +109,7 @@ from digline.host.importing import SetupsRead, setups_said
 from digline.report import (
     against_line,
     artifact_lines,
+    case_words,
     config_lines,
     errored_verdicts,
     explain_text,
@@ -1388,7 +1389,11 @@ def cmd_explain(args: argparse.Namespace) -> int:
         )
         return read.exit_code
 
-    for line in explain_text(read.facts, locale=args.locale):
+    # The cases on one side only and the cases left out at promotion, after
+    # the counts and in the terminal alone, as the judge's words are: text,
+    # never a fact, never in --json. (ADR 0065; P-1676)
+    cases = case_words(read.run, read.baseline, locale=args.locale)
+    for line in explain_text(read.facts, locale=args.locale, cases=cases):
         say(line)
     # The judge's words, after the facts and in the terminal alone: read off
     # the run, never a fact, never in --json. (ADR 0012 §4, as amended

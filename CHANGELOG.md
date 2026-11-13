@@ -32,7 +32,8 @@ Written when the number moved; the cut writes the rest of this opening.
   dropped is named with `--exclude`, a case it added with *run the suite
   again*. `compare` says two new facts, *the cases changed since the
   reference* with the added and the removed named, and *excluded at promotion*,
-  neither moving an exit code; `--json` adds `cases_added`, `cases_removed`
+  neither moving an exit code, and `explain`'s terminal reading says both
+  after its counts, as text; `--json` adds `cases_added`, `cases_removed`
   and `cases_excluded`, and under `full` the names, `cases_changed` and
   `excluded_at_promotion`, which the run document also carries. `digline
   where` has a twelfth state, `cases_changed`, before `judge_disagrees`, and

@@ -280,3 +280,46 @@ def test_where_without_the_edit_reads_the_judge(tmp_path: Path) -> None:
         ).stdout
     )
     assert payload["state"] == "judge_disagrees"
+
+
+# -- what explain says ------------------------------------------------------- #
+
+
+def test_explain_says_both_after_the_counts_in_the_terminal_alone(
+    dropped: tuple[Path, str],
+) -> None:
+    """The two sentences `compare` says, among the facts after the counts, as
+    text: `--json` carries neither, as it carries no judge's words. (P-1676)"""
+    root, key = dropped
+    assert promote(root, key, "--exclude", "said-no", "--by", "Ada").returncode == 0
+    write(root, KEPT, OTHER)
+    after = ran(root)
+    done = cli(root, "explain", "--suite", "suite.py", "--run", after)
+    lines = done.stdout.splitlines()
+    changed = "The cases changed since the reference: 1 added (other)."
+    excluded = "1 case was excluded at promotion from the reference: said-no, by Ada."
+    at = [index for index, line in enumerate(lines) if line.startswith(changed)]
+    assert at, done.stdout
+    assert lines[at[0] + 1] == excluded
+    # After the counts, before the settings: the first blank line closes the
+    # counts, and it comes after both.
+    assert lines.index("") == at[0] + 2
+    assert "2 cases ran." in lines[: at[0]]
+    payload = cli(
+        root, "explain", "--suite", "suite.py", "--run", after, "--json"
+    ).stdout
+    assert "said-no" not in payload
+    assert "cases changed" not in payload
+    assert "excluded at promotion" not in payload
+
+
+def test_explain_says_nothing_of_cases_where_they_are_the_same(
+    tmp_path: Path,
+) -> None:
+    """The control: the same cases on both sides, nothing excluded."""
+    write(tmp_path, KEPT)
+    assert promote(tmp_path, ran(tmp_path)).returncode == EXIT_OK
+    after = ran(tmp_path)
+    done = cli(tmp_path, "explain", "--suite", "suite.py", "--run", after)
+    assert "cases changed" not in done.stdout
+    assert "excluded at promotion" not in done.stdout
