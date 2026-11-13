@@ -155,6 +155,14 @@ def proposal_address(tenant: str, suite: str) -> str:
     return f"/proposal/{_segment(tenant)}/{_segment(suite)}/"
 
 
+def review_address(tenant: str, suite: str, answer: str = "") -> str:
+    """Where a suite's recorded answers are reviewed one at a time: the first
+    not yet reviewed, or `answer`. (ADR 0066 §2)"""
+    return f"/review/{_segment(tenant)}/{_segment(suite)}/" + (
+        _segment(answer) if answer else ""
+    )
+
+
 def state_address(tenant: str, suite: str) -> str:
     """Where the state of a suite is shown, whole. (ADR 0066 §1)"""
     return f"/suite/{_segment(tenant)}/{_segment(suite)}/"
@@ -220,6 +228,7 @@ def with_screens(
     links: list[str] = []
     for name, href in (
         ("recordings", recordings_address(tenant, suite)),
+        ("review", review_address(tenant, suite)),
         ("setups", setups_address(tenant, suite)),
         ("proposal", proposal_address(tenant, suite)),
         ("recorder", recorder_address(tenant)),

@@ -396,17 +396,67 @@ writes it inline, because a report is opened from disk; the server serves it at
 
 **Two scripts are served.** uPlot runs on one page, the answers across setups
 for one case, where it draws the chart. digline's own script runs there and on
-every page with a form that writes, where it keeps the command line under the
+every page with a form that writes, where it keeps the command line under each
 button equal to the form. Every other page carries no script.
 
 | File | Bytes | Licence |
 |---|---|---|
 | `/static/uPlot.iife.min.js`, uPlot 1.6.31 | 50 312 | MIT, Copyright (c) 2022 Leon Sorokin, `uPlot.LICENSE` beside it in the package |
-| `/static/chart.js`, digline's | 3 705 | digline's |
+| `/static/chart.js`, digline's | 3 957 | digline's |
 
 uPlot's own stylesheet, 1 857 bytes, is absorbed into the one sheet. Without
 JavaScript every page still reads and every form still writes; what is missing
 is the chart, and a command line that follows the form as it is edited.
+
+## The review, one answer at a time
+
+`/review/<tenant>/<suite>/` is the first recorded answer not yet reviewed,
+and `/review/<tenant>/<suite>/<id>` one answer, in the order the recordings
+list them, by case. The state of the suite links to it with how many are
+waiting, and so does the menu. Each answer has a page of its own:
+
+- the question and its context, as the listing prints them, and the answer
+  whole, never cut;
+- an episode's steps, in order, each tool call with its arguments and its
+  result, or a line where the recording holds no result;
+- a document the answer cites, where the recording carries one: in the
+  question, or as a tool's result in a step. There is no field of its own.
+
+Under [`--allow-record`](#-allow-record) come two buttons, `--good` and
+`--bad`, neither chosen, and the name, `--by`. **Each press writes one
+answer**, through `import_listing` and `import_elect`, the path
+`digline record import` takes, and under each button is the command it runs:
+
+```console
+digline record import --tenant acme --suite eval/suite.py --good cap-… --by 'Ada Lovelace'
+```
+
+The press is answered with a `303` to the next answer not yet reviewed, and
+that page opens with what the press wrote, **read back from the file**:
+*Written: cap-…, --good, by Ada Lovelace.* After the last one it is the
+review's first page, which says that none is waiting. *Next, without
+writing* goes to the next answer not yet reviewed and writes nothing. An
+answer already reviewed is shown as such, *already in the file, --good, by
+NAME*, with no button; one that cannot be named says why, in the import's
+words. Nothing is ranked or chosen in advance, nothing writes more than the
+answer the address names, and the order is the listing's.
+
+**The name is typed once per session.** The first press carries it in the
+form; the server keeps it in memory, beside the session the address was
+traded for, and every answer after shows it, filled and editable, with
+*Reviewing as NAME*. It is in no file, no cookie and no address: started
+again, the server asks for it again. It is never read from git or the
+environment.
+
+Without `--allow-record` the pages read, show no button and say where the
+writes are, and a POST to them gets the `404` any unknown path gets. With
+it, a press needs the cookie of the browser that opened the printed
+address, from that origin, as every write of the page does.
+([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §2, §3)
+
+> **Arrives with digline 1.3.** 1.2.0 has no review page: answers are named
+> good or bad on the recordings, many in one form, with the name typed in
+> that form every time.
 
 ## `--allow-record`
 
@@ -427,7 +477,9 @@ The flag serves the page's two writes, and nothing else:
   and `--bad` beside it, neither chosen; the person types their own name in
   the form, the `--by` the cases carry, and the page reads it from nowhere
   else. There is no *import all*, nothing is chosen in advance, and nothing is
-  ranked.
+  ranked. The same write, one answer per press, is the
+  [review](#the-review-one-answer-at-a-time)'s, where the name is typed once
+  per session.
 
 **Under each button, the command that does the same thing**, with the values
 in the form: `digline record on --tenant acme --sample 0.5`,

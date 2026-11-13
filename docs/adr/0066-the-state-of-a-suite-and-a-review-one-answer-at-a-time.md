@@ -9,7 +9,8 @@
   facts the state needs that no command prints yet. Accepted as proposed,
   with the six items marked *decided here* and the note on ADR 0061 §2.
   Built in part on 2026-11-13: §1, the first of the three pull requests of
-  §7. Where the build says more than this text, a dated note in §1 says so
+  §7, then §2 and §3, the second. Where the build says more than this text,
+  a dated note in §1 or §2 says so
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
@@ -213,6 +214,25 @@ make the page read back a fact, never say a sentence of its own, which is the
 reason the note of 2026-11-04 on ADR 0061 §7 gives for carrying no command
 line in an address. After the last answer, the `303` leads to the state of
 §1. A refusal is the command's sentence, with a `400`, and nothing written.
+
+*Noted 2026-11-13, at the build of §2 and §3; the text above is kept as
+written.* Four things the build says more precisely:
+
+- **After the last answer**, the `303` leads to the review's first page,
+  `/review/<tenant>/<suite>/`, and not to the state of §1. That page reads
+  back what the last press wrote and says that no answer is waiting, with a
+  link to the state: the state page reads nothing back, and a press is owed
+  its read-back.
+- **An id the draft does not hold is not echoed.** The page says *the answer
+  the address names is not in the file*, without the id: an id in the page
+  would be a text the address chose.
+- **The name a press wrote with is read back from the draft**: the
+  listing's answer carries it as `elected_by`, from the case's
+  `metadata["reviewed_by"]`, where it already read `elected`.
+- **One form, two lines.** The two buttons share the form and its name
+  field, and each has its line under it. digline's script kept the first
+  line of a form equal to its fields, and now keeps each. Nothing in the
+  gate runs the script (ADR 0061 §6).
 
 **A link, *next*, writes nothing.** It is a GET to the next answer not yet
 reviewed, for the person who wants to leave one for later. It is the file's

@@ -364,6 +364,11 @@ class Launch:
     # such default. (0.21.1 delta-pass, D-1)
     key: str = field(repr=False)
     session: str = field(default="", repr=False)
+    #: The name the person typed at the review, kept beside the session for
+    #: as long as this start runs, and nowhere else: not in a file, a cookie
+    #: or an address. Empty until a press wrote with one; a start again asks
+    #: for it again. (ADR 0066 §3)
+    reviewer: str = field(default="", repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @classmethod
@@ -385,6 +390,11 @@ class Launch:
                 return "spent"
             self.session = secrets.token_urlsafe(32)
             return "issued"
+
+    def remember(self, name: str) -> None:
+        """Keep the name a press wrote with, in place of the one before."""
+        with self._lock:
+            self.reviewer = name
 
     def admits(self, value: str) -> bool:
         """Whether `value` is the session this start issued. Before the hand-over
@@ -832,6 +842,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 self._screen_recorder(locale, path)
             elif path.startswith("/suite/"):
                 self._screen_state(locale, path)
+            elif path.startswith("/review/"):
+                self._screen_review(locale, path, query)
             elif path.startswith("/where/"):
                 self._screen_where(locale, path)
             elif path.startswith("/proposal/"):
@@ -1236,6 +1248,53 @@ class ViewHandler(BaseHTTPRequestHandler):
             locale=locale,
         )
 
+    def _screen_review(
+        self, locale: Locale, path: str, query: Mapping[str, Sequence[str]]
+    ) -> None:
+        """`/review/<tenant>/<suite>/`, the first answer not yet reviewed, and
+        `/review/<tenant>/<suite>/<answer>`, one answer: whole, with a yes and
+        a no under `--allow-record`, from `import_listing`, which writes
+        nothing. `after` names the answer a press wrote, read back from the
+        draft and never from the request. (ADR 0066 §2)"""
+        parts = self._segments(path, "/review/", 2)
+        if parts is None:
+            self._error(404, f"no such page: {path}")
+            return
+        named, suite, wanted = parts
+        tenant = self._tenant(locale, named)
+        if tenant is None or not self._this_suite(suite):
+            return
+        found = import_listing(Path(self.root), self.suite, self.module, tenant)
+        answers = {item.id: item for item in found.answers}
+        if wanted:
+            answer = answers.get(wanted)
+            if answer is None:
+                self._error(
+                    404,
+                    pages.phrase(
+                        locale,
+                        "view.answer.missing",
+                        answer=wanted,
+                        suite=self.suite.name,
+                    ),
+                )
+                return
+        else:
+            answer = recorder_pages.next_to_review(found)
+        after = (query.get("after") or [""])[0]
+        self._page(
+            recorder_pages.review_page(
+                found,
+                answer,
+                locale=locale,
+                writes=self._import_flags(tenant),
+                by=self.launch.reviewer if self.launch is not None else "",
+                written=(after, answers.get(after)) if after else None,
+            ),
+            here="review",
+            locale=locale,
+        )
+
     def _screen_state(self, locale: Locale, path: str) -> None:
         """`/suite/<tenant>/<suite>/`: the state of the suite, whole, from
         `digline.host.state`, which puts side by side what each command
@@ -1264,6 +1323,19 @@ class ViewHandler(BaseHTTPRequestHandler):
             self.module,
             suite_file=suite_file_of(self.suite_arg, self.module),
         )
+        # The answers a person can still name, as the review counts them, for
+        # a suite that declares where captured cases go. (ADR 0066 §2)
+        to_review = (
+            None
+            if self.suite.capture is None
+            else sum(
+                1
+                for item in import_listing(
+                    Path(self.root), self.suite, self.module, tenant
+                ).answers
+                if item.electable
+            )
+        )
         self._page(
             recorder_pages.state_page(
                 found,
@@ -1271,6 +1343,7 @@ class ViewHandler(BaseHTTPRequestHandler):
                 suite_arg=self.suite_arg,
                 root=self._root_flags(),
                 locale=locale,
+                to_review=to_review,
             ),
             here="state",
             locale=locale,
@@ -1527,6 +1600,14 @@ class ViewHandler(BaseHTTPRequestHandler):
             return
         form = urllib.parse.parse_qs(body)
         locale: Locale = pages.locale_of(form)
+        if route[0] == "review":
+            tenant = self._tenant(locale, route[1], write=True)
+            if tenant is None:
+                return
+            parts = self._segments(path, "/review/", 2)
+            assert parts is not None
+            self._post_review(locale, tenant, parts[2], form)
+            return
         if route[0] in ("switch", "import"):
             tenant = self._tenant(locale, route[1], write=True)
             if tenant is None:
@@ -1597,6 +1678,15 @@ class ViewHandler(BaseHTTPRequestHandler):
             parts = self._segments(path, "/recorder/", 1)
             if parts is not None and not parts[1]:
                 return ("switch", parts[0])
+        if path.startswith("/review/"):
+            parts = self._segments(path, "/review/", 2)
+            if (
+                parts is not None
+                and parts[2]
+                and self._suite is not None
+                and parts[1] == self._suite.name
+            ):
+                return ("review", parts[0])
         if path.startswith("/recordings/"):
             parts = self._segments(path, "/recordings/", 2)
             if (
@@ -1661,6 +1751,48 @@ class ViewHandler(BaseHTTPRequestHandler):
             return
         self._see_other(pages.recordings_address(tenant, self.suite.name), locale)
 
+    def _post_review(
+        self,
+        locale: Locale,
+        tenant: str,
+        answer: str,
+        form: Mapping[str, Sequence[str]],
+    ) -> None:
+        """One press: `digline record import --good ID --by NAME`, or `--bad`,
+        for the one answer the address names, through `import_listing` and
+        `import_elect`, the path the import takes (ADR 0061 §2, #904). The
+        name is the one the form carries, which the server then keeps for the
+        session (ADR 0066 §3). A 303 to the next answer not yet reviewed,
+        which reads back from the draft what this wrote."""
+        verdict = (form.get("verdict") or [""])[0]
+        if verdict not in ("good", "bad"):
+            self._error(400, "refused: the form names no verdict, good or bad")
+            return
+        by = (form.get("by") or [None])[0]
+        root = Path(self.root)
+        try:
+            found = import_listing(root, self.suite, self.module, tenant)
+            import_elect(
+                found,
+                good=[answer] if verdict == "good" else [],
+                bad=[answer] if verdict == "bad" else [],
+                by=by,
+            )
+        except REFUSALS as exc:
+            self._refused(locale, str(exc))
+            return
+        assert self.launch is not None and by is not None
+        self.launch.remember(by)
+        after = recorder_pages.next_to_review(
+            import_listing(root, self.suite, self.module, tenant), answer
+        )
+        address = pages.review_address(
+            tenant, self.suite.name, "" if after is None else after.id
+        )
+        self._see_other(
+            f"{address}?{urllib.parse.urlencode({'after': answer})}", locale
+        )
+
     def _refused(self, locale: Locale, why: str) -> None:
         """A write the host refused, in the sentence the command prints, and
         nothing written: a 400, never the 303 of a write that happened."""
@@ -1673,8 +1805,13 @@ class ViewHandler(BaseHTTPRequestHandler):
         # The locale written here is one of ours, looked up, never the value
         # the request carried: `locale_of` already held it to the closed list,
         # and the header is built from nothing a request wrote. The address
-        # is built from names `checked_name` let through, each quoted.
-        self.send_header("Location", f"{address}?locale={_LOCALE_PARAMETER[locale]}")
+        # is built from names `checked_name` let through, each quoted, and
+        # after a review from the id of an answer the import just wrote,
+        # which the listing holds, urlencoded. (ADR 0066 §2)
+        joint = "&" if "?" in address else "?"
+        self.send_header(
+            "Location", f"{address}{joint}locale={_LOCALE_PARAMETER[locale]}"
+        )
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
         self._policy()

@@ -61,6 +61,20 @@ Written when the number moved; the cut writes the rest of this opening.
   `reviewed_counts` and `ReviewedCounts` in `digline.run.suite`;
   `suite_state`, `SuiteState` and `CaseChecks` in `digline.host`. From an
   application with a judged suite, where nothing showed the suite whole.
+- **`digline view` reviews recorded answers one at a time** (ADR 0066 §2,
+  §3). `/review/<tenant>/<suite>/<id>`: the question and its context, the
+  answer whole, an episode's steps with each call's arguments and result,
+  and under `--allow-record` two buttons, `--good` and `--bad`, neither
+  chosen. Each press writes one answer through the import's own path, the
+  command under each button; the `303` leads to the next answer not yet
+  reviewed, which reads back from the file what was written. An answer
+  already reviewed is shown as such; *next* writes nothing. The name is
+  typed once per session and kept in the server's memory, never in a file,
+  a cookie or an address (ADR 0061 §2, noted). Without the flag the pages
+  read, and a POST is the 404 of an unknown path. New routes, none changed;
+  `ImportAnswer.elected_by` and `review_order` in `digline.host.importing`.
+  From an application with a judged suite, where 27 answers were reviewed
+  in a file prepared apart and passed through 27 flags typed by hand.
 - **The Java recorder's `DiglineAws` survives a reload.** A framework that
   loads the application's classes again while the AWS SDK stays loaded, as
   Quarkus's dev mode does, failed the class's initialisation: the SDK refuses

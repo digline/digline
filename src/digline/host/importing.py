@@ -127,6 +127,7 @@ __all__ = [
     "setups_said",
     "status_setups_said",
     "by_case",
+    "review_order",
     "case_line",
 ]
 
@@ -214,6 +215,10 @@ class ImportAnswer:
     #: the newest recording's under the setup in force, or the first's where
     #: none is under it. `None` for a single call.
     steps: tuple[RecordedStep, ...] | None = None
+    #: The person's mark the draft holds beside `elected`, its
+    #: `metadata["reviewed_by"]`, or `None` where nothing was elected: what
+    #: a page reads back after a press wrote it. (ADR 0066 §2)
+    elected_by: str | None = None
 
     @property
     def electable(self) -> bool:
@@ -664,6 +669,11 @@ def import_listing(
                 case_from_first_call=first.case_from_first_call,
                 in_force=setup,
                 steps=_steps_of(recordings, setup),
+                elected_by=(
+                    None
+                    if held is None or elected is None
+                    else _text(held.metadata.get("reviewed_by"))
+                ),
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -1051,6 +1061,18 @@ def _say_answer(answer: ImportAnswer) -> list[str]:
 
 def _many(count: int, noun: str) -> str:
     return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def review_order(found: ImportListing) -> tuple[ImportAnswer, ...]:
+    """Every answer, in the order the listing shows them: its groups in
+    order, and in each group by case, `by_case`'s. The order a review walks,
+    and the only one: it ranks nothing. (ADR 0066 §2)"""
+    return tuple(
+        answer
+        for group in found.groups
+        for _, answers in by_case(group.answers)
+        for answer in answers
+    )
 
 
 def by_case(
