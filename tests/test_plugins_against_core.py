@@ -346,6 +346,87 @@ def test_the_step_runs_on_workspace_tags_only(tag: str, runs: bool) -> None:
     assert tag.startswith("v") is runs
 
 
+# --- on a pull request: ci.yml, the core from dist/ (P-1616) -------------------
+
+
+def test_the_pull_request_job_builds_and_checks_the_core_from_dist() -> None:
+    """The same `check`, on every pull request, with the core taken from the
+    wheel the job builds: a pull request's version is on no index."""
+    workflow = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())
+    job = workflow["jobs"]["plugins-against-core"]
+    assert job["if"] == "github.event_name == 'pull_request'"
+    steps = list(job["steps"])
+    check = position(steps, "plugins_against_core.py check")
+    build = position(steps, "uv build --all-packages")
+    assert build < check
+    assert steps[check]["env"]["CORE_FROM"] == "dist"
+    assert "packaging==" in str(steps[check]["run"])
+    # The step in publish.yml keeps TestPyPI: it names no other source.
+    published = steps_of_testpypi()[
+        position(steps_of_testpypi(), "plugins_against_core.py check")
+    ]
+    assert "CORE_FROM" not in dict(cast(dict[str, str], published.get("env", {})))
+
+
+def test_the_core_comes_from_its_wheel_under_dist_and_from_the_index_otherwise(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    wheel = tmp_path / "digline-1.3.0-py3-none-any.whl"
+    wheel.write_bytes(b"")
+    monkeypatch.setattr(script, "CORE_FROM", "dist")
+    assert script.core_wheel(tmp_path, "1.3.0") == wheel
+    monkeypatch.setattr(script, "CORE_FROM", "testpypi")
+    assert script.core_wheel(tmp_path, "1.3.0") is None
+    monkeypatch.setattr(script, "CORE_FROM", "pypi")
+    with pytest.raises(SystemExit, match="'pypi' is neither dist nor testpypi"):
+        script.core_wheel(tmp_path, "1.3.0")
+
+
+@pytest.mark.parametrize("from_dist", [True, False])
+def test_the_install_asks_for_the_wheel_or_for_the_version_on_testpypi(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, from_dist: bool
+) -> None:
+    asked: list[tuple[str, ...]] = []
+
+    class Quiet:
+        @staticmethod
+        def run(*args: object, **kwargs: object) -> None:
+            return None
+
+    versions = {"digline": "1.3.0", "digline-mcp": "0.9.1"}
+
+    def pip(python: Path, *args: str) -> None:
+        asked.append(args)
+
+    def installed(python: Path, name: str) -> str:
+        return versions[name]
+
+    monkeypatch.setattr(script, "subprocess", Quiet)
+    monkeypatch.setattr(script, "_pip", pip)
+    monkeypatch.setattr(script, "_installed", installed)
+    wheel = tmp_path / "digline-1.3.0-py3-none-any.whl"
+    plugin = script.Served("digline-mcp", "0.9.1", ">=1.1.1,<2")
+    script.install(tmp_path, plugin, "1.3.0", wheel if from_dist else None)
+    core, served = asked
+    if from_dist:
+        assert core == ("--index-url", f"{script.PYPI}/simple/", str(wheel))
+    else:
+        assert core[-1] == "digline==1.3.0"
+        assert f"{script.TESTPYPI}/simple/" in core
+    assert served[-1] == "digline-mcp==0.9.1"
+
+
+def test_the_summary_says_where_the_core_came_from(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(script, "CORE_FROM", "dist")
+    assert "as this pull request builds it, from dist/" in script.summary(
+        "Plugins", "1.3.0", []
+    )
+    monkeypatch.setattr(script, "CORE_FROM", "testpypi")
+    assert "as TestPyPI serves it" in script.summary("Plugins", "1.3.0", [])
+
+
 # --- what the `pypi` job is handed: the classification, as a job output -------
 #
 # Made by a step of its own on every tag, and marked, so that an empty output

@@ -131,6 +131,85 @@ def test_a_rotated_token_is_the_same_setup() -> None:
     assert "authorization_token" not in json.dumps(setup("first"))
 
 
+# -- the openai map, by the same list (P-1683) ------------------------------ #
+
+
+def openai_setup(extra_body: dict[str, object]) -> dict[str, object]:
+    from digline_openai.recording import MAP
+
+    request: dict[str, object] = {
+        "model": "gpt-test",
+        "messages": [{"role": "user", "content": "q"}],
+        "extra_body": extra_body,
+    }
+    return MAP.split(request)[1]
+
+
+def test_openai_leaves_an_mcp_servers_token_out_of_the_setup() -> None:
+    """digline-openai 0.7.0 merged `extra_body` into the setup whole, as
+    digline-anthropic 0.9.0 did: the same list is left out the same way."""
+    setup = openai_setup({"mcp_servers": [{**SERVER, "authorization_token": TOKEN}]})
+    assert TOKEN not in json.dumps(setup)
+    # What the server is stays: only its credential is left out.
+    assert setup["mcp_servers"] == [SERVER]
+
+
+def test_openai_leaves_a_credential_key_out_at_the_top_level() -> None:
+    setup = openai_setup({"authorization_token": TOKEN, "seed": 7})
+    assert "authorization_token" not in setup
+    # The control: a key of `extra_body` that is no credential is the setup's.
+    assert setup["seed"] == 7
+
+
+def test_openai_a_rotated_token_is_the_same_setup() -> None:
+    def setup(token: str) -> dict[str, object]:
+        return openai_setup(
+            {
+                "mcp_servers": [{**SERVER, "authorization_token": token}],
+                "authorization_token": token,
+            }
+        )
+
+    assert setup("first") == setup("second")
+    assert "authorization_token" not in json.dumps(setup("first"))
+
+
+def test_openai_and_anthropic_leave_out_the_same_list() -> None:
+    from digline_anthropic.recording import (
+        _CREDENTIAL_KEYS,  # pyright: ignore[reportPrivateUsage]
+    )
+    from digline_openai.recording import CREDENTIAL_KEYS
+
+    assert CREDENTIAL_KEYS == _CREDENTIAL_KEYS
+
+
+def test_openai_a_token_in_extra_body_is_not_recorded(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, upstream: Upstream
+) -> None:
+    """Through the client, wrapped, as an application records: the file the
+    recorder writes holds no token."""
+    from tests.test_record_proxy import an_openai
+
+    monkeypatch.setenv(recorder.ENVIRONMENT_VARIABLE, "1")
+    base = f"http://127.0.0.1:{upstream.port}/v1"
+    client = wrap(an_openai(base), app="support", tenant="acme", root=tmp_path)
+    client.chat.completions.create(
+        model="gpt-test",
+        messages=[{"role": "user", "content": "q"}],
+        suite="triage",
+        extra_body={
+            "mcp_servers": [{**SERVER, "authorization_token": TOKEN}],
+            "authorization_token": TOKEN,
+        },
+    )
+    recorder._flush_shared(client._digline_state.shared)  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    [text] = written(tmp_path)
+    assert TOKEN not in text
+    assert json.loads(text)["setup"]["mcp_servers"] == [SERVER]
+    # The control: the key in the header was never written.
+    assert "sk-test" not in text
+
+
 # -- the proxy --------------------------------------------------------------- #
 
 

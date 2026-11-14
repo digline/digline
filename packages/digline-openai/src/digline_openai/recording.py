@@ -18,6 +18,11 @@ of `extra_body`, merged at the top level as the SDK sends them (`as_sent`).
 Neither is how the request travels (`extra_headers`, `extra_query`,
 `timeout`), streaming (`stream`, `stream_options`), or who the request is for
 (`user`, `metadata`, `safety_identifier`, `prompt_cache_key`), nor `store`.
+Nor is a credential the body carries, by the names digline-anthropic leaves
+out (`CREDENTIAL_KEYS`): at the top level, where `extra_body` merges, and in
+each entry of an `mcp_servers` list, which an endpoint in OpenAI's shape may
+take through `extra_body`. No credential field of Chat Completions' own body
+is known; the list is the one GHSA-v7r8-xg2j-wjx4 named for Anthropic.
 
 **The reply is read by `completion_of`**, the function `OpenAIChat.complete`
 returns. A recording does not price: the price list passed is empty, so a reply
@@ -60,6 +65,7 @@ if TYPE_CHECKING:
 __all__ = [
     "INSTRUCTION_ROLES",
     "MAP",
+    "CREDENTIAL_KEYS",
     "NOT_SETUP",
     "STREAM_MAP",
     "WIRE",
@@ -85,6 +91,36 @@ NOT_SETUP: frozenset[str] = frozenset(
         "store",
     }
 )
+
+#: The keys of a request body that carry a credential, the list
+#: digline-anthropic leaves out (GHSA-v7r8-xg2j-wjx4): an MCP server's
+#: `authorization_token`. A credential is the one payload no `Disclosure`
+#: releases (ADR 0004 §5), and in a setup it would also enter the digest, so
+#: each rotation of the token would read as a new setup.
+CREDENTIAL_KEYS: frozenset[str] = frozenset({"authorization_token"})
+
+
+def _without_credentials(servers: object) -> object:
+    """`mcp_servers` with each server's credential left out, and everything
+    else as it was sent. A value that is not a list of mappings is left as it
+    is, as digline-anthropic leaves it."""
+    if not isinstance(servers, list):
+        return servers
+    kept: list[object] = []
+    for server in cast(list[object], servers):
+        if isinstance(server, Mapping):
+            entry = cast(Mapping[str, object], server)
+            kept.append(
+                {
+                    key: value
+                    for key, value in entry.items()
+                    if key not in CREDENTIAL_KEYS
+                }
+            )
+        else:
+            kept.append(server)
+    return kept
+
 
 #: The roles of the leading messages that are the setup's `system`.
 INSTRUCTION_ROLES: frozenset[str] = frozenset({"system", "developer"})
@@ -127,7 +163,13 @@ class OpenAIRecording:
         lead = 0
         while lead < len(listed) and _role(listed[lead]) in INSTRUCTION_ROLES:
             lead += 1
-        setup = {key: value for key, value in request.items() if key not in NOT_SETUP}
+        setup = {
+            key: value
+            for key, value in request.items()
+            if key not in NOT_SETUP and key not in CREDENTIAL_KEYS
+        }
+        if "mcp_servers" in setup:
+            setup["mcp_servers"] = _without_credentials(setup["mcp_servers"])
         if lead:
             setup["system"] = listed[:lead]
         return {"messages": listed[lead:]}, setup

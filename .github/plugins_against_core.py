@@ -86,6 +86,17 @@ PYPI = os.environ.get("PYPI", "https://pypi.org").rstrip("/")
 TESTPYPI = os.environ.get("TESTPYPI", "https://test.pypi.org").rstrip("/")
 CORE = "digline"
 
+#: Where the core comes from. `testpypi`, on a tag: the wheel the `pypi` job
+#: will publish, as TestPyPI serves it. `dist`, on a pull request: the wheel
+#: this run built, from `dist/`, because the version a pull request builds is
+#: on no index (RELEASING.md, *Owed to the next version*, P-1616). Anything
+#: else is refused rather than read as one of the two.
+CORE_FROM = os.environ.get("CORE_FROM", "testpypi")
+SOURCES = {
+    "testpypi": "as TestPyPI serves it",
+    "dist": "as this pull request builds it, from dist/",
+}
+
 #: The first word of every classification `excluded` prints, and what
 #: `dist_manifest.py` requires before it reads one. GitHub gives an empty
 #: string for an output no step wrote, so an unmarked "nothing to exclude"
@@ -316,21 +327,28 @@ def kind_of(python: pathlib.Path, name: str) -> str:
     )
 
 
-def install(root: pathlib.Path, plugin: Served, core: str) -> pathlib.Path:
-    """A clean environment: this core from TestPyPI, the plugin from PyPI."""
+def install(
+    root: pathlib.Path, plugin: Served, core: str, wheel: pathlib.Path | None = None
+) -> pathlib.Path:
+    """A clean environment: this core from TestPyPI, or from `wheel` where one
+    is given, and the plugin from PyPI."""
     venv = root / plugin.name / "venv"
     subprocess.run([sys.executable, "-m", "venv", str(venv)], check=True)
     python = venv / "bin" / "python"
-    # The same indexes as the step before, which installed this core already:
-    # TestPyPI for the core, PyPI for what TestPyPI does not have.
-    _pip(
-        python,
-        "--index-url",
-        f"{TESTPYPI}/simple/",
-        "--extra-index-url",
-        f"{PYPI}/simple/",
-        f"{CORE}=={core}",
-    )
+    if wheel is not None:
+        # The wheel this run built, its dependencies from PyPI.
+        _pip(python, "--index-url", f"{PYPI}/simple/", str(wheel))
+    else:
+        # The same indexes as the step before, which installed this core
+        # already: TestPyPI for the core, PyPI for what TestPyPI does not have.
+        _pip(
+            python,
+            "--index-url",
+            f"{TESTPYPI}/simple/",
+            "--extra-index-url",
+            f"{PYPI}/simple/",
+            f"{CORE}=={core}",
+        )
     _pip(python, "--index-url", f"{PYPI}/simple/", f"{plugin.name}=={plugin.version}")
     # Held by name, because a lagging index resolves the previous release and
     # every command after would pass having proved nothing (RELEASING.md,
@@ -354,8 +372,23 @@ def quickstart(sdist: pathlib.Path, into: pathlib.Path) -> pathlib.Path:
     return found
 
 
+def core_wheel(dist: pathlib.Path, core: str) -> pathlib.Path | None:
+    """The core's wheel in `dist/` under `CORE_FROM=dist`, `None` under
+    `testpypi`; any other value is refused by name."""
+    if CORE_FROM not in SOURCES:
+        raise SystemExit(
+            f"::error title=Unknown CORE_FROM::{CORE_FROM!r} is neither "
+            f"{' nor '.join(sorted(SOURCES))}"
+        )
+    if CORE_FROM == "testpypi":
+        return None
+    (wheel,) = dist.glob(f"{CORE}-{core}-*.whl")
+    return wheel
+
+
 def check(dist: pathlib.Path, work: pathlib.Path) -> list[Outcome]:
     core, plugins = roster(dist)
+    wheel = core_wheel(dist, core)
     (sdist,) = dist.glob(f"{CORE}-{core}.tar.gz")
     example = quickstart(sdist, work / "sdist")
     outcomes: list[Outcome] = []
@@ -379,7 +412,7 @@ def check(dist: pathlib.Path, work: pathlib.Path) -> list[Outcome]:
             continue
         print(f"--- {name} {plugin.version}, which declares digline{plugin.requires}")
         try:
-            python = install(work, plugin, core)
+            python = install(work, plugin, core, wheel)
             kind = kind_of(python, name)
             app = work / name / "app"
             shutil.copytree(example, app)
@@ -439,8 +472,8 @@ def summary(title: str, core: str, outcomes: Sequence[Outcome]) -> str:
     lines = [
         f"### {title}",
         "",
-        f"digline {core} as TestPyPI serves it, beside the newest version PyPI "
-        "serves of each plugin.",
+        f"digline {core} {SOURCES.get(CORE_FROM, CORE_FROM)}, beside the newest "
+        "version PyPI serves of each plugin.",
         "",
         "| Plugin | Newest on PyPI | Its range on digline | Outcome |",
         "|---|---|---|---|",

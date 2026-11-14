@@ -163,6 +163,31 @@ MEASURES = ToolAnnotations(
 )
 
 
+#: The core this server reads, by the first thing it reads that an older core
+#: does not carry: `where`'s `idle_checks`, which `digline.run.suite` exports
+#: from 1.3.0. The floor in `pyproject.toml` is the rule; this is the alarm, for
+#: an environment that installed around it, so that the server says so at
+#: start and not with a `KeyError` in the middle of a call. (P-1683)
+NEEDS_CORE = "1.3.0"
+
+
+def core_missing() -> str | None:
+    """Why the installed core cannot serve these tools, or `None`."""
+    import digline.run.suite as suite_module
+
+    if "idle_checks" in getattr(suite_module, "__all__", ()):
+        return None
+    try:
+        found = _distribution_version("digline")
+    except Exception:  # noqa: BLE001 — any reading that fails names no version
+        found = "of no version this environment declares"
+    return (
+        f"digline-mcp needs digline {NEEDS_CORE} or later, and the digline "
+        f"installed, {found}, does not carry what `where` answers with "
+        f"(idle_checks). Install digline>={NEEDS_CORE}."
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class _Opened:
     """A suite spec, resolved against the perimeter and loaded exactly once.
@@ -1032,6 +1057,11 @@ def main(argv: list[str] | None = None) -> int:
         "required under --names project",
     )
     args = parser.parse_args(argv)
+    # Before anything is opened: a core that cannot answer is the first thing
+    # wrong, and every tool would meet it.
+    missing = core_missing()
+    if missing is not None:
+        parser.error(missing)
     # Before the store is opened, so neither refusal can name anything in it:
     # what is missing is configuration. (ADR 0054 §4)
     if args.names == "project" and args.name_table is None:
