@@ -445,7 +445,7 @@ A check on the steps contradicted a person on 1 reviewed answer: before, on case
 16 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite's checks are unchanged from the reference.
 
 What differed underneath
 Nothing in this group.
@@ -454,9 +454,12 @@ What moved
 cap-1883cef159843149-84877bca · before failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 ```
 
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
+> unchanged from the reference.*, here and below.
+
 ```console
 $ digline compare --suite eval/suite.toml --run latest
-A check on the steps contradicted a person on 1 reviewed answer: before, on case cap-1883cef159843149-84877bca, and the case fails: cap-1883cef159843149-84877bca for before, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+A check on the steps contradicted a person on 1 reviewed answer: before, on case cap-1883cef159843149-84877bca, and the case fails: cap-1883cef159843149-84877bca for before, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-11-09T07-33-58-931049-00-00-7aa9217a99f7b370
 ```
 

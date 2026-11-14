@@ -100,8 +100,11 @@ $ digline promote --suite support.py --run latest --replacing none
 tenant 'northwind' · support baseline set to 2026-08-26T16-06-38-334462-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 ```
+
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
+> unchanged from the reference.*, here and below.
 
 `promote` wrote `.digline/northwind/baselines/support.json`. Commit it. From now
 on every comparison is against that file, it is reviewed like any other change,
@@ -178,7 +181,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-38-571702-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-1 check got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+1 check got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
 
@@ -186,7 +189,7 @@ $ digline run --suite support.py
 2026-08-26T16-06-38-761306-00-00-282b0c02d6511fb4
 
 $ digline compare --suite support.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
 where-is-my-order · llm_rubric · Went from passing to failing (1.000000 → 0.600000).
@@ -956,7 +959,7 @@ $ digline run --suite triage.py
 2026-08-26T16-09-08-076855-00-00-9e780e13e9fa4f58
 
 $ digline compare --suite triage.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 
 duplicate-ticket · agrees_with_mark · Went from passing to failing (1.000000 → 0.000000).
 service-outage · agrees_with_mark · Went from passing to failing (1.000000 → 0.000000).
@@ -1263,7 +1266,7 @@ $ digline run --suite support.py
 2026-08-26T16-24-18-887777-00-00-ec1c0061f461d5e3
 
 $ digline compare --suite support.py --run latest
-4 checks got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference.
+4 checks got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite's checks are unchanged from the reference.
 
 how-do-i-return · llm_rubric · Went from passing to failing (0.920000 → 0.400000).
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
@@ -1672,7 +1675,7 @@ $ digline run --suite support.py
 2026-08-26T16-41-23-184744-00-00-e5881dce5cab0761
 
 $ digline compare --suite support.py --run latest
-Nothing got worse compared with the reference. 2 checks moved within noise. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. 1 file under test changed since the reference.
+Nothing got worse compared with the reference. 2 checks moved within noise. 2 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite's checks are unchanged from the reference. 1 file under test changed since the reference.
 
   app.py · +2 −2 lines
 ```

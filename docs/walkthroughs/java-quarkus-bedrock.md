@@ -350,7 +350,7 @@ Checks on the steps contradicted a person on 1 reviewed answer: never, on case c
 17 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite's checks are unchanged from the reference.
 
 What differed underneath
 Nothing in this group.
@@ -359,6 +359,9 @@ What moved
 cap-baa842f3dfae2b30-f8b3a680 · never failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 cap-baa842f3dfae2b30-f8b3a680 · max_steps failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 ```
+
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
+> unchanged from the reference.*, here and below.
 
 A yes on a turn is a yes to its steps too. Here the person vouched for a turn
 that called `lookup_order`, which the suite says is never called, and that

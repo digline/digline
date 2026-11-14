@@ -349,3 +349,39 @@ def test_the_state_links_the_review_with_how_many_are_waiting(
     assert press(writing, LONG_ID, "good", "Ada")[0] == 303
     page = writing.ask("GET", state_address("acme", "triage")).body
     assert f"{waiting - 1} not yet reviewed" in text_of(page)
+
+
+def test_the_state_and_the_review_link_each_other_in_both_locales(
+    writing: Served,
+) -> None:
+    """The menu carries both pages on every screen, so a link found anywhere
+    on the page would pass for the one in the body: each is held here by its
+    own words, and the menu by its two labels, in English and in Italian."""
+    from digline.report.pages import state_address
+
+    state = state_address("acme", "triage")
+    review = review_address("acme", "triage")
+    waiting = sum(1 for item in listing(writing.root).answers if item.electable)
+    said = {
+        "en": (
+            f"Review them one at a time: {waiting} not yet reviewed",
+            "The state of the suite",
+            ("The suite", "Review"),
+            "Review — triage",
+        ),
+        "it": (
+            f"Rivedile una alla volta: {waiting} non ancora riviste",
+            "Lo stato della suite",
+            ("La suite", "Revisione"),
+            "Revisione — triage",
+        ),
+    }
+    for locale, (to_review, to_state, menu, title) in said.items():
+        on_state = writing.ask("GET", f"{state}?locale={locale}").body
+        assert f'<a href="{review}?locale={locale}">{to_review}</a>' in on_state
+        on_review = writing.ask("GET", f"{review}?locale={locale}").body
+        assert f'<a href="{state}?locale={locale}">{to_state}</a>' in on_review
+        assert f"<h1>{title}</h1>" in on_review
+        for page in (on_state, on_review):
+            for label in menu:
+                assert f">{label}</a>" in page, (locale, label)

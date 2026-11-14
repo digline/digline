@@ -75,6 +75,17 @@ Written when the number moved; the cut writes the rest of this opening.
   `ImportAnswer.elected_by` and `review_order` in `digline.host.importing`.
   From an application with a judged suite, where 27 answers were reviewed
   in a file prepared apart and passed through 27 flags typed by hand.
+  The state of the suite and the review link each other, and
+  `docs/view.md` says what a press writes and what it does not: no button
+  for every answer, nothing chosen in advance, nothing on the MCP server.
+- **`compare` says *"The suite's checks are unchanged from the
+  reference."*** where it said *"The suite is unchanged from the
+  reference."*, and `explain`'s reading says the same; in Italian, *"I
+  controlli della suite sono invariati rispetto al riferimento."*. Beside
+  *The cases changed since the reference*, the old sentence read as a
+  contradiction: it was always about the checks, never about the cases. A
+  script that matches the old sentence no longer finds it. From an
+  application with a judged suite.
 - **The Java recorder's `DiglineAws` survives a reload.** A framework that
   loads the application's classes again while the AWS SDK stays loaded, as
   Quarkus's dev mode does, failed the class's initialisation: the SDK refuses

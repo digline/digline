@@ -346,9 +346,12 @@ digline: next: digline compare --suite eval/suite.toml --run latest  # says whet
 
 ```console
 $ digline compare --suite eval/suite.toml --run latest
-Checks on the steps contradicted a person on 1 reviewed answer: never, on case cap-baa842f3dfae2b30-763e65be; max_steps, on case cap-baa842f3dfae2b30-763e65be, and the case fails: cap-baa842f3dfae2b30-763e65be for never, failed where the person said yes; cap-baa842f3dfae2b30-763e65be for max_steps, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+Checks on the steps contradicted a person on 1 reviewed answer: never, on case cap-baa842f3dfae2b30-763e65be; max_steps, on case cap-baa842f3dfae2b30-763e65be, and the case fails: cap-baa842f3dfae2b30-763e65be for never, failed where the person said yes; cap-baa842f3dfae2b30-763e65be for max_steps, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4
 ```
+
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
+> unchanged from the reference.*, here and below.
 
 `compare` exited `1`, which is what a gate in CI reads. A yes on a turn is a
 yes to its steps too: the person vouched for a turn that called
