@@ -8,6 +8,13 @@ never has to guess the number. A fact about the measurement, read off the run
 alone: it moves no exit code and changes no verdict. (P-1685, ADR 0012 §3 as
 amended 2026-11-14)
 
+Two kinds of case are left out, whatever their samples. A calibration case,
+because its band says more than this would. And a reviewed answer, because
+where the judge and the person disagree it has a fact of its own; on the
+walkthrough from the IDE, three reviewed answers the judge agreed with
+scored 1 against a threshold of 1, and each read as uncertain until they
+were left out.
+
 Found in a first use outside the project, on a Java application with a judged
 suite: a case passed at 0.71 against 0.70, its three samples 1, 1 and 0, and
 nothing a person read said the verdict was a coin flip.

@@ -403,10 +403,13 @@ it does not, and each case says which:
 2 judged checks on cases are uncertain, and their verdicts could have gone the other way: torn · llm_rubric: the samples did not all agree, 0.67 of them on the majority verdict; close · llm_rubric: the mean 0.520000 is within 0.05 of the threshold 0.500000, a margin of 0.05, because the check declares no tolerance.
 ```
 
-A check in error is not one: it gave no verdict. Nor is a calibration case,
-whose band says more, or a reviewed answer, which `explain` says where the
-judge contradicted the person. It is read off the run alone, so it is said with or
-without a reference; it moves no exit code and is not in `compare`'s
+A check in error is not one: it gave no verdict. Two kinds of case are left
+out whatever their samples: a **calibration case**, whose band says more,
+and a **reviewed answer**, which `explain` says where the judge contradicted
+the person. On the walkthrough from the IDE, three reviewed answers the judge
+agreed with scored 1 against a threshold of 1, and each read as uncertain
+until they were left out. It is read off the run alone, so it is said with
+or without a reference; it moves no exit code and is not in `compare`'s
 sentence. The run's report shows the same cases in a section of its own,
 *Uncertain verdicts*, absent when there is none, and `--json` carries them
 beside the count, on the `uncertain` tally, under the key `uncertain`: each
