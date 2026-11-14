@@ -175,6 +175,18 @@ package added (§5), the name of the package that added it.
    mark (ADR 0059 §1, accepted), the person types it in the form, as on the
    command line, and the page reads it from nowhere else.
 
+   *Noted 2026-11-13, by [ADR 0066](0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md)
+   §3, the sentence above kept as written.* At the review, one answer at a
+   time, the person types the name **once per session of the page**: the
+   first press carries it in the form, and the server keeps it in memory,
+   beside the session the launch key was traded for, for as long as it runs,
+   never in a file, a cookie or an address. Every page after shows it in the
+   field, filled and editable, and a press carries what the field holds. A
+   start again asks for it again. *The page reads it from nowhere else*
+   becomes *from that typing and from nowhere else*. ADR 0059 §1's reason is
+   kept: the name is typed by the person, never read from git or the
+   environment.
+
 **The same host code, and under every button the line of the command.** Each
 form posts to a route that calls the host function the command calls, with the
 arguments the command would pass. Every refusal the function raises reaches

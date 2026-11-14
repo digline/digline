@@ -978,6 +978,38 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.state.next": "The next step",
         "view.state.where": "Where you are says more",
         "view.runs.state": "The state of this suite, whole",
+        "view.state.review": "Review them one at a time: {count} not yet reviewed",
+        # The review, one answer at a time. (ADR 0066 §2, §3)
+        "view.nav.review": "Review",
+        "view.title.review": "Review — {suite}",
+        "view.review.waiting": (
+            "{count} answer(s) not yet reviewed, in the listing's order."
+        ),
+        "view.review.done": (
+            "No answer is waiting: each one is in the file, or says why it cannot be."
+        ),
+        "view.review.by": ", by {by}",
+        "view.review.written": "Written: {answer}, {flag}, by {by}.",
+        "view.review.nobody": "nobody the file names",
+        "view.review.not_written": ("The answer the address names is not in the file."),
+        "view.review.case": "Case",
+        "view.review.question": "The question, and its context",
+        "view.review.answer": "The answer, whole",
+        "view.review.steps": "The steps it took",
+        "view.review.arguments": "Arguments",
+        "view.review.result": "Result",
+        "view.review.no_result": "The recording holds no result for this call.",
+        "view.review.documents": (
+            "A document the answer cites is shown where the recording carries "
+            "it: in the question, or as a tool's result in a step."
+        ),
+        "view.review.actor.model": "{index} · the model",
+        "view.review.actor.tool": "{index} · a tool",
+        "view.review.as": (
+            "Reviewing as {by}. Change the name below for a press of your own."
+        ),
+        "view.review.next": "Next, without writing",
+        "view.review.state": "The state of the suite",
         "view.where.idle_checks": "Checks that judge no case: {checks}",
         "view.where.command": "The command",
         "view.where.docs": "The page that says more",
@@ -2796,6 +2828,43 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "view.state.next": "Il passo dopo",
         "view.state.where": "Dove sei dice di più",
         "view.runs.state": "Lo stato di questa suite, intero",
+        "view.state.review": "Rivedile una alla volta: {count} non ancora riviste",
+        "view.nav.review": "Revisione",
+        "view.title.review": "Revisione — {suite}",
+        "view.review.waiting": (
+            "{count} risposta/e non ancora rivista/e, nell'ordine dell'elenco."
+        ),
+        "view.review.done": (
+            "Nessuna risposta in attesa: ciascuna è nel file, o dice perché non "
+            "può esserci."
+        ),
+        "view.review.by": ", da {by}",
+        "view.review.written": "Scritta: {answer}, {flag}, da {by}.",
+        "view.review.nobody": "nessuno che il file nomini",
+        "view.review.not_written": (
+            "La risposta che l'indirizzo nomina non è nel file."
+        ),
+        "view.review.case": "Caso",
+        "view.review.question": "La domanda, e il suo contesto",
+        "view.review.answer": "La risposta, intera",
+        "view.review.steps": "I passi che ha fatto",
+        "view.review.arguments": "Argomenti",
+        "view.review.result": "Risultato",
+        "view.review.no_result": (
+            "La registrazione non ha un risultato per questa chiamata."
+        ),
+        "view.review.documents": (
+            "Un documento che la risposta cita è mostrato dove la registrazione "
+            "lo porta: nella domanda, o come risultato di uno strumento in un "
+            "passo."
+        ),
+        "view.review.actor.model": "{index} · il modello",
+        "view.review.actor.tool": "{index} · uno strumento",
+        "view.review.as": (
+            "Rivedi come {by}. Cambia il nome qui sotto per una pressione tua."
+        ),
+        "view.review.next": "Avanti, senza scrivere",
+        "view.review.state": "Lo stato della suite",
         "view.where.idle_checks": "Controlli che non giudicano nessun caso: {checks}",
         "view.where.command": "Il comando",
         "view.where.docs": "La pagina che dice di più",

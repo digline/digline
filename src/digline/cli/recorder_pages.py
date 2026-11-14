@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlencode
 
+from digline.core.run import RecordedStep
 from digline.host.importing import (
     ImportAnswer,
     ImportListing,
@@ -49,6 +50,7 @@ from digline.host.importing import (
     group_line,
     group_setup_line,
     input_line,
+    review_order,
     setup_line,
     setups_said,
     status_setups_said,
@@ -62,8 +64,10 @@ from digline.report.pages import (
     proposal_address,
     recorder_address,
     recordings_address,
+    review_address,
     screen,
     setups_address,
+    state_address,
     where_address,
 )
 from digline.report.render import excluded_fact
@@ -92,6 +96,7 @@ __all__ = [
     "switch_fields",
     "recorder_page",
     "recordings_page",
+    "review_page",
     "setups_page",
     "state_page",
     "WHERE_DOCS",
@@ -1160,6 +1165,217 @@ def where_page(
     return screen(title, "".join(body), locale=locale, suite=label, here="where")
 
 
+# -- the review, one answer at a time ---------------------------------------- #
+
+
+def review_page(
+    found: ImportListing,
+    answer: ImportAnswer | None,
+    *,
+    locale: Locale,
+    writes: Sequence[str] | None,
+    by: str,
+    written: tuple[str, ImportAnswer | None] | None = None,
+) -> str:
+    """One recorded answer to review, whole, with a yes and a no beside it,
+    neither chosen (ADR 0066 §2). `answer` is `None` where none is left.
+
+    `written` is what the press before this page wrote, read back from the
+    draft: the id the address carries and the answer the listing holds for
+    it, `None` where it holds none. Never carried from the request: a link
+    can make the page read back a fact, never say a sentence of its own.
+
+    `by` is the name the server keeps for this session, filled in the field
+    and said above it; empty before the first press (ADR 0066 §3). `writes`
+    is the flags the command under each button carries on a server that
+    writes, and `None` on one that does not: then no button."""
+    declaration = found.declaration
+    tenant, suite = declaration.tenant, declaration.suite
+    title = phrase(locale, "view.title.review", suite=suite)
+    order = review_order(found)
+    waiting = [item for item in order if item.electable]
+    body = [f"<h1>{escape(title)}</h1>\n", _p(declaration.line(), "declaration")]
+    if written is not None:
+        body.append(_read_back(written, locale))
+    body.append(_p(phrase(locale, "view.review.waiting", count=len(waiting)), "note"))
+    if answer is None:
+        body.append(_p(phrase(locale, "view.review.done")))
+    else:
+        body.append(_reviewed_answer(answer, locale))
+        if answer.elected is not None:
+            body.append(_p(answer_state(answer) + _by(answer, locale), "state"))
+        elif answer.refusal is not None:
+            body.append(_p(answer_state(answer), "state"))
+        elif writes is not None:
+            body.append(_verdict_form(found, answer, writes, by, locale))
+        body.append(_writes_note(locale, writes))
+        following = _next(order, answer)
+        if following is not None:
+            href = review_address(tenant, suite, following.id)
+            body.append(
+                f'<p><a href="{escape(href)}?locale={locale}">'
+                f"{escape(phrase(locale, 'view.review.next'))}</a></p>\n"
+            )
+    body.append(
+        f'<p><a href="{escape(state_address(tenant, suite))}?locale={locale}">'
+        f"{escape(phrase(locale, 'view.review.state'))}</a></p>\n"
+    )
+    if answer is not None and answer.electable and writes is not None:
+        body.append(_GLUE)
+    return screen(title, "".join(body), locale=locale, suite=suite, here="review")
+
+
+def next_to_review(
+    found: ImportListing, after: str | None = None
+) -> ImportAnswer | None:
+    """The answer a review goes to: the first not yet reviewed after `after`
+    in the listing's order, else the first not yet reviewed at all, else
+    `None`. The file's order, and nothing else. (ADR 0066 §2)"""
+    order = review_order(found)
+    waiting = [item for item in order if item.electable and item.id != after]
+    if after is not None:
+        ids = [item.id for item in order]
+        if after in ids:
+            later = ids.index(after)
+            for item in order[later + 1 :]:
+                if item.electable:
+                    return item
+    return waiting[0] if waiting else None
+
+
+def _next(order: Sequence[ImportAnswer], answer: ImportAnswer) -> ImportAnswer | None:
+    """*Next*: the first answer not yet reviewed after this one, or before it
+    when none is after; never this one."""
+    at = [item.id for item in order].index(answer.id)
+    for item in (*order[at + 1 :], *order[:at]):
+        if item.electable:
+            return item
+    return None
+
+
+def _by(answer: ImportAnswer, locale: Locale) -> str:
+    if answer.elected_by is None:
+        return ""
+    return phrase(locale, "view.review.by", by=answer.elected_by)
+
+
+def _read_back(written: tuple[str, ImportAnswer | None], locale: Locale) -> str:
+    """What the press before wrote, as the draft holds it."""
+    named, held = written
+    if held is None or held.elected is None:
+        # The id is not echoed: a link can make the page read back a fact,
+        # never say a text of its own. (ADR 0066 §2)
+        del named
+        return _p(phrase(locale, "view.review.not_written"), "note")
+    flag = "--good" if held.elected else "--bad"
+    return _p(
+        phrase(
+            locale,
+            "view.review.written",
+            answer=named,
+            flag=flag,
+            by=held.elected_by or phrase(locale, "view.review.nobody"),
+        ),
+        "written",
+    )
+
+
+def _reviewed_answer(answer: ImportAnswer, locale: Locale) -> str:
+    """The answer as the recording holds it: the question and its context,
+    the answer whole, and an episode's steps with each call's arguments and
+    result, where a document the answer cites is, if the recording carries
+    one."""
+    order = tuple(dict.fromkeys(answer.setups))
+    when = answer.first_at or phrase(locale, "view.recordings.undated")
+    parts = [
+        '<dl class="meta">'
+        f"<dt>{escape(phrase(locale, 'view.recordings.column.id'))}</dt>"
+        f'<dd><code class="key">{escape(answer.id)}</code></dd>'
+        f"<dt>{escape(phrase(locale, 'view.review.case'))}</dt>"
+        f"<dd><code>{escape(answer.case)}</code></dd>"
+        f"<dt>{escape(phrase(locale, 'view.recordings.column.when'))}</dt>"
+        f"<dd>{escape(when)}</dd>"
+        f"<dt>{escape(phrase(locale, 'view.recordings.column.setup'))}</dt>"
+        f"<dd>{', '.join(_tag(s, order, locale) for s in answer.setups)}</dd>"
+        f"<dt>{escape(phrase(locale, 'view.recordings.column.times'))}</dt>"
+        f"<dd>×{answer.times}</dd>"
+        "</dl>\n",
+        f"<h2>{escape(phrase(locale, 'view.review.question'))}</h2>\n",
+        f'<pre class="snippet">{escape(input_line(answer))}</pre>\n',
+        f"<h2>{escape(phrase(locale, 'view.review.answer'))}</h2>\n",
+        f'<pre class="snippet">{escape(answer.text)}</pre>\n',
+    ]
+    if answer.steps:
+        parts.append(f"<h2>{escape(phrase(locale, 'view.review.steps'))}</h2>\n<ol>\n")
+        for step in answer.steps:
+            parts.append(f"<li>{escape(_step_line(step, locale))}")
+            call = step.call
+            if call is not None:
+                if call.arguments is not None:
+                    parts.append(
+                        f"<div>{escape(phrase(locale, 'view.review.arguments'))}</div>"
+                        f'<pre class="snippet">{escape(call.arguments)}</pre>'
+                    )
+                if call.result is not None:
+                    parts.append(
+                        f"<div>{escape(phrase(locale, 'view.review.result'))}</div>"
+                        f'<pre class="snippet">{escape(call.result)}</pre>'
+                    )
+                else:
+                    parts.append(_p(phrase(locale, "view.review.no_result"), "note"))
+            parts.append("</li>\n")
+        parts.append("</ol>\n")
+    parts.append(_p(phrase(locale, "view.review.documents"), "note"))
+    return "".join(parts)
+
+
+def _step_line(step: RecordedStep, locale: Locale) -> str:
+    said = phrase(locale, f"view.review.actor.{step.actor}", index=step.index)
+    if step.call is not None and step.call.tool is not None:
+        said += f" · {step.call.tool}"
+    if step.finish is not None:
+        said += f" · {step.finish}"
+    return said
+
+
+def _verdict_form(
+    found: ImportListing,
+    answer: ImportAnswer,
+    writes: Sequence[str],
+    by: str,
+    locale: Locale,
+) -> str:
+    """Two buttons, `--good` and `--bad`, neither the default, and the name
+    the server keeps for the session in one field. Under each button the
+    command it runs: the import, with the one answer and the name."""
+    declaration = found.declaration
+    address = review_address(declaration.tenant, declaration.suite, answer.id)
+    name = Field("by", by, "--by", by, bool(by))
+    parts = [
+        f'<form method="post" action="{escape(address)}" class="writes" '
+        "data-writes>\n"
+        f'<input type="hidden" name="locale" value="{locale}">\n'
+    ]
+    if by:
+        parts.append(_p(phrase(locale, "view.review.as", by=by), "note"))
+    parts.append(
+        '<div class="picker">'
+        + _input(name, phrase(locale, "view.import.by"))
+        + "</div>\n"
+    )
+    for value, flag in (("good", "--good"), ("bad", "--bad")):
+        base = ["digline", "record", "import", *writes, flag, answer.id]
+        parts.append(
+            f'<div class="picker"><button type="submit" name="verdict" '
+            f'value="{value}">{flag}</button></div>\n'
+            f'<pre class="snippet command" data-base="{escape(shlex.join(base))}">'
+            f"{escape(command_line(base, [name]))}</pre>\n"
+        )
+    parts.append(_p(phrase(locale, "view.command.note"), "note"))
+    parts.append("</form>\n")
+    return "".join(parts)
+
+
 # -- the state of a suite ------------------------------------------------------ #
 
 
@@ -1170,6 +1386,7 @@ def state_page(
     suite_arg: str | None,
     root: Sequence[str],
     locale: Locale,
+    to_review: int | None = None,
 ) -> str:
     """The state of a suite, whole, in the order of ADR 0066 §1: the cases
     and the checks each is asked, the reviewed answers, the checks no case is
@@ -1254,6 +1471,15 @@ def state_page(
             body.append(_p(excluded))
     body.append(f"<h2>{escape(phrase(locale, 'view.state.recordings'))}</h2>\n")
     body.append(_waiting(state, tenant, locale))
+    if to_review is not None:
+        # The answers the import listing holds that a person can still name,
+        # one press each, at the review (ADR 0066 §2).
+        href = review_address(tenant, suite)
+        body.append(
+            f'<p><a href="{escape(href)}?locale={locale}">'
+            f"{escape(phrase(locale, 'view.state.review', count=to_review))}"
+            "</a></p>\n"
+        )
     body.append(f"<h2>{escape(phrase(locale, 'view.state.next'))}</h2>\n")
     values = {
         "count": state.where.count,

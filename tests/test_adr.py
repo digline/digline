@@ -232,8 +232,8 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "at its landing is v1.2.0"
     ),
     "0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time": (
-        "built in part: PR 1 of 3, the state of a suite (§1); the review (§2, "
-        "§3) and the finishing are not built"
+        "built in part: PR 2 of 3, the state of a suite (§1) and the review "
+        "(§2, §3); the finishing is not built"
     ),
     "0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with": (
         "accepted and built in this tree, in no release tag: the newest tag "

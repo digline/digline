@@ -79,6 +79,7 @@ from digline.report.pages import (
     proposal_address,
     recorder_address,
     recordings_address,
+    review_address,
     setups_address,
     state_address,
     where_address,
@@ -766,6 +767,11 @@ def views(served: Served) -> list[str]:
         # The state of the suite, which reads and takes no POST (ADR 0066 §1).
         state_address("acme", "triage"),
         state_address("acme", "triage") + "?locale=it",
+        # The review, which reads, and takes a POST on an answer under
+        # `--allow-record` alone (ADR 0066 §2).
+        review_address("acme", "triage"),
+        review_address("acme", "triage", long_id),
+        review_address("acme", "triage", long_id) + "?locale=it",
     ]
 
 
@@ -800,7 +806,11 @@ def test_a_post_where_there_is_no_write_is_the_404_of_an_unknown_path(
     """Without `--allow-record` no view takes a POST; with it, the two that
     write do, and the answer page and the setups still do not. Each is
     answered as any path the server does not have (ADR 0032 §2)."""
-    writes = (recordings_address("acme", "triage"), recorder_address("acme"))
+    writes = (
+        recordings_address("acme", "triage"),
+        recorder_address("acme"),
+        review_address("acme", "triage", answer_id(REFUND, LONG_ANSWER)),
+    )
     before = tree(served.root)
     for target in views(served):
         if served.writing and target.split("?")[0] in writes:
@@ -817,6 +827,7 @@ def test_every_screen_links_the_three_views(served: Served) -> None:
         for href in (
             state_address("acme", "triage"),
             where_address("acme", "triage"),
+            review_address("acme", "triage"),
             recordings_address("acme", "triage"),
             setups_address("acme", "triage"),
             recorder_address("acme"),

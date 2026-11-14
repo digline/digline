@@ -69,19 +69,24 @@
     if (/^[A-Za-z0-9_@%+=:,.\/-]+$/.test(word)) return word;
     return "'" + word.replace(/'/g, "'\"'\"'") + "'";
   }
+  // Every line of a form follows it: a form with a button per verdict has a
+  // line per button, each with its own base and the form's fields after it
+  // (ADR 0066 §2).
   function follow(form) {
-    var line = form.querySelector("[data-base]");
-    if (!line) return;
+    var lines = form.querySelectorAll("[data-base]");
+    if (!lines.length) return;
     function render() {
-      var words = [line.getAttribute("data-base")];
-      form.querySelectorAll("[data-flag]").forEach(function (field) {
-        var chosen = field.type === "radio" || field.type === "checkbox";
-        if (chosen ? !field.checked : field.value === "") return;
-        words.push(field.getAttribute("data-flag"));
-        var word = chosen ? field.getAttribute("data-value") : field.value;
-        if (word !== null) words.push(quote(word));
+      lines.forEach(function (line) {
+        var words = [line.getAttribute("data-base")];
+        form.querySelectorAll("[data-flag]").forEach(function (field) {
+          var chosen = field.type === "radio" || field.type === "checkbox";
+          if (chosen ? !field.checked : field.value === "") return;
+          words.push(field.getAttribute("data-flag"));
+          var word = chosen ? field.getAttribute("data-value") : field.value;
+          if (word !== null) words.push(quote(word));
+        });
+        line.textContent = words.join(" ");
       });
-      line.textContent = words.join(" ");
     }
     form.addEventListener("input", render);
     form.addEventListener("change", render);
