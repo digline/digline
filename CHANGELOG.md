@@ -213,6 +213,22 @@ Written when the number moved; the cut writes the rest of this opening.
 - **`record_listing` counts each group's `cases`**, the questions its answers
   are to, beside `answers`.
 
+## digline-openai 0.7.1 — unreleased
+
+### Security
+
+- **The recording map no longer writes a credential into the setup.** It
+  merged `extra_body` into the setup whole, as digline-anthropic 0.9.0 did,
+  so a credential an application passed in the body was written into the
+  recording and folded into the setup digest. The keys digline-anthropic
+  0.9.1 leaves out, an MCP server's `authorization_token`, are now left out
+  here too: at the top level, where `extra_body` merges, and in each entry of
+  an `mcp_servers` list, the rest of the entry kept. A hardening: no
+  credential field of Chat Completions' own body was measured, and
+  GHSA-v7r8-xg2j-wjx4 names digline 1.1.1 and digline-anthropic 0.9.0, not
+  this package. Affected: 0.7.0, the first release with a recording map,
+  wherever an application passed such a key through `extra_body`.
+
 ## 1.2.0 — 2026-11-10
 
 digline **1.2.0**, a minor: `digline suggest` changes meaning. A bare
