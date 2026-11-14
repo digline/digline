@@ -2057,6 +2057,16 @@ its log. Git decides, so a rule kept at the repository's root or written
 another way counts. Where git cannot answer — no repository, no git — nothing
 is said. It is never a refusal, and the exit code does not change.
 
+**Where the store sits in a linked git worktree, `digline run` and `digline
+record on` say so**, one line on stderr: *this .digline/ is in a git
+worktree: what is written here goes with the worktree*. A linked worktree is
+one whose `git rev-parse --git-dir` is not its `--git-common-dir`. The check
+only reads, and git is not called where it is not installed; outside a
+repository nothing is said. It is never a refusal, and the exit code does not
+change.
+
+> **Arrives with digline 1.3.** 1.2.0 says nothing about a worktree.
+
 What is inside the directory, its format, its lock and its retention are the
 owning process's. `tenant_dir` is not documented and stays internal: the
 reserved directory is the only part of a tenant's layout a program outside

@@ -27,8 +27,10 @@ from digline.host.authorship import to_withhold, written_by_digline
 from digline.host.comparing import record_compare
 from digline.host.environment import (
     DIRTY_SUFFIX,
+    WORKTREE_NOTE,
     ProcessState,
     git_commit,
+    in_a_worktree,
     process_state,
     this_process,
     unignored,
@@ -226,6 +228,8 @@ __all__ = [
     "utc_now_iso",
     "unignored",
     "unignored_notes",
+    "in_a_worktree",
+    "WORKTREE_NOTE",
     "this_process",
     "process_state",
     "ProcessState",

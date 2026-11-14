@@ -225,6 +225,13 @@ Written when the number moved; the cut writes the rest of this opening.
   sentence of `compare` (ADR 0012 §3, as amended 2026-11-14). New public
   names: `uncertain_cases`, `Uncertain` and `DEFAULT_MARGIN` in
   `digline.core`. Found in a Java application with a judged suite.
+- **`digline run` and `digline record on` say when the store is in a git
+  worktree.** One line on stderr, *this .digline/ is in a git worktree: what
+  is written here goes with the worktree*, where `git rev-parse --git-dir` is
+  not `--git-common-dir`. It only reads, does not call git where git is not
+  installed, and changes no exit code. New public names: `in_a_worktree` and
+  `WORKTREE_NOTE` in `digline.host`. Asked for from a Java application with a
+  judged suite.
 
 ## digline-bedrock — unreleased
 
