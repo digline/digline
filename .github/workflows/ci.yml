@@ -925,6 +925,36 @@ jobs:
         # work"; the `gates` job above is what asks the second question.
         run: docker/smoke.sh digline:smoke
 
+  plugins-against-core:
+    name: The core this pull request builds, against every plugin PyPI serves
+    # The step of `publish.yml`'s `testpypi` job, on a pull request, so that a
+    # change to the core that breaks a served plugin is red before it lands
+    # and not after a tag. On 1.1.0 that step stopped the release after the
+    # tag: digline-mcp 0.8.1 raised `TypeError` beside the new core, and no
+    # pull request had run anything like it (RELEASING.md, P-1616).
+    #
+    # The one difference is where the core comes from: a pull request's
+    # version is on no index, so `CORE_FROM=dist` installs the wheel this job
+    # builds, and its dependencies from PyPI. Each plugin is still the newest
+    # PyPI serves, tried the way its users try it. Read, not required: it
+    # reads PyPI, and a plugin release elsewhere can turn it red on a pull
+    # request that caused nothing, as `glyphs` can with the site's fonts.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+      - run: uv build --all-packages
+      - name: The core against every plugin PyPI serves
+        env:
+          CORE_FROM: dist
+          SUMMARY_TITLE: The core this pull request builds, against every plugin PyPI serves
+        run: |
+          uv run --no-project --with packaging==26.3 \
+            python .github/plugins_against_core.py check
+
   examples-from-pypi:
     name: The examples, against the published package
     runs-on: ubuntu-latest

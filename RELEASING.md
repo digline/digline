@@ -139,6 +139,10 @@ third is the rest. *On 2026-10-25, `docs/api.md` documented seven packages.*
      call broken on a path that reaches is red, and `pypi` does not start. A
      call on a path it does not reach is caught by nothing, and review applies
      the rule.
+     *Added 2026-11-14 (P-1683).* The same check runs on every pull request,
+     in `ci.yml`'s job *The core this pull request builds, against every
+     plugin PyPI serves*, with the core taken from the wheel the job builds
+     (`CORE_FROM=dist`). It is read, not required, because it reads PyPI.
 3. **Any other name in an `__all__`**: internal, as `docs/api.md` says of what
    it does not list, and it may change in a patch. `digline.store.utc_now_iso`,
    removed in 0.25.1, is this level and was right to be a patch: `docs/api.md`
@@ -585,7 +589,6 @@ after the tag, on the site, and its *Then* says so.
 | Package | What it carries | What the number must reflect | Then |
 |---|---|---|---|
 | `digline` | *Added 2026-11-09.* On digline.dev, the translated homes, `docs/{de,es,it}/index.md` with their catalog keys, and the Handbook's translated pages go through the translation flow at the cut (`.github/workflows/translate.yml`; the site's `RUNBOOK.md`, *Translations*). Measured at digline.dev `a71a5b04`: `tools/translate.py --plan` names `index` and five catalog keys in each of the three languages, and `--summary` names six Handbook pages behind the English in each, eighteen in all: `index`, `00-before-the-prompt`, `01-what-you-are-shipping`, `03-ground-truth`, `04-checks` and `05-the-judge`. | 1.1.1 | a session, at the cut, runs the flow for the homes and, by hand, for the Handbook, one pull request per language, each read by a person before it merges; the pull request here that names the site's merge commits deletes this row |
-| `digline` | *Added 2026-11-09 (P-1616).* `publish.yml`'s step *The core against every plugin PyPI serves* stopped 1.1.0 before PyPI, after the tag: digline-mcp 0.8.1 raised `TypeError` beside it. A pull request runs nothing like it, and the step does not copy into `ci.yml` as it is: `.github/plugins_against_core.py`'s `install()` takes the core from TestPyPI by its version, and the version a pull request builds is only in its `dist/`. A copy needs the script to install the core from a wheel it is given, and `tests/test_release_from_main.py` and the step's `if: startsWith(github.ref_name, 'v')` read again for a run that is not a tag. `tests/test_public_signatures.py` catches the class 1.1.0 fell into, for the core's three packages, and not what only a plugin's exercise finds. | nothing: the number does not move for it | a session writes the pull request that runs the check on every pull request, after 1.1.1's tag, and deletes this row |
 | `digline` | *Added 2026-11-10 (P-1632).* In `ci.yml`, the job *The examples, against the published package* waits, in its step *Wait for this workspace's version to be served to this runner*, for `digline==` the workspace's version alone, and for none of the plugins the examples install. On 2026-11-10 the dispatch `42778062668` was created at 07:50:06Z, 1 minute 53 seconds after digline-mcp 0.9.0 was uploaded to PyPI (07:48:13Z), and its `operator` leg, whose `pyproject.toml` admits `digline-mcp>=0.7,<0.10` and which has no `uv.lock`, installed `digline-mcp==0.8.1` at 07:50:48Z, 2 minutes 35 seconds after the upload: the index the runner read did not yet list 0.9.0, and nothing waited for it. | nothing: the number does not move for it | a session writes the pull request in which the step waits for every package the examples pin, plugins included, and deletes this row |
 | `digline-openai` | *Added 2026-11-10 (P-1645), by Alessandro Prandini's decision.* Its recording map merges `extra_body` into the setup whole, as digline-anthropic's did before 0.9.1, so a credential an application passes in the body would be written into the recording and its digest. No credential field of OpenAI's request body was measured; GHSA-v7r8-xg2j-wjx4 names digline 1.1.1 and digline-anthropic 0.9.0 and leaves this package out, and the hardening is public. | 0.7.1, a patch: what a recording holds narrows and no line a user reads moves | a session writes the pull request that leaves credential fields out of the setup, with a test that fails on 0.7.0, and the release pull request of 0.7.1 deletes this row |
 | `digline` | *Added 2026-11-12 (P-1665).* From a first use outside the project, on a Java application with a judged suite: the Java recorder's `DiglineAws` takes an execution attribute's name of its own on each load, so Quarkus's dev-mode reload no longer fails its initialisation; `loads_lenient` reads `\'` inside a JSON string as `'`; a check no case is asked is said among the suite's notes, and `digline where --json` carries `idle_checks`, a key recorded in `_ADDED` without an `OUTPUT_VERSION` bump; the *not compared* clause `digline compare` prints ends on the `promote` command, a line `docs/guide.md` quotes and the README does not; `digline suggest` says why a bare name was read as a suite; the Claude Code plugin passes `--tenant` from its configuration. The changelog's *1.3.0 — unreleased* says each (*Unreleased* until 2026-11-13, P-1675). | the number is the cut's to choose by *Choosing the version*: no public name removed or renamed and no exit code changed, a key added to a program's output and sentences changed *Since 2026-11-13 (P-1675): 1.3.0, a minor, moved by schema 24 (ADR 0065), which meets this criterion.* | the release pull request of 1.3 deletes this row |
@@ -2200,6 +2203,15 @@ installs or upgrades the core gets exactly that pair, and nothing else tests
 it. `tests/test_plugin_floors.py` looks the other way, from the plugin in the
 tree to the core it needs, and the plugin in the tree is not the one users
 have.
+*Added 2026-11-14 (P-1683).* The check also runs before the tag, on every
+pull request: `ci.yml`'s job *The core this pull request builds, against every
+plugin PyPI serves* runs the same script with `CORE_FROM=dist`, the core
+installed from the wheel the job builds, because the version a pull request
+builds is on no index. A red there is a served plugin broken by the change.
+It is not among the required checks, as `glyphs` is not: it reads another
+index, and a plugin released elsewhere can turn it red on a pull request that
+caused nothing. The step in `publish.yml` stays as ruled, the last word before
+the gate.
 
 *Ruled 2026-10-23.* **Each plugin ends in one of three words, and only one is
 red.** *works*: in the range it declares, and it works beside this core.
