@@ -1,11 +1,14 @@
 # ADR 0068 — A judge set up in the suite.toml, and the instruction recorded per kind of judge
 
-- Status: proposed 2026-11-14, from a first use outside the project, on an
-  application with a judged suite, beside
+- Status: accepted 2026-11-14, by Alessandro Prandini, proposed the same day
+  from a first use outside the project, on an application with a judged
+  suite, beside
   [ADR 0067](0067-calibrating-the-judge-against-a-person.md). The table, its
   four keys, and the digest per kind of judge were set out by the brief that
-  asked for both records. **What this record proposes beyond them is marked
-  *decided here***, with the alternative beside it
+  asked for both records. **What this record proposed beyond them is marked
+  *decided here***, with the alternative beside it. Accepted as proposed,
+  at 17:34, with ADR 0067. Not built yet: the construction is the fifth
+  pull request of ADR 0067 §10
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: **nothing.** No `SCHEMA_VERSION`: `judge_config` is a mapping of

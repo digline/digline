@@ -1,15 +1,19 @@
 # ADR 0067 — Calibrating the judge against a person: a blind verdict, a held-out set, and a rubric changed one round at a time
 
-- Status: proposed 2026-11-14, from a first use outside the project, on an
-  application with a judged suite. Three decisions were taken by Alessandro
+- Status: accepted 2026-11-14, by Alessandro Prandini, proposed the same day
+  from a first use outside the project, on an application with a judged
+  suite. Three decisions were taken by Alessandro
   Prandini on 2026-11-14, before this record was written, and are stated
   here in its own words: `--accept-contradiction` is allowed only where the
   judge's samples disagreed, and is recorded (§6); the judges' `max_tokens`
   defaults to 1024 (built in #1010, and assumed here); runs stay in the
   repository, in `.digline/<tenant>/runs/` as today. The flow of §1 and the
   points it decides were set out by the brief that asked for this record.
-  **What this record proposes beyond them is marked *decided here***, with
-  the alternative beside it
+  **What this record proposed beyond them is marked *decided here***, with
+  the alternative beside it. Accepted as proposed, at 17:34, with the seven
+  choices marked *decided here* that the report of its proposal set out,
+  six in this record and one in ADR 0068. Not built yet: the construction
+  is the five pull requests of §10, in an order still to be decided
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: `SCHEMA_VERSION`, by keys on a reviewed answer's record in the run
@@ -48,8 +52,9 @@
 - Owed: the three lines on digline.dev that every new record needs
 
 **How to read the clauses.** *Dictated* is a decision taken before this
-record and transcribed. *Decided here* is this record's proposal, open to
-acceptance, each with the alternative it was weighed against.
+record and transcribed. *Decided here* is this record's proposal, each with
+the alternative it was weighed against, and each was accepted with the
+record.
 
 ## Context
 
