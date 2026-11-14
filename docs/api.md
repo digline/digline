@@ -830,6 +830,21 @@ before any other word. `BedrockJudge` and `BedrockClaimJudge` default to
 > **Arrives with digline 1.3.** Before 1.3 a reply cut at the cap reads *no
 > JSON object*, and a Bedrock judge defaults to `max_tokens=400`.
 
+**A reason that writes out another score is an `error`.** `SCORE_SYSTEM`
+says to grade the output alone: *"The input and the context are reference:
+the context is what the system was allowed to use, not what you grade."* And
+where a reason writes a score out, *score 1*, *score: 0.5*, *score of 0.8* or
+a fraction of 1 such as *1/1*, and none of those it writes is within 0.01 of
+the `score` returned, the reply is refused as `ScoreJudge` refuses any
+malformed one: the sample is an `error` whose reason opens *reason and score
+disagree*, kept in the run, and `digline explain` says it under its case
+where the samples disagreed. A reason that writes no score is not read, and
+*3/5* is a count, not a score. `ClaimCountJudge` is not read this way: its
+reason states counts.
+
+> **Arrives with digline 1.3.** Before 1.3 the returned score stands
+> whatever the reason says.
+
 ### `PromptTemplate`
 
 A prompt file, its digest, and the variables it asks for. Read at construction,

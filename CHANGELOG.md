@@ -205,6 +205,15 @@ Written when the number moved; the cut writes the rest of this opening.
   recorded configuration, so a run judged under it and a reference judged
   under 1.2.0's are compared without a word about the change. Found in a Java
   application with a judged suite, on Bedrock.
+- **A judge's reason that writes out another score is an `error`.**
+  `SCORE_SYSTEM` says the input and the context are reference: *grade the
+  output alone; the context is what the system was allowed to use, not what
+  you grade*. Where a reason writes a score out (*score 1*, *1/1*) and none it
+  writes is the `score` returned, within 0.01, the sample is an `error` whose
+  reason opens *reason and score disagree*, kept in the run and said by
+  `digline explain` under its case where the samples disagreed. A reason that
+  writes no score is not read. Found in a Java application with a judged
+  suite.
 
 ## digline-bedrock — unreleased
 
