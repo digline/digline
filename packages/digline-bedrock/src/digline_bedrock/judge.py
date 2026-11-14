@@ -33,7 +33,7 @@ from digline_bedrock.pricing import bedrock_pricing
 __all__ = ["BedrockClaimJudge", "BedrockJudge"]
 
 #: Enough for the object we ask for, with room for a model that reasons before
-#: it answers. 1024 since 2026-11-14, by Alessandro Prandini's decision (P-1685):
+#: it answers. 1024 since 2026-11-14, by the maintainer's decision (P-1685):
 #: at 400, a judge on Bedrock that reasoned before its JSON object was cut, and
 #: the case stayed unjudged. A reply cut at the cap is an `error`, and its
 #: reason says the reply stopped at its tokens, not that it held no object.
