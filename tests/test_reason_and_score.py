@@ -118,3 +118,17 @@ def test_the_run_keeps_it_and_explain_says_it_under_the_case() -> None:
     lines = judge_words(run, locale="en")
     assert lines[1] == "torn · llm_rubric"
     assert "reason and score disagree" in lines[2]
+
+
+def test_both_instructions_ask_for_the_object_before_any_other_word() -> None:
+    """A judge that reasons first and is cut at its cap holds no object;
+    asked for it first, the object is in the reply before the reasoning
+    is. (P-1685)"""
+    from digline.targets import CLAIM_SYSTEM
+
+    asked = (
+        "Reply with one JSON object and nothing else, and write it before any "
+        "other word: no reasoning, heading or preamble ahead of it."
+    )
+    assert asked in SCORE_SYSTEM
+    assert asked in CLAIM_SYSTEM
