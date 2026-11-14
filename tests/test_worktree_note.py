@@ -82,7 +82,10 @@ def test_git_is_not_called_where_it_is_not_installed(
     def never(*args: object, **kwargs: object) -> object:
         raise AssertionError("git was called on a machine without it")
 
-    monkeypatch.setattr(environment.shutil, "which", lambda name: None)
+    def absent(name: str) -> None:
+        return None
+
+    monkeypatch.setattr(environment.shutil, "which", absent)
     monkeypatch.setattr(environment.subprocess, "run", never)
     assert not in_a_worktree(linked)
 
