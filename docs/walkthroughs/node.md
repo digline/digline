@@ -350,6 +350,9 @@ Checks on the steps contradicted a person on 1 reviewed answer: never, on case c
 tenant 'acme', against baseline 2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4
 ```
 
+> **Arrives with digline 1.3.** On 1.2.0 the sentence reads *The suite is
+> unchanged from the reference.*, here and below.
+
 `compare` exited `1`, which is what a gate in CI reads. A yes on a turn is a
 yes to its steps too: the person vouched for a turn that called
 `lookup_order`, which the suite says is never called, and that took two model

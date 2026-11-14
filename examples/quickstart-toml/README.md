@@ -46,7 +46,7 @@ exit code: `0` fine, `1` got worse, `2` could not be judged.
 Now make it worse. Open `stub.py` and delete `— Northwind Support` from one of
 the answers, then run and compare again:
 
-    1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite's checks are unchanged from the reference. The system under test answered under the same configuration as the reference.
+    1 check got worse compared with the reference. Every case could be judged. 1 case is suspended. The suite is unchanged from the reference. The system under test answered under the same configuration as the reference.
 
     how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
 

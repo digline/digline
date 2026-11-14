@@ -452,6 +452,20 @@ Without `--allow-record` the pages read, show no button and say where the
 writes are, and a POST to them gets the `404` any unknown path gets. With
 it, a press needs the cookie of the browser that opened the printed
 address, from that origin, as every write of the page does.
+
+**What a press writes, and what it does not.** It writes what `digline
+record import` writes for one answer: one case in the `cases_file` the
+suite's capture declares, a
+[reviewed answer](api.md#casereviewed_answer-a-persons-yes-or-no-about-an-answer)
+for the source's check with the recorded answer, its input and the yes or
+no, and the name as `metadata.reviewed_by`; where the suite declares
+`deterministic_output = true`, a `--good` also writes the ordinary case the
+command writes. It commits nothing, runs nothing and promotes nothing: the
+diff is the review, and the commit the signature. There is no button that
+writes every answer waiting, no answer and no button served chosen, and no
+ranking. The review is not on the MCP server either: `record_listing`
+counts the answers and carries none of them, and no tool writes one
+([ADR 0023](adr/0023-capture.md) §4, §9).
 ([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §2, §3)
 
 > **Arrives with digline 1.3.** 1.2.0 has no review page: answers are named

@@ -2025,10 +2025,10 @@ def _agreement_row(
     - **the fingerprint moved.** On a suite that did not change there is nothing
       this row could be about, and printing *the agreement floor cannot be
       compared* under *the suite's checks are unchanged from the reference*
-      would be the table contradicting the sentence above it. Where the hash **did** move and
-      every other member of it is accounted for by a row, this is the reader's
-      answer to *then what moved?* — and it is the case the row is worth having
-      for.
+      would be the table contradicting the sentence above it. Where the hash
+      **did** move and every other member of it is accounted for by a row,
+      this is the reader's answer to *then what moved?* — and it is the case
+      the row is worth having for.
     - **either side sampled.** A floor below one sample gated nothing, so a
       suite left at `samples=1` never meets a row about it.
 

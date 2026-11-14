@@ -8,9 +8,10 @@
   routes, where the name lives, what the page does after a press, and the two
   facts the state needs that no command prints yet. Accepted as proposed,
   with the six items marked *decided here* and the note on ADR 0061 §2.
-  Built in part on 2026-11-13: §1, the first of the three pull requests of
-  §7, then §2 and §3, the second. Where the build says more than this text,
-  a dated note in §1 or §2 says so
+  Built 2026-11-14: §1 in the first of the three pull requests of §7 and
+  §2 and §3 in the second, on 2026-11-13, and the finishing in the third.
+  Where the build says more than this text, a dated note in §1 or §2 says
+  so
 - Shipped: unreleased
 - Date: 2026-11-13
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no

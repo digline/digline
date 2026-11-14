@@ -736,6 +736,13 @@ does, since *not this answer* names no answer.
 The import writes the file and stops: the diff is the review, the commit is the
 signature.
 
+The same write, one answer at a time, with the answer whole in front of you
+and the name typed once, is the [review](view.md#the-review-one-answer-at-a-time)
+that `digline view --allow-record` serves: one press where this command
+takes one flag.
+
+> **Arrives with digline 1.3.** 1.2.0 has no review page.
+
 A reviewed answer runs with the suite: the target is not asked for it, the
 check it names judges the answer you read, and a judge that says the other of
 what you said fails the case, so `digline report` and `digline compare` exit

@@ -35,7 +35,7 @@ replays this page against them.
 
 > **Arrives with digline 1.3.** On 1.2.0 the plans `run` says end at
 > *each answer is judged 3 times by llm_rubric*, and `compare`'s sentence
-> ends at *The suite's checks are unchanged from the reference.*, without the cases that
+> ends at *The suite is unchanged from the reference.*, without the cases that
 > changed since it, and so does the reading `explain` prints.
 
 ## Day one: from recordings to a suite
@@ -377,6 +377,13 @@ tenant 'acme' · suite category · writes to captured.json · repository private
 
 Run on a copy of the project taken before the button, it wrote the same
 `captured.json`, byte for byte.
+
+The same four answers can also be reviewed one at a time, each whole on a
+page of its own, with one press per answer and the name typed once: the
+[review](../view.md#the-review-one-answer-at-a-time) the same server opens
+at `/review/acme/category/`.
+
+> **Arrives with digline 1.3.** 1.2.0 has no review page.
 
 **The run.** The agent asked `run`, `{"suite": "suite.toml"}`, and was
 refused until it said the count back: *"this suite plans 0 calls to the
