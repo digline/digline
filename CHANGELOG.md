@@ -195,6 +195,25 @@ Written when the number moved; the cut writes the rest of this opening.
   `explain` do not (ADR 0012 §4, as amended 2026-11-12). The run report's
   Reason column shows the same reason. Found in a Java application with a
   judged suite.
+- **A judge's reply cut at its cap says so.** Where neither reply held a JSON
+  object and the provider said a reply stopped at the cap (`finish` is
+  `length`: Anthropic's and Bedrock's `max_tokens`, OpenAI's `length`), the
+  sample's reason reads *the judge's reply stopped at N tokens, its max_tokens
+  of N, before it held a JSON object*, with the remedy, where it read *no JSON
+  object*. And both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for
+  the object before any other word. The instruction is not part of the judge's
+  recorded configuration, so a run judged under it and a reference judged
+  under 1.2.0's are compared without a word about the change. Found in a Java
+  application with a judged suite, on Bedrock.
+
+## digline-bedrock — unreleased
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. Found in a Java application with a judged suite.
 
 ## digline-mcp 0.10.0 — unreleased
 

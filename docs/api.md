@@ -819,6 +819,17 @@ not asked again. ([ADR 0004](adr/0004-every-plugin-is-a-target-and-a-judge.md)
 > **Arrives with digline 1.3.** On 1.2.0 a reply with no JSON object is an
 > `error` after one call.
 
+**A reply cut at the cap says it was cut.** Where neither reply held an
+object and the provider said one stopped at the cap (`finish` is `length`),
+the reason reads *the judge's reply stopped at N tokens, its max_tokens of N,
+before it held a JSON object*, with the remedy, instead of *no JSON object*.
+Both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for the object
+before any other word. `BedrockJudge` and `BedrockClaimJudge` default to
+`max_tokens=1024`.
+
+> **Arrives with digline 1.3.** Before 1.3 a reply cut at the cap reads *no
+> JSON object*, and a Bedrock judge defaults to `max_tokens=400`.
+
 ### `PromptTemplate`
 
 A prompt file, its digest, and the variables it asks for. Read at construction,

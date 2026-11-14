@@ -412,3 +412,29 @@ def test_a_real_reply_says_which_model_answered_and_on_which_backend() -> None:
     assert config.get("fingerprint", "") is None or isinstance(
         config.get("fingerprint", ""), str
     )
+
+
+@pytest.mark.parametrize(
+    ("finish_reason", "said"),
+    [
+        ("length", "the judge's reply stopped at 400 tokens, its max_tokens of 400"),
+        # The control: the same text, ended by the model, is the parser's fact.
+        ("stop", "no JSON object"),
+    ],
+)
+def test_a_reply_cut_at_the_cap_says_it_stopped_there(
+    client: FakeClient, finish_reason: str, said: str
+) -> None:
+    """OpenAI's `length`, on both calls: the error names the cap, not the
+    parser. (P-1685)"""
+    client.completions.reply = FakeReply(
+        choices=[
+            FakeChoice(
+                FakeMessage("Let me reason about the output before I score it"),
+                finish_reason=finish_reason,
+            )
+        ],
+        usage=FakeUsage(prompt_tokens=10, completion_tokens=400),
+    )
+    with pytest.raises(ValueError, match=said):
+        a_judge(client)("Output to judge:\nRome.")

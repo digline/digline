@@ -347,3 +347,28 @@ def test_a_real_reply_says_which_model_answered() -> None:
     # No fingerprint on this API — that is OpenAI's half, and absent here is the
     # honest record of a provider that names no backend build.
     assert "fingerprint" not in judge.config
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "said"),
+    [
+        (
+            "max_tokens",
+            "the judge's reply stopped at 400 tokens, its max_tokens of 400",
+        ),
+        # The control: the same text, ended by the model, is the parser's fact.
+        ("end_turn", "no JSON object"),
+    ],
+)
+def test_a_reply_cut_at_the_cap_says_it_stopped_there(
+    client: FakeClient, stop_reason: str, said: str
+) -> None:
+    """Anthropic's `max_tokens` stop, on both calls: the error names the cap,
+    not the parser. (P-1685)"""
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("Let me reason about the output before I score it")],
+        usage=FakeUsage(input_tokens=10, output_tokens=400),
+        stop_reason=stop_reason,
+    )
+    with pytest.raises(ValueError, match=said):
+        a_judge(client)("Output to judge:\nRome.")
