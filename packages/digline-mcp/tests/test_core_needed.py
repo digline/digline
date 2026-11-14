@@ -75,4 +75,4 @@ def test_the_alarm_names_the_floor_the_rule_names() -> None:
     """The sentence and the floor say one version: the one in the pyproject,
     or, until the cut raises it there, the one owed at the cut."""
     named = floor_owed() or floor_declared()
-    assert server.NEEDS_CORE == named
+    assert named == server.NEEDS_CORE
