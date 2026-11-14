@@ -350,7 +350,7 @@ Checks on the steps contradicted a person on 1 reviewed answer: never, on case c
 17 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite's checks are unchanged from the reference.
 
 What differed underneath
 Nothing in this group.

@@ -827,7 +827,7 @@ def test_the_two_sentences_do_not_both_say_configuration() -> None:
     sentence = headline(
         compare(now, before), now, before, locale="en", declared=None
     ).sentence
-    assert "The suite is unchanged from the reference." in sentence
+    assert "The suite's checks are unchanged from the reference." in sentence
     assert "answered under a different configuration" in sentence
     assert sentence.count("configuration") == 1
 

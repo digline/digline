@@ -31,7 +31,8 @@ digline: alpha · llm_rubric
 
 ==================================== digline ===================================
 eval/suite.py: 1 check got worse compared with the reference. Every case could
-be judged. 1 case is suspended. The suite is unchanged from the reference.
+be judged. 1 case is suspended. The suite's checks are unchanged from the
+reference.
 ```
 
 No suite on this page produces the session above, and no test replays it. It

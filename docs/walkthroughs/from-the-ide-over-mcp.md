@@ -35,7 +35,7 @@ replays this page against them.
 
 > **Arrives with digline 1.3.** On 1.2.0 the plans `run` says end at
 > *each answer is judged 3 times by llm_rubric*, and `compare`'s sentence
-> ends at *The suite is unchanged from the reference.*, without the cases that
+> ends at *The suite's checks are unchanged from the reference.*, without the cases that
 > changed since it, and so does the reading `explain` prints.
 
 ## Day one: from recordings to a suite
@@ -427,8 +427,8 @@ tenant 'acme' · category baseline set to 2026-11-07T14-18-35-151704-00-00-55407
 ```
 
 A second `run`, then `compare`, answered *"Nothing got worse compared with
-the reference. Every case could be judged. No case is suspended. The suite is
-unchanged from the reference."*, with `"exit_code": 0`.
+the reference. Every case could be judged. No case is suspended. The suite's
+checks are unchanged from the reference."*, with `"exit_code": 0`.
 
 ## Day two: when the judge contradicts a person
 
@@ -475,7 +475,7 @@ says. Of its answer:
 
 ```json
 {
-  "sentence": "The judge contradicted a person on 1 reviewed answer, and the case fails: cap-9886a52f697cd007-1d630127 for llm_rubric, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference. The cases changed since the reference: 1 added (cap-9886a52f697cd007-1d630127). The cases both hold are compared as before.",
+  "sentence": "The judge contradicted a person on 1 reviewed answer, and the case fails: cap-9886a52f697cd007-1d630127 for llm_rubric, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference. The cases changed since the reference: 1 added (cap-9886a52f697cd007-1d630127). The cases both hold are compared as before.",
   "worse": false,
   "exit_code": 1,
   "reviewed_passed_no": 0,
@@ -517,7 +517,7 @@ The judge contradicted a person on 1 reviewed answer, and the case fails: cap-98
 5 checks ran.
 Every case could be judged.
 No case is suspended.
-The suite is unchanged from the reference.
+The suite's checks are unchanged from the reference.
 The cases changed since the reference: 1 added (cap-9886a52f697cd007-1d630127). The cases both hold are compared as before.
 
 What differed underneath

@@ -238,7 +238,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "The suite changed since the reference, so these numbers compare "
             "different rules."
         ),
-        "fact.config.unchanged": "The suite is unchanged from the reference.",
+        "fact.config.unchanged": "The suite's checks are unchanged from the reference.",
         "fact.artifacts.unchanged": (
             "The files under test are the same as the reference."
         ),
@@ -1482,7 +1482,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "different rules."
         ),
         "explain.tally.suite_config.unchanged": (
-            "The suite is unchanged from the reference."
+            "The suite's checks are unchanged from the reference."
         ),
         "explain.tally.comparability": (
             "The judge changed: these scores are not comparable with the "
@@ -2165,7 +2165,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "La suite è cambiata rispetto al riferimento, quindi questi numeri "
             "confrontano regole diverse."
         ),
-        "fact.config.unchanged": "La suite è invariata rispetto al riferimento.",
+        "fact.config.unchanged": "I controlli della suite sono invariati rispetto al riferimento.",
         "fact.artifacts.unchanged": (
             "I file in prova sono gli stessi del riferimento."
         ),
@@ -3351,7 +3351,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "confrontano regole diverse."
         ),
         "explain.tally.suite_config.unchanged": (
-            "La suite è invariata rispetto al riferimento."
+            "I controlli della suite sono invariati rispetto al riferimento."
         ),
         "explain.tally.comparability": (
             "Il modo di giudicare è cambiato: questi punteggi non sono "

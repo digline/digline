@@ -82,7 +82,7 @@ believes any amount the customer states. Both are plausible mistakes rather than
 invented ones. Then this suite says:
 
 ```
-2 checks got worse compared with the reference. 3 of 4 cases judged, 1 could not be. No case is suspended. The suite is unchanged from the reference. The files under test are the same as the reference.
+2 checks got worse compared with the reference. 3 of 4 cases judged, 1 could not be. No case is suspended. The suite's checks are unchanged from the reference. The files under test are the same as the reference.
 tenant 'northwind', against baseline 2026-11-09T07-34-31-601146-00-00-8272c672a481d6f2
 
 amount-asserted-by-the-customer · tool_called_with · Went from passing to failing (1.000000 → 0.000000).

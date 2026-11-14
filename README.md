@@ -65,7 +65,7 @@ digline: recorded .digline/acme/runs/hello/2026-10-31T13-26-55-896575-00-00-f849
 digline: next: digline compare --suite suite.py --run latest  # says whether anything got worse
 
 $ digline compare --suite suite.py --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-10-31T13-26-55-593090-00-00-f849e1e676ebb535
 ```
 
@@ -189,7 +189,7 @@ $ digline run --suite suite.py
 2026-08-26T15-44-09-492722-00-00-e7421ec503ccefe8
 
 $ digline compare --suite suite.py --run latest
-2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 
 how-do-i-return · llm_rubric · Score fell from 1.000000 to 0.700000.
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).

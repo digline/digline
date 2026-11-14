@@ -434,19 +434,19 @@ The gate is `digline compare`, once per suite:
 
 ```console
 $ digline compare --suite eval/screening/suite.toml --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-11-07T10-35-18-897245-00-00-98ea9e30692a365a
 ```
 
 ```console
 $ digline compare --suite eval/job-ad/suite.toml --run latest
-Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-11-07T10-35-19-833594-00-00-864f71b825690ccc
 ```
 
 ```console
 $ digline compare --suite eval/candidate-reply/suite.toml --run latest
-The judge contradicted a person on 1 reviewed answer, and the case fails: cap-e86d1ffe511d405b-1bc2c6cb for llm_rubric, passed where the person said no. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+The judge contradicted a person on 1 reviewed answer, and the case fails: cap-e86d1ffe511d405b-1bc2c6cb for llm_rubric, passed where the person said no. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 tenant 'acme', against baseline 2026-11-07T10-35-20-498179-00-00-176631b427e4199e
 ```
 
@@ -475,9 +475,9 @@ digline: cap-e86d1ffe511d405b-1bc2c6cb · llm_rubric
   llm_rubric passed where the person said no.
   reason: mean of 3 samples (1.000000, 1.000000, 1.000000)
 =================================== digline ====================================
-eval/screening/suite.toml: Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
-eval/job-ad/suite.toml: Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
-eval/candidate-reply/suite.toml: The judge contradicted a person on 1 reviewed answer, and the case fails: cap-e86d1ffe511d405b-1bc2c6cb for llm_rubric, passed where the person said no. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite is unchanged from the reference.
+eval/screening/suite.toml: Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
+eval/job-ad/suite.toml: Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
+eval/candidate-reply/suite.toml: The judge contradicted a person on 1 reviewed answer, and the case fails: cap-e86d1ffe511d405b-1bc2c6cb for llm_rubric, passed where the person said no. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 eval/candidate-reply/suite.toml: digline exits 1, so this session does not end green.
 =========================== short test summary info ============================
 FAILED eval/candidate-reply/suite.toml::cap-e86d1ffe511d405b-1bc2c6cb::llm_rubric
