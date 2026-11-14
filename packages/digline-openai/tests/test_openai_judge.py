@@ -47,7 +47,7 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
     assert dict(judge.config) == {
         "provider": "openai",
         "model": "gpt-5-mini",
-        "max_tokens": 400,
+        "max_tokens": 1024,
         # What it was set up to ask for. A provider that refuses the parameter
         # is retried once without it (ADR 0004 §4); that is a runtime fallback,
         # and this is the configuration, read before the first call.
@@ -64,6 +64,12 @@ def test_a_judge_asked_for_plain_text_records_that(client: FakeClient) -> None:
 
 
 # -- the protocols ---------------------------------------------------------------- #
+
+
+def test_the_judge_s_cap_leaves_room_to_reason_first(client: FakeClient) -> None:
+    """1024 since 2026-11-14 (P-1686), as on Bedrock: at 400 a judge that
+    reasoned before its object was cut, and the case stayed unjudged."""
+    assert a_judge(client).max_tokens == 1024
 
 
 def test_each_judge_is_the_protocol_the_core_declares(client: FakeClient) -> None:
@@ -417,7 +423,7 @@ def test_a_real_reply_says_which_model_answered_and_on_which_backend() -> None:
 @pytest.mark.parametrize(
     ("finish_reason", "said"),
     [
-        ("length", "the judge's reply stopped at 400 tokens, its max_tokens of 400"),
+        ("length", "the judge's reply stopped at 1024 tokens, its max_tokens of 1024"),
         # The control: the same text, ended by the model, is the parser's fact.
         ("stop", "no JSON object"),
     ],
@@ -434,7 +440,7 @@ def test_a_reply_cut_at_the_cap_says_it_stopped_there(
                 finish_reason=finish_reason,
             )
         ],
-        usage=FakeUsage(prompt_tokens=10, completion_tokens=400),
+        usage=FakeUsage(prompt_tokens=10, completion_tokens=1024),
     )
     with pytest.raises(ValueError, match=said):
         a_judge(client)("Output to judge:\nRome.")

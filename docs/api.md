@@ -824,11 +824,12 @@ object and the provider said one stopped at the cap (`finish` is `length`),
 the reason reads *the judge's reply stopped at N tokens, its max_tokens of N,
 before it held a JSON object*, with the remedy, instead of *no JSON object*.
 Both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for the object
-before any other word. `BedrockJudge` and `BedrockClaimJudge` default to
-`max_tokens=1024`.
+before any other word. The judges of the three plugins, Anthropic, OpenAI
+and Bedrock, default to `max_tokens=1024`.
 
 > **Arrives with digline 1.3.** Before 1.3 a reply cut at the cap reads *no
-> JSON object*, and a Bedrock judge defaults to `max_tokens=400`.
+> JSON object*. The judges' cap of 1024 arrives with the plugin releases
+> cut beside 1.3; before them it is 400.
 
 **A reason that writes out another score is an `error`.** `SCORE_SYSTEM`
 says to grade the output alone: *"The input and the context are reference:

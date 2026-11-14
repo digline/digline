@@ -233,7 +233,24 @@ Written when the number moved; the cut writes the rest of this opening.
   `WORKTREE_NOTE` in `digline.host`. Asked for from a Java application with a
   judged suite.
 
-## digline-bedrock — unreleased
+## digline-anthropic 0.10.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed.
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. The same default as digline-bedrock 0.9.0's.
+
+## digline-bedrock 0.9.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed.
 
 - **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
   that reasoned before its JSON object was cut at 400 and the case stayed
@@ -266,7 +283,21 @@ floor is raised to `digline>=1.3.0,<2` at the cut.
 - **`record_listing` counts each group's `cases`**, the questions its answers
   are to, beside `answers`.
 
-## digline-openai 0.7.1 — unreleased
+## digline-openai 0.8.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed. It also carries the fix
+under *Security*, which was owed as 0.7.1 and never released.
+
+### Changed
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. The same default as digline-bedrock 0.9.0's.
 
 ### Security
 

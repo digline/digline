@@ -32,13 +32,15 @@ from digline_openai.pricing import OPENAI_PRICING
 
 __all__ = ["OpenAIClaimJudge", "OpenAIJudge"]
 
-#: Enough for the object we ask for, with room for the sentence in it. Raise it
-#: for a **reasoning** model — gpt-5 and the o-series spend this budget on
-#: thinking before they write anything, and a judge that runs out mid-thought
-#: returns empty text, which is an `error` and not a judgement. A small
-#: non-reasoning model is usually the better judge anyway: it is the one you can
-#: afford to call five times per case.
-DEFAULT_MAX_TOKENS = 400
+#: Enough for the object we ask for, with room for a few words of reasoning
+#: before it. 1024 since 2026-11-14 (P-1686), as on Bedrock: at 400, a judge
+#: that reasoned before its JSON object was cut, and the case stayed
+#: unjudged. Raise it for a **reasoning** model — gpt-5 and the o-series spend
+#: this budget on thinking before they write anything, and a judge that runs out
+#: mid-thought returns empty text, which is an `error` and not a judgement. A
+#: small non-reasoning model is usually the better judge anyway: it is the one
+#: you can afford to call five times per case.
+DEFAULT_MAX_TOKENS = 1024
 
 #: What we ask for when the provider supports it. Never required: a provider
 #: that refuses it is retried once without it and the reply is read leniently

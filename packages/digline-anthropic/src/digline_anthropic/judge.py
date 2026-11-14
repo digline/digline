@@ -26,12 +26,13 @@ from digline_anthropic.pricing import ANTHROPIC_PRICING
 
 __all__ = ["AnthropicClaimJudge", "AnthropicJudge"]
 
-#: Enough for the object we ask for, with room for the sentence in it. A small
-#: model is usually the better judge anyway: it is the one you can afford to
-#: call five times per case. **Not enough for a model that thinks before it
-#: answers**, which spends its thinking out of the same allowance: the README
-#: says so where a judge is configured, and how to raise it. (#599)
-DEFAULT_MAX_TOKENS = 400
+#: Enough for the object we ask for, with room for a few words of reasoning
+#: before it. 1024 since 2026-11-14 (P-1686), as on Bedrock: at 400, a judge
+#: that reasoned before its JSON object was cut, and the case stayed
+#: unjudged. **Not enough for a model that thinks before it answers**, which
+#: spends its thinking out of the same allowance: the README says so where a
+#: judge is configured, and how to raise it. (#599)
+DEFAULT_MAX_TOKENS = 1024
 
 #: `"{"` in the assistant's mouth is how you get JSON out of this API — the
 #: same trick `AnthropicTarget` exposes as `prefill`, applied here to the one

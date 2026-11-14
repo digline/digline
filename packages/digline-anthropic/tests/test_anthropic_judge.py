@@ -85,8 +85,14 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
     assert dict(a_judge(client).config) == {
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "max_tokens": 400,
+        "max_tokens": 1024,
     }
+
+
+def test_the_judge_s_cap_leaves_room_to_reason_first(client: FakeClient) -> None:
+    """1024 since 2026-11-14 (P-1686), as on Bedrock: at 400 a judge that
+    reasoned before its object was cut, and the case stayed unjudged."""
+    assert a_judge(client).max_tokens == 1024
 
 
 def test_each_judge_is_the_protocol_the_core_declares(client: FakeClient) -> None:
@@ -354,7 +360,7 @@ def test_a_real_reply_says_which_model_answered() -> None:
     [
         (
             "max_tokens",
-            "the judge's reply stopped at 400 tokens, its max_tokens of 400",
+            "the judge's reply stopped at 1024 tokens, its max_tokens of 1024",
         ),
         # The control: the same text, ended by the model, is the parser's fact.
         ("end_turn", "no JSON object"),
@@ -367,7 +373,7 @@ def test_a_reply_cut_at_the_cap_says_it_stopped_there(
     not the parser. (P-1685)"""
     client.messages.reply = FakeReply(
         content=[FakeBlock("Let me reason about the output before I score it")],
-        usage=FakeUsage(input_tokens=10, output_tokens=400),
+        usage=FakeUsage(input_tokens=10, output_tokens=1024),
         stop_reason=stop_reason,
     )
     with pytest.raises(ValueError, match=said):

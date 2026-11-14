@@ -63,7 +63,7 @@ faithful = Faithfulness(
 ```
 
 **A model that thinks before it answers needs a larger `max_tokens`.**
-`max_tokens` defaults to 400, enough for the object a judge is asked for. A
+`max_tokens` defaults to 1024, enough for the object a judge is asked for. A
 model that thinks before it answers spends its thinking out of the same
 allowance, and when the thinking fills it every judging call is cut before the
 first character. The verdict says so, with the provider's own reason and the
