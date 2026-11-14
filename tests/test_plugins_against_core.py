@@ -393,10 +393,17 @@ def test_the_install_asks_for_the_wheel_or_for_the_version_on_testpypi(
         def run(*args: object, **kwargs: object) -> None:
             return None
 
-    monkeypatch.setattr(script, "subprocess", Quiet)
-    monkeypatch.setattr(script, "_pip", lambda python, *args: asked.append(args))
     versions = {"digline": "1.3.0", "digline-mcp": "0.9.1"}
-    monkeypatch.setattr(script, "_installed", lambda python, name: versions[name])
+
+    def pip(python: Path, *args: str) -> None:
+        asked.append(args)
+
+    def installed(python: Path, name: str) -> str:
+        return versions[name]
+
+    monkeypatch.setattr(script, "subprocess", Quiet)
+    monkeypatch.setattr(script, "_pip", pip)
+    monkeypatch.setattr(script, "_installed", installed)
     wheel = tmp_path / "digline-1.3.0-py3-none-any.whl"
     plugin = script.Served("digline-mcp", "0.9.1", ">=1.1.1,<2")
     script.install(tmp_path, plugin, "1.3.0", wheel if from_dist else None)
