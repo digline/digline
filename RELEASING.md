@@ -2556,6 +2556,17 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **1.3.0 cut: core 1.3.0, digline-mcp 0.10.0, digline-openai 0.7.1;
+  digline-anthropic, digline-bedrock and pytest-digline unchanged.** *Written
+  2026-11-14 (P-1683), before the cut, so that the cut finds it; not a tag.*
+  The numbers are the rows of *Owed to the next version*: the core's minor
+  by schema 24; digline-mcp's minor by Alessandro Prandini's decision that it
+  requires the new core, with its floor owed at the cut; digline-openai's
+  patch for the credential keys left out of its setup. The three unchanged
+  have no change in their code since their tags of 2026-11-10: the two
+  commits to digline-bedrock since its tag change a docstring of
+  `pricing.py` and nothing else. The release pull
+  request replaces this line with the tag's own paragraph.
 - **v1.2.0 — a minor for `digline suggest`'s meaning, and the three
   advisories of the delta-pass over 1.1.1 fixed, the core alone on its tag.**
   #986 merged at 12:24:30Z; its first head was red on the three gates and the
