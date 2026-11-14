@@ -990,7 +990,7 @@ jobs:
         with:
           version: "0.13.7"
 
-      - name: Wait for this workspace's version to be served to this runner
+      - name: Wait for the versions the examples pin to be served to this runner
         # This job fires the moment `publish` finishes, and PyPI takes a minute
         # to serve what was just uploaded — which is exactly what reddened the
         # `rag` and `llamaindex` legs on 0.8.0 while the other seven won the
@@ -998,24 +998,31 @@ jobs:
         #
         # The bare retry that used to live in the step below could not tell a
         # version that is not there *yet* from one that is not there at all.
-        # This asks the index for the exact version this workspace declares and
-        # fails naming it.
+        # This asks the index for the exact version this workspace declares of
+        # each package an example depends on, plugins included since P-1632,
+        # and fails naming it.
         #
         # **What it does not cover, stated rather than assumed:** the examples
         # that carry a `uv.lock` — `ls examples/*/uv.lock`, which is what
         # `.github/release_followup.py` reads — pin an exact version, and after
         # a release those
         # locks legitimately still name the *previous* one until they are
-        # regenerated. This waits for the version in `pyproject.toml` — the one
-        # the post-release dispatch exists to prove — and says nothing about
-        # what any individual lock resolves to.
+        # regenerated. This waits for the versions the `pyproject.toml` files of
+        # this workspace declare — the ones the post-release dispatch exists to
+        # prove — and says nothing about what any individual lock resolves to,
+        # nor about an example whose range does not admit a declared version.
         env:
           TIMEOUT: "240"
           INTERVAL: "15"
         run: |
           set -euo pipefail
-          version=$(python3 -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
-          python3 .github/await_index.py "digline==$version"
+          # Every package of this workspace an example depends on, plugins
+          # included, each at the version this tree declares: on 2026-11-10 the
+          # `operator` leg installed digline-mcp 0.8.1 two minutes after 0.9.0
+          # was uploaded, because this waited for the core alone (P-1632).
+          python3 .github/example_pins.py > /tmp/example-pins.txt
+          cat /tmp/example-pins.txt
+          python3 .github/await_index.py --manifest /tmp/example-pins.txt
 
       - name: Resolve from the index only
         working-directory: examples/${{ matrix.example }}
