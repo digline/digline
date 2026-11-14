@@ -198,8 +198,8 @@ Written when the number moved; the cut writes the rest of this opening.
 
 ## digline-mcp 0.10.0 — unreleased
 
-A minor, by Alessandro Prandini's decision of 2026-11-14: this release requires
-digline 1.3.0, and its floor is raised to `digline>=1.3.0,<2` at the cut.
+A minor, decided 2026-11-14: this release requires digline 1.3.0, and its
+floor is raised to `digline>=1.3.0,<2` at the cut.
 
 - **A core older than 1.3.0 is refused at start**, by a sentence that names
   the version needed, `digline-mcp needs digline 1.3.0 or later`, instead of
