@@ -103,7 +103,7 @@ $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 ```
 
-> **Arrives with digline 1.3.** On 1.2.0 the sentence reads *The suite is
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
 > unchanged from the reference.*, here and below.
 
 `promote` wrote `.digline/northwind/baselines/support.json`. Commit it. From now

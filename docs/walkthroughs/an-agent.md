@@ -454,7 +454,7 @@ What moved
 cap-1883cef159843149-84877bca · before failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 ```
 
-> **Arrives with digline 1.3.** On 1.2.0 the sentence reads *The suite is
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
 > unchanged from the reference.*, here and below.
 
 ```console

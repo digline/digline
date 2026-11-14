@@ -438,7 +438,7 @@ Nothing got worse compared with the reference. Every case could be judged. No ca
 tenant 'acme', against baseline 2026-11-07T10-35-18-897245-00-00-98ea9e30692a365a
 ```
 
-> **Arrives with digline 1.3.** On 1.2.0 the sentence reads *The suite is
+> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
 > unchanged from the reference.*, here and below.
 
 ```console
