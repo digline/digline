@@ -214,6 +214,17 @@ Written when the number moved; the cut writes the rest of this opening.
   `digline explain` under its case where the samples disagreed. A reason that
   writes no score is not read. Found in a Java application with a judged
   suite.
+- **A judged verdict that is not firm is said, case by case.** Where the
+  samples of a judged check on a case did not all agree, or their mean sits
+  within a margin of the threshold, `digline explain` says so with each case,
+  the check and why: the margin is the check's tolerance where it declares
+  one, and 0.05 where it does not, said in the sentence. The run's report has
+  a section of its own, *Uncertain verdicts*, absent when there is none, and
+  `explain --json` carries the cases beside the count on a new tally,
+  `uncertain`, in a key recorded in `_ADDED`. It moves no exit code and no
+  sentence of `compare` (ADR 0012 §3, as amended 2026-11-14). New public
+  names: `uncertain_cases`, `Uncertain` and `DEFAULT_MARGIN` in
+  `digline.core`. Found in a Java application with a judged suite.
 
 ## digline-bedrock — unreleased
 

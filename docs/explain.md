@@ -392,6 +392,33 @@ An autoevals scorer wrapped in `FromAutoevals` is not read either, and is **not*
 named — the known hole, described in the
 [API reference](api.md#custom-assertions).
 
+## A verdict that is not firm
+
+A judged check on a case is **uncertain** when its samples did not all reach
+the same verdict, or when its mean sits within a margin of its threshold. The
+margin is the check's tolerance where it declares one above 0, and 0.05 where
+it does not, and each case says which:
+
+```text
+2 judged checks on cases are uncertain, and their verdicts could have gone the other way: torn · llm_rubric: the samples did not all agree, 0.67 of them on the majority verdict; close · llm_rubric: the mean 0.520000 is within 0.05 of the threshold 0.500000, a margin of 0.05, because the check declares no tolerance.
+```
+
+A check in error is not one: it gave no verdict. Nor is a calibration case,
+whose band says more, or a reviewed answer, which `explain` says where the
+judge contradicted the person. It is read off the run alone, so it is said with or
+without a reference; it moves no exit code and is not in `compare`'s
+sentence. The run's report shows the same cases in a section of its own,
+*Uncertain verdicts*, absent when there is none, and `--json` carries them
+beside the count, on the `uncertain` tally, under the key `uncertain`: each
+case's `case_id`, `check`, `score`, `threshold`, `margin`,
+`margin_declared`, `split`, `near`, `agreement` and `errored_samples`. Under
+`--names project` the MCP `explain` carries them with the case and the check
+as tokens, as every fact does
+([ADR 0012](adr/0012-the-reading.md) §3, as amended 2026-11-14).
+
+> **Arrives with digline 1.3.** On 1.2.0 nothing says that a verdict was a
+> split or a mean at its threshold, beyond the band of a check *on the line*.
+
 ## What it will not tell you
 
 **The judge's words.** No fact carries a `reason` — the field does not exist on

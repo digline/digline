@@ -40,6 +40,7 @@ from digline.core import (
     Status,
     SuiteDelta,
     SystemConfig,
+    Uncertain,
     Verdict,
     budget_exceedances,
     case_count,
@@ -53,6 +54,7 @@ from digline.core import (
     misnamed,
     on_the_line,
     scale_lost,
+    uncertain_cases,
     unjudged_cases,
     unpaired,
     unreconciled,
@@ -1441,6 +1443,50 @@ def excluded_fact(excluded: Sequence[Exclusion], locale: Locale) -> str:
     )
 
 
+def uncertain_said(item: Uncertain, locale: Locale) -> str:
+    """One uncertain check on a case, as the reading and the report say it:
+    the case, the check, and each reason that holds, the margin said with
+    where it came from. (P-1685)"""
+    why: list[str] = []
+    if item.split:
+        why.append(
+            phrase(
+                locale,
+                "explain.uncertain.split.errored"
+                if item.errored
+                else "explain.uncertain.split",
+                agreement=f"{item.agreement:.2f}"
+                if item.agreement is not None
+                else "?",
+                errored=item.errored,
+            )
+        )
+    if item.near:
+        why.append(
+            phrase(
+                locale,
+                "explain.uncertain.near",
+                score=fmt_score(item.score),
+                margin=f"{item.margin:g}",
+                threshold=fmt_score(item.threshold),
+                source=phrase(
+                    locale,
+                    "explain.uncertain.margin.declared"
+                    if item.declared
+                    else "explain.uncertain.margin.default",
+                    margin=f"{item.margin:g}",
+                ),
+            )
+        )
+    return phrase(
+        locale,
+        "explain.uncertain.case",
+        case=item.case_id,
+        check=item.check,
+        why=phrase(locale, "explain.uncertain.and").join(why),
+    )
+
+
 def calibration_fact(lost: Sequence[ScaleLost], locale: Locale) -> str:
     """The clause a lost scale earns, or nothing at all.
 
@@ -1676,6 +1722,24 @@ def calibration_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     open_attr = " open" if outside else ""
     return (
         f"<details{open_attr}><summary>{title} ({len(rows)})</summary>{table}</details>"
+    )
+
+
+def _uncertain_block(run: Run, locale: Locale) -> str:
+    """The judged checks on a case whose verdict is not firm, one sentence
+    each, or nothing at all: a report of a run whose every judged verdict is
+    firm, and of a suite that judges nothing, is byte for byte what it was.
+    Open, because it exists only when there is something to read. (P-1685)"""
+    found = uncertain_cases(run)
+    if not found:
+        return ""
+    title = escape(phrase(locale, "section.uncertain"))
+    items = "".join(
+        f"<li>{escape(uncertain_said(item, locale))}</li>" for item in found
+    )
+    return (
+        f'<details open class="uncertain"><summary>{title} ({len(found)})</summary>'
+        f"<ul>{items}</ul></details>\n"
     )
 
 
@@ -2983,6 +3047,7 @@ def render_html(
         f"{_configs(comparison, locale)}\n"
         f"{sections}\n"
         f"{_calibration_block(run, locale, reasons=head.reasons_available)}"
+        f"{_uncertain_block(run, locale)}"
         "</body>\n"
         "</html>\n"
     )
@@ -3371,6 +3436,7 @@ def render_run_html(run: Run, *, locale: Locale) -> str:
         f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
         f"{_calibration_block(run, locale, reasons=reasons)}"
+        f"{_uncertain_block(run, locale)}"
         f"{_recorded_answers(run, locale)}\n"
         "</body>\n"
         "</html>\n"

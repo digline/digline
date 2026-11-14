@@ -629,6 +629,41 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "explain",
         explain_json(facts(lost), reading="run", exit_code=1, run=lost),
     )
+    # A run whose judged verdicts are not firm: one split and at its threshold,
+    # one at its threshold with no samples, so `agreement` is reached as a
+    # number and as null. (P-1685)
+    unsure = dataclasses.replace(
+        now,
+        results=tuple(
+            case
+            if case.calibration is not None
+            or case.reviewed is not None
+            or not case.verdicts
+            else dataclasses.replace(
+                case,
+                verdicts=(
+                    _verdict(
+                        "llm_rubric",
+                        0.52,
+                        samples=(0.52, 0.52, 0.52),
+                        judged=True,
+                        metadata={
+                            "samples": 3,
+                            "agreement": 0.67,
+                            "errored_samples": 1,
+                        },
+                    ),
+                    _verdict("llm_tone", 0.53, tolerance=0.0, judged=True),
+                ),
+            )
+            for case in now.results
+        ),
+    )
+    yield (
+        "explain_json uncertain verdicts",
+        "explain",
+        explain_json(facts(unsure), reading="run", exit_code=0, run=unsure),
+    )
     yield (
         "explain_json without its documents",
         "explain",

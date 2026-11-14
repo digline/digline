@@ -1610,6 +1610,33 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "which side they landed on is a property of the samples that were "
             "drawn."
         ),
+        # A judged check on a case whose verdict is not firm: its samples
+        # split, or its mean within a margin of its threshold. (P-1685)
+        "explain.tally.uncertain.one": (
+            "1 judged check on a case is uncertain, and its verdict could have "
+            "gone the other way: {cases}."
+        ),
+        "explain.tally.uncertain.many": (
+            "{count} judged checks on cases are uncertain, and their verdicts "
+            "could have gone the other way: {cases}."
+        ),
+        "explain.uncertain.case": "{case} · {check}: {why}",
+        "explain.uncertain.split": (
+            "the samples did not all agree, {agreement} of them on the majority verdict"
+        ),
+        "explain.uncertain.split.errored": (
+            "the samples did not all agree, {agreement} of them on the majority "
+            "verdict and {errored} that could not judge"
+        ),
+        "explain.uncertain.near": (
+            "the mean {score} is within {margin} of the threshold {threshold}, {source}"
+        ),
+        "explain.uncertain.margin.declared": "the check's tolerance",
+        "explain.uncertain.margin.default": (
+            "a margin of {margin}, because the check declares no tolerance"
+        ),
+        "explain.uncertain.and": "; and ",
+        "section.uncertain": "Uncertain verdicts",
         "explain.tally.denominator_moved.one": (
             "1 run-level check was measured over a different number of cases "
             "than the reference it is set beside, so the two are not the same "
@@ -3478,6 +3505,32 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} controlli hanno misurato una banda che copre la propria "
             "soglia: da quale lato siano caduti dipende dai campioni estratti."
         ),
+        "explain.tally.uncertain.one": (
+            "1 controllo giudicato su un caso è incerto, e il suo verdetto "
+            "poteva andare dall'altra parte: {cases}."
+        ),
+        "explain.tally.uncertain.many": (
+            "{count} controlli giudicati su dei casi sono incerti, e i loro "
+            "verdetti potevano andare dall'altra parte: {cases}."
+        ),
+        "explain.uncertain.case": "{case} · {check}: {why}",
+        "explain.uncertain.split": (
+            "i campioni non sono stati tutti d'accordo, {agreement} sul verdetto "
+            "di maggioranza"
+        ),
+        "explain.uncertain.split.errored": (
+            "i campioni non sono stati tutti d'accordo, {agreement} sul verdetto "
+            "di maggioranza e {errored} che non hanno potuto giudicare"
+        ),
+        "explain.uncertain.near": (
+            "la media {score} è entro {margin} dalla soglia {threshold}, {source}"
+        ),
+        "explain.uncertain.margin.declared": "la tolleranza del controllo",
+        "explain.uncertain.margin.default": (
+            "un margine di {margin}, perché il controllo non dichiara una tolleranza"
+        ),
+        "explain.uncertain.and": "; e ",
+        "section.uncertain": "Verdetti incerti",
         "explain.tally.denominator_moved.one": (
             "1 controllo di esecuzione è stato misurato su un numero di casi "
             "diverso da quello del riferimento accanto: le due non sono la "
