@@ -36,6 +36,10 @@
   enumeration: in a projected document every reported configuration key and
   value is a token or absent. Nothing is recorded differently, and the rule for
   a redacted document is unchanged
+- Amended: 2026-11-14 — §4, **the judge's instruction is part of the
+  instrument**, by Alessandro Prandini's decision of that day (P-1686): a
+  judge records `prompt_digest`, the digest of the `system` it is asked
+  under. It widens what §4 records and overturns nothing
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -222,6 +226,27 @@ A judge added or removed is reported as **added or removed**, never as a value
 that moved. `model a → b` is what replacing a lone judge looks like and it stops
 being true the moment a suite grades with three; one identity gone and one
 arrived stays true at every count.
+
+*Amended 2026-11-14 (P-1686), by Alessandro Prandini's decision of that day.*
+**The instruction a judge is asked under is part of the instrument.** Until
+this date the set-up was `provider`, `model`, `max_tokens`, `temperature` and
+what the provider said answered, and the words of `SCORE_SYSTEM` and
+`CLAIM_SYSTEM` were not in it. 1.3 changed both instructions, to ask for the
+JSON object before any other word and to grade the output alone, and a run
+judged under the new words compared with a reference judged under the old
+said nothing about it: the scale moved and the record did not. `JudgeBase`
+now records `prompt_digest`, sixteen hex characters of the sha256 of its
+class's `system`. A digest and not the text, because a configuration is
+diffed field by field and the text is a page long; the text is in digline's
+source, where the digest can be checked against it. The key is additive, as
+§7 rules keys: a reference recorded before it reads it as `new`, which
+`judge_config_changed` counts, so the first comparison after the upgrade
+says the judge changed, once, and is right to. The merge rule above applies
+to it unchanged, and that is its limit: a `ScoreJudge` and a
+`ClaimCountJudge` on one model are asked under two instructions, so a suite
+holding both records no `prompt_digest`, and a change to either instruction
+goes unsaid there. `prompt_digest` joins `NAMED_CONFIG_KEYS`, so a
+projection names the key in clear and its value stays a token.
 
 ### 5. What the reader sees
 

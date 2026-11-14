@@ -11,6 +11,7 @@ Converse counts cached input tokens inside `inputTokens` or beside them.
 
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Mapping
 from typing import Any, cast
@@ -41,6 +42,7 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
         "provider": "bedrock",
         "model": HAIKU,
         "max_tokens": 1024,
+        "prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
         "region": "eu-west-1",
     }
 

@@ -1128,7 +1128,16 @@ absent. `fingerprint` is withheld under redaction, because on a custom
 `JudgeBase` answers the same property, and a judge's is recorded separately as
 `Run.judge_config`: a judge that moved is a change of measuring *instrument*, so
 the scores stop being comparable with the baseline whatever the target did, and
-the report says so rather than leaving it to be noticed.
+the report says so rather than leaving it to be noticed. Beside `provider`,
+`model`, `max_tokens` and `temperature` it records `prompt_digest`, sixteen hex
+characters of the sha256 of the judge's instruction, its class's `system`: a
+judge asked under new words is a new instrument, and a comparison says the
+judge changed.
+
+> **Arrives with digline 1.3.** Before 1.3 the instruction is not recorded,
+> and a comparison of runs judged under two instructions says nothing about
+> it. The first run under 1.3, compared with a reference judged under 1.2,
+> says the judge changed, once: the key is `new`.
 
 A suite may hold several judges, so `judge_config` records **which** instruments
 graded as well as how: `identities` is the set of distinct `provider/model`
@@ -3029,8 +3038,9 @@ since schema 22, because a projection receives a document and not a suite
 - **A configuration key** crosses in clear where the configuration records it
   in `named` and it is in **`NAMED_CONFIG_KEYS`**, digline's closed vocabulary:
   `CONTRACT_FIELDS`, `OBSERVED_FIELDS`, `PERIMETER_FIELDS`,
-  `ENDPOINT_PERIMETER_FIELDS` and `pricing`. Every other key is a token, in
-  `values` and in `withheld`, and every string value is a token either way. So
+  `ENDPOINT_PERIMETER_FIELDS`, `pricing` and `prompt_digest`. Every other
+  key is a token, in `values` and in `withheld`, and every string value is a
+  token either way. So
   `base_url` and `resolved_model` are named in clear as withheld, and a key a
   hand-written target chose is a token. The driver records `named`; a
   configuration that records none, written before schema 22, is all tokens.

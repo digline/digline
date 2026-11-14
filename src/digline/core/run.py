@@ -487,6 +487,9 @@ OBSERVED_FIELDS = frozenset({"resolved_model", "fingerprint"})
 #: perimeter value stays withheld. A class declared in reviewed code, which is
 #: how a widening of what crosses is made (ADR 0046). `pricing` is the word
 #: `ProviderTarget` writes beside a declared price. (ADR 0034 §17.2; #323)
+#: `prompt_digest` is the word `JudgeBase` writes for the digest of its
+#: instruction; its value, a digest of a text in digline's own source, stays
+#: a token like every value. (ADR 0005 §4, amended 2026-11-14; P-1686)
 #: What a projection writes in place of a foreign verdict's metadata value: the
 #: form an artifact's withheld text already has. (ADR 0034 §17.3)
 WITHHELD_METADATA: Mapping[str, object] = {"withheld": True}
@@ -496,7 +499,7 @@ NAMED_CONFIG_KEYS: frozenset[str] = (
     | OBSERVED_FIELDS
     | PERIMETER_FIELDS
     | ENDPOINT_PERIMETER_FIELDS
-    | frozenset({"pricing"})
+    | frozenset({"pricing", "prompt_digest"})
 )
 
 

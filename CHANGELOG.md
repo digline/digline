@@ -201,10 +201,18 @@ Written when the number moved; the cut writes the rest of this opening.
   sample's reason reads *the judge's reply stopped at N tokens, its max_tokens
   of N, before it held a JSON object*, with the remedy, where it read *no JSON
   object*. And both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for
-  the object before any other word. The instruction is not part of the judge's
-  recorded configuration, so a run judged under it and a reference judged
-  under 1.2.0's are compared without a word about the change. Found in a Java
-  application with a judged suite, on Bedrock.
+  the object before any other word. Found in a Java application with a
+  judged suite, on Bedrock.
+- **The judge's instruction is in its recorded configuration.** A judge
+  records `prompt_digest`, sixteen hex characters of the sha256 of the
+  instruction it is asked under, so a comparison of runs judged under two
+  instructions says the judge changed. The first run under 1.3, compared
+  with a reference judged under 1.2, says it once: the reference has no
+  `prompt_digest`, the key reads `new`, and the instruction did change.
+  Promoted, the next comparison says nothing. A suite holding a `ScoreJudge`
+  and a `ClaimCountJudge` on one model records no `prompt_digest`, because
+  the two are asked under two instructions and the judge's set-up keeps
+  only what its judges agree on.
 - **A judge's reason that writes out another score is an `error`.**
   `SCORE_SYSTEM` says the input and the context are reference: *grade the
   output alone; the context is what the system was allowed to use, not what

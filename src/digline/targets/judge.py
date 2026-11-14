@@ -17,6 +17,7 @@ and `tests/test_judge.py` holds them together.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import re
@@ -56,6 +57,7 @@ __all__ = [
     "JudgeBase",
     "ScoreJudge",
     "loads_lenient",
+    "prompt_digest",
 ]
 
 #: Asked of a `Judge`. The shape is spelled out because a model that is told
@@ -109,6 +111,18 @@ CLAIM_SYSTEM = (
     'is `"total": 0`, which is an answer; declining says you could not tell '
     "what it asserts."
 )
+
+
+def prompt_digest(system: str) -> str:
+    """The judge's instruction as sixteen hex characters of its sha256.
+
+    Recorded in `judge_config` as `prompt_digest`, so that a comparison says
+    the judge changed when the instruction did: the words a judge is asked
+    under are part of the instrument as much as its model. A digest and not
+    the text, because the configuration is diffed field by field and the
+    text is a page long. (ADR 0005 §4, amended 2026-11-14; P-1686)
+    """
+    return hashlib.sha256(system.encode("utf-8")).hexdigest()[:16]
 
 
 def loads_lenient(text: str) -> Mapping[str, Any]:
@@ -506,14 +520,19 @@ class JudgeBase(ABC):
         with the baseline whatever the target did — a change of instrument, not
         of the thing measured. `max_tokens` is here rather than on the plugins
         because every judge has one: it is `JudgeBase`'s own argument.
+        `prompt_digest` is here for the same reason: every judge is asked
+        under its class's `system`, and a new instruction is a new
+        instrument. (P-1686)
         """
         if not self.provider:
             return {}
+        system = cast("str | None", getattr(self, "system", None))
         return sent(
             provider=self.provider,
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
+            prompt_digest=None if system is None else prompt_digest(system),
             **self.observed.values,
         )
 
