@@ -326,6 +326,24 @@ a suite does not declare one. ([ADR 0064](adr/0064-a-runs-cost-estimated-before-
 > **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
 > takes no `--max-cost`.
 
+**`samples` and `repeated` decide the same way.** Both fold the judgements
+into their mean and hold it against the check's `threshold`, and
+`min_agreement` is a floor on the share of them that reached the majority
+verdict: below it the verdict is `error`, never a pass. Neither is a majority
+vote. Three judgements of 1, 0 and 0 against a `threshold` of 0.3 pass at
+0.333333, though two of the three said no. What differs is what is asked
+again: `samples` asks the target for another answer, and `repeated` asks the
+judge about the same one.
+
+**At least k of n.** With a judge that answers 0 or 1, the mean is the share
+that passed, so the threshold is k/n written at the six decimals a score is
+kept at. *At least 2 of 3* is `threshold = 0.666667`, with `min_agreement =
+"2/3"` so that a split of two to one is a verdict and not an `error`: two of
+three pass at 0.666667, and one of three fails at 0.333333. `0.67` fails two
+of three. A judge whose scores fall between 0 and 1 gives a mean that is not
+a count, and no threshold reads it as one. Measured on 2026-11-14 on both,
+`samples = 3` and a `repeated` of 3, with a judge that voted in turn.
+
 ## The judge, by coordinates
 
 ```toml

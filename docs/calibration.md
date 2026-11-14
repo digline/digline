@@ -285,6 +285,15 @@ verdict is `error`, never a pass, so the case is unjudged and exits `2`.
 judge, and here it asks twice, so each verdict's `agreement`, `spread` and
 `scores` are those two samples'.
 
+The two decide the same way, and neither is a majority vote: the judgements'
+mean is held against the check's `threshold`, and `min_agreement` is a floor
+on the share that reached the majority verdict, below which the verdict is
+`error`. Three judgements of 1, 0 and 0 against a threshold of 0.3 pass at
+0.333333. For *at least k of n* with a judge that answers 0 or 1, the
+threshold is k/n at six decimals, `0.666667` for two of three, with a
+`min_agreement` that admits the split; `0.67` fails two of three. The [suite
+as data](declarative.md#repeated-wraps-another-check) has the measurement.
+
 ## Choosing the judge
 
 The sections above measure a judge once it is chosen. Choosing it is advice,
@@ -298,6 +307,23 @@ and this section is that: nothing in digline checks it.
   five things gives one score, and a fall in it does not say which of the five
   fell. Five checks, each named, fall one at a time, and `compare` names the
   one that did.
+- **What one check per criterion costs.** Each judged check asks the judge
+  once per answer. 50 cases at `samples = 3` with four checks, one per
+  criterion, are 150 calls to the target and 600 to the judge; the same cases
+  with one rubric that asks the four things are 150 and 150: *cases × samples
+  × criteria* judge calls, against *cases × samples*. A `Repeated` of 3
+  multiplies its check by 3 again. Counted on 2026-11-14 with a judge that
+  counted its calls. Each of the four calls sends the answer again, so the
+  answer's tokens are paid four times: what that buys is a fall that names its
+  criterion.
+- **In a rubric that asks several things, each exception says which criterion
+  it applies to.** *Asking a clarifying question is a correct answer* is an
+  exception to *answers the question*; written loose in a rubric that also
+  asks for the person's language and no internal ids, it reads as an
+  exception to all of them.
+- **The exceptions, with their examples, are the part that aligns the rubric
+  with the person.** They are where a reviewer's judgement is written down,
+  case by case, and not noise to trim when the rubric is shortened.
 - **A few cases first.** Point the suite's `cases` at a file of three to five,
   run it with a ceiling, `digline run --suite suite.toml --max-cost 0.50`, and
   read what the judge said of each before paying for every case.

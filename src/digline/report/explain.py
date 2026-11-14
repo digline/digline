@@ -37,6 +37,7 @@ from digline.core import (
     Scope,
     SuiteDelta,
     SystemConfig,
+    Uncertain,
     Verdict,
     case_count,
     cases_changed,
@@ -46,6 +47,7 @@ from digline.core import (
     misnamed,
     on_the_line,
     scale_lost,
+    uncertain_cases,
     unreconciled,
 )
 from digline.report.render import (
@@ -65,6 +67,7 @@ from digline.report.render import (
     fmt_value,
     on_the_line_count,
     run_tally,
+    uncertain_said,
     unjudged_sentence,
 )
 from digline.report.shape import Shape, ShapeSide, shape
@@ -204,6 +207,14 @@ type TallyKind = Literal[
     # gone, it is the only thing that says why those checks were not judged.
     # Read off the run alone, so it is stated with or without a reference.
     "misnamed",
+    # The eleventh amendment, of 2026-11-14 (P-1685): the judged checks on a
+    # case whose verdict is not firm, their samples split or their mean
+    # within a margin of the threshold, each beside the count with why. It
+    # earns its place by this section's test: the report says it, in a
+    # section of its own, and a reading that left it out would describe a
+    # verdict as settled that its own samples do not settle. Read off the run
+    # alone, so it is stated with or without a reference. It gates nothing.
+    "uncertain",
 ]
 
 
@@ -337,6 +348,9 @@ class TallyFact:
     #: The count is the answers, each once, and an answer two checks
     #: contradicted is two entries here. (ADR 0059 §1, amended 2026-11-05)
     contradictions: Sequence[Contradiction] = ()
+    #: Only on `uncertain`: each judged check on a case whose verdict is not
+    #: firm, and why. The count is their number. (P-1685)
+    uncertain: Sequence[Uncertain] = ()
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -397,6 +411,11 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     on_line = on_the_line_count(run)
     if on_line:
         out.append(TallyFact("on_the_line", count=on_line))
+    # Beside it and for its reason, read off the run alone: a split or a mean
+    # at the threshold is a fact about this measurement. (P-1685)
+    unsure = uncertain_cases(run)
+    if unsure:
+        out.append(TallyFact("uncertain", count=len(unsure), uncertain=unsure))
     # Beside it, and read off the comparison rather than the run: it is a fact
     # about two measurements not being the same measurement, which one run alone
     # cannot know. (ADR 0012 §3, amended 2026-09-18)
@@ -1042,6 +1061,15 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
                 "explain.tally.denominator_moved."
                 f"{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
+            )
+        case "uncertain":
+            return phrase(
+                locale,
+                f"explain.tally.uncertain.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+                cases="; ".join(
+                    uncertain_said(item, locale) for item in fact.uncertain
+                ),
             )
         case "calibration":
             return phrase(

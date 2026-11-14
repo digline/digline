@@ -8,6 +8,7 @@ prepended before anything can be parsed at all.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 from dataclasses import dataclass, field
@@ -85,8 +86,15 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
     assert dict(a_judge(client).config) == {
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "max_tokens": 400,
+        "max_tokens": 1024,
+        "prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
     }
+
+
+def test_the_judge_s_cap_leaves_room_to_reason_first(client: FakeClient) -> None:
+    """1024 since 2026-11-14 (P-1686), as on Bedrock: at 400 a judge that
+    reasoned before its object was cut, and the case stayed unjudged."""
+    assert a_judge(client).max_tokens == 1024
 
 
 def test_each_judge_is_the_protocol_the_core_declares(client: FakeClient) -> None:
@@ -347,3 +355,28 @@ def test_a_real_reply_says_which_model_answered() -> None:
     # No fingerprint on this API — that is OpenAI's half, and absent here is the
     # honest record of a provider that names no backend build.
     assert "fingerprint" not in judge.config
+
+
+@pytest.mark.parametrize(
+    ("stop_reason", "said"),
+    [
+        (
+            "max_tokens",
+            "the judge's reply stopped at 1024 tokens, its max_tokens of 1024",
+        ),
+        # The control: the same text, ended by the model, is the parser's fact.
+        ("end_turn", "no JSON object"),
+    ],
+)
+def test_a_reply_cut_at_the_cap_says_it_stopped_there(
+    client: FakeClient, stop_reason: str, said: str
+) -> None:
+    """Anthropic's `max_tokens` stop, on both calls: the error names the cap,
+    not the parser. (P-1685)"""
+    client.messages.reply = FakeReply(
+        content=[FakeBlock("Let me reason about the output before I score it")],
+        usage=FakeUsage(input_tokens=10, output_tokens=1024),
+        stop_reason=stop_reason,
+    )
+    with pytest.raises(ValueError, match=said):
+        a_judge(client)("Output to judge:\nRome.")

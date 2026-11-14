@@ -819,6 +819,33 @@ not asked again. ([ADR 0004](adr/0004-every-plugin-is-a-target-and-a-judge.md)
 > **Arrives with digline 1.3.** On 1.2.0 a reply with no JSON object is an
 > `error` after one call.
 
+**A reply cut at the cap says it was cut.** Where neither reply held an
+object and the provider said one stopped at the cap (`finish` is `length`),
+the reason reads *the judge's reply stopped at N tokens, its max_tokens of N,
+before it held a JSON object*, with the remedy, instead of *no JSON object*.
+Both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for the object
+before any other word. The judges of the three plugins, Anthropic, OpenAI
+and Bedrock, default to `max_tokens=1024`.
+
+> **Arrives with digline 1.3.** Before 1.3 a reply cut at the cap reads *no
+> JSON object*. The judges' cap of 1024 arrives with the plugin releases
+> cut beside 1.3; before them it is 400.
+
+**A reason that writes out another score is an `error`.** `SCORE_SYSTEM`
+says to grade the output alone: *"The input and the context are reference:
+the context is what the system was allowed to use, not what you grade."* And
+where a reason writes a score out, *score 1*, *score: 0.5*, *score of 0.8* or
+a fraction of 1 such as *1/1*, and none of those it writes is within 0.01 of
+the `score` returned, the reply is refused as `ScoreJudge` refuses any
+malformed one: the sample is an `error` whose reason opens *reason and score
+disagree*, kept in the run, and `digline explain` says it under its case
+where the samples disagreed. A reason that writes no score is not read, and
+*3/5* is a count, not a score. `ClaimCountJudge` is not read this way: its
+reason states counts.
+
+> **Arrives with digline 1.3.** Before 1.3 the returned score stands
+> whatever the reason says.
+
 ### `PromptTemplate`
 
 A prompt file, its digest, and the variables it asks for. Read at construction,
@@ -1101,7 +1128,16 @@ absent. `fingerprint` is withheld under redaction, because on a custom
 `JudgeBase` answers the same property, and a judge's is recorded separately as
 `Run.judge_config`: a judge that moved is a change of measuring *instrument*, so
 the scores stop being comparable with the baseline whatever the target did, and
-the report says so rather than leaving it to be noticed.
+the report says so rather than leaving it to be noticed. Beside `provider`,
+`model`, `max_tokens` and `temperature` it records `prompt_digest`, sixteen hex
+characters of the sha256 of the judge's instruction, its class's `system`: a
+judge asked under new words is a new instrument, and a comparison says the
+judge changed.
+
+> **Arrives with digline 1.3.** Before 1.3 the instruction is not recorded,
+> and a comparison of runs judged under two instructions says nothing about
+> it. The first run under 1.3, compared with a reference judged under 1.2,
+> says the judge changed, once: the key is `new`.
 
 A suite may hold several judges, so `judge_config` records **which** instruments
 graded as well as how: `identities` is the set of distinct `provider/model`
@@ -2030,6 +2066,16 @@ does `digline rejudge`, which writes a run of its own;
 its log. Git decides, so a rule kept at the repository's root or written
 another way counts. Where git cannot answer — no repository, no git — nothing
 is said. It is never a refusal, and the exit code does not change.
+
+**Where the store sits in a linked git worktree, `digline run` and `digline
+record on` say so**, one line on stderr: *this .digline/ is in a git
+worktree: what is written here goes with the worktree*. A linked worktree is
+one whose `git rev-parse --git-dir` is not its `--git-common-dir`. The check
+only reads, and git is not called where it is not installed; outside a
+repository nothing is said. It is never a refusal, and the exit code does not
+change.
+
+> **Arrives with digline 1.3.** 1.2.0 says nothing about a worktree.
 
 What is inside the directory, its format, its lock and its retention are the
 owning process's. `tenant_dir` is not documented and stays internal: the
@@ -2992,8 +3038,9 @@ since schema 22, because a projection receives a document and not a suite
 - **A configuration key** crosses in clear where the configuration records it
   in `named` and it is in **`NAMED_CONFIG_KEYS`**, digline's closed vocabulary:
   `CONTRACT_FIELDS`, `OBSERVED_FIELDS`, `PERIMETER_FIELDS`,
-  `ENDPOINT_PERIMETER_FIELDS` and `pricing`. Every other key is a token, in
-  `values` and in `withheld`, and every string value is a token either way. So
+  `ENDPOINT_PERIMETER_FIELDS`, `pricing` and `prompt_digest`. Every other
+  key is a token, in `values` and in `withheld`, and every string value is a
+  token either way. So
   `base_url` and `resolved_model` are named in clear as withheld, and a key a
   hand-written target chose is a token. The driver records `named`; a
   configuration that records none, written before schema 22, is all tokens.

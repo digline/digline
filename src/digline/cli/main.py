@@ -58,6 +58,7 @@ from digline.host import (
     SAID_ALONE,
     SUITE_RULE,
     SUITE_SUFFIX,
+    WORKTREE_NOTE,
     Loaded,
     Resolved,
     UsageError,
@@ -67,6 +68,7 @@ from digline.host import (
     import_elect,
     import_listing,
     imported_since,
+    in_a_worktree,
     instant,
     listed,
     listing_lines,
@@ -424,6 +426,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     # first run in a fresh repository writes them and says nothing. (#523)
     for note in unignored_notes(suite.tenant, unignored(Path(args.root), suite.tenant)):
         say(f"digline: {note}", err=True)
+    # Where the store sits in a linked worktree, what was just written goes
+    # when the worktree goes. One line; nothing outside a repository. (P-1685)
+    if in_a_worktree(Path(args.root)):
+        say(f"digline: {WORKTREE_NOTE}", err=True)
 
     errored = len(errored_verdicts(measured.run))
     if args.json:
@@ -1523,6 +1529,8 @@ def cmd_record(args: argparse.Namespace) -> int:
         interval=args.interval,
     )
     say(f"recording on for tenant {args.tenant!r}: {path}")
+    if in_a_worktree(Path(args.root)):
+        say(f"digline: {WORKTREE_NOTE}", err=True)
     # The file is the truth, and `on` prints it: a value left from before, a
     # sample of 0.5 among them, is seen here and not in what is recorded.
     _say_values(Path(args.root), args.tenant)

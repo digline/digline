@@ -151,6 +151,26 @@ def fact_json(
                     }
                     for item in fact.contradictions
                 ]
+            # And where a judged verdict is not firm: each check on its case,
+            # why, and the margin with where it came from. Only on the
+            # `uncertain` tally, so every other fact is byte for byte what it
+            # was. (P-1685)
+            if fact.uncertain:
+                payload["uncertain"] = [
+                    {
+                        "case_id": item.case_id,
+                        "check": item.check,
+                        "score": item.score,
+                        "threshold": item.threshold,
+                        "margin": item.margin,
+                        "margin_declared": item.declared,
+                        "split": item.split,
+                        "near": item.near,
+                        "agreement": item.agreement,
+                        "errored_samples": item.errored,
+                    }
+                    for item in fact.uncertain
+                ]
             return payload
     assert_never(fact)
 

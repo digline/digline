@@ -320,6 +320,9 @@ def strings(gate: Gate) -> dict[str, tuple[str, Check]]:
         "$.facts[].name": ("c", gate.check),
         "$.facts[].before": ("c", gate.token),
         "$.facts[].shape.assertion": ("c", gate.check),
+        # A judged verdict that is not firm, each beside the count (P-1685).
+        "$.facts[].uncertain[].case_id": ("c", gate.case),
+        "$.facts[].uncertain[].check": ("c", gate.check),
         "$.target_config_deltas[].field": ("a|c", gate.config_key),
         "$.target_config_deltas[].before": ("c", gate.token),
         "$.target_config_deltas[].after": ("c", gate.token),

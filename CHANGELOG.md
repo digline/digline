@@ -195,6 +195,77 @@ Written when the number moved; the cut writes the rest of this opening.
   `explain` do not (ADR 0012 §4, as amended 2026-11-12). The run report's
   Reason column shows the same reason. Found in a Java application with a
   judged suite.
+- **A judge's reply cut at its cap says so.** Where neither reply held a JSON
+  object and the provider said a reply stopped at the cap (`finish` is
+  `length`: Anthropic's and Bedrock's `max_tokens`, OpenAI's `length`), the
+  sample's reason reads *the judge's reply stopped at N tokens, its max_tokens
+  of N, before it held a JSON object*, with the remedy, where it read *no JSON
+  object*. And both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for
+  the object before any other word. Found in a Java application with a
+  judged suite, on Bedrock.
+- **The judge's instruction is in its recorded configuration.** A judge
+  records `prompt_digest`, sixteen hex characters of the sha256 of the
+  instruction it is asked under, so a comparison of runs judged under two
+  instructions says the judge changed. The first run under 1.3, compared
+  with a reference judged under 1.2, says it once: the reference has no
+  `prompt_digest`, the key reads `new`, and the instruction did change.
+  Promoted, the next comparison says nothing. A suite holding a `ScoreJudge`
+  and a `ClaimCountJudge` on one model records no `prompt_digest`, because
+  the two are asked under two instructions and the judge's set-up keeps
+  only what its judges agree on.
+- **A judge's reason that writes out another score is an `error`.**
+  `SCORE_SYSTEM` says the input and the context are reference: *grade the
+  output alone; the context is what the system was allowed to use, not what
+  you grade*. Where a reason writes a score out (*score 1*, *1/1*) and none it
+  writes is the `score` returned, within 0.01, the sample is an `error` whose
+  reason opens *reason and score disagree*, kept in the run and said by
+  `digline explain` under its case where the samples disagreed. A reason that
+  writes no score is not read. Found in a Java application with a judged
+  suite.
+- **A judged verdict that is not firm is said, case by case.** Where the
+  samples of a judged check on a case did not all agree, or their mean sits
+  within a margin of the threshold, `digline explain` says so with each case,
+  the check and why: the margin is the check's tolerance where it declares
+  one, and 0.05 where it does not, said in the sentence. The run's report has
+  a section of its own, *Uncertain verdicts*, absent when there is none, and
+  `explain --json` carries the cases beside the count on a new tally,
+  `uncertain`, in a key recorded in `_ADDED`. It moves no exit code and no
+  sentence of `compare` (ADR 0012 §3, as amended 2026-11-14). New public
+  names: `uncertain_cases`, `Uncertain` and `DEFAULT_MARGIN` in
+  `digline.core`. Found in a Java application with a judged suite.
+- **`digline run` and `digline record on` say when the store is in a git
+  worktree.** One line on stderr, *this .digline/ is in a git worktree: what
+  is written here goes with the worktree*, where `git rev-parse --git-dir` is
+  not `--git-common-dir`. It only reads, does not call git where git is not
+  installed, and changes no exit code. New public names: `in_a_worktree` and
+  `WORKTREE_NOTE` in `digline.host`. Asked for from a Java application with a
+  judged suite.
+
+## digline-anthropic 0.10.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed.
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. The same default as digline-bedrock 0.9.0's.
+
+## digline-bedrock 0.9.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed.
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. Found in a Java application with a judged suite.
 
 ## digline-mcp 0.10.0 — unreleased
 
@@ -220,7 +291,21 @@ floor is raised to `digline>=1.3.0,<2` at the cut.
 - **`record_listing` counts each group's `cases`**, the questions its answers
   are to, beside `answers`.
 
-## digline-openai 0.7.1 — unreleased
+## digline-openai 0.8.0 — unreleased
+
+A minor, by #919's criterion: a run under the new default records another
+judge configuration than one under the old, so its comparison with a
+reference judged at 400 says the judge changed. It also carries the fix
+under *Security*, which was owed as 0.7.1 and never released.
+
+### Changed
+
+- **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
+  that reasoned before its JSON object was cut at 400 and the case stayed
+  unjudged. `max_tokens` is in the judge's recorded configuration, so a run
+  under the new default, compared with a reference judged at 400, reports the
+  judge's configuration as changed. A judge that passes `max_tokens` is
+  unchanged. The same default as digline-bedrock 0.9.0's.
 
 ### Security
 

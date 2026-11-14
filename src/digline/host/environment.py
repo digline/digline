@@ -10,6 +10,7 @@ one file, where it can be seen.
 from __future__ import annotations
 
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -23,7 +24,9 @@ from digline.store.file_store import STORE_DIRNAME
 __all__ = [
     "DIRTY_SUFFIX",
     "ProcessState",
+    "WORKTREE_NOTE",
     "git_commit",
+    "in_a_worktree",
     "process_state",
     "seconds_now",
     "this_process",
@@ -86,6 +89,32 @@ def git_commit(root: Path) -> str | None:
         return None
     status = _git(root, "status", "--porcelain")
     return f"{sha}{DIRTY_SUFFIX}" if status else sha
+
+
+#: What `digline run` and `digline record on` say, on standard error, where
+#: the store sits in a linked git worktree. (P-1685)
+WORKTREE_NOTE = (
+    "this .digline/ is in a git worktree: what is written here goes with the worktree"
+)
+
+
+def in_a_worktree(root: Path) -> bool:
+    """Whether `root` is inside a linked git worktree: its git directory is
+    not the repository's common one. Read-only, and **git is not called where
+    it is not installed**, so a machine without git, or a directory outside
+    any repository, answers `False` and says nothing.
+
+    Asked for from a first use outside the project: a store in a worktree is
+    removed with the worktree, and nothing said where it lived. (P-1685)"""
+    if shutil.which("git") is None:
+        return False
+    own = _git(root, "rev-parse", "--git-dir")
+    common = _git(root, "rev-parse", "--git-common-dir")
+    if own is None or common is None:
+        return False
+    # Both are printed relative to `root` where git chooses to, so both are
+    # resolved against it before they are compared.
+    return (root / own).resolve() != (root / common).resolve()
 
 
 #: What a journal's process is doing, as far as this process can tell.

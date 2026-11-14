@@ -270,8 +270,10 @@ from digline.core.types import (
     travels,
     within,
 )
+from digline.core.uncertain import DEFAULT_MARGIN, Uncertain, uncertain_cases
 
 __all__ = [
+    "DEFAULT_MARGIN",
     "ALL_KINDS",
     "DECLARED_PRICE_FIELDS",
     "DeclaresPrice",
@@ -319,6 +321,7 @@ __all__ = [
     "CaseProgress",
     "CaseResult",
     "ScaleLost",
+    "Uncertain",
     "Reviewed",
     "Contradiction",
     "Cause",
@@ -426,6 +429,7 @@ __all__ = [
     "judged",
     "origin",
     "scale_lost",
+    "uncertain_cases",
     "contradicted",
     "nothing_judged",
     "CauseOfTwo",

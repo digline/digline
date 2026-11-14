@@ -337,6 +337,28 @@ three shapes:
     delta-pass over 0.15.1 above still reads both directions, and a fall over a
     moved denominator is not counted. That is not changed here.
 
+  *Amended 2026-11-14, by Alessandro Prandini's decision (P-1685), from a first
+  use outside the project, on an application with a judged suite.* **`uncertain`
+  joins the list**: the judged checks on a case whose verdict is not firm,
+  each beside the count, as `calibration` carries its bands.
+  - **When a verdict is not firm.** Its samples did not all reach the same
+    verdict, or its mean sits within a margin of its threshold. The margin is
+    the check's tolerance where it is above 0, and 0.05 where it is not: a
+    tolerance of 0 cannot be told from one never written. Each case says which.
+  - **What is left out.** A check in error, which gave no verdict; a
+    calibration case, whose band says more; and a reviewed answer, which has
+    its fact where the judge and the person disagree. Measured on the
+    walkthrough from the IDE: its three reviewed answers the judge agreed with
+    scored 1 against a threshold of 1, and each read as uncertain.
+  - **Why it passes this section's test.** The report says it, in a section of
+    its own that is absent when nothing is uncertain, and a reading that left
+    it out would describe as settled a verdict its own samples do not settle.
+  - **Where it reads from.** The run alone, so it is stated with or without a
+    reference. It moves no exit code and is not in the headline, so no sentence
+    `compare` prints changes. `explain --json` carries the cases in a key of the
+    tally, `uncertain`, recorded in `_ADDED`; every other fact is byte for byte
+    what it was.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

@@ -1459,6 +1459,14 @@ _REVIEWED = "ADR 0059 §1; reviewed answers run, schema 23"
 #: where a band was left, so every other fact is byte for byte what it was.
 _BANDS = "ADR 0024 §4.5; the reading of a lost band, beside the count"
 
+#: `explain --json` names each judged check on a case whose verdict is not
+#: firm beside the count: the case, the check, the mean, the threshold, the
+#: margin and whether the check declared it, and why. Only on the `uncertain`
+#: tally, so every other fact is byte for byte what it was.
+_UNCERTAIN = (
+    "ADR 0012 §3, as amended 2026-11-14; an uncertain verdict, beside the count"
+)
+
 #: The first verbs on the command line and over MCP (ADR 0011 §1, as noted
 #: 2026-11-06): `digline where --json`, `digline record import --json`, the
 #: facts of `digline suggest` its MCP tool returns, and an episode's shape on
@@ -1614,6 +1622,28 @@ _ADDED: tuple[_AddedKey, ...] = (
     *_shape_added("reviewed", {"check": _STR, "good": _BOOL}, _REVIEWED),
     _AddedKey(
         "fact.tally", "bands", _k(_arr(_Obj("fact.tally.band")), optional=True), _BANDS
+    ),
+    _AddedKey(
+        "fact.tally",
+        "uncertain",
+        _k(_arr(_Obj("fact.tally.uncertain")), optional=True),
+        _UNCERTAIN,
+    ),
+    *_shape_added(
+        "fact.tally.uncertain",
+        {
+            "case_id": _STR,
+            "check": _STR,
+            "score": _NUM,
+            "threshold": _NUM,
+            "margin": _NUM,
+            "margin_declared": _BOOL,
+            "split": _BOOL,
+            "near": _BOOL,
+            "agreement": _k("number", "null"),
+            "errored_samples": _INT,
+        },
+        _UNCERTAIN,
     ),
     _AddedKey(
         "fact.tally",
