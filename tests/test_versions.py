@@ -525,7 +525,14 @@ RECORDED: dict[str, dict[str, str]] = {
         "0.9.1": (
             "digline-anthropic's release that left an MCP server's token out "
             "of the setup, named in digline-openai's row of *Owed to the next "
-            "version* as the change that package owes too: history"
+            "version* as the change that package owes too: history; and "
+            "digline-mcp's newest on PyPI when its release row was written "
+            "(P-1683), dated by that row"
+        ),
+        "0.10.0": (
+            "not the core: digline-mcp's next number, decided 2026-11-14 "
+            "(P-1683), in its release row, its row of floors owed at the cut "
+            "and the Status block's line on what 1.3.0's cut carries"
         ),
         "1.1.0": (
             "the tag that never reached PyPI, told as history: the cut of 1.1.0 "
