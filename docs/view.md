@@ -114,9 +114,6 @@ any unknown path gets, with or without `--allow-record`. A server started
 without `--suite` has no such page, because a suite's state needs the suite.
 ([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §1)
 
-> **Arrives with digline 1.3.** 1.2.0 has no page for the state of a suite:
-> its menu opens with *Where you are*.
-
 ## Where you are
 
 The second entry of the menu, `/where/<tenant>/<suite>/`, says where the
@@ -165,10 +162,6 @@ no longer loads is said on the page, as the command would say it.
 | *N answers from a new setup* | the setup in force first answered after the newest run, on cases an earlier setup answered too | the Across setups view |
 | *Nothing to do* | the newest run exits 0 | none: the counts, and the last import |
 | *The newest run exits N* | the newest run exits 1 or 2 for a reason none of the above names | `digline explain` |
-
-> **Arrives with digline 1.3.** 1.2.0 has no *The newest run was made with
-> other cases*: a contradiction on a case the suite dropped holds the page at
-> *The judge disagrees with a person on N*.
 
 It is `digline.host.where`, which reads the store, writes nothing and renders
 nothing: the page lays out what it returns, and a command can print the same
@@ -467,10 +460,6 @@ ranking. The review is not on the MCP server either: `record_listing`
 counts the answers and carries none of them, and no tool writes one
 ([ADR 0023](adr/0023-capture.md) §4, §9).
 ([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §2, §3)
-
-> **Arrives with digline 1.3.** 1.2.0 has no review page: answers are named
-> good or bad on the recordings, many in one form, with the name typed in
-> that form every time.
 
 ## `--allow-record`
 

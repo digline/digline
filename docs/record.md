@@ -497,11 +497,6 @@ certificate a private CA signed: through `HTTPS_PROXY`, one `CONNECT` and a
 `REQUESTS_CA_BUNDLE`, a 200, and without either a 502 that says
 `CERTIFICATE_VERIFY_FAILED`.
 
-> **Arrives with digline 1.3.** On 1.2.0 the proxy goes to the upstream
-> directly and reads neither `HTTPS_PROXY`, `NO_PROXY` nor
-> `REQUESTS_CA_BUNDLE`: measured on 2026-11-12 at `2aaae91d`, nothing connected
-> to the listener `HTTPS_PROXY` named. `SSL_CERT_FILE` it reads.
-
 The judge's calls do not go through it. `digline-bedrock`'s judge builds its
 boto3 client with the region alone and passes no proxy and no CA, so they
 are boto3's own settings, which this page did not measure; a judge given
@@ -684,9 +679,6 @@ under, how many times it came back, its input and its text, and whether it can
 be written. Nothing is ranked, nothing is proposed, and there is no way to
 write them all.
 
-> **Arrives with digline 1.3.** On 1.2.0 the answers of a group are in the
-> files' order alone, and a case answered twice has no line of its own.
-
 An answer recorded only under an earlier setup is shown and cannot be written:
 a yes about an answer the setup in force did not give says nothing about it.
 **How many are under an earlier setup is said at the head**, before any
@@ -697,9 +689,6 @@ recording under an earlier setup whose answer the setup in force also gave is
 still electable through that answer. `--json` carries the same, as
 `under_earlier_setups` and `earlier_setups`, and `record status --json`, per
 suite, `setups_in_force` beside them.
-
-> **Arrives with digline 1.3.** On 1.2.0 the head says nothing of it, and
-> each answer says *recorded only under earlier setups* on its own.
 
 **The setup in force is per form**, the newest among the episodes for an
 episode and among the single calls for a single call, and each group says
@@ -740,8 +729,6 @@ The same write, one answer at a time, with the answer whole in front of you
 and the name typed once, is the [review](view.md#the-review-one-answer-at-a-time)
 that `digline view --allow-record` serves: one press where this command
 takes one flag.
-
-> **Arrives with digline 1.3.** 1.2.0 has no review page.
 
 A reviewed answer runs with the suite: the target is not asked for it, the
 check it names judges the answer you read, and a judge that says the other of

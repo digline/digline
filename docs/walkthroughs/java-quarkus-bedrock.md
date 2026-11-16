@@ -49,9 +49,6 @@ fails under Quarkus dev mode's reload; the fix is on digline's `main` and in no
 release yet, read the same day
 ([dev mode](../record-java.md#when-a-framework-builds-the-client)).
 
-> **Arrives with digline 1.3.** The reload fix is in `DiglineAws.java` from
-> digline 1.3's tag on.
-
 **One line on the builder**, in the bean that builds the client:
 
 ```java
@@ -359,9 +356,6 @@ What moved
 cap-baa842f3dfae2b30-f8b3a680 · never failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 cap-baa842f3dfae2b30-f8b3a680 · max_steps failed at 0.000000, and a person said yes to the turn: its steps contradict the person, and the case fails.
 ```
-
-> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
-> unchanged from the reference.*, here and below.
 
 A yes on a turn is a yes to its steps too. Here the person vouched for a turn
 that called `lookup_order`, which the suite says is never called, and that

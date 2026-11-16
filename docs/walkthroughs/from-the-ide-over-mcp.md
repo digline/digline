@@ -33,11 +33,6 @@ the client are `tests/_story_ide_stand_in.py` and
 `tests/_story_ide_mcp_client.py`, and `tests/test_story_from_the_ide.py`
 replays this page against them.
 
-> **Arrives with digline 1.3.** On 1.2.0 the plans `run` says end at
-> *each answer is judged 3 times by llm_rubric*, and `compare`'s sentence
-> ends at *The suite is unchanged from the reference.*, without the cases that
-> changed since it, and so does the reading `explain` prints.
-
 ## Day one: from recordings to a suite
 
 **The application records.** It is `app.py`, a call through Anthropic's
@@ -382,8 +377,6 @@ The same four answers can also be reviewed one at a time, each whole on a
 page of its own, with one press per answer and the name typed once: the
 [review](../view.md#the-review-one-answer-at-a-time) the same server opens
 at `/review/acme/category/`.
-
-> **Arrives with digline 1.3.** 1.2.0 has no review page.
 
 **The run.** The agent asked `run`, `{"suite": "suite.toml"}`, and was
 refused until it said the count back: *"this suite plans 0 calls to the

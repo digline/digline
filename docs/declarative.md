@@ -139,9 +139,6 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 
 `disclosure` is **not** settable here. See "What it cannot say".
 
-> **Arrives with digline 1.3.** On 1.2.0 a judged check whose samples
-> disagree keeps the mean's reason alone, whatever `record_responses` says.
-
 ## `[capture]`
 
 Where the cases `digline record import` writes go, under which regime, and for
@@ -313,18 +310,12 @@ above a `repeated` of 3 is **6 judgements a case**. `digline run` says that figu
 run report prints beside each case's mean how many single judgements it rests
 on and how many passed (*6 judgements, 4 in favour*).
 
-> **Arrives with digline 1.3.** On 1.2.0 the plan says no figure a case,
-> and neither the run nor its report counts the judgements.
-
 Those judgements are paid for. `digline run` says before the first call what
 the suite's newest stored run cost per case, scaled to this one, and
 `digline run --suite suite.toml --max-cost 0.50` stops the run between two
 cases once what it has measured is above 0.50 USD, exit 2, with the `--resume`
 command that finishes it. The ceiling is the command line's, not the file's:
 a suite does not declare one. ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
-
-> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
-> takes no `--max-cost`.
 
 **`samples` and `repeated` decide the same way.** Both fold the judgements
 into their mean and hold it against the check's `threshold`, and
