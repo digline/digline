@@ -363,9 +363,10 @@ def judge_config(suite: Suite) -> SystemConfig:
     agreed: dict[str, ConfigValue] = {
         key: value
         for key, value in first.items()
-        if key not in JUDGE_PROMPT_DIGESTS
-        and all(other.get(key, _MISSING) == value for other in rest)
+        if all(other.get(key, _MISSING) == value for other in rest)
     }
+    # The two digests are decided again over the judges that write them, which
+    # keeps a key the rule above dropped for a judge of the other kind.
     for key in sorted(JUDGE_PROMPT_DIGESTS):
         written = [c[key] for c in declared if key in c]
         if written and all(value == written[0] for value in written):
