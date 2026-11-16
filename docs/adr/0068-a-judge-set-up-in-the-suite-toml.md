@@ -8,8 +8,12 @@
   asked for both records. **What this record proposed beyond them is marked
   *decided here***, with the alternative beside it. Accepted as proposed,
   at 17:34, with ADR 0067. Not built yet: the construction is the fifth
-  pull request of ADR 0067 §10
-- Shipped: unreleased
+  pull request of ADR 0067 §10. *§3 built 2026-11-16*, in the release pull
+  request of 1.3.0, by Alessandro Prandini's decision of that day to rename
+  the key before any release carried it: the first case of *When it reaches
+  a release*. §1 and §2, the table, wait on that fifth pull request
+- Shipped: 1.3.0 — §3 alone, the digest per kind of judge; §1 and §2, a
+  judge set up in the `suite.toml`, are in no file
 - Date: 2026-11-14
 - Opens: **nothing.** No `SCHEMA_VERSION`: `judge_config` is a mapping of
   scalars, and its keys are added. No `OUTPUT_VERSION`, no

@@ -6,7 +6,7 @@
   wrote this record, on the question of what an estimate before the run could
   be; they are stated here in this record's own words. Built in the same pull
   request.
-- Shipped: unreleased
+- Shipped: 1.3.0
 - Date: 2026-11-12
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `RECORDING_VERSION`, and no entry in the layout of `.digline/<tenant>/`: the
