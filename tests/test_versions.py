@@ -397,18 +397,18 @@ RECORDED: dict[str, dict[str, str]] = {
         "the lesson; moving the number would claim a later pass audited it",
     },
     "docs/record-node.md": {
-        "7.53.0": (
-            "'measured with openai 7.53.0': the version of Node's openai SDK the "
+        "7.56.0": (
+            "'measured with openai 7.56.0': the version of Node's openai SDK the "
             "CI job through-the-proxy runs, not a digline version, held equal to "
             "recorders/node/package.json by tests/test_record_node_page.py"
         ),
-        "1.6.0": (
-            "'@anthropic-ai/sdk 1.6.0': the version of Node's Anthropic SDK the "
+        "1.8.0": (
+            "'@anthropic-ai/sdk 1.8.0': the version of Node's Anthropic SDK the "
             "CI job through-the-proxy runs, not a digline version, held equal to "
             "recorders/node/package.json by tests/test_record_node_page.py"
         ),
-        "3.1164.0": (
-            "'@aws-sdk/client-bedrock-runtime 3.1164.0': the version of Node's "
+        "3.1168.0": (
+            "'@aws-sdk/client-bedrock-runtime 3.1168.0': the version of Node's "
             "Bedrock client the CI job recorder-node runs, not a digline version, "
             "held equal to recorders/node/package.json by "
             "tests/test_record_node_page.py"
@@ -448,21 +448,21 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "docs/walkthroughs/node.md": {
         "22.22.0": (
-            "'Node 22.22.0': the Node the story was run on, on 2026-11-10, not a "
+            "'Node 22.22.0': the Node the story was run on, on 2026-11-16, not a "
             "digline version"
         ),
-        "7.53.0": (
-            "'openai 7.53.0': the version of Node's openai SDK the story was run "
+        "7.56.0": (
+            "'openai 7.56.0': the version of Node's openai SDK the story was run "
             "with, not a digline version, held equal to "
             "recorders/node/package.json by tests/test_story_node.py"
         ),
-        "1.6.0": (
-            "'@anthropic-ai/sdk 1.6.0': the version of Node's Anthropic SDK the "
+        "1.8.0": (
+            "'@anthropic-ai/sdk 1.8.0': the version of Node's Anthropic SDK the "
             "story was run with, not a digline version, held equal to "
             "recorders/node/package.json by tests/test_story_node.py"
         ),
-        "3.1164.0": (
-            "'@aws-sdk/client-bedrock-runtime 3.1164.0': the version of Node's "
+        "3.1168.0": (
+            "'@aws-sdk/client-bedrock-runtime 3.1168.0': the version of Node's "
             "Bedrock client the story was run with, not a digline version, held "
             "equal to recorders/node/package.json by tests/test_story_node.py"
         ),
