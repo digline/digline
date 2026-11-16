@@ -250,6 +250,16 @@ requires this release.
   `WORKTREE_NOTE` in `digline.host`. Asked for from a Java application with a
   judged suite.
 
+### Seen working in a browser — both walkthroughs, owed and run
+
+- **The walkthroughs for `digline view --allow-promote` and `digline view
+  --allow-record` ran on 2026-11-16, before the tag, by Alessandro**, on the
+  release head `85bbf69d`. **Both were owed:** the review one answer at a
+  time (ADR 0066 §2) is a form a person meets first in a browser, and the
+  launch now keeps the reviewer's name. Every step went as written,
+  `--allow-promote`'s 0 to 6 and `--allow-record`'s 1 to 12, the review's
+  among them, and all were ok.
+
 ## digline-anthropic 0.10.0 — unreleased
 
 A minor, by #919's criterion: a run under the new default records another

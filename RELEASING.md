@@ -1028,7 +1028,8 @@ run again before 1.3's tag, with the review among its steps.
 *Added 2026-11-14 (P-1681).* The review's steps are 7 to 12 below. **None
 of them has been run**, in a browser or by `curl`; `tests/test_review.py`
 makes the same requests without a browser. This line stays until a person
-has run them.
+has run them. *Run 2026-11-16, before 1.3.0's tag, by Alessandro, on the
+release head `85bbf69d`: every step, 1 to 12, as written, and all ok.*
 
 **What it needs.**
 
