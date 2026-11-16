@@ -260,7 +260,7 @@ requires this release.
   `--allow-promote`'s 0 to 6 and `--allow-record`'s 1 to 12, the review's
   among them, and all were ok.
 
-## digline-anthropic 0.10.0 — unreleased
+## digline-anthropic 0.10.0 — 2026-11-16
 
 A minor, by #919's criterion: a run under the new default records another
 judge configuration than one under the old, so its comparison with a
