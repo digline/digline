@@ -13,9 +13,9 @@ Anthropic model. Here it is a support desk of one file, `app.mjs`, on
 for a tool, Anthropic streams a summary, Bedrock streams an apology with
 `converseStream`, and OpenAI writes a subject line.
 
-Everything on this page was run, on 2026-11-10, with digline installed from
-this repository at `e3b71245`. It ran on Node 22.22.0, with openai 7.53.0,
-@anthropic-ai/sdk 1.6.0 and @aws-sdk/client-bedrock-runtime 3.1164.0. **No
+Everything on this page was run, on 2026-11-16, with digline installed from
+this repository at `2e40865b`. It ran on Node 22.22.0, with openai 7.56.0,
+@anthropic-ai/sdk 1.8.0 and @aws-sdk/client-bedrock-runtime 3.1168.0. **No
 call reached a provider or a
 model.** A stand-in on 127.0.0.1,
 `recorders/node/test/stand-in.mjs` in digline's repository, answered the
@@ -182,7 +182,7 @@ tenant 'acme' · recording on
   switch:     …/desk/.digline/acme/recorder.toml
   values:     on true, sample 1.0 (default), redact none (default), ceiling 104857600 bytes (default), interval 5.0 s (default)
   writes to:  …/desk/.digline/acme/recordings
-  size:       13343 bytes of recordings (as written; disk use is higher), ceiling 104857600
+  size:       13340 bytes of recordings (as written; disk use is higher), ceiling 104857600
   suite _unassigned: 1 call, 0 orphans; since the last import: not read (pass --suite)
   suite apologies: 1 call, 0 orphans; since the last import: not read (pass --suite)
   suite summaries: 1 call, 0 orphans; since the last import: not read (pass --suite)
@@ -301,11 +301,13 @@ SDK reads:
 
 ```console
 $ OPENAI_BASE_URL=http://127.0.0.1:18960/v1 OPENAI_API_KEY=fake digline run --suite eval/suite.toml
-digline: tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 4 reviewed answers judged 36 times, with no call to the target; each answer is judged 3 times by llm_rubric
+digline: tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 4 reviewed answers judged 36 times, with no call to the target; each answer is judged 3 times by llm_rubric, 9 judgements a case
+digline: no cost estimate: this suite has no stored run to read one from, and nothing before the first call can say what a run will cost
+digline: is_json, json_schema, latency_budget judge no case: every case is suspended, or is a calibration case or a reviewed answer for another check, so they measure nothing in this suite; give them a case, or remove them
 digline: judge: 36 calls · counts: 756 in / 216 out · cost: 0.000243 USD
-digline: recorded .digline/acme/runs/triage/2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4.json
+digline: recorded .digline/acme/runs/triage/2026-11-16T13-55-21-664381-00-00-1e95069890cca3f4.json
 digline: next: digline promote --suite eval/suite.toml --run latest --replacing none  # keeps this run as the reference
-2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4
+2026-11-16T13-55-21-664381-00-00-1e95069890cca3f4
 ```
 
 The counts are the stand-in's, and the cost is digline's, from
@@ -314,7 +316,7 @@ reference:
 
 ```console
 $ digline promote --suite eval/suite.toml --run latest --replacing none
-tenant 'acme' · triage baseline set to 2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4
+tenant 'acme' · triage baseline set to 2026-11-16T13-55-21-664381-00-00-1e95069890cca3f4
 ```
 
 **The gate.** A later ticket named an order, so the turn asked for
@@ -336,18 +338,20 @@ tenant 'acme' · suite triage · writes to eval/captured.json · repository priv
 
 ```console
 $ OPENAI_BASE_URL=http://127.0.0.1:18960/v1 OPENAI_API_KEY=fake digline run --suite eval/suite.toml
-digline: tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric
+digline: tenant 'acme' · 0 cases × 3 samples = 0 calls to the target; 5 reviewed answers judged 45 times, with no call to the target; each answer is judged 3 times by llm_rubric, 9 judgements a case
+digline: estimated from run 2026-11-16T13-55-21-664381-00-00-1e95069890cca3f4: 0.0003 USD, its 0.0002 USD over 4 cases scaled to 5; an estimate, not a ceiling
+digline: is_json, json_schema, latency_budget judge no case: every case is suspended, or is a calibration case or a reviewed answer for another check, so they measure nothing in this suite; give them a case, or remove them
 digline: judge: 45 calls · counts: 945 in / 270 out · cost: 0.000304 USD
 digline: checks on the steps contradicted a person on 1 reviewed answer: never, on case cap-baa842f3dfae2b30-763e65be; max_steps, on case cap-baa842f3dfae2b30-763e65be.
-digline: recorded .digline/acme/runs/triage/2026-11-10T14-50-24-021780-00-00-1e95069890cca3f4.json
+digline: recorded .digline/acme/runs/triage/2026-11-16T13-55-25-044636-00-00-1e95069890cca3f4.json
 digline: next: digline compare --suite eval/suite.toml --run latest  # says whether anything got worse
-2026-11-10T14-50-24-021780-00-00-1e95069890cca3f4
+2026-11-16T13-55-25-044636-00-00-1e95069890cca3f4
 ```
 
 ```console
 $ digline compare --suite eval/suite.toml --run latest
-Checks on the steps contradicted a person on 1 reviewed answer: never, on case cap-baa842f3dfae2b30-763e65be; max_steps, on case cap-baa842f3dfae2b30-763e65be, and the case fails: cap-baa842f3dfae2b30-763e65be for never, failed where the person said yes; cap-baa842f3dfae2b30-763e65be for max_steps, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
-tenant 'acme', against baseline 2026-11-10T14-50-20-573227-00-00-1e95069890cca3f4
+Checks on the steps contradicted a person on 1 reviewed answer: never, on case cap-baa842f3dfae2b30-763e65be; max_steps, on case cap-baa842f3dfae2b30-763e65be, and the case fails: cap-baa842f3dfae2b30-763e65be for never, failed where the person said yes; cap-baa842f3dfae2b30-763e65be for max_steps, failed where the person said yes. Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference. The cases changed since the reference: 1 added (cap-baa842f3dfae2b30-763e65be). The cases both hold are compared as before.
+tenant 'acme', against baseline 2026-11-16T13-55-21-664381-00-00-1e95069890cca3f4
 ```
 
 `compare` exited `1`, which is what a gate in CI reads. A yes on a turn is a
@@ -366,7 +370,7 @@ tenant 'acme' · suite triage · read from _unassigned · writes to eval/capture
 
 group 1 · a single call, text · 1 answer from 1 recording
   setup in force for single calls: 4ae6bb98
-  cap-2d6997740b38c1e7-7f364bfe · 2026-11-10T14:50:15.648284+00:00 · setup 4ae6bb98
+  cap-2d6997740b38c1e7-7f364bfe · 2026-11-16T13:55:16.738448+00:00 · setup 4ae6bb98
     made at: app.mjs:subject
     input:  {"messages": [{"content": "My parcel is late.", "role": "user"}]}
     answer: Re: My parcel is late.
