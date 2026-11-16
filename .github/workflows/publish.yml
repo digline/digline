@@ -127,7 +127,13 @@ jobs:
             # Wheel filenames normalise the dash to an underscore, and the
             # core wheel goes in with it: `digline>=0.1.3` is not on the index
             # yet at this point in the tag, and must not be fetched from one.
-            /tmp/plugin/bin/pip install --quiet \
+            # `--find-links dist/` for the same reason, one level over: a
+            # plugin that pins another, as digline-bedrock pins
+            # digline-anthropic, is published with it, and the version it pins
+            # is beside it in `dist/`, not on the index. Without it the tag
+            # `digline-bedrock-v0.9.0` failed here, on 2026-11-16 (run
+            # 43851418395), before anything was uploaded.
+            /tmp/plugin/bin/pip install --quiet --find-links dist/ \
               dist/"$plugin"-*.whl dist/digline-[0-9]*.whl
             /tmp/plugin/bin/python -c "import $plugin, digline.targets"
           done
