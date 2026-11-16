@@ -1294,7 +1294,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_docker.py",
         "0.8.1": "digline-bedrock's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.9.1": "digline-anthropic's version, pinned to its own pyproject by "
+        "0.10.0": "digline-anthropic's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "25.0.1": "the pip the python:3.12-slim base bundled on a dated day, "
         "not a digline version",
@@ -1761,7 +1761,6 @@ _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 #: Each plugin's release pull request deletes its own line.
 _OWN_TAG_AFTER_1_3_0 = "released on its own tag after digline 1.3.0's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-anthropic": _OWN_TAG_AFTER_1_3_0,
     "digline-bedrock": _OWN_TAG_AFTER_1_3_0 + " and after digline-anthropic's",
     "digline-mcp": _OWN_TAG_AFTER_1_3_0,
     "digline-openai": _OWN_TAG_AFTER_1_3_0,
