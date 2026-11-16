@@ -6,17 +6,24 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.3.0 — unreleased
+## 1.3.0 — 2026-11-16
 
 digline **1.3.0**, a minor, because its stored document moves to schema 24
-(ADR 0065), and a schema that has moved belongs to no release until one
-carries it. Beside it, the repairs found in a first use outside the project,
-on a Java application with a judged suite: `--max-cost` and a cost estimate,
-the judge's preflight and the judgements a case gets, a company proxy for
-`digline record proxy`, and the rest below. No public name is removed or
-renamed. One command refuses what it accepted: `digline promote` exits 64 on
-a run made with other cases than the suite declares, which 1.2.0 promoted.
-Written when the number moved; the cut writes the rest of this opening.
+(ADR 0065), and a schema change that needs `migrate` moves the minor
+(RELEASING.md, *Choosing the version*). Beside it, the repairs found in a
+first use outside the project, on a Java application with a judged suite:
+`--max-cost` and a cost estimate, the judge's preflight and the judgements a
+case gets, a company proxy for `digline record proxy`, the state of a suite
+and a review one answer at a time in `digline view` (ADR 0066), and the rest
+below. No public name is removed or renamed. One command refuses what it
+accepted: `digline promote` exits 64 on a run made with other cases than the
+suite declares, which 1.2.0 promoted. The first comparison after the upgrade
+says the judge changed, once: the judge's instruction is now part of its
+recorded configuration, and a reference judged under 1.2.0 holds none.
+This tag publishes digline alone. digline-anthropic 0.10.0,
+digline-bedrock 0.9.0, digline-mcp 0.10.0 and digline-openai 0.8.0, below,
+are released each on its own tag after this one, and digline-mcp 0.10.0
+requires this release.
 
 - **Schema 24: a case left out of a reference by name, and the cases a run was
   made with** (ADR 0065). A case removed from the suite after a run stayed in

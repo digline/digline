@@ -116,33 +116,11 @@ def swept() -> list[Path]:
 #: A literal equal to the current version must never appear here; the test
 #: below refuses it.
 RECORDED: dict[str, dict[str, str]] = {
-    "docs/record.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
-    },
-    "docs/metrics.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
-    },
-    "docs/calibration.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
-    },
     "docs/record-java.md": {
         "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it; and, in the proxy's section, "
-            "what 1.2.0 does with a company proxy, measured on 2026-11-12"
+            "in the proxy's section, what 1.2.0 does with a company proxy, "
+            "measured on 2026-11-12, told as history; its *Arrives with "
+            "digline 1.3.* mark went at the cut"
         ),
         "1.1.1": (
             "'installed digline 1.1.1 and digline-openai 0.7.0': what the "
@@ -491,10 +469,8 @@ RECORDED: dict[str, dict[str, str]] = {
     },
     "docs/walkthroughs/from-the-ide-over-mcp.md": {
         "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it; and the digline the "
-            "walkthrough installed when it was run, told as history"
+            "the digline the walkthrough installed when it was run, told as "
+            "history; its *Arrives with digline 1.3.* mark went at the cut"
         ),
         "0.9.1": (
             "'digline-mcp 0.9.1', 'digline-anthropic 0.9.1': what the install line "
@@ -1015,11 +991,6 @@ RECORDED: dict[str, dict[str, str]] = {
         ),
     },
     "docs/explain.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
         "0.15.0": "told as history: "
         "the delta-pass over 0.15.0 is the pass these fixes came out of, and "
         "the number says which pass it was. Moving it would claim the pass "
@@ -1099,21 +1070,11 @@ RECORDED: dict[str, dict[str, str]] = {
         "that also records, dated, what it used to promise instead",
     },
     "docs/guide.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
         "0.15.3": "'has since `0.15.3` closed GHSA-8c38-f965-cgww' — the release "
         "that closed the fifth advisory, told as history in chapter 6 where a "
         "hand-computed median meets the same denominator",
     },
     "docs/api.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
         "0.34.0": "'Measured on digline 0.34.0', 'including 0.34.0' and the keys "
         "added under version 3 that 'shipped under it in 0.34.0' — the release "
         "a measurement was made on, the last release before a repair, and the "
@@ -1390,11 +1351,6 @@ RECORDED: dict[str, dict[str, str]] = {
         "why the classification exists. History",
     },
     "docs/view.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
         "0.21.0": "'In 0.21.0, a process that read that file could promote' — "
         "the release whose reusable launch key was K-1, told as why the "
         "address now works once. History",
@@ -1601,11 +1557,6 @@ RECORDED: dict[str, dict[str, str]] = {
         "sends API version 2026-10-21, which refuses `temperature` with a 400",
     },
     "docs/declarative.md": {
-        "1.2.0": (
-            "the release before 1.3, which the page's *Arrives with digline "
-            "1.3.* mark says the paragraph above it differs from; the mark goes "
-            "at the cut, and the number with it"
-        ),
         "1.0.0": "'since 1.0.0' — not a digline version: the `anthropic` SDK "
         "release whose `Messages.create` first has no `temperature`. It left "
         "this table while digline was 1.0.0 itself, and is registered again "
@@ -1798,7 +1749,23 @@ HEADING = r"^##[ \t]+{name}{version}[ \t]+—[ \t]+(\S+)"
 #: intent, and each plugin's release pull request deletes its own.
 #: *Moved to 1.1.1 on 2026-11-09:* v1.1.0 is tagged and never reached PyPI.
 _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
-UNRELEASED_ON_PURPOSE: dict[str, str] = {}
+#:
+#: *1.3.0, by Alessandro Prandini's decision of 2026-11-16 (P-1694).* The
+#: four plugins whose headings say `— unreleased`, digline-anthropic 0.10.0,
+#: digline-bedrock 0.9.0, digline-mcp 0.10.0 and digline-openai 0.8.0, keep
+#: them across the core's tag: the release pull request of 1.3.0 moves no
+#: plugin's version, so `tools/tag_names.py "digline 1.3.0"` names one
+#: package, and each is released on its own tag after the core's
+#: (RELEASING.md, *Owed to the next version* and *Owed at the cut*).
+#: digline-bedrock after digline-anthropic's too, because it depends on it.
+#: Each plugin's release pull request deletes its own line.
+_OWN_TAG_AFTER_1_3_0 = "released on its own tag after digline 1.3.0's"
+UNRELEASED_ON_PURPOSE: dict[str, str] = {
+    "digline-anthropic": _OWN_TAG_AFTER_1_3_0,
+    "digline-bedrock": _OWN_TAG_AFTER_1_3_0 + " and after digline-anthropic's",
+    "digline-mcp": _OWN_TAG_AFTER_1_3_0,
+    "digline-openai": _OWN_TAG_AFTER_1_3_0,
+}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:
