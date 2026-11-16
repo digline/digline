@@ -487,19 +487,30 @@ OBSERVED_FIELDS = frozenset({"resolved_model", "fingerprint"})
 #: perimeter value stays withheld. A class declared in reviewed code, which is
 #: how a widening of what crosses is made (ADR 0046). `pricing` is the word
 #: `ProviderTarget` writes beside a declared price. (ADR 0034 §17.2; #323)
-#: `prompt_digest` is the word `JudgeBase` writes for the digest of its
-#: instruction; its value, a digest of a text in digline's own source, stays
-#: a token like every value. (ADR 0005 §4, amended 2026-11-14; P-1686)
+#: `score_prompt_digest` and `claim_prompt_digest` are the words a
+#: `ScoreJudge` and a `ClaimCountJudge` write for the digest of their
+#: instruction; each value, a digest of a text in digline's own source, stays
+#: a token like every value. (ADR 0005 §4, amended 2026-11-14; ADR 0068 §3)
 #: What a projection writes in place of a foreign verdict's metadata value: the
 #: form an artifact's withheld text already has. (ADR 0034 §17.3)
 WITHHELD_METADATA: Mapping[str, object] = {"withheld": True}
+
+#: The digest of a judge's instruction, one key per kind of judge, each
+#: merged over the judges that write it and no other: a `ClaimCountJudge`
+#: beside a `ScoreJudge` on one model never writes `score_prompt_digest`, so it
+#: does not disagree with it. (ADR 0068 §3, narrowing ADR 0005 §4's merge rule
+#: for these two keys alone)
+JUDGE_PROMPT_DIGESTS: frozenset[str] = frozenset(
+    {"score_prompt_digest", "claim_prompt_digest"}
+)
 
 NAMED_CONFIG_KEYS: frozenset[str] = (
     CONTRACT_FIELDS
     | OBSERVED_FIELDS
     | PERIMETER_FIELDS
     | ENDPOINT_PERIMETER_FIELDS
-    | frozenset({"pricing", "prompt_digest"})
+    | frozenset({"pricing"})
+    | JUDGE_PROMPT_DIGESTS
 )
 
 

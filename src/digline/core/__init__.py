@@ -169,6 +169,7 @@ from digline.core.resolution import (
 from digline.core.reviewed import Contradiction, Reviewed, contradicted
 from digline.core.run import (
     DECLARED_PRICE_FIELDS,
+    JUDGE_PROMPT_DIGESTS,
     MAX_RECORDED_CHARS,
     NAMED_CONFIG_KEYS,
     NO_BASELINE,
@@ -285,6 +286,7 @@ __all__ = [
     "GROUP_MARKER",
     "IDENTITY_FIELD",
     "ITALIAN_PII",
+    "JUDGE_PROMPT_DIGESTS",
     "MAX_RECORDED_CHARS",
     "NAMED_CONFIG_KEYS",
     "OBSERVED_FIELDS",

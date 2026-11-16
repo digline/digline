@@ -49,7 +49,7 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
         "provider": "openai",
         "model": "gpt-5-mini",
         "max_tokens": 1024,
-        "prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
+        "score_prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
         # What it was set up to ask for. A provider that refuses the parameter
         # is retried once without it (ADR 0004 §4); that is a runtime fallback,
         # and this is the configuration, read before the first call.

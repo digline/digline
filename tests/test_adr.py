@@ -227,25 +227,9 @@ UNRELEASED_RECORDS: dict[str, str] = {
         "no step in `_STEPS` renames a key; the gate its §7 owes is "
         "`tests/test_migration_steps.py`, run on a renaming step built there"
     ),
-    "0064-a-runs-cost-estimated-before-and-capped-during": (
-        "accepted and built in this tree, in no release tag: the newest tag "
-        "at its landing is v1.2.0"
-    ),
-    "0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with": (
-        "accepted and built in this tree, in no release tag: the newest tag "
-        "at its landing is v1.2.0"
-    ),
     "0067-calibrating-the-judge-against-a-person": (
         "accepted and not built: the construction waits on the order of its "
         "pull requests"
-    ),
-    "0068-a-judge-set-up-in-the-suite-toml": (
-        "accepted and not built: the construction waits on the order of its "
-        "pull requests"
-    ),
-    "0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time": (
-        "accepted and built in this tree, in no release tag: the newest tag "
-        "at its landing is v1.2.0"
     ),
     "0056-a-migration-step-that-transforms": (
         "no step in `_STEPS` transforms a shape; the gate its §6 owes is "

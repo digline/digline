@@ -749,9 +749,6 @@ an estimate read from the suite's newest stored run, `digline.host.estimate`,
 and never compares the two.
 ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
 
-> **Arrives with digline 1.3.** 1.2.0 has no `max_cost`, no
-> `CostCeilingReached` and no estimate.
-
 In a sum, `False` wins over `None` and `None` over `True`, across cases,
 judges and the legs of a resumed run. `None` is also what a document written
 before schema 21 reads as, and what `CallTotals()` built by hand says: a line
@@ -816,9 +813,6 @@ is what a reader sees. An empty reply, and an object with a wrong field, are
 not asked again. ([ADR 0004](adr/0004-every-plugin-is-a-target-and-a-judge.md)
 §4, as noted 2026-11-12)
 
-> **Arrives with digline 1.3.** On 1.2.0 a reply with no JSON object is an
-> `error` after one call.
-
 **A reply cut at the cap says it was cut.** Where neither reply held an
 object and the provider said one stopped at the cap (`finish` is `length`),
 the reason reads *the judge's reply stopped at N tokens, its max_tokens of N,
@@ -826,10 +820,6 @@ before it held a JSON object*, with the remedy, instead of *no JSON object*.
 Both instructions, `SCORE_SYSTEM` and `CLAIM_SYSTEM`, ask for the object
 before any other word. The judges of the three plugins, Anthropic, OpenAI
 and Bedrock, default to `max_tokens=1024`.
-
-> **Arrives with digline 1.3.** Before 1.3 a reply cut at the cap reads *no
-> JSON object*. The judges' cap of 1024 arrives with the plugin releases
-> cut beside 1.3; before them it is 400.
 
 **A reason that writes out another score is an `error`.** `SCORE_SYSTEM`
 says to grade the output alone: *"The input and the context are reference:
@@ -842,9 +832,6 @@ disagree*, kept in the run, and `digline explain` says it under its case
 where the samples disagreed. A reason that writes no score is not read, and
 *3/5* is a count, not a score. `ClaimCountJudge` is not read this way: its
 reason states counts.
-
-> **Arrives with digline 1.3.** Before 1.3 the returned score stands
-> whatever the reason says.
 
 ### `PromptTemplate`
 
@@ -1129,15 +1116,13 @@ absent. `fingerprint` is withheld under redaction, because on a custom
 `Run.judge_config`: a judge that moved is a change of measuring *instrument*, so
 the scores stop being comparable with the baseline whatever the target did, and
 the report says so rather than leaving it to be noticed. Beside `provider`,
-`model`, `max_tokens` and `temperature` it records `prompt_digest`, sixteen hex
-characters of the sha256 of the judge's instruction, its class's `system`: a
-judge asked under new words is a new instrument, and a comparison says the
-judge changed.
-
-> **Arrives with digline 1.3.** Before 1.3 the instruction is not recorded,
-> and a comparison of runs judged under two instructions says nothing about
-> it. The first run under 1.3, compared with a reference judged under 1.2,
-> says the judge changed, once: the key is `new`.
+`model`, `max_tokens` and `temperature` it records the digest of the judge's
+instruction, its class's `system`, sixteen hex characters of its sha256: under
+`score_prompt_digest` for a `ScoreJudge` and `claim_prompt_digest` for a
+`ClaimCountJudge`. A judge asked under new words is a new instrument, and a
+comparison says the judge changed. Each key is merged over the judges that
+write it, so a suite holding both kinds on one model keeps both
+(`JUDGE_PROMPT_DIGESTS`, ADR 0068 §3).
 
 A suite may hold several judges, so `judge_config` records **which** instruments
 graded as well as how: `identities` is the set of distinct `provider/model`
@@ -1392,9 +1377,6 @@ through every fold: a `Repeated` of 3 under `Suite(samples=2)` is 6, where
 `scores` holds the two inner means. All numbers, so they cross the boundary:
 the software house sees how unstable a check is without seeing what it was
 judging.
-
-> **Arrives with digline 1.3.** On 1.2.0 the fold records neither
-> `judgements` nor `in_favour`.
 
 ### The interval, and the noise floor
 
@@ -2075,8 +2057,6 @@ only reads, and git is not called where it is not installed; outside a
 repository nothing is said. It is never a refusal, and the exit code does not
 change.
 
-> **Arrives with digline 1.3.** 1.2.0 says nothing about a worktree.
-
 What is inside the directory, its format, its lock and its retention are the
 owning process's. `tenant_dir` is not documented and stays internal: the
 reserved directory is the only part of a tenant's layout a program outside
@@ -2133,9 +2113,6 @@ suite still declares, any case of a run with run-level checks, and a case with
 nobody's name beside it are refused as `ExclusionRefusedError`. Both refusals
 are in `REFUSALS`. On the command line that is `--exclude CASE --by NAME`
 ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)).
-
-> **Arrives with digline 1.3.** 1.2.0's `promote` takes neither, and refuses
-> no run for its cases.
 
 ### Reading: `read_run` and `read_baseline`
 
@@ -3038,7 +3015,7 @@ since schema 22, because a projection receives a document and not a suite
 - **A configuration key** crosses in clear where the configuration records it
   in `named` and it is in **`NAMED_CONFIG_KEYS`**, digline's closed vocabulary:
   `CONTRACT_FIELDS`, `OBSERVED_FIELDS`, `PERIMETER_FIELDS`,
-  `ENDPOINT_PERIMETER_FIELDS`, `pricing` and `prompt_digest`. Every other
+  `ENDPOINT_PERIMETER_FIELDS`, `pricing` and `JUDGE_PROMPT_DIGESTS`. Every other
   key is a token, in `values` and in `withheld`, and every string value is a
   token either way. So
   `base_url` and `resolved_model` are named in clear as withheld, and a key a

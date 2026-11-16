@@ -103,9 +103,6 @@ $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
 ```
 
-> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
-> unchanged from the reference.*, here and below.
-
 `promote` wrote `.digline/northwind/baselines/support.json`. Commit it. From now
 on every comparison is against that file, it is reviewed like any other change,
 and `git revert` puts the old reference back.
@@ -340,9 +337,6 @@ two answers' means, so the run report prints beside it the single judgements
 it rests on and how many passed (*6 judgements, 4 in favour*), which the mean
 alone does not say.
 
-> **Arrives with digline 1.3.** On 1.2.0 the plan says no figure a case,
-> and neither the run nor its report counts the judgements.
-
 **What it will cost, and a ceiling on what it does.** Beside that line, `run`
 says what the run is likely to cost, read from the suite's newest stored run:
 *estimated from run `<key>`: 0.2400 USD, its 0.2400 USD over 3 cases scaled to
@@ -363,9 +357,6 @@ and prints the `--resume` command that finishes it: the cases already paid for
 are kept. A call whose cost is not known adds nothing, so the ceiling reads at
 least what was spent, and the run can go one case past it.
 ([ADR 0064](adr/0064-a-runs-cost-estimated-before-and-capped-during.md))
-
-> **Arrives with digline 1.3.** 1.2.0 prints no estimate, and its `run`
-> takes no `--max-cost`.
 
 ```console
 $ digline run --suite support.py
@@ -1197,10 +1188,6 @@ cases* when the newest run holds a case the suite dropped, before it reads what
 the judge said about that case.
 ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md))
 
-> **Arrives with digline 1.3.** On 1.2.0 a case removed from the suite after
-> the run stays in the run with its verdicts, `promote` refuses the run on
-> them, and nothing leaves a case out of a reference.
-
 ### Trigger four — the model changed under you
 
 You changed nothing. The provider shipped a new version of the model, or
@@ -1406,9 +1393,6 @@ $ digline run --suite support.py
 $ digline compare --suite support.py --run latest
 Nothing got worse compared with the reference. 1 check moved within noise. 3 checks are on the line: the bands they measured cover their thresholds. Every case could be judged. 1 case is suspended. The suite changed since the reference, so these numbers compare different rules. The cases changed since the reference: 1 added (return-a-gift). The cases both hold are compared as before.
 ```
-
-> **Arrives with digline 1.3.** On 1.2.0 that sentence ends at *so these
-> numbers compare different rules.*, and the case just added is not named.
 
 Two things are not said on that page, and only one of them is left unsaid on
 purpose.

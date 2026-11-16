@@ -9,7 +9,7 @@
   the three limits of §1, and no new field in §2. Built in the pull request
   after the one that accepted it, on 2026-11-13; two places where the build
   says more than this text are dated notes in §2.
-- Shipped: unreleased
+- Shipped: 1.3.0
 - Date: 2026-11-13
 - Opens: `SCHEMA_VERSION`, by one key on the reference (§1), under
   [ADR 0014](0014-what-may-ride-a-schema-bump.md) §1's passenger rule. No

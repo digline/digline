@@ -6,17 +6,24 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## 1.3.0 — unreleased
+## 1.3.0 — 2026-11-16
 
 digline **1.3.0**, a minor, because its stored document moves to schema 24
-(ADR 0065), and a schema that has moved belongs to no release until one
-carries it. Beside it, the repairs found in a first use outside the project,
-on a Java application with a judged suite: `--max-cost` and a cost estimate,
-the judge's preflight and the judgements a case gets, a company proxy for
-`digline record proxy`, and the rest below. No public name is removed or
-renamed. One command refuses what it accepted: `digline promote` exits 64 on
-a run made with other cases than the suite declares, which 1.2.0 promoted.
-Written when the number moved; the cut writes the rest of this opening.
+(ADR 0065), and a schema change that needs `migrate` moves the minor
+(RELEASING.md, *Choosing the version*). Beside it, the repairs found in a
+first use outside the project, on a Java application with a judged suite:
+`--max-cost` and a cost estimate, the judge's preflight and the judgements a
+case gets, a company proxy for `digline record proxy`, the state of a suite
+and a review one answer at a time in `digline view` (ADR 0066), and the rest
+below. No public name is removed or renamed. One command refuses what it
+accepted: `digline promote` exits 64 on a run made with other cases than the
+suite declares, which 1.2.0 promoted. The first comparison after the upgrade
+says the judge changed, once: the judge's instruction is now part of its
+recorded configuration, and a reference judged under 1.2.0 holds none.
+This tag publishes digline alone. digline-anthropic 0.10.0,
+digline-bedrock 0.9.0, digline-mcp 0.10.0 and digline-openai 0.8.0, below,
+are released each on its own tag after this one, and digline-mcp 0.10.0
+requires this release.
 
 - **Schema 24: a case left out of a reference by name, and the cases a run was
   made with** (ADR 0065). A case removed from the suite after a run stayed in
@@ -204,15 +211,17 @@ Written when the number moved; the cut writes the rest of this opening.
   the object before any other word. Found in a Java application with a
   judged suite, on Bedrock.
 - **The judge's instruction is in its recorded configuration.** A judge
-  records `prompt_digest`, sixteen hex characters of the sha256 of the
-  instruction it is asked under, so a comparison of runs judged under two
+  records the digest of the instruction it is asked under, sixteen hex
+  characters of its sha256, under one key per kind of judge:
+  `score_prompt_digest` for a `ScoreJudge`, `claim_prompt_digest` for a
+  `ClaimCountJudge` (ADR 0068 §3). So a comparison of runs judged under two
   instructions says the judge changed. The first run under 1.3, compared
-  with a reference judged under 1.2, says it once: the reference has no
-  `prompt_digest`, the key reads `new`, and the instruction did change.
-  Promoted, the next comparison says nothing. A suite holding a `ScoreJudge`
-  and a `ClaimCountJudge` on one model records no `prompt_digest`, because
-  the two are asked under two instructions and the judge's set-up keeps
-  only what its judges agree on.
+  with a reference judged under 1.2, says it once: the reference has neither
+  key, the key reads `new`, and the instruction did change. Promoted, the
+  next comparison says nothing. Each key is merged over the judges that write
+  it, so a suite holding a `ScoreJudge` and a `ClaimCountJudge` on one model
+  keeps both; two judges of one kind under two instructions keep neither's.
+  New public name: `JUDGE_PROMPT_DIGESTS` in `digline.core`.
 - **A judge's reason that writes out another score is an `error`.**
   `SCORE_SYSTEM` says the input and the context are reference: *grade the
   output alone; the context is what the system was allowed to use, not what
@@ -240,6 +249,16 @@ Written when the number moved; the cut writes the rest of this opening.
   installed, and changes no exit code. New public names: `in_a_worktree` and
   `WORKTREE_NOTE` in `digline.host`. Asked for from a Java application with a
   judged suite.
+
+### Seen working in a browser — both walkthroughs, owed and run
+
+- **The walkthroughs for `digline view --allow-promote` and `digline view
+  --allow-record` ran on 2026-11-16, before the tag, by Alessandro**, on the
+  release head `85bbf69d`. **Both were owed:** the review one answer at a
+  time (ADR 0066 §2) is a form a person meets first in a browser, and the
+  launch now keeps the reviewer's name. Every step went as written,
+  `--allow-promote`'s 0 to 6 and `--allow-record`'s 1 to 12, the review's
+  among them, and all were ok.
 
 ## digline-anthropic 0.10.0 — unreleased
 

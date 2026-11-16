@@ -12,7 +12,7 @@
   §2 and §3 in the second, on 2026-11-13, and the finishing in the third.
   Where the build says more than this text, a dated note in §1 or §2 says
   so
-- Shipped: unreleased
+- Shipped: 1.3.0
 - Date: 2026-11-13
 - Opens: **nothing.** No `SCHEMA_VERSION`, no `OUTPUT_VERSION`, no
   `RECORDING_VERSION`, no line of `_STEPS` and no entry in the layout of

@@ -35,9 +35,6 @@ be judged. 1 case is suspended. The suite's checks are unchanged from the
 reference.
 ```
 
-> **Arrives with digline 1.3.** Before 1.3, the sentence reads *The suite is
-> unchanged from the reference.*, here and below.
-
 No suite on this page produces the session above, and no test replays it. It
 shows the form of the report: the model and the judge behind `alpha`'s
 `llm_rubric` are not named here.

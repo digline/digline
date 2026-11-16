@@ -39,7 +39,10 @@
 - Amended: 2026-11-14 — §4, **the judge's instruction is part of the
   instrument**, by Alessandro Prandini's decision of that day (P-1686): a
   judge records `prompt_digest`, the digest of the `system` it is asked
-  under. It widens what §4 records and overturns nothing
+  under. It widens what §4 records and overturns nothing. *Renamed
+  2026-11-16, before any release carried it*, by
+  [ADR 0068](0068-a-judge-set-up-in-the-suite-toml.md) §3: one key per kind
+  of judge, each merged over the judges that write it (note in §4)
 - Supersedes: the *proposed — open question* draft of 2026-08-28, whose five
   open points are the five sections below
 - Assumes: [ADR 0003](0003-artifacts-travel-only-when-the-suite-says-so.md) §3
@@ -247,6 +250,17 @@ to it unchanged, and that is its limit: a `ScoreJudge` and a
 holding both records no `prompt_digest`, and a change to either instruction
 goes unsaid there. `prompt_digest` joins `NAMED_CONFIG_KEYS`, so a
 projection names the key in clear and its value stays a token.
+
+*Noted 2026-11-16, the paragraph above kept as written, by
+[ADR 0068](0068-a-judge-set-up-in-the-suite-toml.md) §3, built in the
+release pull request of 1.3.0.* `prompt_digest` is renamed in place, before
+any release carried it, and no reference was recorded with it: a
+`ScoreJudge` records `score_prompt_digest` and a `ClaimCountJudge`
+`claim_prompt_digest`. The merge rule above is narrowed for these two keys
+alone: **each is merged over the judges that write it**, so a suite holding
+both kinds on one model keeps both, and the limit named above holds only
+for two judges of one kind under two instructions. Both keys are in
+`NAMED_CONFIG_KEYS`, as `JUDGE_PROMPT_DIGESTS`, and `prompt_digest` is not.
 
 ### 5. What the reader sees
 

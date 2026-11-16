@@ -419,9 +419,6 @@ case's `case_id`, `check`, `score`, `threshold`, `margin`,
 as tokens, as every fact does
 ([ADR 0012](adr/0012-the-reading.md) §3, as amended 2026-11-14).
 
-> **Arrives with digline 1.3.** On 1.2.0 nothing says that a verdict was a
-> split or a mean at its threshold, beyond the band of a check *on the line*.
-
 ## What it will not tell you
 
 **The judge's words.** No fact carries a `reason` — the field does not exist on
@@ -437,9 +434,6 @@ and printed after the facts; it is not a fact, `--json` and the MCP `explain`
 do not carry it, and no sentence that sums the run up quotes the judge
 ([ADR 0012](adr/0012-the-reading.md) §4, as amended 2026-11-12).
 
-> **Arrives with digline 1.3.** On 1.2.0 the terminal reading ends at the
-> facts, and a judged check's disagreeing samples keep the mean's reason alone.
-
 **The cases, against a reference.** After the counts, the terminal reading
 says the two sentences `compare` says when the cases changed: *the cases
 changed since the reference*, with the added and the removed named, and the
@@ -447,9 +441,6 @@ cases a person *excluded at promotion* from the reference, with who
 ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)). They are text, as the
 judge's words are: not facts, not in `--json` or the MCP `explain`, and they
 move no exit code.
-
-> **Arrives with digline 1.3.** On 1.2.0 the reading does not say which cases
-> changed, and no reference excludes one.
 
 The same rule takes the stated reason a case was suspended: that a case was set
 aside travels, because it is a fact about coverage; *why* somebody set it aside

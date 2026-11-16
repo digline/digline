@@ -19,6 +19,7 @@ from typing import Protocol, TypeGuard, cast, runtime_checkable
 
 from digline import __version__
 from digline.core import (
+    JUDGE_PROMPT_DIGESTS,
     MAX_RECORDED_CHARS,
     NAMED_CONFIG_KEYS,
     NO_CALLS,
@@ -337,6 +338,13 @@ def judge_config(suite: Suite) -> SystemConfig:
     established. With two identities there is no single set-up at all, and the
     identity list carries the whole answer.
 
+    **The digest of an instruction is merged over the judges that write it**,
+    and no other (ADR 0068 §3). A `ScoreJudge` writes `score_prompt_digest` and
+    a `ClaimCountJudge` `claim_prompt_digest`, so a suite holding one of each on
+    one model keeps both, where a key merged over every judge would be dropped
+    by the judge that never writes it. Two judges of one kind under two
+    instructions still drop their key, by the rule above.
+
     A judge that declares nothing — no `provider`, no `model` — is passed over
     the way a plain-function target is: what names no instrument records none.
     """
@@ -357,6 +365,12 @@ def judge_config(suite: Suite) -> SystemConfig:
         for key, value in first.items()
         if all(other.get(key, _MISSING) == value for other in rest)
     }
+    # The two digests are decided again over the judges that write them, which
+    # keeps a key the rule above dropped for a judge of the other kind.
+    for key in sorted(JUDGE_PROMPT_DIGESTS):
+        written = [c[key] for c in declared if key in c]
+        if written and all(value == written[0] for value in written):
+            agreed[key] = written[0]
     # `provider` and `model` survive the merge by construction: a single
     # identity is what makes them equal across every judge here.
     try:

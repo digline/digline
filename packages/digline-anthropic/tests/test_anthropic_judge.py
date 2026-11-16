@@ -87,7 +87,7 @@ def test_the_judge_declares_the_instrument_it_is(client: FakeClient) -> None:
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
         "max_tokens": 1024,
-        "prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
+        "score_prompt_digest": hashlib.sha256(SCORE_SYSTEM.encode()).hexdigest()[:16],
     }
 
 
