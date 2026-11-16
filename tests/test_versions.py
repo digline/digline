@@ -1760,9 +1760,7 @@ _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 #: digline-bedrock after digline-anthropic's too, because it depends on it.
 #: Each plugin's release pull request deletes its own line.
 _OWN_TAG_AFTER_1_3_0 = "released on its own tag after digline 1.3.0's"
-UNRELEASED_ON_PURPOSE: dict[str, str] = {
-    "digline-mcp": _OWN_TAG_AFTER_1_3_0,
-}
+UNRELEASED_ON_PURPOSE: dict[str, str] = {}
 
 
 def heading_of(changelog: str, name: str | None, version: str) -> str | None:
