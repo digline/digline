@@ -253,7 +253,8 @@ requires this release.
 ### Seen working in a browser — both walkthroughs, owed and run
 
 - **The walkthroughs for `digline view --allow-promote` and `digline view
-  --allow-record` ran on 2026-11-16, before the tag, by Alessandro**, on the
+  --allow-record` ran on 2026-11-16, before the tag, by Alessandro**, in
+  Google Chrome 157.0.8103.40 on macOS (arm64), one browser engine, on the
   release head `85bbf69d`. **Both were owed:** the review one answer at a
   time (ADR 0066 §2) is a form a person meets first in a browser, and the
   launch now keeps the reviewer's name. Every step went as written,

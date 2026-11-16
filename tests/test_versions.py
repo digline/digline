@@ -491,6 +491,11 @@ RECORDED: dict[str, dict[str, str]] = {
             "moved to for digline 1.2.0, in v1.2.0's paragraph of the Status "
             "block: history"
         ),
+        "1.13.0": (
+            "not a digline version: digline-action's tag v1.13.0, the one v1 "
+            "moved to for digline 1.3.0, in v1.3.0's paragraph of the Status "
+            "block: history"
+        ),
         "1.1.1": (
             "the release before 1.2.0, told as history: its paragraph in the "
             "Status block and the named tags of its plugins, the floors and "
@@ -1269,9 +1274,6 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_examples.py, which is where a third-party version belongs",
     },
     "examples/langchain4j/README.md": {
-        "0.35.0": "the floor of the pin the README quotes, `digline>=0.35.0,<2`: "
-        "the oldest release that reads the example's schema-22 baseline, not a "
-        "claim about the current release",
         "0.21.0": "the release `expect_config` arrived in, named where the "
         "README says the line is now owed. A fact about one release",
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "
