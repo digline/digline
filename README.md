@@ -49,24 +49,26 @@ def target(case: Case) -> Response:
 ```console suite=hello
 $ digline run --suite suite.py
 digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
+digline: no cost estimate: this suite has no stored run to read one from, and nothing before the first call can say what a run will cost
 digline: target: 1 call · counts: none · cost: not known
-2026-10-31T13-26-55-593090-00-00-f849e1e676ebb535
-digline: recorded .digline/acme/runs/hello/2026-10-31T13-26-55-593090-00-00-f849e1e676ebb535.json
+2026-11-16T08-12-12-237572-00-00-f849e1e676ebb535
+digline: recorded .digline/acme/runs/hello/2026-11-16T08-12-12-237572-00-00-f849e1e676ebb535.json
 digline: next: digline promote --suite suite.py --run latest --replacing none  # keeps this run as the reference
 
 $ digline promote --suite suite.py --run latest --replacing none
-tenant 'acme' · hello baseline set to 2026-10-31T13-26-55-593090-00-00-f849e1e676ebb535
+tenant 'acme' · hello baseline set to 2026-11-16T08-12-12-237572-00-00-f849e1e676ebb535
 
 $ digline run --suite suite.py
 digline: tenant 'acme' · 1 case × 1 sample = 1 call to the target
+digline: estimated from run 2026-11-16T08-12-12-237572-00-00-f849e1e676ebb535: 0.0000 USD, its 0.0000 USD over 1 case scaled to 1; an estimate, not a ceiling; that run did not price every call, so the figure is low
 digline: target: 1 call · counts: none · cost: not known
-2026-10-31T13-26-55-896575-00-00-f849e1e676ebb535
-digline: recorded .digline/acme/runs/hello/2026-10-31T13-26-55-896575-00-00-f849e1e676ebb535.json
+2026-11-16T08-12-12-850787-00-00-f849e1e676ebb535
+digline: recorded .digline/acme/runs/hello/2026-11-16T08-12-12-850787-00-00-f849e1e676ebb535.json
 digline: next: digline compare --suite suite.py --run latest  # says whether anything got worse
 
 $ digline compare --suite suite.py --run latest
 Nothing got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
-tenant 'acme', against baseline 2026-10-31T13-26-55-593090-00-00-f849e1e676ebb535
+tenant 'acme', against baseline 2026-11-16T08-12-12-237572-00-00-f849e1e676ebb535
 ```
 
 The reference is a file in your repo, reviewed like any other change. The
@@ -175,10 +177,16 @@ When your judge is a real model, add a provider plugin:
 
 ```console suite=support
 $ digline run --suite suite.py
-2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
+digline: tenant 'northwind' · 2 cases × 1 sample = 2 calls to the target
+digline: no cost estimate: this suite has no stored run to read one from, and nothing before the first call can say what a run will cost
+digline: target: 2 calls · counts: none · cost: 0.008990 USD
+digline: judge: not recorded
+2026-11-16T08-12-31-167387-00-00-e7421ec503ccefe8
+digline: recorded .digline/northwind/runs/support/2026-11-16T08-12-31-167387-00-00-e7421ec503ccefe8.json
+digline: next: digline promote --suite suite.py --run latest --replacing none  # keeps this run as the reference
 
 $ digline promote --suite suite.py --run latest --replacing none
-tenant 'northwind' · support baseline set to 2026-08-26T15-44-09-282929-00-00-e7421ec503ccefe8
+tenant 'northwind' · support baseline set to 2026-11-16T08-12-31-167387-00-00-e7421ec503ccefe8
 ```
 
 Now make it worse — delete `— Northwind Support` from the second answer —
@@ -186,10 +194,17 @@ and ask again:
 
 ```console suite=support
 $ digline run --suite suite.py
-2026-08-26T15-44-09-492722-00-00-e7421ec503ccefe8
+digline: tenant 'northwind' · 2 cases × 1 sample = 2 calls to the target
+digline: estimated from run 2026-11-16T08-12-31-167387-00-00-e7421ec503ccefe8: 0.0090 USD, its 0.0090 USD over 2 cases scaled to 2; an estimate, not a ceiling
+digline: target: 2 calls · counts: none · cost: 0.008790 USD
+digline: judge: not recorded
+2026-11-16T08-12-31-941965-00-00-e7421ec503ccefe8
+digline: recorded .digline/northwind/runs/support/2026-11-16T08-12-31-941965-00-00-e7421ec503ccefe8.json
+digline: next: digline compare --suite suite.py --run latest  # says whether anything got worse
 
 $ digline compare --suite suite.py --run latest
 2 checks got worse compared with the reference. Every case could be judged. No case is suspended. The suite's checks are unchanged from the reference.
+tenant 'northwind', against baseline 2026-11-16T08-12-31-167387-00-00-e7421ec503ccefe8
 
 how-do-i-return · llm_rubric · Score fell from 1.000000 to 0.700000.
 how-do-i-return · contains · Went from passing to failing (1.000000 → 0.000000).
