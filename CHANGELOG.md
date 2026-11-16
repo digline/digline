@@ -296,7 +296,7 @@ reference judged at 400 says the judge changed. It requires
   judge's configuration as changed. A judge that passes `max_tokens` is
   unchanged. Found in a Java application with a judged suite.
 
-## digline-mcp 0.10.0 — unreleased
+## digline-mcp 0.10.0 — 2026-11-16
 
 A minor, decided 2026-11-14: this release requires digline 1.3.0, and its
 floor is raised to `digline>=1.3.0,<2` at the cut.
