@@ -24,8 +24,10 @@ dependencies = [
     # `loop.py` pass `--names clear`, the declaration 0.7.0 makes required and
     # no earlier release knows (ADR 0054 §1). The cap admits 0.9, the first
     # release with the thirteen tools `docs/mcp.md` lists, which CI's
-    # `.github/mcp_tools.py` holds the server resolved here to.
-    "digline-mcp>=0.7,<0.10",
+    # `.github/mcp_tools.py` holds the server resolved here to, and 0.10, cut
+    # after digline 1.3.0, which removes no tool and adds none (raised
+    # 2026-11-16, at the cut of 1.3.0).
+    "digline-mcp>=0.7,<0.11",
     # The client half of the same protocol, for `loop.py`'s probe: it calls
     # `promote` by name on that server each cycle and expects to be told there
     # is no such tool. Named here rather than reached through `digline-mcp`,
