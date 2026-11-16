@@ -320,7 +320,7 @@ floor is raised to `digline>=1.3.0,<2` at the cut.
 - **`record_listing` counts each group's `cases`**, the questions its answers
   are to, beside `answers`.
 
-## digline-openai 0.8.0 — unreleased
+## digline-openai 0.8.0 — 2026-11-16
 
 A minor, by #919's criterion: a run under the new default records another
 judge configuration than one under the old, so its comparison with a

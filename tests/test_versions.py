@@ -1290,7 +1290,7 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.2.3": "a pandas pin in the same example",
     },
     "docker/Dockerfile": {
-        "0.7.0": "digline-openai's version, pinned to its own pyproject by "
+        "0.8.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "0.9.0": "digline-bedrock's version, pinned to its own pyproject by "
         "tests/test_docker.py",
@@ -1762,7 +1762,6 @@ _OWN_TAG_AFTER_1_1_1 = "released on its own tag after digline 1.1.1's"
 _OWN_TAG_AFTER_1_3_0 = "released on its own tag after digline 1.3.0's"
 UNRELEASED_ON_PURPOSE: dict[str, str] = {
     "digline-mcp": _OWN_TAG_AFTER_1_3_0,
-    "digline-openai": _OWN_TAG_AFTER_1_3_0,
 }
 
 
