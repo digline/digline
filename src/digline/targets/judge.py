@@ -116,11 +116,13 @@ CLAIM_SYSTEM = (
 def prompt_digest(system: str) -> str:
     """The judge's instruction as sixteen hex characters of its sha256.
 
-    Recorded in `judge_config` as `prompt_digest`, so that a comparison says
+    Recorded in `judge_config` as `score_prompt_digest` or
+    `claim_prompt_digest`, by the kind of judge, so that a comparison says
     the judge changed when the instruction did: the words a judge is asked
     under are part of the instrument as much as its model. A digest and not
     the text, because the configuration is diffed field by field and the
-    text is a page long. (ADR 0005 §4, amended 2026-11-14; P-1686)
+    text is a page long. (ADR 0005 §4, amended 2026-11-14; P-1686;
+    ADR 0068 §3)
     """
     return hashlib.sha256(system.encode("utf-8")).hexdigest()[:16]
 
@@ -305,6 +307,11 @@ class JudgeBase(ABC):
     #: than passed in: a judge whose system prompt is a constructor argument is
     #: a judge whose replies the parser cannot promise to read.
     system: ClassVar[str]
+
+    #: The key the digest of `system` is recorded under in `config`, one per
+    #: kind of judge, so two kinds on one model keep both (ADR 0068 §3). A
+    #: judge outside the two kinds below writes none.
+    digest_key: ClassVar[str | None] = None
 
     #: What the plugin wrote into the assistant turn before the model spoke, if
     #: it did. Declared here so `_said_something` can see past it — a reply that
@@ -520,19 +527,22 @@ class JudgeBase(ABC):
         with the baseline whatever the target did — a change of instrument, not
         of the thing measured. `max_tokens` is here rather than on the plugins
         because every judge has one: it is `JudgeBase`'s own argument.
-        `prompt_digest` is here for the same reason: every judge is asked
-        under its class's `system`, and a new instruction is a new
-        instrument. (P-1686)
+        The digest of the instruction is here for the same reason: each
+        kind of judge is asked under its class's `system`, and a new
+        instruction is a new instrument. It is recorded under the kind's own
+        key, `score_prompt_digest` or `claim_prompt_digest`. (P-1686;
+        ADR 0068 §3)
         """
         if not self.provider:
             return {}
-        system = cast("str | None", getattr(self, "system", None))
+        key = self.digest_key
+        digest = {} if key is None else {key: prompt_digest(self.system)}
         return sent(
             provider=self.provider,
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
-            prompt_digest=None if system is None else prompt_digest(system),
+            **digest,
             **self.observed.values,
         )
 
@@ -713,6 +723,7 @@ class ScoreJudge(JudgeBase):
     """Satisfies `digline.core.Judge`: a prompt in, a `JudgeReply` out."""
 
     system: ClassVar[str] = SCORE_SYSTEM
+    digest_key: ClassVar[str | None] = "score_prompt_digest"
 
     def __call__(self, prompt: str) -> JudgeReply:
         data = self._ask(prompt)
@@ -727,6 +738,7 @@ class ClaimCountJudge(JudgeBase):
     """Satisfies `digline.core.ClaimJudge`: two counts, and the core divides."""
 
     system: ClassVar[str] = CLAIM_SYSTEM
+    digest_key: ClassVar[str | None] = "claim_prompt_digest"
 
     def __call__(self, prompt: str) -> ClaimReply:
         data = self._ask(prompt)

@@ -204,15 +204,17 @@ Written when the number moved; the cut writes the rest of this opening.
   the object before any other word. Found in a Java application with a
   judged suite, on Bedrock.
 - **The judge's instruction is in its recorded configuration.** A judge
-  records `prompt_digest`, sixteen hex characters of the sha256 of the
-  instruction it is asked under, so a comparison of runs judged under two
+  records the digest of the instruction it is asked under, sixteen hex
+  characters of its sha256, under one key per kind of judge:
+  `score_prompt_digest` for a `ScoreJudge`, `claim_prompt_digest` for a
+  `ClaimCountJudge` (ADR 0068 §3). So a comparison of runs judged under two
   instructions says the judge changed. The first run under 1.3, compared
-  with a reference judged under 1.2, says it once: the reference has no
-  `prompt_digest`, the key reads `new`, and the instruction did change.
-  Promoted, the next comparison says nothing. A suite holding a `ScoreJudge`
-  and a `ClaimCountJudge` on one model records no `prompt_digest`, because
-  the two are asked under two instructions and the judge's set-up keeps
-  only what its judges agree on.
+  with a reference judged under 1.2, says it once: the reference has neither
+  key, the key reads `new`, and the instruction did change. Promoted, the
+  next comparison says nothing. Each key is merged over the judges that write
+  it, so a suite holding a `ScoreJudge` and a `ClaimCountJudge` on one model
+  keeps both; two judges of one kind under two instructions keep neither's.
+  New public name: `JUDGE_PROMPT_DIGESTS` in `digline.core`.
 - **A judge's reason that writes out another score is an `error`.**
   `SCORE_SYSTEM` says the input and the context are reference: *grade the
   output alone; the context is what the system was allowed to use, not what

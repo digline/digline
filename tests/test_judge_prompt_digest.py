@@ -1,12 +1,14 @@
-"""The judge's instruction is part of the instrument. (P-1686)
+"""The judge's instruction is part of the instrument. (P-1686; ADR 0068 §3)
 
 A judge asked under new words grades on another scale, as one given another
-model does, so the digest of its `system` is recorded in `judge_config` as
-`prompt_digest` and a comparison says the judge changed when it moves. Two
-runs under one instruction say nothing. A reference recorded before the key
-existed reads it as `new`, which is a change: the first comparison after the
-upgrade says the judge changed, once, and the next one does not.
-(ADR 0005 §4, amended 2026-11-14)
+model does, so the digest of its `system` is recorded in `judge_config` and a
+comparison says the judge changed when it moves. One key per kind of judge:
+a `ScoreJudge` writes `score_prompt_digest` and a `ClaimCountJudge`
+`claim_prompt_digest`, each merged over the judges that write it, so two kinds
+on one model keep both. Two runs under one instruction say nothing. A
+reference recorded before the key existed reads it as `new`, which is a
+change: the first comparison after the upgrade says the judge changed, once,
+and the next one does not. (ADR 0005 §4, amended 2026-11-14; ADR 0068 §3)
 """
 
 from __future__ import annotations
@@ -16,8 +18,17 @@ from dataclasses import replace
 
 from tests.test_judge import FakeClaimJudge, FakeScoreJudge
 
-from digline.core import LlmRubric, Run, SystemConfig, compare
-from digline.run import Case, Response, Suite, execute
+from digline.core import (
+    JUDGE_PROMPT_DIGESTS,
+    NAMED_CONFIG_KEYS,
+    Assertion,
+    Faithfulness,
+    LlmRubric,
+    Run,
+    SystemConfig,
+    compare,
+)
+from digline.run import Case, Response, Suite, execute, judge_config
 from digline.targets import CLAIM_SYSTEM, SCORE_SYSTEM
 from digline.targets.judge import prompt_digest
 
@@ -36,18 +47,27 @@ class Reworded(Graded):
     system = SCORE_SYSTEM + "\n\nPrefer the shorter answer."
 
 
-def a_run(judge: Graded) -> Run:
-    suite = Suite(
+class Counted(FakeClaimJudge):
+    provider = "fake"
+
+
+def a_suite(*assertions: Assertion) -> Suite:
+    return Suite(
         tenant="acme-bank",
         environment="staging",
         name="qa",
-        assertions=[
-            LlmRubric(rubric="right?", judge=judge, threshold=0.5, tolerance=0.05)
-        ],
+        assertions=list(assertions),
         cases=[Case(id="capital-it")],
     )
+
+
+def rubric(judge: Graded) -> LlmRubric:
+    return LlmRubric(rubric="right?", judge=judge, threshold=0.5, tolerance=0.05)
+
+
+def a_run(judge: Graded) -> Run:
     return execute(
-        suite,
+        a_suite(rubric(judge)),
         lambda case: Response(output="Rome."),
         created_at="2026-11-14T00:00:00Z",
     )
@@ -55,21 +75,23 @@ def a_run(judge: Graded) -> Run:
 
 def outcome(now: Run, before: Run) -> str:
     deltas = compare(now, before).judge_config_deltas
-    return next(d.outcome for d in deltas if d.field == "prompt_digest")
+    return next(d.outcome for d in deltas if d.field == "score_prompt_digest")
 
 
 def test_the_digest_is_sixteen_hex_characters_of_the_instruction() -> None:
     expected = hashlib.sha256(SCORE_SYSTEM.encode("utf-8")).hexdigest()[:16]
     assert prompt_digest(SCORE_SYSTEM) == expected
-    assert Graded(REPLY).config["prompt_digest"] == expected
-    assert Reworded(REPLY).config["prompt_digest"] != expected
+    assert Graded(REPLY).config["score_prompt_digest"] == expected
+    assert Reworded(REPLY).config["score_prompt_digest"] != expected
 
 
-def test_each_judge_records_the_instruction_it_asks_under() -> None:
-    class Counted(FakeClaimJudge):
-        provider = "fake"
-
-    assert Counted("").config["prompt_digest"] == prompt_digest(CLAIM_SYSTEM)
+def test_each_kind_of_judge_records_its_instruction_under_its_own_key() -> None:
+    claim = Counted("").config
+    score = Graded(REPLY).config
+    assert claim["claim_prompt_digest"] == prompt_digest(CLAIM_SYSTEM)
+    assert "score_prompt_digest" not in claim
+    assert "claim_prompt_digest" not in score
+    assert "prompt_digest" not in claim and "prompt_digest" not in score
 
 
 def test_a_judge_that_names_no_instrument_still_records_nothing() -> None:
@@ -104,9 +126,11 @@ def test_a_reference_recorded_before_the_key_says_it_once() -> None:
     older = replace(
         first,
         judge_config=SystemConfig(
-            values={k: v for k, v in recorded.values.items() if k != "prompt_digest"},
+            values={
+                k: v for k, v in recorded.values.items() if k != "score_prompt_digest"
+            },
             identities=recorded.identities,
-            named=recorded.named - {"prompt_digest"},
+            named=recorded.named - {"score_prompt_digest"},
         ),
     )
     assert outcome(first, older) == "new"
@@ -114,33 +138,39 @@ def test_a_reference_recorded_before_the_key_says_it_once() -> None:
     assert not compare(a_run(Graded(REPLY)), first).judge_config_changed
 
 
-def test_the_key_is_digline_s_word_and_crosses_a_projection_in_clear() -> None:
+def test_the_keys_are_digline_s_words_and_cross_a_projection_in_clear() -> None:
     """Named by the driver, so a projected comparison names the field."""
-    assert "prompt_digest" in (a_run(Graded(REPLY)).judge_config.named or ())
+    assert {"score_prompt_digest", "claim_prompt_digest"} == JUDGE_PROMPT_DIGESTS
+    assert JUDGE_PROMPT_DIGESTS <= NAMED_CONFIG_KEYS
+    assert "prompt_digest" not in NAMED_CONFIG_KEYS
+    assert "score_prompt_digest" in (a_run(Graded(REPLY)).judge_config.named or ())
 
 
-def test_a_score_and_a_claim_judge_on_one_model_record_no_digest() -> None:
-    """The limit ADR 0005 §4's merge rule sets, written where it bites: the two
-    are asked under two instructions, so the set-up keeps neither."""
-    from digline.core import Faithfulness
-    from digline.run import judge_config
-
-    class Counted(FakeClaimJudge):
-        provider = "fake"
-
-    suite = Suite(
-        tenant="acme-bank",
-        environment="staging",
-        name="qa",
-        assertions=[
-            LlmRubric(
-                rubric="right?", judge=Graded(REPLY), threshold=0.5, tolerance=0.05
-            ),
+def test_a_score_and_a_claim_judge_on_one_model_keep_both_digests() -> None:
+    """ADR 0068 §3: each key is merged over the judges that write it, so the
+    judge of the other kind, which never writes it, does not drop it."""
+    config = judge_config(
+        a_suite(
+            rubric(Graded(REPLY)),
             Faithfulness(judge=Counted(""), threshold=0.9, tolerance=0.05),
-        ],
-        cases=[Case(id="capital-it")],
+        )
     )
-    config = judge_config(suite)
     assert config.identities == ("fake/fake-1",)
     assert "max_tokens" in config.values
-    assert "prompt_digest" not in config.values
+    assert config.values["score_prompt_digest"] == prompt_digest(SCORE_SYSTEM)
+    assert config.values["claim_prompt_digest"] == prompt_digest(CLAIM_SYSTEM)
+
+
+def test_two_score_judges_under_two_instructions_record_no_score_digest() -> None:
+    """The limit ADR 0068 §3 keeps: two judges of one kind that disagree on
+    their instruction are two set-ups, and the key is dropped, as any scalar
+    two judges disagree on is. The claim judge's key is untouched."""
+    config = judge_config(
+        a_suite(
+            rubric(Graded(REPLY)),
+            rubric(Reworded(REPLY)),
+            Faithfulness(judge=Counted(""), threshold=0.9, tolerance=0.05),
+        )
+    )
+    assert "score_prompt_digest" not in config.values
+    assert config.values["claim_prompt_digest"] == prompt_digest(CLAIM_SYSTEM)
