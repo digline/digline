@@ -2547,6 +2547,69 @@ tag* updates it on every tag, and step 6 is what puts the capture's reading in
 it — including the sentence that says the capture ran and found nothing, which
 is the one a quiet log cannot supply.
 
+- **digline-mcp-v0.10.0 — a named tag after the core, one package, and its
+  registry entry.** #1025 merged at 11:24:45Z as `335f6b5e`, the floor raised
+  to `digline>=1.3.0,<2` once PyPI served 1.3.0; `tools/tag_names.py
+  "digline-mcp 0.10.0"` ran on it, `origin/main`, immediately before the tag:
+  one package, named, exit 0. The tag object is `018a878c`, pushed at
+  11:25:17Z. `publish` (`43857594662`) read `success` at 11:35:40Z.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 11:27:52Z and started at 11:33:58Z.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 11:34:09Z and 11:34:10Z; the wait saw
+    `digline-mcp==0.10.0` after 0s. Read from outside at 11:35:45Z: 200, and
+    `9.9.9`, 404; `requires_dist` reads `digline<2,>=1.3.0`.
+  - **The registry**: `mcp-registry` published `dev.digline/digline-mcp`
+    0.10.0, read at 11:35:56Z `active`, `isLatest` true, published at
+    11:35:33Z; 0.9.1 reads `isLatest` false.
+
+- **digline-openai-v0.8.0 — a named tag after the core, one package.** #1022
+  merged at 11:10:26Z as `5e3d3571`, after `main` was merged into it with
+  two conflicts, in `docker/Dockerfile` and `RELEASING.md`, each resolved by
+  keeping both sides' versions and deletions, and `uv.lock` regenerated
+  rather than taken from the three-way merge. `tools/tag_names.py
+  "digline-openai 0.8.0"`: one package, exit 0. The tag object is
+  `837e1946`, pushed at 11:10:55Z. `publish` (`43855460873`) read `success`
+  at 11:17:21Z.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 11:12:52Z and started at 11:15:52Z.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 11:16:09Z and 11:16:10Z; the wait saw
+    `digline-openai==0.8.0` after 10s. Read from outside at 11:17:26Z: 200,
+    and `9.9.9`, 404. 0.8.0 carries the *Security* entry owed as 0.7.1 and
+    never released.
+
+- **digline-anthropic-v0.10.1 — one named tag, two packages:
+  digline-anthropic 0.10.1 and digline-bedrock 0.9.0.** digline-bedrock
+  0.9.0 requires `digline-anthropic>=0.10.1,<0.11`, so the two are published
+  together, by Alessandro Prandini's decision of 2026-11-16 (P-1697, and
+  P-1699 for the tag's name). The tag is on #1024's merge commit,
+  `3873d485`, merged at 10:57:40Z: #1024 gave `publish.yml`'s per-plugin
+  install `--find-links dist/`, without which the tag below failed.
+  `tools/tag_names.py "digline-anthropic 0.10.1, digline-bedrock 0.9.0"`:
+  two packages, named, exit 0. The tag object is `9121992c`, pushed at
+  10:58:09Z. `publish` (`43853525543`) read `success` at 11:02:17Z.
+  - **The gate.** This session did not read the run's `approvals` record.
+    The `PyPI` job read `waiting` at 11:01:00Z and started at 11:01:13Z.
+  - **Counts**: 20 `PASSED`; 4 `publish`, 8 `skip`.
+  - **The index**: digline-anthropic 0.10.1 uploaded at 11:01:22Z and
+    11:01:25Z, digline-bedrock 0.9.0 at 11:01:23Z and 11:01:26Z; the wait
+    saw each after 10s. Read from outside at 11:02:22Z: 200 for both, and
+    `9.9.9`, 404; digline-bedrock's `requires_dist` reads
+    `digline-anthropic<0.11,>=0.10.1`.
+
+- **digline-bedrock-v0.9.0 — a tag that published nothing.** #1023 merged at
+  10:43:19Z as `851692f0`, and `tools/tag_names.py "digline-anthropic
+  0.10.1, digline-bedrock 0.9.0"` named two packages, exit 0. The tag object
+  is `dcaee41b`, pushed at 10:43:38Z, annotated with both. `publish`
+  (`43851418395`) failed at 10:44:52Z in *Build and check every package*,
+  before any upload: the per-plugin install gave pip no `--find-links
+  dist/`, so digline-bedrock's requirement on digline-anthropic 0.10.1 was
+  looked for on the index, which did not serve it. TestPyPI and PyPI were
+  skipped; read at 10:47:24Z, TestPyPI answered 404 for both versions. The
+  tag stays on `main`, and the two packages went out on
+  `digline-anthropic-v0.10.1`, above.
+
 - **digline-anthropic-v0.10.0 — a tag that never reached PyPI.** #1016
   merged at 10:16:29Z as `1011646a`, and `tools/tag_names.py
   "digline-anthropic 0.10.0"` named one package, exit 0. The tag object is
@@ -2560,32 +2623,49 @@ is the one a quiet log cannot supply.
   0.9.0 on one tag. `release-followup` opened no issue for it: it asks about
   `v*` tags.
 
-- **1.3.0 cut: core 1.3.0 alone on its tag; digline-anthropic 0.10.0,
-  digline-bedrock 0.9.0, digline-mcp 0.10.0 and digline-openai 0.8.0 each on
-  a tag of its own after it; pytest-digline unchanged.**
-  *Written 2026-11-14 (P-1683), before the cut, so that the cut finds it;
-  not a tag.* *Corrected the same day (P-1685):* digline-bedrock is no
-  longer unchanged. Its judges' `max_tokens` default moved from 400 to 1024,
-  so it owes a release beside the core. *Corrected again the same day
-  (P-1686):* the judges of digline-anthropic and digline-openai moved to
-  1024 too, and the three plugins take a minor each, by #919's criterion,
-  as ruled by Alessandro Prandini; digline-openai's 0.8.0 absorbs the 0.7.1
-  that was owed.
-  The numbers are the rows of *Owed to the next version*: the core's minor
-  by schema 24; digline-mcp's minor by Alessandro Prandini's decision that it
-  requires the new core, with its floor owed at the cut; the three
-  plugins' minors for their judges' cap, digline-openai's carrying the
-  patch for the credential keys left out of its setup. pytest-digline has
-  no commit under `packages/pytest-digline` since `pytest-digline-v0.6.1`,
-  measured 2026-11-14 (P-1686). The release pull
-  request replaces this line with the tag's own paragraph.
-  *Changed 2026-11-16 (P-1694), by Alessandro Prandini's decision of that
-  day:* 1.3.0 is cut before ADR 0067 and 0068 are built, and its release
-  pull request moves no plugin's version, so the tag publishes digline
-  alone. Each plugin's release pull request follows the core's tag, digline-
-  bedrock's after digline-anthropic's, as `UNRELEASED_ON_PURPOSE` in
-  `tests/test_versions.py` says, and digline-mcp's raises its floor to
-  `digline>=1.3.0,<2` once PyPI serves 1.3.0.
+- **v1.3.0 — a minor for schema 24, the core alone on its tag, and the
+  plugins after it, each on a tag of its own.** By Alessandro Prandini's
+  decision of 2026-11-16 (P-1694), cut before ADR 0067 and 0068 are built.
+  #1014 merged at 09:50:16Z as `0cb600d2`, on the head `3a9b6905`, which
+  added the walkthroughs' lines to `85bbf69d`, the head they ran on.
+  `tools/tag_names.py "digline 1.3.0"` ran on that merge commit, which was
+  `origin/main`, immediately before the tag: one package, named, exit 0. The
+  tag object is `ee12c91b`, pushed at 09:50:53Z. `publish` (`43843451344`)
+  read `success` at 10:02:40Z, every job green, the GitHub Release among
+  them.
+  - **The gate.** This session did not read the run's `approvals` record. The
+    `PyPI` job read `waiting` at 09:54:36Z and started at 10:00:50Z.
+  - **Counts**: 16 `PASSED`; 2 `publish`, 10 `skip`.
+  - **The index**: uploads at 10:01:04Z and 10:01:06Z; the wait saw
+    `digline==1.3.0` after 10s. Read from outside at 10:02:24Z: 200, and
+    `9.9.9`, 404.
+  - **`docker-publish` (`43843451314`, step 2)** read `success`. Its install
+    read `served` for the four pins and installed digline 1.3.0,
+    digline-anthropic 0.9.1, digline-bedrock 0.8.1 and digline-openai 0.7.0,
+    the plugins the Dockerfile pinned at the tag; the plugins released after
+    it reach an image with the next `v*` tag. The wait for digline 1.3.0
+    served it once after 601s and twice at once. Neither leg's install was
+    `CACHED`. `1.3.0`, `1.3` and `latest` read one digest,
+    `sha256:6995fb9918e5cf768de88d9a7063cfe0a17df3e525cd135f8de657604645b52e`,
+    and `1.2.0` its own, `sha256:ea4767c8…`, as the control. The base is
+    the `python:3.12-slim` of #1013 (`e3608a78`).
+  - **The capture (step 6)**: the capture ran, and the pair was present for
+    digline. `wait` read serial 43453156 from 09:51:10Z to 10:00:42Z, before
+    the index listed 1.3.0, and 43721762 from 10:01:12Z; `pip` read 43721762
+    twice. It agreed once served, and the race was the wait's.
+  - **The examples (steps 3 and 5)**: the seven locks moved to digline 1.3.0
+    with `--upgrade-package digline`, and the three that name
+    digline-anthropic to 0.10.1, written by uv 0.13.7 with `revision = 5`
+    kept; no example locks digline-mcp, and `operator` admits `<0.11`. The
+    schema moved, so the eleven floors rose to `digline>=1.3.0,<2` with the
+    locks. Ten reports were rendered against 1.3.0, each run from a clean tree
+    in a chain from `6fdc3439`, each naming a commit `HEAD` reaches;
+    `prompt-first` is held by judgement, as a live measurement. The dispatch
+    of `ci.yml` waits for this pull request's merge.
+  - **The action (step 7)**: digline-action #32 moved the default to 1.3.0,
+    with its fixtures migrated to schema 24 by the 1.3.0 image, merged at
+    `57da1ded`; `v1.13.0` and `v1` point there, `v1` moved from `8bca2a38`
+    with a lease on its old tag object.
   - **The check a person makes before the tag** (*Not built: a package whose
     text moved under a version the index serves*), written before the tag,
     on the release pull request's branch on 2026-11-16 at 08:16Z:
@@ -2604,8 +2684,8 @@ is the one a quiet log cannot supply.
     - pytest-digline, since `pytest-digline-v0.6.1`: nothing.
     Each change is the one its `— unreleased` heading in `CHANGELOG.md`
     says, and none reaches a user through the core's tag: each waits for
-    its own. The reading is taken again on the merge commit, immediately
-    before the tag, with `tag_names.py`.
+    its own. Read again on the merge commit `0cb600d2`, immediately before
+    the tag: the same five answers, and `tag_names.py` one package.
 - **v1.2.0 — a minor for `digline suggest`'s meaning, and the three
   advisories of the delta-pass over 1.1.1 fixed, the core alone on its tag.**
   #986 merged at 12:24:30Z; its first head was red on the three gates and the
