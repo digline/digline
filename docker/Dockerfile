@@ -29,9 +29,9 @@ FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb
 # that lags a release fails in the repository, before anything reaches a
 # registry.
 ARG DIGLINE_VERSION=1.3.0
-ARG DIGLINE_ANTHROPIC_VERSION=0.10.0
+ARG DIGLINE_ANTHROPIC_VERSION=0.10.1
 ARG DIGLINE_OPENAI_VERSION=0.7.0
-ARG DIGLINE_BEDROCK_VERSION=0.8.1
+ARG DIGLINE_BEDROCK_VERSION=0.9.0
 
 # Passed by the workflow, empty on a local build. Empty is the honest value: a
 # revision label that names a commit the image was not built from is worse than
