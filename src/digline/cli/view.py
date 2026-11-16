@@ -1807,7 +1807,11 @@ class ViewHandler(BaseHTTPRequestHandler):
         # and the header is built from nothing a request wrote. The address
         # is built from names `checked_name` let through, each quoted, and
         # after a review from the id of an answer the import just wrote,
-        # which the listing holds, urlencoded. (ADR 0066 §2)
+        # which the listing holds, urlencoded. That id, `after`, arrived in
+        # the request's path, and reaches here only as one the listing holds:
+        # `import_elect` has refused any id outside it before this runs,
+        # `_segment` quotes the path and `urlencode` escapes CR and LF in the
+        # query, so no request writes a header line here. (ADR 0066 §2)
         joint = "&" if "?" in address else "?"
         self.send_header(
             "Location", f"{address}{joint}locale={_LOCALE_PARAMETER[locale]}"
