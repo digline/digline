@@ -420,7 +420,10 @@ that was not is a 403, *the request was not signed with this machine's AWS
 credentials*, which says why, and goes nowhere: a process on the machine
 without its keys spends nothing with them. So an application signs with the
 same profile the proxy reads, and a Bedrock API key, which is not a
-signature, is refused. The application's signature itself does not go on.
+signature, is refused: from botocore 1.44 by boto3 itself, which sends a
+bearer to no address that is not https, and with an older botocore by the
+proxy's 403. Either way the key goes nowhere. The application's signature
+itself does not go on.
 Credentials that may call Bedrock and nothing else are still worth giving
 the proxy. Where it finds no region or no credentials, the start says so on
 the route's line, and a call is a 502 that says the same.

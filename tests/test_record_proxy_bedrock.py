@@ -701,8 +701,22 @@ def test_a_bedrock_api_key_is_refused_and_goes_nowhere(
 ) -> None:
     """boto3 sends a Bedrock API key as a bearer, which is OpenAI's claim
     (measured with botocore 1.43.123). Bedrock's path decides, and a call not
-    signed with this machine's key is refused, never passed on."""
-    from botocore.exceptions import ClientError  # pyright: ignore[reportMissingTypeStubs]
+    signed with this machine's key is refused, never passed on.
+
+    Two refusals, by botocore's version, and the test names which it met.
+    From botocore 1.44 the SDK refuses to send a bearer to an address that is
+    not https, *Bearer authorization requires an HTTPS endpoint*, so it raises
+    before the proxy is asked (measured with botocore 1.44.3, P-1702). With an
+    older botocore the call reaches the proxy, which answers its 403. In both,
+    nothing reaches the upstream."""
+    import botocore  # pyright: ignore[reportMissingTypeStubs]
+    from botocore.exceptions import (  # pyright: ignore[reportMissingTypeStubs]
+        ClientError,
+        InvalidEndpointConfigurationError,
+    )
+
+    major, minor = (int(part) for part in str(botocore.__version__).split(".")[:2])
+    sdk_refuses = (major, minor) >= (1, 44)
 
     running = start_proxy(
         root=tmp_path,
@@ -721,14 +735,19 @@ def test_a_bedrock_api_key_is_refused_and_goes_nowhere(
         client: Any = cast(Any, boto3).client(
             "bedrock-runtime", region_name="us-west-2", endpoint_url=running.address
         )
-        with pytest.raises(ClientError) as raised:
+        expected = InvalidEndpointConfigurationError if sdk_refuses else ClientError
+        with pytest.raises(expected) as raised:
             client.converse(
                 modelId=MODEL, messages=[{"role": "user", "content": [{"text": "?"}]}]
             )
     finally:
         running.stop()
-    assert cast(Any, raised.value).response["ResponseMetadata"]["HTTPStatusCode"] == 403
-    assert "it carries no AWS signature" in str(raised.value)
+    if sdk_refuses:
+        assert "Bearer authorization requires an HTTPS endpoint" in str(raised.value)
+    else:
+        response = cast(Any, raised.value).response
+        assert response["ResponseMetadata"]["HTTPStatusCode"] == 403
+        assert "it carries no AWS signature" in str(raised.value)
     assert upstream.seen == []
 
 
