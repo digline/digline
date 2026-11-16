@@ -260,7 +260,15 @@ requires this release.
   `--allow-promote`'s 0 to 6 and `--allow-record`'s 1 to 12, the review's
   among them, and all were ok.
 
-## digline-anthropic 0.10.0 — 2026-11-16
+## digline-anthropic 0.10.1 — 2026-11-16
+
+**0.10.0 never reached PyPI.** Its tag, `digline-anthropic-v0.10.0`, uploaded
+it to TestPyPI, and the install that follows refused it: digline-bedrock
+0.8.1 requires `digline-anthropic<0.10`, and the install takes every package
+of the workspace at its version. The `pypi` job did not run. TestPyPI keeps
+0.10.0, so the release takes the next number, published with digline-bedrock
+0.9.0, whose requirement now admits it, on `digline-bedrock-v0.9.0`. 0.10.1
+carries what 0.10.0 would have, and nothing else.
 
 A minor, by #919's criterion: a run under the new default records another
 judge configuration than one under the old, so its comparison with a
@@ -273,11 +281,13 @@ reference judged at 400 says the judge changed.
   judge's configuration as changed. A judge that passes `max_tokens` is
   unchanged. The same default as digline-bedrock 0.9.0's.
 
-## digline-bedrock 0.9.0 — unreleased
+## digline-bedrock 0.9.0 — 2026-11-16
 
 A minor, by #919's criterion: a run under the new default records another
 judge configuration than one under the old, so its comparison with a
-reference judged at 400 says the judge changed.
+reference judged at 400 says the judge changed. It requires
+`digline-anthropic>=0.10.1,<0.11`, and the two are published together on
+`digline-bedrock-v0.9.0`.
 
 - **The judges' `max_tokens` defaults to 1024**, where it was 400: a judge
   that reasoned before its JSON object was cut at 400 and the case stayed

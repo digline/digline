@@ -1,6 +1,6 @@
 [project]
 name = "digline-bedrock"
-version = "0.8.1"
+version = "0.9.0"
 description = "Amazon Bedrock target and judges for digline, on the Converse API."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -61,10 +61,14 @@ dependencies = [
     # A dependency and not an extra, because an extra adds a state to explain:
     # a call counted for want of a package.
     #
-    # 0.9, by name: `WIRE` and the stream reading this package imports first
-    # ship in digline-anthropic 0.9.0. Capped at the next minor, `<0.10`, as
-    # the examples that depend on it cap it.
-    "digline-anthropic>=0.9,<0.10",
+    # 0.10.1, by name: the judges this package's judge sits beside default to
+    # `max_tokens=1024` from digline-anthropic 0.10, and 0.10.0 never reached
+    # PyPI (CHANGELOG, digline-anthropic 0.10.1). `WIRE` and the stream reading
+    # this package imports first ship in 0.9.0, so the floor is the newer of
+    # the two reasons. Capped at the next minor, `<0.11`, as the examples that
+    # depend on it cap it. A plugin that pins another is published with it:
+    # 0.8.1's `<0.10` is what refused 0.10.0 beside it.
+    "digline-anthropic>=0.10.1,<0.11",
     # boto3 and nothing else. No wrapper, no gateway: the Converse API is one
     # call, and a layer on top would only add a second thing to be wrong.
     "boto3>=1.35",
