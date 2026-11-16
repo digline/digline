@@ -16,7 +16,12 @@
 # question an advisory asks. The digest is the multi-arch index, so the amd64
 # and arm64 builds both resolve from it. Dependabot opens the bump — the tag in
 # the comment is what a human reads, the digest is what the build obeys.
-FROM python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+# Moved by hand on 2026-11-16, before Dependabot opened it, for Trivy's alerts
+# 137 to 141 against the image 1.2.0 published: the index read from Docker
+# Hub that day, whose linux/arm64 base lists apt and libapt-pkg7.0 at 3.0.4,
+# the fixed version of 137 and 138. It lists zlib1g at
+# 1:1.3.dfsg+really1.3.1-1+b1 still, so 139 to 141 are not closed by it.
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 # The versions are written here and nowhere else. `tests/test_docker.py` holds
 # them to the versions this workspace declares, and the publishing workflow
