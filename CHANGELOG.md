@@ -6,6 +6,38 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A missing provider says which environment was searched.** *"no provider
+  named … is installed"* now ends on *"digline is running from the
+  environment at <sys.prefix>, and a plugin installed in another one is not
+  seen from here"*: a digline installed with `uv tool install` has an
+  environment of its own, and a plugin added to the project's `.venv` is not
+  in it. The near miss, *"Did you mean …"*, does not say it. The README's
+  Quickstart says how to add a plugin to the tool, `--with digline-bedrock`,
+  or to run the project's `.venv/bin/digline`. Found in a Java application
+  with a judged suite.
+- **The checks that were not compared are listed one to a line**, each after
+  a dash, in `fact.unpaired.many`, in English and Italian: three pairs in one
+  line were a paragraph nobody could scan. One pair stays inside its sentence.
+  `compare` prints the headline a line at a time, the report keeps the breaks,
+  and `compare --json`'s `sentence` carries them as `\n`. A line break inside
+  a value the sentence quotes, a case id or a check's name, is now written
+  `\x0a` in the sentence itself, as `compare` already showed it, so that the
+  only breaks in it are digline's; `--json` and the report carried it raw.
+  Found in a Java application with a judged suite.
+- **The docs say two things the same use asked.** `docs/api.md`: a judge
+  called from the library judges once, and repetition is `Repeated` or
+  `Suite.samples`. `docs/record.md`: the other calls an application makes
+  inside a turn take a suite of their own or land in `_unassigned`.
+
+## pytest-digline — unreleased
+
+- **The summary prints the headline a line at a time**, as `digline compare`
+  does, so the checks that were not compared read one to a line. pytest-digline
+  0.6.1, as published, prints those breaks as `\x0a` beside a digline that
+  lists them.
+
 ## digline-bedrock 0.9.1 — 2026-11-19
 
 A patch, released alone on `digline-bedrock-v0.9.1`, with the same
