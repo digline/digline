@@ -659,11 +659,6 @@ is not one of its judged assertions when it is loaded. A suite that declares a
 source and does not load its file is refused when it is loaded, naming the
 cases it left out.
 
-A run judges every case its suite loads, captured ones included, and never a
-group of them. Cases you want kept apart, an experiment above all, are
-imported into a suite of their own, with a `[capture]` of its own
-([declarative.md](declarative.md#by_group-splits-an-aggregate-by-class)).
-
 Then two invocations:
 
 ```console
@@ -737,6 +732,65 @@ does, since *not this answer* names no answer.
 
 The import writes the file and stops: the diff is the review, the commit is the
 signature.
+
+### Choosing first, judging blind, revising after
+
+*Arrives with digline 1.4.* The order above, a yes or a no and then a run,
+lets the judge's verdict come after yours, so a second or a fourth run until
+the two agree looks like the first. The other order fixes the judge's verdict
+before yours exists ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md)
+§1):
+
+1. **Choose the answers**, with no verdict:
+
+   ```sh
+   digline record import --tenant acme --suite eval/suite.py --choose cap-…
+   ```
+
+   Each is written **awaiting a verdict**, a reviewed answer with no `good`
+   and no mark. `--held-out` writes the answers this invocation chooses as
+   held out, kept to test a rubric rather than to tune it; held in is the
+   default, so one who forgets reports no test rather than a tuning as one.
+2. **Run the suite.** The judge judges each chosen answer, the target is not
+   called, and its verdict is in no gate and no aggregate: the run says how
+   many answers await a verdict. A run whose only cases await one judged
+   nothing and exits `2`, with a sentence that says why; a judge that errors
+   on one is said, *1 awaiting answer was not judged*, and is no cause of
+   `2`.
+3. **Judge blind**, on the [review page](view.md#the-review-one-answer-at-a-time),
+   which reads the recordings and the cases file and nothing of any run, or
+   with the same command a press runs:
+
+   ```sh
+   digline record import --tenant acme --suite eval/suite.py --good cap-… --by 'Ada Lovelace'
+   ```
+
+   On an answer awaiting a verdict, `--good` or `--bad` **fills it in
+   place**, with your mark; every other case in the file keeps its bytes.
+4. **Revise after reading the disagreements**, where you change your mind:
+
+   ```sh
+   digline record revise --tenant acme --suite eval/suite.py --case cap-… --bad --by 'Ada Lovelace'
+   ```
+
+   The revision is written beside the blind verdict, as `revised` with your
+   name and the time, never in its place, and the gate then holds it. A
+   revision that says what the verdict already says is refused.
+
+**About the whole answer.** *Arrives with digline 1.4.* `--whole` writes the
+verdict about the whole answer rather than about the source's check: every
+judged check of the suite runs on it, a yes expects each to pass, and a no
+names the checks that failed, `--failing CHECK`, once per check, every other
+expected to pass. *Good on everything but the tone* is `--bad ID --whole
+--failing tone`. A no about the whole answer without `--failing` is refused,
+and `record revise` takes `--failing` the same way. The person decides once
+per answer, and the judge is asked once per judged check.
+
+**Keep an experiment in a suite of its own.** A run judges every case of its
+suite and never a group of them ([ADR 0010](adr/0010-per-group-aggregates.md)
+§5), the captured ones included, so cases you want kept apart, an experiment
+above all, are imported into a suite of their own, with a `[capture]` of its
+own ([declarative.md](declarative.md#by_group-splits-an-aggregate-by-class)).
 
 The same write, one answer at a time, with the answer whole in front of you
 and the name typed once, is the [review](view.md#the-review-one-answer-at-a-time)

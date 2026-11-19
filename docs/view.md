@@ -461,6 +461,34 @@ counts the answers and carries none of them, and no tool writes one
 ([ADR 0023](adr/0023-capture.md) §4, §9).
 ([ADR 0066](adr/0066-the-state-of-a-suite-and-a-review-one-answer-at-a-time.md) §2, §3)
 
+**Blind, with the rule, and a second press.** *Arrives with digline 1.4.*
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1 (b), §2, §4)
+
+- **The page is blind.** It reads the recordings and the cases file, and
+  nothing of any run: no verdict, score or reason of the judge's, and no count
+  one could be read from. An answer chosen with `record import --choose` and
+  awaiting a verdict is offered as any other, and a press fills its verdict
+  in place, with the command under the button,
+  `digline record import --good|--bad ID --by NAME`.
+- **The rule.** Above the buttons, the suite's `review_rule`, what a yes
+  means in its words; a suite that declares none loads, and the page says
+  *This suite does not say what a yes means*. Set it in `[suite]`
+  (`review_rule = "…"`) or as `Suite(review_rule=...)`. It is outside
+  `config_hash`, and an edit to it after verdicts were given is not detected:
+  the text each verdict was given under is the suite's history in git.
+- **A no about the whole answer.** On an answer written with `--whole`, a
+  box per judged check of the suite, none ticked, sits above the buttons:
+  the ones ticked are the `--failing` the `--bad` carries, and its command
+  line says them.
+- **The second press.** An answer that already has a verdict is shown with
+  it, and, under `--allow-record`, offered a revision after you read the
+  disagreements: `digline record revise --case ID --good|--bad --by NAME`.
+  About one check only the other verdict is offered, since a revision that
+  says the same is refused, and once revised there is nothing left to
+  offer; about the whole answer, both. The revision is written beside the
+  blind verdict, never in its place, and the page reads it back, *Revised to
+  --bad: the gate holds this one.*
+
 ## `--allow-record`
 
 ```console

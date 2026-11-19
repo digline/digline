@@ -498,6 +498,16 @@ same way.
 as it was; capture reads the file to know what is there and writes new entries
 after it. A file that does not parse is refused by name and left untouched.
 
+*Narrowed 2026-11-19 by [ADR 0067](0067-calibrating-the-judge-against-a-person.md)
+§1 (b), §2 and Alessandro Prandini's ruling of that day (P-1710); the
+paragraph above is kept as written.* Two writes go into one case already in
+the file, and into no other: a verdict given to an answer chosen to await
+one, by `record import --good|--bad`, and a verdict revised after review, by
+`record revise`. Every other case stays byte for byte as it was, and the case
+written into is rewritten in the import's own form. A case is still never
+removed, and the blind verdict is never replaced: the revision is written
+beside it.
+
 **An elected exemplar is permanent.** Capture never removes, rotates, or
 re-proposes a case that is in the file. Retirement is `suspended`, with its
 mandatory reason, written by a person's hand in the same file — and a suspended
