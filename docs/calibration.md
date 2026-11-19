@@ -146,6 +146,12 @@ The judge contradicted a person on 1 reviewed answer, and the case fails: said-n
 No case is suspended.
 2 checks measured a band that covers their own threshold, so which side they landed on is a property of the samples that were drawn.
 
+How the judge agrees with the person
+llm_rubric, held in: blind, 1 of 2 agree (1 passed a no, 0 failed a yes); after review, 1 of 2 agree (1 passed a no, 0 failed a yes).
+No reviewed answer is held out: the agreement above was measured on the answers the rubric was tuned on.
+No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+This suite does not say what a yes means.
+
 How it was set up
 Nothing in this group.
 
