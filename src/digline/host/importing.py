@@ -1237,8 +1237,10 @@ def revise(
     )
     # The suite's own rules, on the case as it would be written: the form,
     # the names, and a revision that says the same thing are refused there.
+    # The suite as loaded may predate the case, chosen after it was loaded,
+    # so the case is put in whatever the suite held under its id.
     updated = replace(held, reviewed_answer=replace(answer, revised=revised))
-    replace(suite, cases=[updated if c.id == case_id else c for c in suite.cases])
+    replace(suite, cases=[*(c for c in suite.cases if c.id != case_id), updated])
     entry = _raw_entry(path, case_id)
     reviewed = dict(cast("dict[str, object]", entry["reviewed_answer"]))
     written: dict[str, object] = {"good": good, "by": by, "at": at}
