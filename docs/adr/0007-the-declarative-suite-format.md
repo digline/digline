@@ -260,6 +260,14 @@ run is in, and `digline list` builds a judge with no key and no region. The coor
 a call costs, not how the judge grades, and a table *as* the coordinate is
 still refused as settings.
 
+*Amended 2026-11-19 by [ADR 0068](0068-a-judge-set-up-in-the-suite-toml.md)
+§1; the sentence above is kept as written.* A table as `judge` is no longer
+refused: it holds four keys, `model`, `max_tokens`, `temperature` and
+`pricing`, and any other is refused by name. The coordinate, its `model`,
+stays the instrument's identity, and the settings beside it are how the
+judge is set up, recorded apart (ADR 0005 §4). `judge_pricing` beside a
+table is refused, two prices for one judge; beside a string it stays.
+
 **No credential appears in a suite file, ever.** There is no `api_key` key, and
 its absence is not an oversight to be fixed by a later revision: ADR 0004 §5
 resolves keys through the SDK's own environment lookup precisely so that no

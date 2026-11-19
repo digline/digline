@@ -446,3 +446,18 @@ def test_a_reply_cut_at_the_cap_says_it_stopped_there(
     )
     with pytest.raises(ValueError, match=said):
         a_judge(client)("Output to judge:\nRome.")
+
+
+@pytest.mark.parametrize("judge", [OpenAIJudge, OpenAIClaimJudge])
+def test_a_max_tokens_and_a_temperature_set_up_reach_the_call(
+    judge: Any, client: FakeClient
+) -> None:
+    """What a `suite.toml` table sets, or a suite.py, is what the request
+    carries, not the default (ADR 0068 §1). The stand-in client records the
+    request; nothing is called."""
+    replying(client, '{"score": 1, "reason": "fine", "supported": 1, "total": 1}')
+    judge(model="gpt-5-mini", client=client, max_tokens=2048, temperature=0.3)("p")
+    request = client.completions.requests[0]
+    cap = request.get("max_completion_tokens", request.get("max_tokens"))
+    assert cap == 2048
+    assert request["temperature"] == 0.3

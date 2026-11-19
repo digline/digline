@@ -628,20 +628,22 @@ def _instrument(
     *,
     max_tokens: int | None = None,
 ) -> object:
-    """A judge, from its coordinates (ADR 0007 §3). `max_tokens` is given by
-    `digline suggest` alone, whose assistant writes more than a verdict."""
+    """A judge, from its coordinates (ADR 0007 §3), or from a table of four
+    keys that adds the settings it is set up with (ADR 0068 §1). `max_tokens`
+    as an argument is given by `digline suggest` alone, whose assistant writes
+    more than a verdict."""
+    settings: dict[str, object] = {}
+    pricing_key = "judge_pricing"
     if isinstance(value, Mapping):
-        # A table is how somebody asks for a judge with settings — a
-        # max_tokens, a temperature. The coordinate carries the instrument's
-        # identity and nothing else (ADR 0007 §3), so this is a boundary rather
-        # than a typo, and it gets a boundary's sentence.
-        raise code_only(
-            f"`{key}` is a table, and a judge named in data is its coordinate "
-            "alone: it grades with the plugin's own defaults, and a judge set "
-            "up differently is an object",
-            where=where,
-            kind="judges",
+        if judge_pricing is not None:
+            raise UsageError(
+                f"{where}: `judge_pricing` beside a `{key}` table is two prices "
+                f"for one judge. Write the rates as `pricing` inside `{key}`"
+            )
+        value, settings, judge_pricing = _judge_table(
+            cast("Mapping[str, object]", value), where, key
         )
+        pricing_key = f"{key}.pricing"
     if not isinstance(value, str):
         raise UsageError(
             f"{where}: `{key}` is a {type(value).__name__}. A judge is named "
@@ -664,14 +666,24 @@ def _instrument(
     priced: dict[str, object] = {}
     if max_tokens is not None:
         priced["max_tokens"] = max_tokens
+    accepted = _accepted(build)
+    for name, setting in settings.items():
+        # A plugin whose judge takes no such argument refuses the key here,
+        # by name, as a price is refused below (ADR 0068 §4).
+        if name not in accepted:
+            raise UsageError(
+                f"{where}: `{key}.{name}`: {provider_name}'s judge takes no "
+                f"`{name}`, so it has nothing to set"
+            )
+        priced[name] = setting
     if judge_pricing is not None:
-        if "pricing" not in _accepted(build):
+        if "pricing" not in accepted:
             raise UsageError(
                 f"{where}: {provider_name}'s judge takes no price, so "
-                "`judge_pricing` has nothing to set"
+                f"`{pricing_key}` has nothing to set"
             )
         priced["pricing"] = _declared_pricing(
-            judge_pricing, build, model, where, table_name="judge_pricing"
+            judge_pricing, build, model, where, table_name=pricing_key
         )
     try:
         # By keyword, always: a plugin's factory is a class whose positional
@@ -679,11 +691,15 @@ def _instrument(
         # `prompt_file` first — and `model` is the one name the contract fixes.
         judge = build(model=model, **priced)
     except (TypeError, ValueError) as exc:
+        # Where the judge was set up by a table, the sentence names the table:
+        # a plugin's refusal of a setting, Anthropic's of every `temperature`,
+        # is read beside the entry that asked for it (ADR 0068 §1).
+        entry = f", `{key}`" if settings else ""
         raise UsageError(
             Written.of(
                 exc,
-                f"{where}: {provider_name} could not be set up as a judge for "
-                f"{model!r}: ",
+                f"{where}{entry}: {provider_name} could not be set up as a judge "
+                f"for {model!r}: ",
                 named=False,
             )
         ) from exc
@@ -698,6 +714,69 @@ def _instrument(
             per_model=pricing.per_model, declared=pricing.declared
         )
     return judge
+
+
+#: The keys a judge's table may hold, and no other (ADR 0068 §1). A plugin's
+#: own words — a region, a base URL — are not among them: a judge set up
+#: beyond these four is an object in a suite.py.
+JUDGE_TABLE_KEYS = ("model", "max_tokens", "temperature", "pricing")
+
+#: The widest range any provider digline ships a plugin for takes. A plugin
+#: narrower than it refuses inside it with its own reason (ADR 0068 §1).
+TEMPERATURE_RANGE = (0.0, 2.0)
+
+
+def _judge_table(
+    table: Mapping[str, object], where: str, key: str
+) -> tuple[object, dict[str, object], object]:
+    """A judge's table, read: the coordinate, the settings to pass the plugin's
+    judge by keyword, and the rates if it declares any. Each value is checked
+    here, so a wrong one is refused by its key and not by a plugin's
+    constructor in words of its own."""
+    spot = f"{where}, `{key}`"
+    unknown = sorted(set(table) - set(JUDGE_TABLE_KEYS))
+    if unknown:
+        # A boundary rather than a typo: a plugin's own words are the open
+        # mapping ADR 0005 §1 keeps out of the record, so the sentence says
+        # where a judge set up beyond the four goes.
+        named = ", ".join(f"`{name}`" for name in unknown)
+        four = ", ".join(f"`{name}`" for name in JUDGE_TABLE_KEYS)
+        raise code_only(
+            f"`{key}`: {named} is not a key of a judge's table, which takes "
+            f"{four} and nothing else; a judge set up beyond them is an object",
+            where=where,
+            kind="judges",
+        )
+    if "model" not in table:
+        raise UsageError(
+            f"{spot}: no `model`. The table names its judge by coordinates, "
+            f'model = "anthropic/claude-haiku-4-5", and the settings beside it'
+        )
+    settings: dict[str, object] = {}
+    if "max_tokens" in table:
+        cap = table["max_tokens"]
+        # `bool` is a subclass of `int` in Python, so `true` would pass a bare
+        # isinstance check as 1.
+        if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+            raise UsageError(
+                f"{spot}: `max_tokens` is {cap!r}; it is a whole number of "
+                "tokens, at least 1"
+            )
+        settings["max_tokens"] = cap
+    if "temperature" in table:
+        heat = table["temperature"]
+        low, high = TEMPERATURE_RANGE
+        if (
+            isinstance(heat, bool)
+            or not isinstance(heat, int | float)
+            or not low <= heat <= high
+        ):
+            raise UsageError(
+                f"{spot}: `temperature` is {heat!r}; it is a number from "
+                f"{low:g} to {high:g}"
+            )
+        settings["temperature"] = float(heat)
+    return table["model"], settings, table.get("pricing")
 
 
 @dataclass(frozen=True, slots=True)

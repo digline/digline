@@ -659,6 +659,11 @@ is not one of its judged assertions when it is loaded. A suite that declares a
 source and does not load its file is refused when it is loaded, naming the
 cases it left out.
 
+A run judges every case its suite loads, captured ones included, and never a
+group of them. Cases you want kept apart, an experiment above all, are
+imported into a suite of their own, with a `[capture]` of its own
+([declarative.md](declarative.md#by_group-splits-an-aggregate-by-class)).
+
 Then two invocations:
 
 ```console

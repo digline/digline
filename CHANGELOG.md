@@ -43,6 +43,26 @@ notes under them are this file, verbatim.
   instruction to the judge, not your system or your model: read the
   movement, and once the new run is promoted the next comparison is quiet.
 
+- **A `suite.toml` sets its judge up as a table** (ADR 0068 §1, §2).
+  `judge = { model = "openai/gpt-5-mini", max_tokens = 2048, temperature =
+  0.2 }` builds the judge a `suite.py` builds with the same arguments: the
+  table's values win over the plugin's defaults, a key left out keeps the
+  default, and the run records them in `judge_config` beside the prompt
+  digest, so a cap raised in the file is a judge that changed at the next
+  `compare`. `pricing`, in `judge_pricing`'s shape, prices a model the
+  plugin's list does not have, and the judge's price check before the first
+  call lets it through. Refused at load, each by its key: any key but
+  `model`, `max_tokens`, `temperature` and `pricing`; a table with no
+  `model`; a `max_tokens` that is not a whole number of at least 1; a
+  `temperature` outside 0 to 2; a `pricing` missing a mandatory rate; and
+  `judge_pricing` beside a table. digline-anthropic's judges still refuse
+  every `temperature`, now at load with the table's entry named. The string
+  form is unchanged. No schema moves, and no `config_hash` or assertion
+  identity: a check fingerprints its judge by type, not by its settings.
+- **The docs say that a run judges every case of its suite.** The cases of
+  an experiment to keep apart go in a suite of their own
+  (`docs/declarative.md`, `docs/record.md`; ADR 0010 §5).
+
 ## pytest-digline — unreleased
 
 - **The summary prints the headline a line at a time**, as `digline compare`

@@ -430,3 +430,18 @@ def test_a_reply_cut_at_the_cap_says_it_stopped_there(
     client.reply["stopReason"] = stop_reason
     with pytest.raises(ValueError, match=said):
         a_judge(client)("Output to judge:\nRome.")
+
+
+@pytest.mark.parametrize("judge", [BedrockJudge, BedrockClaimJudge])
+def test_a_max_tokens_and_a_temperature_set_up_reach_the_call(
+    judge: Any, client: FakeClient
+) -> None:
+    """What a `suite.toml` table sets, or a suite.py, is what Converse is
+    sent, not the default (ADR 0068 §1). The stand-in client records the
+    request; nothing is called."""
+    replying(client, '{"score": 1, "reason": "fine", "supported": 1, "total": 1}')
+    judge(model=HAIKU, client=client, max_tokens=2048, temperature=0.3)("p")
+    assert client.requests[0]["inferenceConfig"] == {
+        "maxTokens": 2048,
+        "temperature": 0.3,
+    }

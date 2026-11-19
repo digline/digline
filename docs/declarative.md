@@ -280,6 +280,14 @@ Did you mean `by_group`?
 Nor a narrower form: every case is asked every entry of the list, so write a
 check only where every case of the suite holds it.
 
+**A run judges every case of its suite, and never a group of them.** There is
+no way to run one group, as there is none to gate on one
+([ADR 0010](adr/0010-per-group-aggregates.md) §5). So the cases of an
+experiment you want to keep apart, a rubric tried on a handful of answers or a
+class you are not ready to gate on, go in **a suite of their own**, with its
+own `name` and its own cases file. Its runs, its baseline and its comparisons
+are then its own, and the suite that gates is not moved by them.
+
 The reasoning is in [ADR 0010](adr/0010-per-group-aggregates.md).
 
 ### `repeated` wraps another check
@@ -341,6 +349,9 @@ a count, and no threshold reads it as one. Measured on 2026-11-14 on both,
 judge = "anthropic/claude-haiku-4-5"
 ```
 
+Or, where it needs settings of its own, a table: see
+[A judge set up in the file](#a-judge-set-up-in-the-file-a-table) below.
+
 `provider/model`. The provider half is the name a plugin registers under; the
 model half is handed to that plugin untouched, so an identifier with slashes of
 its own — a Bedrock inference profile ARN, say — arrives whole.
@@ -358,9 +369,10 @@ be: a suite is a file that gets committed, and each provider's own SDK reads the
 key from the environment. Set `ANTHROPIC_API_KEY` (or the equivalent) where the
 run happens.
 
-**A coordinate carries the instrument, not its settings.** The judge grades with
-the plugin's own defaults. A judge that needs a different `max_tokens`, a
-different temperature, or rules of its own is an object, and objects live in a
+**A coordinate carries the instrument, not its settings.** Written as a
+string, the judge grades with the plugin's own defaults. A judge that needs a
+different `max_tokens` or a different temperature is written as a table
+(below); a judge with rules of its own is an object, and objects live in a
 `suite.py`.
 
 **Its price is not a setting.** A model the plugin's price list does not have
@@ -381,6 +393,58 @@ judge_pricing = { input_per_mtok = 1.0, output_per_mtok = 5.0 }
 `input_per_mtok` and `output_per_mtok` are mandatory, `cache_read_per_mtok` and
 `cache_write_per_mtok` optional, as the provider lists them. A model the
 plugin lists needs none.
+
+### A judge set up in the file: a table
+
+*Arrives with digline 1.4.* `judge` may be a table of four keys instead of a
+string:
+
+```toml
+[[assertions]]
+type = "llm_rubric"
+name = "tone"
+rubric = "Is the answer courteous and plain?"
+judge = { model = "openai/gpt-5-mini", max_tokens = 2048, temperature = 0.2 }
+threshold = 0.7
+tolerance = 0.05
+```
+
+| Key | |
+|---|---|
+| `model` | mandatory. The coordinate, with the string form's rules |
+| `max_tokens` | a whole number of at least 1, handed to the plugin's judge as its own `max_tokens` |
+| `temperature` | a number from 0 to 2, handed the same way. A plugin that refuses one refuses it when the suite loads, with its own reason: digline-anthropic's judges refuse every temperature |
+| `pricing` | the rates, in `judge_pricing`'s shape and with its rules: `input_per_mtok` and `output_per_mtok` mandatory, the two cache rates optional |
+
+*Arrives with digline 1.4.* What the table sets wins over the plugin's
+default, and a key it leaves out keeps that default. The judge it builds is
+the one a `suite.py` builds with the same arguments, and the run records it
+the same way: `max_tokens`, and `temperature` where one was sent, in the
+run's `judge_config`, beside the digest of the judge's instruction.
+`digline explain` shows them. Raise `max_tokens` in the file and the next
+`compare` says the judge changed, as it says it for a judge built in Python.
+Nothing records whether a value came from the table or from the plugin's
+default: the run records what was sent.
+
+*Arrives with digline 1.4.* `pricing` prices a model the plugin's list does
+not have, and the judge's check that its model has a price, made before the
+first call of the run, then lets it through:
+
+```toml
+judge = { model = "anthropic/claude-newest", pricing = { input_per_mtok = 1.0, output_per_mtok = 5.0 } }
+```
+
+**Refused when the suite loads**, each by its key: any key but these four,
+naming them; a table with no `model`; a `max_tokens` that is not a whole
+number of at least 1; a `temperature` that is not a number from 0 to 2;
+a `pricing` without both of its mandatory rates; and `judge_pricing` beside a
+table, which is two prices for one judge. Beside a string, `judge_pricing`
+stays as it is.
+
+The table holds no credential, no instruction of the judge's own, and no
+other parameter of a plugin's, a `region` or a `base_url`: a judge set up
+beyond these four is an object, in a `suite.py`
+([ADR 0068](adr/0068-a-judge-set-up-in-the-suite-toml.md)).
 
 ## `[target]`
 
@@ -608,7 +672,7 @@ able to smuggle past a review.
 | | |
 |---|---|
 | A judge with rules of its own | it has no coordinates |
-| A judge set up differently from the plugin's defaults | the coordinate carries the instrument, not its settings |
+| A judge set up beyond `model`, `max_tokens`, `temperature` and `pricing` | a plugin's own parameters are an object's, not the file's |
 | A target that is a function | an agent your own code calls, or anything that is your own code, and an HTTP body that must be computed |
 | A custom assertion, and `from_autoevals` | a scorer is a Python object |
 | Custom `pii_absent` patterns | they carry a checksum function |
