@@ -30,6 +30,18 @@ notes under them are this file, verbatim.
   called from the library judges once, and repetition is `Repeated` or
   `Suite.samples`. `docs/record.md`: the other calls an application makes
   inside a turn take a suite of their own or land in `_unassigned`.
+- **The judge writes its reason before its score.** `SCORE_SYSTEM` asks for
+  `{"reason": "<one short sentence>", "score": …}` and `CLAIM_SYSTEM` for
+  `{"reason": …, "supported": …, "total": …}`, in that order and in one
+  object, so the score is given against a sentence already written rather
+  than explained after it. The reason is asked short. The parser reads the
+  keys by name, so a reply in the old order is read as before; the
+  abstention, `{"abstain": true, "reason": …}`, does not change. The words
+  moved, so `score_prompt_digest` and `claim_prompt_digest` moved with them:
+  **the first `compare` against a reference judged under 1.3.0 says the
+  judge changed**, and judged scores may move with it. That is our
+  instruction to the judge, not your system or your model: read the
+  movement, and once the new run is promoted the next comparison is quiet.
 
 ## pytest-digline — unreleased
 
