@@ -6,6 +6,20 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline-bedrock 0.9.1 — 2026-11-19
+
+A patch, released alone on `digline-bedrock-v0.9.1`, with the same
+requirements as 0.9.0.
+
+- **Claude Sonnet 4.6 is priced**, as `anthropic.claude-sonnet-4-6`, its
+  `us.` and `eu.` profiles and `global.`, in the five seeded regions. Read
+  on 2026-11-19 from Bedrock's pricing page: $3.30 / $16.50 per million
+  tokens on the bare id and a geographic profile, with cache reads at $0.33
+  and 5-minute writes at $4.125, and $3 / $15, $0.30 and $3.75 on `global.`.
+  Before, a suite on Sonnet 4.6 was refused at `preflight` until it passed a
+  `pricing=`, which still overrides this list. The other rows were not read
+  again. Found in a Java application with a judged suite.
+
 ## 1.3.0 — 2026-11-16
 
 digline **1.3.0**, a minor, because its stored document moves to schema 24

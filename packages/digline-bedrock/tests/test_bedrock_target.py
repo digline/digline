@@ -390,6 +390,7 @@ OPUS_4_1 = "anthropic.claude-opus-4-1-20250805-v1:0"
 HAIKU_3_5 = "anthropic.claude-3-5-haiku-20241022-v1:0"
 HAIKU_4_5 = "anthropic.claude-haiku-4-5-20251001-v1:0"
 SONNET_3_5_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+SONNET_4_6 = "anthropic.claude-sonnet-4-6"
 
 #: Read on 2026-10-02 from AWS's Price List API (`AmazonBedrockFoundationModels`,
 #: publication 2026-09-30T00:19:12Z), and from the pricing page for 3.5 Sonnet
@@ -411,7 +412,25 @@ PUBLISHED: dict[tuple[str, str], tuple[float, float, float, float]] = {
     ("us-east-1", "global.anthropic.claude-opus-5-5"): (4.0, 20.0, 0.20, 5.0),
     ("eu-west-1", "eu.anthropic.claude-sonnet-5-5"): (2.20, 11.0, 0.22, 2.75),
     ("us-west-2", "global.anthropic.claude-sonnet-5-5"): (2.0, 10.0, 0.20, 2.50),
+    # Read on 2026-11-19 from the pricing page, alone.
+    ("us-east-1", SONNET_4_6): (3.30, 16.50, 0.33, 4.125),
+    ("eu-central-1", f"eu.{SONNET_4_6}"): (3.30, 16.50, 0.33, 4.125),
+    ("us-west-2", f"us.{SONNET_4_6}"): (3.30, 16.50, 0.33, 4.125),
+    ("eu-west-3", f"global.{SONNET_4_6}"): (3.0, 15.0, 0.30, 3.75),
 }
+
+
+@pytest.mark.parametrize("region", US + EU)
+def test_sonnet_4_6_is_priced_on_every_route_in_every_seeded_region(
+    region: str,
+) -> None:
+    """The page lists Sonnet 4.6 in all five regions, global and geographic,
+    where Sonnet 4's global row is three regions: a copy of Sonnet 4's region
+    sets would leave `global.` unpriced in Frankfurt and Paris."""
+    prefix = "us." if region in US else "eu."
+    pricing = bedrock_pricing(region)
+    for model in (SONNET_4_6, f"{prefix}{SONNET_4_6}", f"global.{SONNET_4_6}"):
+        assert pricing.knows(model), (region, model)
 
 
 @pytest.mark.parametrize(("region", "model"), sorted(PUBLISHED), ids=str)
@@ -441,6 +460,7 @@ def test_a_model_aws_does_not_sell_in_a_region_is_not_priced_there(
 #: The models AWS bills at two prices, Standard and global (Haiku 4.5 and on).
 TWO_PRICES = [
     HAIKU_4_5,
+    SONNET_4_6,
     "anthropic.claude-fable-5-1",
     "anthropic.claude-opus-5-5",
     "anthropic.claude-sonnet-5-5",

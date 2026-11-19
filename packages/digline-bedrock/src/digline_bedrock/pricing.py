@@ -3,6 +3,9 @@
     Read on 2026-10-02 from AWS's Price List API, offer
     `AmazonBedrockFoundationModels`, publication 2026-09-30T00:19:12Z; and,
     for Claude 3.5 Sonnet v2 only, from aws.amazon.com/bedrock/pricing.
+    Claude Sonnet 4.6 alone was read later, on 2026-11-19, from that page,
+    whose figures were published 2026-11-19T09:40:02Z; `PRICES_READ_ON` is
+    the date of the rest.
 
 That date is the first line of this file on purpose. A price list is a fact
 about a day, and the only honest thing a copy of one can carry is when it was
@@ -84,6 +87,7 @@ SEEDED_REGIONS = frozenset(_US + _EU)
 
 _OPUS_4_1 = "anthropic.claude-opus-4-1-20250805-v1:0"
 _SONNET_4 = "anthropic.claude-sonnet-4-20250514-v1:0"
+_SONNET_4_6 = "anthropic.claude-sonnet-4-6"
 _HAIKU_4_5 = "anthropic.claude-haiku-4-5-20251001-v1:0"
 _SONNET_3_5_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 _HAIKU_3_5 = "anthropic.claude-3-5-haiku-20241022-v1:0"
@@ -112,6 +116,12 @@ _ROWS: tuple[tuple[tuple[str, ...], str, tuple[str, ...], ModelPrice], ...] = (
     # three of the five regions.
     (_US + _EU, _SONNET_4, ("bare", "geo"), _price(3.0, 15.0, 0.30, 3.75)),
     (_US + ("eu-west-1",), _SONNET_4, ("global",), _price(3.0, 15.0, 0.30, 3.75)),
+    # Claude Sonnet 4.6. Read on 2026-11-19 from aws.amazon.com/bedrock/pricing,
+    # tables "Global Cross-region Inference" and "Geo and In-region Cross-region
+    # Inference": two prices, 10% apart, as from Haiku 4.5 on, and both listed
+    # in all five regions, so the global row is not narrowed as Sonnet 4's is.
+    (_US + _EU, _SONNET_4_6, ("bare", "geo"), _price(3.30, 16.50, 0.33, 4.125)),
+    (_US + _EU, _SONNET_4_6, ("global",), _price(3.0, 15.0, 0.30, 3.75)),
     # Claude Haiku 4.5. "Regional" and "Global" rows, 10% apart.
     (_US + _EU, _HAIKU_4_5, ("bare", "geo"), _price(1.10, 5.50, 0.11, 1.375)),
     (_US + _EU, _HAIKU_4_5, ("global",), _price(1.0, 5.0, 0.10, 1.25)),
