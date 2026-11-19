@@ -54,9 +54,11 @@ def _folded(path: Path, *, comments: bool = False) -> str:
     return " ".join(text.split())
 
 
-def test_the_output_version_is_5() -> None:
-    assert OUTPUT_VERSION == 5
-    assert run_document(loaded_run(), Disclosure())["output_version"] == 5
+def test_the_output_version_is_5_or_later() -> None:
+    """5 until the bump to 6 (ADR 0067), which kept every rename below: the
+    names 5 chose are the names 6 carries."""
+    assert OUTPUT_VERSION >= 5
+    assert run_document(loaded_run(), Disclosure())["output_version"] == OUTPUT_VERSION
 
 
 #: Every key version 5 renamed, as `(shape, before, after)`.

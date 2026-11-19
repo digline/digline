@@ -82,7 +82,14 @@ from digline.core.compare import (
     suite_deltas,
     withhold_artifacts,
 )
-from digline.core.declared import CasesChanged, Declared, cases_changed, nothing_judged
+from digline.core.declared import (
+    CasesChanged,
+    Declared,
+    all_awaiting,
+    awaiting_cases,
+    cases_changed,
+    nothing_judged,
+)
 from digline.core.diff import (
     CheckDifference,
     Difference,
@@ -94,6 +101,7 @@ from digline.core.diff import (
 )
 from digline.core.gate import (
     CauseOfTwo,
+    awaiting_unjudged,
     causes_of_two,
     pins_implicated,
     unjudged_cases,
@@ -434,6 +442,9 @@ __all__ = [
     "uncertain_cases",
     "contradicted",
     "nothing_judged",
+    "all_awaiting",
+    "awaiting_cases",
+    "awaiting_unjudged",
     "CauseOfTwo",
     "causes_of_two",
     "pins_implicated",

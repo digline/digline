@@ -311,7 +311,9 @@ __all__ = [
 #    gate reads; `judged`, with `failing`, in place of `check` and
 #    `assertion_id`, is an answer reviewed as a whole; `revised` and
 #    `held_out`, written only where true, say the verdict is the person's
-#    after review and that she held the answer out. Every document before 25
+#    after review and that she held the answer out; `blind_failing`, on a
+#    revised verdict about the whole answer, keeps what the blind one expected
+#    to fail. Every document before 25
 #    carries `check` and `good` and neither flag, which reads as what it was:
 #    a blind verdict, held in, about its check. Outside `config_hash`: what a
 #    person said, not what the suite declared (ADR 0014 §1).
@@ -2361,6 +2363,8 @@ def _check_projected(run: Run) -> None:
                 ),
                 *case.reviewed.judged,
             ):
+                # `failing` and `blind_failing` are parts of `judged`, which
+                # the reviewed answer refuses otherwise, so each is checked here.
                 formed(
                     f"the reviewed answer's identity {where}",
                     bound,
@@ -3343,6 +3347,8 @@ def reviewed_to_dict(reviewed: Reviewed) -> dict[str, object]:
         payload["judged"] = list(reviewed.judged)
         if reviewed.failing:
             payload["failing"] = list(reviewed.failing)
+        if reviewed.blind_failing:
+            payload["blind_failing"] = list(reviewed.blind_failing)
     if reviewed.good is not None:
         payload["good"] = reviewed.good
     if reviewed.revised:
@@ -4013,7 +4019,16 @@ def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
     fields_ = cast(Mapping[str, Any], found)
     unknown = sorted(
         set(fields_)
-        - {"check", "assertion_id", "good", "revised", "held_out", "judged", "failing"}
+        - {
+            "check",
+            "assertion_id",
+            "good",
+            "revised",
+            "held_out",
+            "judged",
+            "failing",
+            "blind_failing",
+        }
     )
     if unknown:
         raise DocumentRefusedError(
@@ -4028,7 +4043,12 @@ def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
                 "an answer is reviewed about one check or about the whole"
             )
         judged, failing = fields_.get("judged"), fields_.get("failing", [])
-        if not _texts(judged) or not _texts(failing, empty=True):
+        blind = fields_.get("blind_failing", [])
+        if (
+            not _texts(judged)
+            or not _texts(failing, empty=True)
+            or not _texts(blind, empty=True)
+        ):
             raise DocumentRefusedError(
                 f"{where}: 'reviewed' needs 'judged', and 'failing' where "
                 "written, each a list of identities as text"
@@ -4037,7 +4057,7 @@ def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
         raise DocumentRefusedError(
             f"{where}: 'reviewed' needs a 'check' and an 'assertion_id', as text"
         )
-    elif "failing" in fields_:
+    elif "failing" in fields_ or "blind_failing" in fields_:
         raise DocumentRefusedError(
             f"{where}: 'reviewed' carries 'failing' beside a 'check': only an "
             "answer reviewed as a whole names checks expected to fail"
@@ -4062,6 +4082,7 @@ def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
             held_out=fields_.get("held_out", False),
             judged=tuple(cast("list[str]", fields_.get("judged", []))),
             failing=tuple(cast("list[str]", fields_.get("failing", []))),
+            blind_failing=tuple(cast("list[str]", fields_.get("blind_failing", []))),
         )
     except ValueError as exc:
         raise DocumentRefusedError(f"{where}: 'reviewed': {exc}") from exc

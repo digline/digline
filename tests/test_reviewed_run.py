@@ -428,7 +428,13 @@ def test_the_wire_carries_the_check_and_the_yes_or_no() -> None:
         json.dumps(run_document(run(*AGREES), NOTHING_EXTRA))
     )
     cases = {case["case_id"]: case for case in document["results"]}
-    assert cases["no-bad"]["reviewed"] == {"check": "llm_rubric", "good": False}
+    # `revised` and `held_out` joined at `OUTPUT_VERSION` 6 (ADR 0067).
+    assert cases["no-bad"]["reviewed"] == {
+        "check": "llm_rubric",
+        "good": False,
+        "revised": False,
+        "held_out": False,
+    }
     assert cases["by-hand"]["reviewed"] is None
 
 

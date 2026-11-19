@@ -1188,6 +1188,13 @@ def _review(
         held_out=answer.held_out,
         judged=tuple(a.identity for a in asked) if whole else (),
         failing=tuple(a.identity for a in asked if a.name in failing),
+        # The blind verdict beside a revision of the whole answer, so the
+        # agreement before review is read from the run. (ADR 0067 §2)
+        blind_failing=tuple(
+            a.identity for a in asked if a.name in (answer.failing or ())
+        )
+        if whole and answer.revised is not None
+        else (),
     )
     reported: dict[str, object] = {}
     if answer.steps is not None:

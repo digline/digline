@@ -126,6 +126,7 @@ from digline.report import (
 )
 from digline.report import diff as diff_report
 from digline.report.pages import VIEW_PORT
+from digline.report.render import nothing_judged_text
 from digline.run import (
     CostCeilingReached,
     ReplayError,
@@ -520,7 +521,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     # while `report` and `explain` say `2` about the same run. (ADR 0049 §3,
     # amended 2026-10-22; #654)
     if judged_nothing:
-        say(f"digline: {phrase('en', 'fact.nothing_judged')}", err=True)
+        # Its own sentence where every case awaits a person's verdict: the
+        # judge judged them, and no gate reads it. (ADR 0067 §1 (a); P-1710)
+        said = nothing_judged_text(measured.run, suite.declared(), "en")
+        say(f"digline: {said}", err=True)
         return EXIT_UNJUDGED
     return EXIT_OK
 

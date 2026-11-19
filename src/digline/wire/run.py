@@ -630,12 +630,19 @@ def run_document(
                     # application gave, and the check it is for. The answer
                     # stays in the cases file; the yes or no is the suite
                     # author's declaration, as a band is. (ADR 0059 §1)
+                    # Since `OUTPUT_VERSION` 6 (ADR 0067): `check` is `null`
+                    # for an answer reviewed as a whole and `good` for one
+                    # awaiting the person's verdict, and `revised` and
+                    # `held_out` say whether the verdict is hers after review
+                    # and whether she held the answer out.
                     "reviewed": (
                         None
                         if case.reviewed is None
                         else {
                             "check": case.reviewed.check,
                             "good": case.reviewed.good,
+                            "revised": case.reviewed.revised,
+                            "held_out": case.reviewed.held_out,
                         }
                     ),
                     # Of what kind the case's error was, `raised` or `shape`,

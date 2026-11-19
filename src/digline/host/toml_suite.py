@@ -84,6 +84,7 @@ from digline.run import (
     CaptureSource,
     Case,
     ReviewedAnswer,
+    Revised,
     Suite,
     Target,
 )
@@ -920,14 +921,48 @@ def _reviewed_answer(raw: object, spot: str) -> ReviewedAnswer:
         )
     given = cast("Mapping[str, object]", raw)
     _refuse_unknown(given, set(_init_fields(ReviewedAnswer)), where, "field")
+    # `check` and `good` are optional on load: absent `check` is a verdict
+    # about the whole answer, absent `good` an answer awaiting the person's.
+    # Written as `null` they are refused, as no digline writes one.
+    # (ADR 0067 §1 (a), §4)
+    for key in ("check", "good"):
+        if key in given and given[key] is None:
+            raise UsageError(
+                f"{where}: `{key}` is null; leave it out instead, which says "
+                + (
+                    "the verdict is about the whole answer"
+                    if key == "check"
+                    else "the answer awaits the person's verdict"
+                )
+            )
+    given = {"check": None, "good": None, **given}
     try:
         if "steps" in given:
             # An episode's trajectory, in the run document's form, read by the
             # run document's reader. (ADR 0059 §1, amended 2026-11-05)
             given = {**given, "steps": recorded_steps_from_list(given["steps"])}
+        if "revised" in given:
+            given = {**given, "revised": _revised(given["revised"], where)}
         return ReviewedAnswer(**cast("Any", given))
     except (TypeError, ValueError) as exc:
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
+
+
+def _revised(raw: object, where: str) -> Revised:
+    """`"revised": {"good": …, "by": …, "at": …, "failing": […]}`, the person's
+    verdict after review, each unknown key refused by name. (ADR 0067 §2)"""
+    spot = f"{where}, revised"
+    if not isinstance(raw, Mapping):
+        raise UsageError(
+            f"{spot}: this is an object — good, by and at, and failing on a no "
+            "about the whole answer"
+        )
+    given = cast("Mapping[str, object]", raw)
+    _refuse_unknown(given, set(_init_fields(Revised)), spot, "field")
+    try:
+        return Revised(**cast("Any", given))
+    except (TypeError, ValueError) as exc:
+        raise UsageError(Written.of(exc, f"{spot}: ", named=False)) from exc
 
 
 # --------------------------------------------------------------------------- #

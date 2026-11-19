@@ -80,7 +80,6 @@ def reviewed(case_id: str = "cap-1", **changes: Any) -> Case:
         ({"input": ""}, "declares no input"),
         ({"good": 1}, "gives good=1: good is true or false"),
         ({"good": "yes"}, "gives good='yes': good is true or false"),
-        ({"good": None}, "gives good=None: good is true or false"),
     ],
     ids=[
         "empty output",
@@ -88,7 +87,6 @@ def reviewed(case_id: str = "cap-1", **changes: Any) -> Case:
         "empty input",
         "good 1",
         "good yes",
-        "good None",
     ],
 )
 def test_the_type_refuses_what_says_nothing(changes: dict[str, Any], said: str) -> None:
@@ -98,6 +96,13 @@ def test_the_type_refuses_what_says_nothing(changes: dict[str, Any], said: str) 
 
 def test_good_is_either_bool() -> None:
     assert answer(good=True).good is True
+
+
+def test_good_none_is_an_answer_awaiting_a_verdict() -> None:
+    """Refused until ADR 0067, which made it an answer chosen for review and
+    awaiting the person's verdict (§1 (a)): no longer a value that says
+    nothing, so it left the refusals above."""
+    assert answer(good=None).held == (None, ())
     assert answer(good=False).good is False
 
 
@@ -128,7 +133,9 @@ def test_a_suite_loads_a_reviewed_answer_and_names_its_check() -> None:
     loaded = suite(reviewed())
     [case] = [c for c in loaded.cases if c.reviewed_answer is not None]
     assert case.reviewed_answer is not None
-    assert loaded.reviewed(case.reviewed_answer) is loaded.assertions[0]
+    # A tuple since ADR 0067 §4, where a verdict about the whole answer asks
+    # every judged check; one about a check asks that one.
+    assert loaded.reviewed(case.reviewed_answer) == (loaded.assertions[0],)
 
 
 def test_a_check_the_suite_does_not_declare_is_refused() -> None:

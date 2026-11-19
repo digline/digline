@@ -55,6 +55,7 @@ __all__ = [
     "CaptureSource",
     "CallPlan",
     "Case",
+    "Revised",
     "ReviewedAnswer",
     "ReviewedCounts",
     "TRAJECTORY_CHECKS",
@@ -370,13 +371,11 @@ class ReviewedAnswer:
             not isinstance(self.check, str) or not self.check  # pyright: ignore[reportUnnecessaryIsInstance]
         ):
             raise RefusedError(
-                "a reviewed answer names an empty check: `check` is the judged "
-                "assertion the person's yes or no is about, or absent for a "
-                "verdict about the whole answer"
+                "a reviewed answer names no check: `check` is the judged "
+                "assertion the person's yes or no is about, and empty is none. "
+                "Leave it out for a verdict about the whole answer"
             )
-        about = (
-            "the whole answer" if self.check is None else repr(self.check)
-        )
+        about = "the whole answer" if self.check is None else repr(self.check)
         if type(self.held_out) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
             raise RefusedError(
                 f"the reviewed answer for {about} gives held_out="
@@ -1951,9 +1950,7 @@ def planned_calls(
             # checks times samples, the dearer form for the judge. (ADR 0067 §4)
             for check in suite.reviewed(case.reviewed_answer):
                 per_evaluation, known = _judge_calls(check)
-                reviewed_calls += (
-                    suite.samples * max(judge_samples, 1) * per_evaluation
-                )
+                reviewed_calls += suite.samples * max(judge_samples, 1) * per_evaluation
                 reviewed_minimum = reviewed_minimum or not known
             reviewed += 1
     return CallPlan(

@@ -21,7 +21,11 @@ in `digline.run.ReviewedAnswer`, and it is never written.
   and `failing` the identities of the checks the person expected to fail on a
   no; every other judged check is expected to pass;
 - **revised**: `good` and `failing` are then the person's verdict after she
-  read the disagreements, the one the gate holds, and `revised` says so;
+  read the disagreements, the one the gate holds, and `revised` says so. Her
+  blind verdict is kept beside it: on an answer about one check it is the
+  other answer, since a revision that says the same is refused; on the whole
+  answer it is `blind_failing`, the checks she first expected to fail, empty
+  for a blind yes;
 - **held out**: `held_out` is the role the person chose for it when she chose
   it.
 """
@@ -74,6 +78,10 @@ class Reviewed:
     held_out: bool = False
     judged: tuple[str, ...] = ()
     failing: tuple[str, ...] = ()
+    #: On a revised verdict about the whole answer, the identities of the
+    #: checks the blind verdict expected to fail: empty where it was a yes.
+    #: The blind agreement is read against it. (ADR 0067 §2)
+    blind_failing: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         whole = self.check is None
@@ -109,6 +117,17 @@ class Reviewed:
             )
         object.__setattr__(self, "judged", tuple(self.judged))
         object.__setattr__(self, "failing", tuple(self.failing))
+        object.__setattr__(self, "blind_failing", tuple(self.blind_failing))
+        if self.blind_failing and not (whole and self.revised):
+            raise ValueError(
+                "a reviewed answer carries the blind verdict's failing checks "
+                "beside a verdict that is not a revision about the whole answer"
+            )
+        if not set(self.blind_failing) <= set(self.judged):
+            raise ValueError(
+                "a reviewed answer's blind verdict expects a check to fail that "
+                "did not run on it: `blind_failing` is a part of `judged`"
+            )
         if not whole and (self.judged or self.failing):
             raise ValueError(
                 "a reviewed answer about one check carries no `judged` and no "
@@ -144,6 +163,16 @@ class Reviewed:
     def awaiting(self) -> bool:
         """No verdict from the person yet: in no gate. (ADR 0067 §1 (a))"""
         return self.good is None
+
+    @property
+    def blind(self) -> tuple[bool | None, tuple[str, ...]]:
+        """The person's blind verdict and the identities it expected to fail:
+        the verdict itself where it was not revised. (ADR 0067 §2)"""
+        if not self.revised:
+            return self.good, self.failing
+        if self.check is not None:
+            return (None if self.good is None else not self.good), ()
+        return not self.blind_failing, self.blind_failing
 
     def expects_pass(self, assertion_id: str) -> bool | None:
         """Whether the person expected the check with this identity to pass,
@@ -227,9 +256,7 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
                 continue
             else:
                 check = (
-                    reviewed.check
-                    if reviewed.check is not None
-                    else verdict.score.name
+                    reviewed.check if reviewed.check is not None else verdict.score.name
                 )
                 good, on_the_steps = expected, False
             found.append(

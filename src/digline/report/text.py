@@ -179,6 +179,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "None of the cases this suite measures was judged, so this run "
             "cannot say whether anything got worse."
         ),
+        # Its reason, where it is that every case awaits a person's verdict:
+        # the judge judged them, and no gate reads that. (ADR 0067 §1 (a))
+        "fact.nothing_judged.awaiting": (
+            "Every case this suite measures is an answer awaiting a person's "
+            "verdict, and none of those is in a gate, so nothing was judged and "
+            "this run cannot say whether anything got worse."
+        ),
         # The line a pytest session prints for a suite digline did not say green
         # for, named the way the session names that suite's rows. The code is
         # `exit_code()`'s; its cause is in the suite's own sentence, which this
@@ -366,6 +373,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # answers, not checks. (ADR 0059 §1, amended 2026-11-05)
         "fact.reviewed.one": "{said}, and the case fails: {cases}.",
         "fact.reviewed.many": "{said}, and each of those cases fails: {cases}.",
+        "fact.awaiting.one": (
+            "1 reviewed answer awaits a person's verdict and is in no gate."
+        ),
+        "fact.awaiting.many": (
+            "{count} reviewed answers await a person's verdict and are in no gate."
+        ),
+        "fact.awaiting.unjudged.one": "1 awaiting answer was not judged.",
+        "fact.awaiting.unjudged.many": "{count} awaiting answers were not judged.",
         # First in the sentence, before any count: a run that does not know what
         # it measured qualifies every number after it. Named, because "1 check
         # short" sends somebody hunting and the name ends the question.
@@ -2148,6 +2163,11 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Nessuno dei casi che questa suite misura è stato giudicato: questa "
             "run non può dire se qualcosa è peggiorato."
         ),
+        "fact.nothing_judged.awaiting": (
+            "Ogni caso che questa suite misura è una risposta in attesa del "
+            "verdetto di una persona, e nessuna è in un gate: nulla è stato "
+            "giudicato e questa run non può dire se qualcosa è peggiorato."
+        ),
         "fact.session_not_green": (
             "{suite}: digline esce con {code}, quindi questa sessione non "
             "finisce verde."
@@ -2294,6 +2314,18 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "fact.calibration.across": " su {count} campioni ({values})",
         "fact.reviewed.one": "{said}, e il caso fallisce: {cases}.",
         "fact.reviewed.many": "{said}, e ciascuno di quei casi fallisce: {cases}.",
+        "fact.awaiting.one": (
+            "1 risposta rivista attende il verdetto di una persona e non è in "
+            "nessun gate."
+        ),
+        "fact.awaiting.many": (
+            "{count} risposte riviste attendono il verdetto di una persona e non "
+            "sono in nessun gate."
+        ),
+        "fact.awaiting.unjudged.one": "1 risposta in attesa non è stata giudicata.",
+        "fact.awaiting.unjudged.many": (
+            "{count} risposte in attesa non sono state giudicate."
+        ),
         "fact.unreconciled.one": (
             "L'esecuzione non torna con ciò che la suite ha chiesto, in 1 "
             "controllo: {gaps}. Non è una regressione: non si sa che cosa "
