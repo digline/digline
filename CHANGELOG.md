@@ -64,6 +64,31 @@ rest of this opening.
   (`src/digline/wire/contract.py`, beside `_BASE`). `compare --json` adds
   `awaiting` and `awaiting_unjudged`, and `explain` two tally facts of the same
   names. Every other key reads as it did under 5.
+- **The judge read against the person, check by check** (ADR 0067 §1 (c),
+  (e), §2, §5, its second pull request). *Arrives with digline 1.4.*
+  - `explain` and the run's report read the reviewed answers' verdicts
+    against the person's, per judged check, blind and after review, with
+    the answers revised between the two and those that could not be judged.
+    The held-in and held-out figures are never summed.
+  - The line that says whether the suite can gate reads the held-out
+    verdicts alone. Where none is held out, it says so. A held-out answer is
+    counted and never named. No answer is set apart as unstable, because
+    stability is not measured in this release, and the reading says so.
+  - `criteria` on a composite judged check, `criteria = ["a", "b"]` in a
+    `suite.toml` or `Suite(criteria={"composite": ["a", "b"]})`, names its
+    criteria. The reading then names each reviewed answer about the whole
+    answer on which the composite is not their conjunction. A name that is
+    not a judged check, a check listed as its own criterion and a check under
+    two composites are each refused by name. Outside `config_hash` and every
+    identity.
+  - `explain`'s terminal reading quotes the suite's `review_rule` under the
+    agreement. `--json` and the MCP `explain` do not.
+  - Under `OUTPUT_VERSION` 6, `explain --json` gains a tally kind,
+    `agreement`, with its `agreement` object, added keys only. New public
+    names: `reviewed_agreement`, `AgreementReading`, `CheckAgreement`,
+    `AgreementTally`, `Composite` and `CompositeMismatch` in `digline.core`;
+    `Suite.criteria` and `Suite.composites()`; `rule_words` in
+    `digline.report`.
 - **A missing provider says which environment was searched.** *"no provider
   named … is installed"* now ends on *"digline is running from the
   environment at <sys.prefix>, and a plugin installed in another one is not

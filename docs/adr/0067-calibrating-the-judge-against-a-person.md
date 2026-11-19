@@ -19,7 +19,13 @@
   the reviewed answer's new shape, the choice, the blind review, the rule,
   the revision, schema 25 and `OUTPUT_VERSION` 6. The agreement (2), the
   re-judge of the reviewed answers (3), the accepted contradiction (4) and
-  `at_least` (5) are in no file
+  `at_least` (5) are in no file.
+  *The second built 2026-11-19*, with Alessandro Prandini's rulings of that
+  day (P-1713), each noted where it applies: the agreement reading per check,
+  blind and after review, held in and held out, and the composite against the
+  criteria a suite declares, in `explain`, the report and `--json`. The
+  re-judge (3), stability and the accepted contradiction (4), and `at_least`
+  (5) are in no file
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: *Noted 2026-11-19, by Alessandro Prandini's ruling of that day
@@ -208,6 +214,14 @@ on request, `--show-held-out`, and the reading that shows them says *"read
 before the rubric is frozen, these answers are no longer held out"*. A
 person who reads them then moves them to held-in, by the write of §2.
 
+*Noted 2026-11-19, by Alessandro Prandini's ruling of that day (P-1713), the
+paragraph above kept as written.* **`--show-held-out` comes with the fourth
+pull request of §10**, beside stability; the second gives the held-out
+disagreements by count alone. One thing names a held-out answer before then,
+and it is not the reading of (c): the gate's own sentence names every answer
+whose judge contradicted the person, held out or not, as §3 keeps the gate
+what it is today.
+
 ### 2. Two verdicts per reviewed answer, and the review rule
 
 *Dictated: both verdicts are kept. The blind agreement is the measure of the
@@ -356,6 +370,20 @@ composite.
   thing separate checks give, a fall that names its criterion
   ([calibration](../calibration.md), *Choosing the judge*).
 
+*Noted 2026-11-19, by Alessandro Prandini's ruling of that day (P-1713), the
+text above kept as written.* **How a suite says which check is the composite
+and which are its criteria**, which the text above leaves unsaid:
+`criteria = ["a", "b", …]` on the composite check's own table in a
+`suite.toml`, and `Suite(criteria={"composite": ["a", "b"]})` in Python.
+- **Refused by name:** a name that is not a judged check of the suite, a
+  check listed as a criterion of itself, and a check listed under two
+  composites.
+- **Outside every identity and `config_hash`**, as `review_rule` is: it
+  changes how a run is read, not what is checked.
+- **Read where?** The reading reads it from the suite the front end loaded,
+  because a run does not record it. A disagreement is passed over where the
+  composite or one of its criteria errored.
+
 ### 6. `promote --accept-contradiction CASE --by NAME`
 
 *Dictated: allowed only where the samples disagreed, recorded in the
@@ -465,6 +493,9 @@ from the judge's, and no held-out answer is chosen by digline.
   `--failing`; `record revise`; `rejudge --reviewed`; `promote
   --accept-contradiction`; `explain --show-held-out`. A new key in `[suite]`,
   `review_rule`, and one on a judged check, `at_least`.
+  *Noted 2026-11-19 (P-1713), the item kept as written:* and a second on a
+  judged check, `criteria`, which names a composite's criteria (§5). It is
+  outside `config_hash`, so the line below on `config_hash` holds.
 - **No exit code changes for a suite that declares none of it.** §3 leaves
   every exit as it is today.
 
@@ -485,6 +516,10 @@ the friction it closes:
    count made by hand on a fixture of known verdicts, with a mutation per
    figure. *It closes* the diagnosis written by hand outside the tool, and
    the agreement reported on the answers the rubric was tuned on.
+   *Noted 2026-11-19 (P-1713), the item kept as written:* *unstable apart*
+   waits for the fourth, which measures stability. Until then the reading
+   says that no answer is set apart, because none is measured.
+   `--show-held-out` moves to the fourth as well (§1 (e)).
 3. **A new round on the reviewed answers alone.** `rejudge --reviewed`, and
    the comparison of two rubrics paired by name. *It measures* that no target
    is called, that a rubric edit is paired and named, and that a change of
@@ -494,7 +529,8 @@ the friction it closes:
    reading, `promote --accept-contradiction`, its record in the reference,
    and `compare`'s sentence. *It measures* the acceptance refused on a
    stable contradiction and taken on an unstable one, and that it does not
-   carry to a later run. *It closes* a contradiction that a judge which
+   carry to a later run. *Noted 2026-11-19 (P-1713):* and
+   `explain --show-held-out` (§1 (e)). *It closes* a contradiction that a judge which
    cannot hold its own verdict makes unpromotable for ever.
 5. **`at_least`, and ADR 0068's judge.** *It measures* two of three passing
    and one of three failing at `"2/3"`, `n` refused when it does not match,

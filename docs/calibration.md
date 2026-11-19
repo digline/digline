@@ -223,9 +223,17 @@ order that keeps the judge's verdict apart from the person's
   The gate holds the newest, and the run records both, so the blind
   agreement and the agreement after review can be read apart.
 - **Held in or held out.** `--held-out` marks the answers kept to test the
-  rubric rather than tune it; held in is the default. Reading the agreement
-  per criterion, blind and after review, held in and held out, comes with
-  ADR 0067's next pull request.
+  rubric rather than tune it; held in is the default.
+- **The agreement, criterion by criterion.** `explain` and the run's report
+  read it per judged check, blind and after review, held in and held out,
+  and close on the held-out figure alone: the one nobody tuned toward. A
+  held-out answer is counted and never named
+  ([explain](explain.md#the-judge-against-the-person)). The reading works on
+  any run whose reviewed answers already carry the person's verdict, such as
+  a new `digline run` after the review. The cheaper round, `digline rejudge
+  --reviewed`, which judges the reviewed answers alone, comes with ADR 0067's
+  third pull request. No answer is yet set apart as unstable, because
+  stability is not measured in this release, and the reading says so.
 - **About the whole answer.** `--whole` asks every judged check of the
   suite about one answer, with one verdict from the person: a yes expects
   each to pass, and a no names the checks that failed. Per answer it is
@@ -335,6 +343,18 @@ and this section is that: nothing in digline checks it.
   five things gives one score, and a fall in it does not say which of the five
   fell. Five checks, each named, fall one at a time, and `compare` names the
   one that did.
+- **To choose between the two, declare both and read them.** *Arrives with
+  digline 1.4.* Keep the composite check and one check per criterion in the
+  suite, and say which are its criteria with `criteria` on the composite's
+  table (`criteria = ["addressee", "language"]` in a `suite.toml`, or
+  `Suite(criteria={"overall": ["addressee", "language"]})` in Python). On every
+  reviewed answer about the whole answer, the agreement reading then names
+  the answers where the composite is not the conjunction of its criteria. A
+  name that is not a judged check of the suite is refused, and so is a check
+  listed as its own criterion or under two composites. `criteria` is outside
+  `config_hash` and every identity: it changes how a run is read, not what is
+  checked. Once you have chosen, delete the other form
+  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §5).
 - **What one check per criterion costs.** Each judged check asks the judge
   once per answer. 50 cases at `samples = 3` with four checks, one per
   criterion, are 150 calls to the target and 600 to the judge; the same cases
