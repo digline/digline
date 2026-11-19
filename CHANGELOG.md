@@ -50,6 +50,16 @@ notes under them are this file, verbatim.
   0.6.1, as published, prints those breaks as `\x0a` beside a digline that
   lists them.
 
+## digline-anthropic — unreleased
+
+- **Claude Sonnet 5.5's cache reads are priced at $0.10 per million tokens**,
+  0.05x its input rate, where this list had $0.20. Read on 2026-11-19 from
+  platform.claude.com/docs/en/about-claude/pricing; the row's other figures
+  read the same, and no other row was read again. The old figure priced those
+  reads above what they cost, which fails a `CostBudget` loudly rather than
+  passing one in silence. `pricing=` still overrides this list. digline-bedrock
+  0.9.1 halved the same reads on Bedrock.
+
 ## digline-bedrock 0.9.1 — 2026-11-19
 
 A patch, released alone on `digline-bedrock-v0.9.1`, with the same

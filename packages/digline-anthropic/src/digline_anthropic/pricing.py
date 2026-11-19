@@ -1,6 +1,8 @@
 """Anthropic list prices, in USD per million tokens.
 
     Read from platform.claude.com/docs/en/about-claude/pricing on 2026-10-02.
+    Claude Sonnet 5.5's cache reads alone were read again from that page on
+    2026-11-19; `PRICES_READ_ON` is the date of the rest.
 
 Cache **writes** are billed at 1.25x the input rate and are counted separately:
 the API does not fold them into `input_tokens` (friction 25). That is the
@@ -46,11 +48,13 @@ ANTHROPIC_PRICING = Pricing(
             cache_read_per_mtok=0.20,
             cache_write_per_mtok=5.0,
         ),
-        # Sonnet 5.5
+        # Sonnet 5.5. Cache hits are 0.05x the input rate, not the usual 0.1x:
+        # read on 2026-11-19, where 2026-10-02 had read $0.20. The row's other
+        # figures read the same.
         "claude-sonnet-5-5": ModelPrice(
             input_per_mtok=2.0,
             output_per_mtok=10.0,
-            cache_read_per_mtok=0.20,
+            cache_read_per_mtok=0.10,
             cache_write_per_mtok=2.50,
         ),
         # Fable 5

@@ -472,7 +472,9 @@ def test_the_price_list_says_when_it_was_read() -> None:
 PUBLISHED = {
     "claude-fable-5-1": (10.0, 50.0, 0.25, 12.50),
     "claude-opus-5-5": (4.0, 20.0, 0.20, 5.0),
-    "claude-sonnet-5-5": (2.0, 10.0, 0.20, 2.50),
+    # Sonnet 5.5's cache read was read again on 2026-11-19 from the first page
+    # alone: 0.05x the input rate.
+    "claude-sonnet-5-5": (2.0, 10.0, 0.10, 2.50),
     "claude-fable-5": (10.0, 50.0, 1.0, 12.50),
     "claude-opus-5": (5.0, 25.0, 0.50, 6.25),
     "claude-sonnet-5": (2.0, 10.0, 0.20, 2.50),
