@@ -242,7 +242,9 @@ def test_the_step_to_fifteen_writes_nothing() -> None:
     # on a recorded response are *not recorded* (ADR 0057).
     # 23 -> 24 writes nothing either: an absent `excluded_at_promotion`
     # is a reference promoted whole (ADR 0065 §1).
-    assert SCHEMA_VERSION == 24
+    # 24 -> 25 writes nothing either: a reviewed answer's record before 25
+    # is a blind verdict, held in, about its check (ADR 0067).
+    assert SCHEMA_VERSION == 25
     assert upgrade_document({**current, "schema_version": 14}) == current
 
 

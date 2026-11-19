@@ -4085,7 +4085,9 @@ def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
             blind_failing=tuple(cast("list[str]", fields_.get("blind_failing", []))),
         )
     except ValueError as exc:
-        raise DocumentRefusedError(f"{where}: 'reviewed': {exc}") from exc
+        raise DocumentRefusedError(
+            Written.of(exc, f"{where}: 'reviewed': ", named=False)
+        ) from exc
 
 
 def _texts(value: object, *, empty: bool = False) -> bool:

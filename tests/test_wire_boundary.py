@@ -399,11 +399,13 @@ def test_the_added_keys_did_not_move_the_output_version() -> None:
     numbers and a boolean that changed meaning in 0.33.0 under 2, and the bump
     to 4 for a key renamed, `name` to `assertion` on a verdict. The bump to 5
     is for five keys renamed, one of them this document's own: `artifacts`
-    to `artifact_body` in its `disclosure`."""
+    to `artifact_body` in its `disclosure`. The bump to 6 is for two keys
+    that may now be `null`, a reviewed answer's `check` and `good` (ADR
+    0067)."""
     from digline.wire import OUTPUT_VERSION
 
-    assert OUTPUT_VERSION == 5
-    assert run_document(instrumented(), Disclosure())["output_version"] == 5
+    assert OUTPUT_VERSION == 6
+    assert run_document(instrumented(), Disclosure())["output_version"] == 6
 
 
 def test_the_instrument_flags_carry_none_of_the_customers_data() -> None:

@@ -121,6 +121,11 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.results[].verdicts[].status": ("a", _STATUS.__contains__),
     "$.results[].calibration.assertion_id": ("a", _form(_DIGEST)),
     "$.results[].reviewed.assertion_id": ("a", _form(_DIGEST)),
+    # The whole answer's checks, by identity alone, each a digest as a
+    # verdict's is. (ADR 0067 §2, §4)
+    "$.results[].reviewed.judged[]": ("a", _form(_DIGEST)),
+    "$.results[].reviewed.failing[]": ("a", _form(_DIGEST)),
+    "$.results[].reviewed.blind_failing[]": ("a", _form(_DIGEST)),
     "$.results[].error_kind": ("a", _ERROR_KINDS.__contains__),
     "$.results[].verdicts[].origin": ("a", _ORIGINS.__contains__),
     "$.aggregate[].origin": ("a", _ORIGINS.__contains__),
@@ -186,6 +191,9 @@ FIELDS: dict[str, str] = {
     "CalibrationBand.assertion_id": "$.results[].calibration.assertion_id",
     "Reviewed.check": "$.results[].reviewed.check",
     "Reviewed.assertion_id": "$.results[].reviewed.assertion_id",
+    "Reviewed.judged": "$.results[].reviewed.judged[]",
+    "Reviewed.failing": "$.results[].reviewed.failing[]",
+    "Reviewed.blind_failing": "$.results[].reviewed.blind_failing[]",
     "CaseResult.case_id": "$.results[].case_id",
     "CaseResult.suspended": _REDACTED + "; the fact travels as a boolean",
     "CaseResult.error_kind": "$.results[].error_kind",

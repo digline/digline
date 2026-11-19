@@ -467,6 +467,11 @@ COMPARE_KEYS = {
     "cases_added",
     "cases_removed",
     "cases_excluded",
+    # ADR 0067 §1 (a), P-1710: the answers awaiting a person's verdict, and
+    # those their judge could not judge. Keys of `OUTPUT_VERSION` 6's base,
+    # and neither moves an exit code.
+    "awaiting",
+    "awaiting_unjudged",
 }
 
 

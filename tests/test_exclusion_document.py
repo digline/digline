@@ -30,8 +30,10 @@ AT = "2026-11-13T09:00:00+00:00"
 LEFT_OUT = Exclusion(case_id="said-no", by="Ada Rossi", at=AT)
 
 
-def test_the_schema_is_twenty_four() -> None:
-    assert SCHEMA_VERSION == 24
+def test_the_schema_is_twenty_four_or_later() -> None:
+    """24 carried `excluded_at_promotion`; 25 (ADR 0067) carries it as 24
+    wrote it."""
+    assert SCHEMA_VERSION >= 24
 
 
 def test_an_exclusion_round_trips_and_absent_is_nothing_excluded() -> None:
