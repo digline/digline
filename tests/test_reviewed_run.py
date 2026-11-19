@@ -532,8 +532,10 @@ def test_explain_tallies_the_contradictions() -> None:
         line.startswith("The judge contradicted a person on 1 reviewed answer")
         for line in lines
     )
+    # The agreement reading says "reviewed answer" too (ADR 0067 §1 (e)): the
+    # contradiction's own sentence is the one that must be absent.
     assert not any(
-        "reviewed answer" in line
+        "contradicted a person" in line
         for line in explain_text(facts(run(*AGREES)), locale="en")
     )
 
@@ -549,7 +551,7 @@ def test_explain_names_each_contradiction_and_its_direction() -> None:
     [line] = [
         line
         for line in explain_text(facts(found), locale="en")
-        if "reviewed answer" in line
+        if "contradicted a person" in line
     ]
     assert "no-good for llm_rubric, passed where the person said no" in line
     assert "yes-bad for llm_rubric, failed where the person said yes" in line

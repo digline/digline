@@ -124,6 +124,7 @@ from digline.report import (
     module_lines,
     phrase,
     rule_lines,
+    rule_words,
     summary_lines,
 )
 from digline.report import diff as diff_report
@@ -1409,7 +1410,10 @@ def cmd_explain(args: argparse.Namespace) -> int:
     # the counts and in the terminal alone, as the judge's words are: text,
     # never a fact, never in --json. (ADR 0065; P-1676)
     cases = case_words(read.run, read.baseline, locale=args.locale)
-    for line in explain_text(read.facts, locale=args.locale, cases=cases):
+    # The suite's review rule, under the agreement reading and in the
+    # terminal alone, as the judge's words are. (ADR 0067 §2, ADR 0012 §4)
+    rule = rule_words(suite.review_rule, locale=args.locale)
+    for line in explain_text(read.facts, locale=args.locale, cases=cases, rule=rule):
         say(line)
     # The judge's words, after the facts and in the terminal alone: read off
     # the run, never a fact, never in --json. (ADR 0012 §4, as amended

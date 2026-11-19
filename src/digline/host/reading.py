@@ -108,14 +108,18 @@ def explained(
         return Explained(
             run,
             None,
-            facts(run),
+            facts(run, composites=suite.composites()),
             "run",
             run_exit_code(run, declared=declared),
         )
     comparison = compare(run, baseline)
     head = headline(comparison, run, baseline, locale="en", declared=declared)
     return Explained(
-        run, baseline, facts(run, comparison), "comparison", exit_code(head)
+        run,
+        baseline,
+        facts(run, comparison, composites=suite.composites()),
+        "comparison",
+        exit_code(head),
     )
 
 
@@ -190,7 +194,14 @@ def reported(
             )
 
     declared = suite.declared()
-    document = render_html(comparison, run, baseline, locale=locale, declared=declared)
+    document = render_html(
+        comparison,
+        run,
+        baseline,
+        locale=locale,
+        declared=declared,
+        composites=suite.composites(),
+    )
     # From the comparison the document was rendered from, never a fresh one:
     # over a redacted run a fresh `compare` has lost the digests, reads a moved
     # pin as `unknown`, and exits 0 under a page saying the file moved.
@@ -218,7 +229,7 @@ def _reported_single(
         # where nothing is compared.
         run = redact(run, suite.disclosure)
 
-    document = render_run_html(run, locale=locale)
+    document = render_run_html(run, locale=locale, composites=suite.composites())
     # And so does a lost scale: a band is declared, not referenced. (ADR 0024
     # §4.5)
     return Reported(document, run_exit_code(run, declared=suite.declared()), read, None)

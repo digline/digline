@@ -21,9 +21,11 @@ from typing import Literal, assert_never
 from digline.core import (
     AGREEMENT_FIELD,
     IDENTITY_FIELD,
+    AgreementReading,
     ArtifactDelta,
     AssertionDelta,
     Comparison,
+    Composite,
     ConfigDelta,
     ConfigOutcome,
     ConfigValue,
@@ -48,6 +50,7 @@ from digline.core import (
     counted_cases,
     misnamed,
     on_the_line,
+    reviewed_agreement,
     scale_lost,
     uncertain_cases,
     unreconciled,
@@ -55,6 +58,7 @@ from digline.core import (
 from digline.report.render import (
     ABSENT,
     SECTIONS,
+    agreement_lines,
     cases_changed_fact,
     contradicted_answers,
     contradicted_said,
@@ -88,6 +92,7 @@ __all__ = [
     "explain_text",
     "facts",
     "judge_words",
+    "rule_words",
 ]
 
 #: What a check-shaped fact can say: `Outcome`'s vocabulary, plus the states a
@@ -225,6 +230,13 @@ type TallyKind = Literal[
     # could not account for. Read off the run alone. They gate nothing.
     "awaiting",
     "awaiting_unjudged",
+    # The thirteenth amendment, from ADR 0067 §1 (c), (e), §2 and §5: the
+    # agreement between the judge and the person, per judged check, blind and
+    # after review, held in and held out, and the composite read against its
+    # criteria. The report says it, in a section of its own, and a reading
+    # that left it out would describe a judge as calibrated, or not, with no
+    # figure behind either. Read off the run alone. It gates nothing.
+    "agreement",
 ]
 
 
@@ -361,6 +373,10 @@ class TallyFact:
     #: Only on `uncertain`: each judged check on a case whose verdict is not
     #: firm, and why. The count is their number. (P-1685)
     uncertain: Sequence[Uncertain] = ()
+    #: Only on `agreement`: the reading, per check and per role. The count is
+    #: the reviewed answers with a person's verdict, held in and held out.
+    #: (ADR 0067 §1 (c), (e))
+    agreement: AgreementReading | None = None
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -374,7 +390,12 @@ _OUTCOME_ORDER: Sequence[str] = tuple(
 )
 
 
-def facts(run: Run, comparison: Comparison | None = None) -> tuple[Fact, ...]:
+def facts(
+    run: Run,
+    comparison: Comparison | None = None,
+    *,
+    composites: Sequence[Composite] = (),
+) -> tuple[Fact, ...]:
     """The reading, as values.
 
     `comparison` is `None` when the suite has no baseline, and that is the
@@ -385,8 +406,22 @@ def facts(run: Run, comparison: Comparison | None = None) -> tuple[Fact, ...]:
     The baseline `Run` is deliberately not a parameter. Everything comparative
     a reading states is already on the `Comparison`, and a second copy of the
     reference in the signature would be a second place to read it from.
+
+    `composites` is the suite's `criteria`, resolved (`Suite.composites()`):
+    a run does not record it, so the front end that loaded the suite hands it
+    in, as it hands in the cases the suite declares. `()` reads no composite.
+    (ADR 0067 §5)
     """
     out: list[Fact] = [*_tallies(run, comparison)]
+    # Last of the counts, and from the run alone: it reads the verdicts above
+    # against the person's, and qualifies none of them. (ADR 0067 §1 (c))
+    reading = reviewed_agreement(run, composites)
+    if reading is not None:
+        out.append(
+            TallyFact(
+                "agreement", count=reading.held_in + reading.held_out, agreement=reading
+            )
+        )
     out.extend(_settings(run, comparison))
     out.extend(_checks(run, comparison))
     return tuple(out)
@@ -942,6 +977,21 @@ def judge_words(run: Run, *, locale: Locale) -> tuple[str, ...]:
     return (phrase(locale, "explain.heading.judge"), *lines)
 
 
+def rule_words(rule: str | None, *, locale: Locale) -> tuple[str, ...]:
+    """The suite's review rule, for `explain`'s terminal reading, under the
+    agreement reading: what a yes meant to the person whose verdicts the
+    figures read, or that the suite does not say. (ADR 0067 §2)
+
+    **Not a fact, and read beside them**, as the judge's words are: a rule is
+    a suite's words, which may carry the end company's own, and no fact
+    carries those. Only `digline explain`'s terminal reading prints it;
+    `explain --json` and the MCP `explain` never do. (ADR 0012 §4)
+    """
+    if rule is None:
+        return (phrase(locale, "agreement.no_rule"),)
+    return (phrase(locale, "agreement.rule", rule=rule),)
+
+
 def case_words(run: Run, baseline: Run | None, *, locale: Locale) -> tuple[str, ...]:
     """The two sentences of ADR 0065 that `compare` says, for `explain`: the
     cases on one side only, by name, and the cases a person left out of the
@@ -969,7 +1019,11 @@ def case_words(run: Run, baseline: Run | None, *, locale: Locale) -> tuple[str, 
 
 
 def explain_text(
-    reading: Sequence[Fact], *, locale: Locale, cases: Sequence[str] = ()
+    reading: Sequence[Fact],
+    *,
+    locale: Locale,
+    cases: Sequence[str] = (),
+    rule: Sequence[str] = (),
 ) -> tuple[str, ...]:
     """The reading, in sentences. One line per fact, in the list's order, but
     for the unjudged tally of a run that judged no case, which says nothing
@@ -987,6 +1041,10 @@ def explain_text(
     `cases` is the other: `case_words()`'s sentences, which are text and not
     facts, printed after the counts as they were handed in. `()` prints
     nothing, which is every reading but a terminal one. (P-1676)
+
+    `rule` is `rule_words()`'s line, the suite's review rule, printed under
+    the agreement reading where there is one, and text for the reason `cases`
+    is: no fact carries a suite's words. (ADR 0067 §2, ADR 0012 §4)
     """
     strings(locale)  # fail here, not halfway through a reading
 
@@ -1008,6 +1066,14 @@ def explain_text(
         line for fact in tallies if (line := _tally_line(fact, locale, counts))
     )
     lines.extend(cases)
+
+    agreed = [f for f in tallies if f.kind == "agreement" and f.agreement]
+    for fact in agreed:
+        assert fact.agreement is not None
+        lines.append("")
+        lines.append(phrase(locale, "section.agreement"))
+        lines.extend(agreement_lines(fact.agreement, locale))
+        lines.extend(rule)
 
     lines.append("")
     lines.append(phrase(locale, f"explain.heading.settings.{where}"))
@@ -1146,6 +1212,10 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
         case "shape":
             assert fact.shape is not None
             return _shape_line(fact.shape, locale)
+        case "agreement":
+            # Not a line among the counts: a block of its own, under them,
+            # which `explain_text` prints. (ADR 0067 §1 (c))
+            return ""
     assert_never(fact.kind)
 
 

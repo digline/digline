@@ -32,6 +32,7 @@ in `digline.run.ReviewedAnswer`, and it is never written.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
@@ -42,7 +43,18 @@ if TYPE_CHECKING:
     # runtime import the other way would be a cycle.
     from digline.core.run import Run
 
-__all__ = ["Against", "Contradiction", "Reviewed", "contradicted"]
+__all__ = [
+    "Against",
+    "AgreementReading",
+    "AgreementTally",
+    "CheckAgreement",
+    "Composite",
+    "CompositeMismatch",
+    "Contradiction",
+    "Reviewed",
+    "contradicted",
+    "reviewed_agreement",
+]
 
 #: How a judge contradicted a person: it passed an answer the person said no
 #: to, or failed one the person said yes to. The two are counted apart, because
@@ -186,6 +198,19 @@ class Reviewed:
             return None
         return assertion_id not in self.failing
 
+    def blind_expects_pass(self, assertion_id: str) -> bool | None:
+        """`expects_pass`, read on the blind verdict: what the person expected
+        of the check before she read any disagreement. The same where she did
+        not revise. (ADR 0067 §2)"""
+        good, failing = self.blind
+        if good is None:
+            return None
+        if self.assertion_id is not None:
+            return good if assertion_id == self.assertion_id else None
+        if assertion_id not in self.judged:
+            return None
+        return assertion_id not in failing
+
 
 @dataclass(frozen=True, slots=True)
 class Contradiction:
@@ -267,6 +292,215 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
                     score=verdict.score.score,
                     assertion_id=verdict.assertion_id,
                     on_the_steps=on_the_steps,
+                )
+            )
+    return tuple(found)
+
+
+# -- the agreement reading (ADR 0067 §1 (c), (e), §2, §5) -------------------- #
+
+
+@dataclass(frozen=True, slots=True)
+class AgreementTally:
+    """How a judge's verdicts on one check stood against a person's: agreed,
+    passed an answer she said no to, failed one she said yes to. The two ways
+    of disagreeing are counted apart, as `Against` is."""
+
+    agree: int = 0
+    passed_no: int = 0
+    failed_yes: int = 0
+
+    @property
+    def judged(self) -> int:
+        """Every verdict counted here: the three figures summed."""
+        return self.agree + self.passed_no + self.failed_yes
+
+
+@dataclass(frozen=True, slots=True)
+class CheckAgreement:
+    """One judged check's agreement with the person, on the held-in answers
+    or on the held-out ones, never both in one row. (ADR 0067 §1 (c), (e))
+
+    `blind` is read against the verdict she gave before she read any
+    disagreement, `after` against the verdict the gate holds, her revision
+    where there is one (§2). `revised` counts the answers whose expectation
+    of this check her revision moved: the gap between the two figures, and
+    how often the judge persuaded her. `unjudged` counts the answers whose
+    verdict on this check errored: in neither figure, because a judge that
+    could not answer neither agreed nor disagreed.
+    """
+
+    check: str
+    assertion_id: str
+    held_out: bool
+    blind: AgreementTally
+    after: AgreementTally
+    revised: int = 0
+    unjudged: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class Composite:
+    """A composite check and the checks that are its criteria, by identity:
+    what a suite's `criteria` declares, resolved. (ADR 0067 §5, P-1713)"""
+
+    assertion_id: str
+    criteria: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CompositeMismatch:
+    """A reviewed answer about the whole answer on which a composite's verdict
+    is not the conjunction of its criteria's: it passed where one of them
+    failed, or failed where every one of them passed. `failed` names the
+    criteria that failed, empty in the second case. (ADR 0067 §5)"""
+
+    case_id: str
+    composite: str
+    held_out: bool
+    composite_passed: bool
+    failed: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AgreementReading:
+    """The agreement between the judge and the person, read off one run.
+
+    `held_in` and `held_out` count the reviewed answers with a verdict in
+    each role, awaiting ones in neither. `mismatches` holds the composite's
+    disagreements with its criteria in both roles: a reader names the
+    held-in ones and counts the held-out ones (§1 (e)).
+
+    `stability_measured` is false, and is a fact rather than a state of any
+    answer: no reading of stability exists in this release (§3), so no
+    answer is set apart as unstable, and every answer is counted in a figure.
+    """
+
+    rows: tuple[CheckAgreement, ...]
+    held_in: int
+    held_out: int
+    mismatches: tuple[CompositeMismatch, ...] = ()
+    stability_measured: bool = False
+
+    def total(self, *, held_out: bool) -> AgreementTally:
+        """The verdicts after review in one role, every check summed: what the
+        line that says whether the suite can gate reads, held out (§1 (e))."""
+        rows = [row.after for row in self.rows if row.held_out == held_out]
+        return AgreementTally(
+            agree=sum(t.agree for t in rows),
+            passed_no=sum(t.passed_no for t in rows),
+            failed_yes=sum(t.failed_yes for t in rows),
+        )
+
+
+def reviewed_agreement(
+    run: Run, composites: Sequence[Composite] = ()
+) -> AgreementReading | None:
+    """The agreement reading of `run`, or `None` where no reviewed answer in
+    it carries a person's verdict.
+
+    Per judged check and per role, blind and after review. An answer awaiting
+    a verdict is in no figure (§1 (a)); a check the answer did not ask is not
+    counted for it, and nor is a check on an episode's steps, which the person
+    gave no verdict about check by check. Pure, and from the run alone, like
+    `contradicted`: the same verdicts, read against both of the person's.
+    """
+    blind: dict[tuple[str, bool], list[int]] = {}
+    after: dict[tuple[str, bool], list[int]] = {}
+    moved: dict[tuple[str, bool], int] = {}
+    errored: dict[tuple[str, bool], int] = {}
+    names: dict[str, str] = {}
+    answers = {False: 0, True: 0}
+    for case in run.results:
+        reviewed = case.reviewed
+        if reviewed is None or reviewed.good is None:
+            continue
+        answers[reviewed.held_out] += 1
+        for verdict in case.verdicts:
+            expected = reviewed.expects_pass(verdict.assertion_id)
+            first = reviewed.blind_expects_pass(verdict.assertion_id)
+            if expected is None or first is None:
+                continue
+            key = (verdict.assertion_id, reviewed.held_out)
+            names.setdefault(
+                verdict.assertion_id,
+                reviewed.check if reviewed.check is not None else verdict.score.name,
+            )
+            blind.setdefault(key, [0, 0, 0])
+            after.setdefault(key, [0, 0, 0])
+            moved[key] = moved.get(key, 0) + (first != expected)
+            if verdict.status == "error":
+                errored[key] = errored.get(key, 0) + 1
+                continue
+            passed = verdict.status == "pass"
+            for table, said in ((blind, first), (after, expected)):
+                table[key][_slot(passed, said)] += 1
+    if not answers[False] and not answers[True]:
+        return None
+    rows = tuple(
+        CheckAgreement(
+            check=names[identity],
+            assertion_id=identity,
+            held_out=role,
+            blind=AgreementTally(*blind[(identity, role)]),
+            after=AgreementTally(*after[(identity, role)]),
+            revised=moved[(identity, role)],
+            unjudged=errored.get((identity, role), 0),
+        )
+        for role in (False, True)
+        for identity in names
+        if (identity, role) in blind
+    )
+    return AgreementReading(
+        rows=rows,
+        held_in=answers[False],
+        held_out=answers[True],
+        mismatches=_mismatches(run, composites),
+    )
+
+
+def _slot(passed: bool, said: bool) -> int:
+    """Where one verdict goes in a `AgreementTally`'s three figures."""
+    if passed == said:
+        return 0
+    return 1 if passed else 2
+
+
+def _mismatches(
+    run: Run, composites: Sequence[Composite]
+) -> tuple[CompositeMismatch, ...]:
+    """Each reviewed answer about the whole answer, with a verdict, on which a
+    composite is not the conjunction of its criteria. An answer on which the
+    composite or any of its criteria errored, or did not run, is passed over:
+    there is no conjunction to read. (ADR 0067 §5)"""
+    found: list[CompositeMismatch] = []
+    for case in run.results:
+        reviewed = case.reviewed
+        if reviewed is None or reviewed.good is None or reviewed.check is not None:
+            continue
+        by_id = {verdict.assertion_id: verdict for verdict in case.verdicts}
+        for composite in composites:
+            involved = (composite.assertion_id, *composite.criteria)
+            if any(
+                identity not in by_id or by_id[identity].status == "error"
+                for identity in involved
+            ):
+                continue
+            passed = by_id[composite.assertion_id].status == "pass"
+            failed = tuple(
+                by_id[identity].score.name
+                for identity in composite.criteria
+                if by_id[identity].status != "pass"
+            )
+            if passed == (not failed):
+                continue
+            found.append(
+                CompositeMismatch(
+                    case_id=case.case_id,
+                    composite=by_id[composite.assertion_id].score.name,
+                    held_out=reviewed.held_out,
+                    composite_passed=passed,
+                    failed=failed,
                 )
             )
     return tuple(found)

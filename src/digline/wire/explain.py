@@ -22,13 +22,19 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import assert_never
 
-from digline.core import Run, index_verdicts, key_of
+from digline.core import (
+    AgreementReading,
+    AgreementTally,
+    Run,
+    index_verdicts,
+    key_of,
+)
 from digline.report.explain import CheckFact, Fact, SettingFact, TallyFact
 from digline.wire.compare import before_interval_json, shape_json
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
-__all__ = ["explain_json", "fact_json"]
+__all__ = ["agreement_json", "explain_json", "fact_json"]
 
 
 def fact_json(
@@ -171,8 +177,56 @@ def fact_json(
                     }
                     for item in fact.uncertain
                 ]
+            # And the agreement between the judge and the person, per check
+            # and role. Only on the `agreement` tally. A held-out answer is
+            # counted and never named: its composite disagreements are a
+            # count beside the held-in ones. (ADR 0067 §1 (c), (e), §5)
+            if fact.agreement is not None:
+                payload["agreement"] = agreement_json(fact.agreement)
             return payload
     assert_never(fact)
+
+
+def agreement_json(reading: AgreementReading) -> dict[str, object]:
+    """The agreement reading, for a program. Counts, check names and
+    identities, and the held-in composite disagreements by case: no reason,
+    and no held-out case. (ADR 0067 §1 (c), (e), §5; ADR 0012 §4)"""
+    return {
+        "held_in": reading.held_in,
+        "held_out": reading.held_out,
+        "stability_measured": reading.stability_measured,
+        "checks": [
+            {
+                "check": row.check,
+                "assertion_id": row.assertion_id,
+                "held_out": row.held_out,
+                "blind": _tally_json(row.blind),
+                "after": _tally_json(row.after),
+                "revised": row.revised,
+                "unjudged": row.unjudged,
+            }
+            for row in reading.rows
+        ],
+        "composites": [
+            {
+                "case_id": item.case_id,
+                "composite": item.composite,
+                "composite_passed": item.composite_passed,
+                "failed": list(item.failed),
+            }
+            for item in reading.mismatches
+            if not item.held_out
+        ],
+        "composites_held_out": sum(1 for item in reading.mismatches if item.held_out),
+    }
+
+
+def _tally_json(tally: AgreementTally) -> dict[str, object]:
+    return {
+        "agree": tally.agree,
+        "passed_no": tally.passed_no,
+        "failed_yes": tally.failed_yes,
+    }
 
 
 def explain_json(

@@ -761,6 +761,64 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "reviewed.no": "no",
         "reviewed.agrees": "agrees",
         "reviewed.contradicts": "contradicts the person",
+        # The agreement reading, in `explain` and in the report: per judged
+        # check and per role, blind and after review. (ADR 0067 §1 (c), (e),
+        # §2, §5)
+        "section.agreement": "How the judge agrees with the person",
+        "agreement.role.in": "held in",
+        "agreement.role.out": "held out",
+        "agreement.row": "{check}, {role}: blind, {blind}; after review, {after}.",
+        "agreement.tally": "{agree} of {judged} agree",
+        "agreement.tally.against": (
+            "{agree} of {judged} agree ({passed_no} passed a no, "
+            "{failed_yes} failed a yes)"
+        ),
+        "agreement.revised.one": " 1 answer was revised between the two.",
+        "agreement.revised.many": " {count} answers were revised between the two.",
+        "agreement.unjudged.one": " 1 answer could not be judged on it.",
+        "agreement.unjudged.many": " {count} answers could not be judged on it.",
+        "agreement.ready.one": (
+            "Held out: {agree} of {judged} verdicts agree after review, check by "
+            "check; 1 held-in answer served the tuning and is not counted here."
+        ),
+        "agreement.ready.many": (
+            "Held out: {agree} of {judged} verdicts agree after review, check by "
+            "check; {held_in} held-in answers served the tuning and are not "
+            "counted here."
+        ),
+        "agreement.ready.none_in": (
+            "Held out: {agree} of {judged} verdicts agree after review, check by check."
+        ),
+        "agreement.no_held_out": (
+            "No reviewed answer is held out: the agreement above was measured "
+            "on the answers the rubric was tuned on."
+        ),
+        "agreement.stability": (
+            "No answer is set apart as unstable: this run's stability was not "
+            "measured, so every answer is counted."
+        ),
+        "agreement.composite.passed": "{case}: {composite} passed, {failed} failed",
+        "agreement.composite.failed": (
+            "{case}: {composite} failed, and each of its criteria passed"
+        ),
+        "agreement.composite.one": (
+            "1 answer on which a composite is not the conjunction of its "
+            "criteria: {cases}."
+        ),
+        "agreement.composite.many": (
+            "{count} answers on which a composite is not the conjunction of its "
+            "criteria: {cases}."
+        ),
+        "agreement.composite.held_out.one": (
+            "1 held-out answer on which a composite is not the conjunction of its "
+            "criteria, counted and not named."
+        ),
+        "agreement.composite.held_out.many": (
+            "{count} held-out answers on which a composite is not the conjunction "
+            "of its criteria, counted and not named."
+        ),
+        "agreement.rule": "What a yes means, in this suite's words: {rule}",
+        "agreement.no_rule": "This suite does not say what a yes means.",
         "column.detail": "What happened",
         "column.reason": "Why",
         "detail.dropped": "Score fell from {before} to {now}.",
@@ -2672,6 +2730,71 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "reviewed.no": "no",
         "reviewed.agrees": "d'accordo",
         "reviewed.contradicts": "contraddice la persona",
+        "section.agreement": "Quanto il giudice è d'accordo con la persona",
+        "agreement.role.in": "usate per la messa a punto",
+        "agreement.role.out": "tenute da parte",
+        "agreement.row": (
+            "{check}, {role}: alla cieca, {blind}; dopo la revisione, {after}."
+        ),
+        "agreement.tally": "{agree} su {judged} d'accordo",
+        "agreement.tally.against": (
+            "{agree} su {judged} d'accordo ({passed_no} promosse dove la persona "
+            "ha detto no, {failed_yes} bocciate dove ha detto sì)"
+        ),
+        "agreement.revised.one": " 1 risposta è stata rivista tra le due.",
+        "agreement.revised.many": " {count} risposte sono state riviste tra le due.",
+        "agreement.unjudged.one": " 1 risposta non ha potuto essere giudicata.",
+        "agreement.unjudged.many": (
+            " {count} risposte non hanno potuto essere giudicate."
+        ),
+        "agreement.ready.one": (
+            "Tenute da parte: {agree} verdetti su {judged} d'accordo dopo la "
+            "revisione, controllo per controllo; 1 risposta usata per la messa a "
+            "punto non è contata qui."
+        ),
+        "agreement.ready.many": (
+            "Tenute da parte: {agree} verdetti su {judged} d'accordo dopo la "
+            "revisione, controllo per controllo; {held_in} risposte usate per la "
+            "messa a punto non sono contate qui."
+        ),
+        "agreement.ready.none_in": (
+            "Tenute da parte: {agree} verdetti su {judged} d'accordo dopo la "
+            "revisione, controllo per controllo."
+        ),
+        "agreement.no_held_out": (
+            "Nessuna risposta rivista è tenuta da parte: l'accordo qui sopra è "
+            "misurato sulle risposte su cui la rubrica è stata messa a punto."
+        ),
+        "agreement.stability": (
+            "Nessuna risposta è messa da parte come instabile: la stabilità di "
+            "questo run non è stata misurata, quindi ogni risposta è contata."
+        ),
+        "agreement.composite.passed": (
+            "{case}: {composite} promossa, {failed} bocciata"
+        ),
+        "agreement.composite.failed": (
+            "{case}: {composite} bocciata, e ciascuno dei suoi criteri promosso"
+        ),
+        "agreement.composite.one": (
+            "1 risposta su cui un controllo composto non è la congiunzione dei "
+            "suoi criteri: {cases}."
+        ),
+        "agreement.composite.many": (
+            "{count} risposte su cui un controllo composto non è la congiunzione "
+            "dei suoi criteri: {cases}."
+        ),
+        "agreement.composite.held_out.one": (
+            "1 risposta tenuta da parte su cui un controllo composto non è la "
+            "congiunzione dei suoi criteri, contata e non nominata."
+        ),
+        "agreement.composite.held_out.many": (
+            "{count} risposte tenute da parte su cui un controllo composto non è "
+            "la congiunzione dei suoi criteri, contate e non nominate."
+        ),
+        "agreement.rule": (
+            "Che cosa vuol dire un sì, con le parole di questa suite: {rule}"
+        ),
+        "agreement.no_rule": "Questa suite non dice che cosa vuol dire un sì.",
         "column.detail": "Che cosa è successo",
         "column.reason": "Perché",
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",

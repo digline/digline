@@ -20,6 +20,7 @@ from digline.core import (
     Assertion,
     Before,
     CalibrationBand,
+    Composite,
     Declared,
     Disclosure,
     Faithfulness,
@@ -763,6 +764,14 @@ class Suite:
     #: Outside `config_hash`, for the reason `capture` is: it is what a person
     #: reads before judging, not how a check judges. (ADR 0067 §2)
     review_rule: str | None = None
+    #: Which judged checks are a composite's criteria, by name: `{"overall":
+    #: ["accurate", "polite"]}` says `overall` asks in one rubric what the two
+    #: ask apart. The agreement reading then names each reviewed answer about
+    #: the whole answer on which the composite is not the conjunction of its
+    #: criteria. Outside `config_hash` and every identity, for the reason
+    #: `review_rule` is: it changes how a run is read, not what is checked.
+    #: (ADR 0067 §5, P-1713)
+    criteria: Mapping[str, Sequence[str]] | None = None
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -933,6 +942,7 @@ class Suite:
         self._check_trajectories()
         self._check_reviewed_answers()
         self._check_capture()
+        self._check_criteria()
         # Validated on the *declared* set, so a refusal names what the author
         # wrote rather than a copy the expansion made.
         self._check_aggregates()
@@ -1263,6 +1273,112 @@ class Suite:
                     "person's yes or no about an answer, which measures a judge",
                 )
             )
+
+    def _check_criteria(self) -> None:
+        """Each composite and each of its criteria names one judged check of
+        this suite; a check is not its own criterion, and is a criterion of
+        one composite at most. Refused when the suite is loaded, each by
+        name. (ADR 0067 §5, ruled 2026-11-19, P-1713)"""
+        if self.criteria is None:
+            return
+        if not isinstance(self.criteria, Mapping):  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                f"suite {self.name!r} declares criteria={self.criteria!r}: it maps "
+                "a composite check's name to the names of its criteria"
+            )
+        held: dict[str, tuple[str, ...]] = {}
+        owner: dict[str, str] = {}
+        for composite, listed in self.criteria.items():
+            if isinstance(listed, str) or not isinstance(listed, Sequence):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise RefusedError(
+                    Written.said(
+                        f"suite {self.name!r} declares the criteria of ",
+                        NameRef("verdict_name", str(composite)),
+                        " as something other than a list of check names",
+                    )
+                )
+            names = tuple(listed)
+            if not names:
+                raise RefusedError(
+                    Written.said(
+                        f"suite {self.name!r} declares ",
+                        NameRef("verdict_name", composite),
+                        " a composite with no criteria: a composite is read "
+                        "against the checks it asks in one rubric, and none "
+                        "says nothing; leave `criteria` out instead",
+                    )
+                )
+            for name in (composite, *names):
+                self._criterion_judged(name, "criteria")
+            for name in names:
+                if name == composite:
+                    raise RefusedError(
+                        Written.said(
+                            f"suite {self.name!r} declares ",
+                            NameRef("verdict_name", name),
+                            " a criterion of itself: a composite is read "
+                            "against the other checks it asks in one rubric",
+                        )
+                    )
+                if name in owner:
+                    raise RefusedError(
+                        Written.said(
+                            f"suite {self.name!r} declares ",
+                            NameRef("verdict_name", name),
+                            " a criterion of two composites, ",
+                            NameRef("verdict_name", owner[name]),
+                            " and ",
+                            NameRef("verdict_name", composite),
+                            ": a check is a criterion of one composite at most",
+                        )
+                    )
+                owner[name] = composite
+            held[composite] = names
+        object.__setattr__(self, "criteria", held)
+
+    def _criterion_judged(self, name: str, key: str) -> None:
+        """`name` is one judged assertion of this suite, or the suite is
+        refused naming `key`, what declared it."""
+        matches = [a for a in self.assertions if a.name == name]
+        if len(matches) != 1:
+            available = sorted({a.name for a in self.assertions})
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} names ",
+                    NameRef("verdict_name", name),
+                    f" in `{key}`, which "
+                    + (
+                        "no assertion is called. Declared: "
+                        if not matches
+                        else f"{len(matches)} assertions share. Declared: "
+                    ),
+                    *_listed("verdict_name", available),
+                )
+            )
+        if not judged(_unwrapped(matches[0])):
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r} names ",
+                    NameRef("verdict_name", name),
+                    f" in `{key}`, which is not a judged check: a composite "
+                    "and its criteria are rubrics a judge reads",
+                )
+            )
+
+    def composites(self) -> tuple[Composite, ...]:
+        """`criteria` resolved to identities, in the order declared: what the
+        agreement reading reads a run with. Empty where none is declared.
+        (ADR 0067 §5)"""
+        if not self.criteria:
+            return ()
+        by_name = {a.name: a.identity for a in self.assertions}
+        return tuple(
+            Composite(
+                assertion_id=by_name[composite],
+                criteria=tuple(by_name[name] for name in names),
+            )
+            for composite, names in self.criteria.items()
+        )
 
     def _check_aggregates(self) -> None:
         """`over` must name exactly one declared assertion, and labels must be
