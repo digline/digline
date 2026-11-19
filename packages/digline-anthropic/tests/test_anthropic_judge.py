@@ -380,3 +380,14 @@ def test_a_reply_cut_at_the_cap_says_it_stopped_there(
     )
     with pytest.raises(ValueError, match=said):
         a_judge(client)("Output to judge:\nRome.")
+
+
+@pytest.mark.parametrize("judge", [AnthropicJudge, AnthropicClaimJudge])
+def test_a_max_tokens_set_up_reaches_the_call(judge: Any, client: FakeClient) -> None:
+    """The cap a `suite.toml` table sets, or a suite.py, is the one the
+    request carries, not the default (ADR 0068 §1). The stand-in client
+    records the request; nothing is called."""
+    # The judge prefills the opening brace, so the reply starts after it.
+    replying(client, '"score": 1, "reason": "fine", "supported": 1, "total": 1}')
+    judge(model="claude-haiku-4-5", client=client, max_tokens=2048)("p")
+    assert client.messages.requests[0]["max_tokens"] == 2048

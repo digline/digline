@@ -11,9 +11,13 @@
   pull request of ADR 0067 §10. *§3 built 2026-11-16*, in the release pull
   request of 1.3.0, by Alessandro Prandini's decision of that day to rename
   the key before any release carried it: the first case of *When it reaches
-  a release*. §1 and §2, the table, wait on that fifth pull request
+  a release*. §1 and §2, the table, wait on that fifth pull request.
+  *§1 and §2 built 2026-11-19*, in a pull request of their own and not in
+  the fifth of ADR 0067 §10, which still holds `at_least`: the plan of §5
+  is narrowed to the table, and `at_least` stays with ADR 0067. §1 adds one
+  refusal the record did not name, a `temperature` outside 0 to 2, at load
 - Shipped: 1.3.0 — §3 alone, the digest per kind of judge; §1 and §2, a
-  judge set up in the `suite.toml`, are in no file
+  judge set up in the `suite.toml`, are on `main` and in no release
 - Date: 2026-11-14
 - Opens: **nothing.** No `SCHEMA_VERSION`: `judge_config` is a mapping of
   scalars, and its keys are added. No `OUTPUT_VERSION`, no

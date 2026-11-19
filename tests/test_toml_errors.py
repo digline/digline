@@ -105,7 +105,7 @@ EVERY_REFUSAL: list[tuple[str, str]] = [
         "tolerance = 0.05\n",
     ),
     (
-        "judge with settings",
+        "judge with a setting beyond the four",
         SUITE + TARGET + '\n[[assertions]]\ntype = "llm_rubric"\nrubric = "r"\n'
         "threshold = 0.7\ntolerance = 0.05\n"
         '\n[assertions.judge]\nprovider = "fake/m"\n',
@@ -137,7 +137,7 @@ BOUNDARIES = [
     "python-only check",
     "custom pii pattern",
     "judge as an import",
-    "judge with settings",
+    "judge with a setting beyond the four",
     "computed body",
     "injected client",
 ]
