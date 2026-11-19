@@ -108,7 +108,7 @@ dd { margin: 0; }
 .answer.worse { color: var(--bad); }
 .answer.fine { color: var(--good); }
 .answer .verdict { font-size: 2rem; font-weight: 700; line-height: 1; }
-.answer p { color: var(--text); margin: .75rem 0 0; }
+.answer p { color: var(--text); margin: .75rem 0 0; white-space: pre-line; }
 .tally { list-style: none; display: flex; flex-wrap: wrap; gap: 1rem;
          padding: 0; margin: 1rem 0 0; font-size: .85rem; color: var(--muted); }
 .tally b { color: var(--text); }

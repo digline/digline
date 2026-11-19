@@ -372,6 +372,11 @@ In any language, three things:
    `digline record import --from _unassigned` lists those calls as a suite's,
    and shows that call site on its `made at:` line, where a call in process
    names its function.
+   The calls an application makes inside a turn besides the one under test,
+   a translation of the question or a summary, are recorded the same way:
+   each either takes a suite of its own, with the same header, or names none
+   and is recorded under `_unassigned`, where `import --from _unassigned`
+   shows it.
 3. **The episode**, where a turn makes several calls: the same
    `X-Digline-Episode` value on each, any value the application chooses. Once
    no call has carried it for 30 seconds (`--episode-idle`), or when the proxy

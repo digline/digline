@@ -1294,7 +1294,7 @@ RECORDED: dict[str, dict[str, str]] = {
     "docker/Dockerfile": {
         "0.8.0": "digline-openai's version, pinned to its own pyproject by "
         "tests/test_docker.py",
-        "0.9.0": "digline-bedrock's version, pinned to its own pyproject by "
+        "0.9.1": "digline-bedrock's version, pinned to its own pyproject by "
         "tests/test_docker.py",
         "0.10.1": "digline-anthropic's version, pinned to its own pyproject by "
         "tests/test_docker.py",

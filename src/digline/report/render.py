@@ -866,12 +866,16 @@ def _unpaired_text(
                     before=fmt_score(was),
                     after=fmt_score(now),
                 )
-        described.append(text)
+        described.append(_one_line(text))
+    # One pair alone stays inside its sentence; more go one to a line, each
+    # after a dash, so a reader scans them as a list (P-1704).
     said = phrase(
         locale,
         f"fact.unpaired.{'one' if len(pairs) == 1 else 'many'}",
         count=len(pairs),
-        pairs="; ".join(described),
+        pairs=described[0]
+        if len(pairs) == 1
+        else "\n".join(f"- {text}" for text in described),
     )
     step = phrase(
         locale,
@@ -1222,8 +1226,11 @@ def headline(
         # everything before them: same rules, different prompt, different run.
         # The judge is last of all: it is the only one that makes the numbers
         # themselves less comparable rather than explaining them.
+        # Every clause one line, but the unpaired one, whose breaks between its
+        # pairs are digline's and whose pairs were made one line each before
+        # they were joined (`_one_line`).
         sentence=" ".join(
-            part
+            part if part is unpaired_text else _one_line(part)
             for part in (
                 # Before everything, the calibration clause included: that one
                 # says the scale moved, this one says the run does not know
@@ -1310,6 +1317,23 @@ def headline(
             if part
         ),
     )
+
+
+#: The two line breaks, as `_CONTROL` spells them.
+_BREAKS = {code: _CONTROL[code] for code in (0x0A, 0x0D)}
+
+
+def _one_line(text: str) -> str:
+    """`text` with a newline or a return shown, in `visible()`'s spelling.
+
+    The sentence's own line breaks are digline's: the unpaired clause lists its
+    pairs one to a line. A break inside a value — a case id, a check's name,
+    anything a stored document carries — is a line somebody else wrote, and a
+    front end that prints the sentence a line at a time would print it as one
+    of digline's. So every value-bearing clause goes through this, and the
+    breaks left in the sentence are only the ones digline put there. (P-1704)
+    """
+    return text.translate(_BREAKS)
 
 
 def unreconciled_fact(gaps: Sequence[tuple[str, str]], locale: Locale) -> str:

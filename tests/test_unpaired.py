@@ -382,6 +382,53 @@ def test_the_clause_counts_several_pairs(locale: Locale) -> None:
     assert "two · llm_rubric" in head.sentence
     opening = phrase(locale, "fact.unpaired.many", count=2, pairs="{pairs}")
     assert opening.split("{pairs}")[0] in head.sentence
+    # One pair to a line, each after a dash, and the sentence goes on below
+    # them: three pairs in a row were a paragraph nobody could scan (P-1704).
+    lines = head.sentence.splitlines()
+    pairs = [line for line in lines if line.startswith("- ")]
+    assert [line.split(" · ")[0] for line in pairs] == ["- one", "- two"]
+    closing = opening.split("{pairs}")[1].lstrip("\n")
+    assert lines[lines.index(pairs[-1]) + 1].startswith(closing.split(".")[0])
+
+
+def test_a_break_inside_a_case_id_is_not_a_line_of_the_list() -> None:
+    """The list's breaks are digline's. A case id that carries one would
+    otherwise print a line that reads as a pair, or as anything at all, and
+    `compare` prints the sentence a line at a time."""
+    cases = [Case(id="one"), Case(id="two\n- forged · llm_rubric")]
+    reference = execute(
+        Suite(
+            tenant="acme",
+            environment="dev",
+            name="qa",
+            assertions=[wrapped(0.7, 0.75)],
+            cases=cases,
+        ),
+        target,
+        created_at=REFERENCE_AT,
+    )
+    now = Suite(
+        tenant="acme",
+        environment="dev",
+        name="qa",
+        assertions=[wrapped(0.6, 0.65)],
+        cases=cases,
+    )
+    run = execute(now, target, created_at=RUN_AT)
+    head = headline(
+        compare(run, reference), run, reference, locale="en", declared=now.declared()
+    )
+
+    pairs = [line for line in head.sentence.splitlines() if line.startswith("- ")]
+    assert len(pairs) == 2
+    assert "two\\x0a- forged" in head.sentence
+
+
+def test_one_pair_stays_inside_its_sentence() -> None:
+    """A list of one is not a list: the single pair keeps its line."""
+    _reference, _run, head = compared(wrapped(0.7, 0.75), wrapped(0.6, 0.65))
+
+    assert "\n" not in head.sentence
 
 
 def test_the_clause_is_silent_where_nothing_is_unpaired() -> None:

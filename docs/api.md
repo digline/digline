@@ -1782,6 +1782,13 @@ a `label` on every case.
 `JudgeReply(score: float, reason: str)`. The core composes the prompt from the
 rubric, the input and the output; you supply the call to the model.
 
+**Called from the library, a judge judges once.** A `Judge`, or an `LlmRubric`
+called on its own, makes one call and returns one score: nothing repeats it.
+Repetition is declared, never implied. `Repeated` around the check asks the
+judge N times and folds the votes, and `Suite.samples` calls the target N
+times per case through the driver
+([When the answer changes on its own](#when-the-answer-changes-on-its-own)).
+
 `JudgeReply` validates at construction: score in `[0, 1]`, non-empty `reason`.
 It is the boundary an LLM enters through, that is, the least reliable input in
 the system.

@@ -6,6 +6,60 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
+## digline — unreleased
+
+- **A missing provider says which environment was searched.** *"no provider
+  named … is installed"* now ends on *"digline is running from the
+  environment at <sys.prefix>, and a plugin installed in another one is not
+  seen from here"*: a digline installed with `uv tool install` has an
+  environment of its own, and a plugin added to the project's `.venv` is not
+  in it. The near miss, *"Did you mean …"*, does not say it. The README's
+  Quickstart says how to add a plugin to the tool, `--with digline-bedrock`,
+  or to run the project's `.venv/bin/digline`. Found in a Java application
+  with a judged suite.
+- **The checks that were not compared are listed one to a line**, each after
+  a dash, in `fact.unpaired.many`, in English and Italian: three pairs in one
+  line were a paragraph nobody could scan. One pair stays inside its sentence.
+  `compare` prints the headline a line at a time, the report keeps the breaks,
+  and `compare --json`'s `sentence` carries them as `\n`. A line break inside
+  a value the sentence quotes, a case id or a check's name, is now written
+  `\x0a` in the sentence itself, as `compare` already showed it, so that the
+  only breaks in it are digline's; `--json` and the report carried it raw.
+  Found in a Java application with a judged suite.
+- **The docs say two things the same use asked.** `docs/api.md`: a judge
+  called from the library judges once, and repetition is `Repeated` or
+  `Suite.samples`. `docs/record.md`: the other calls an application makes
+  inside a turn take a suite of their own or land in `_unassigned`.
+
+## pytest-digline — unreleased
+
+- **The summary prints the headline a line at a time**, as `digline compare`
+  does, so the checks that were not compared read one to a line. pytest-digline
+  0.6.1, as published, prints those breaks as `\x0a` beside a digline that
+  lists them.
+
+## digline-bedrock 0.9.1 — 2026-11-19
+
+A patch, released alone on `digline-bedrock-v0.9.1`, with the same
+requirements as 0.9.0.
+
+- **Claude Sonnet 4.6 is priced**, as `anthropic.claude-sonnet-4-6`, its
+  `us.` and `eu.` profiles and `global.`, in the five seeded regions. Read
+  on 2026-11-19 from Bedrock's pricing page: $3.30 / $16.50 per million
+  tokens on the bare id and a geographic profile, with cache reads at $0.33
+  and 5-minute writes at $4.125, and $3 / $15, $0.30 and $3.75 on `global.`.
+  Before, a suite on Sonnet 4.6 was refused at `preflight` until it passed a
+  `pricing=`, which still overrides this list. Found in a Java application
+  with a judged suite.
+- **Claude Sonnet 5.5's cache reads are halved**, to $0.11 per million tokens
+  on its `us.` and `eu.` profiles and $0.10 on `global.`, in the five seeded
+  regions. Read on 2026-11-19 from the same page, which says *"Starting
+  October 7, 2026, cache read pricing for Claude Sonnet 5.5 is reduced by 50%
+  from the prior rate."* The rest of its row read the same. Before, this list
+  priced those reads at $0.22 and $0.20, above what they cost, which fails a
+  `CostBudget` loudly rather than passing one in silence. The other rows were
+  not read again.
+
 ## 1.3.0 — 2026-11-16
 
 digline **1.3.0**, a minor, because its stored document moves to schema 24
