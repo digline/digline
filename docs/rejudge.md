@@ -78,6 +78,11 @@ A re-judged run says so, in the document, in the headline sentence, in
 | `config_hash` | the current suite's — the rules moving is the point |
 | `rejudged_from` | the key of the run the answers came from |
 
+**A rejudge always judges the whole run, never some of its cases.** The judge's
+configuration above is measured now and is one for the whole document, so a
+verdict carried over from the source would sit under a judge that did not give
+it (ADR 0015 §6).
+
 **What is still owed: the document records where an answer came *from*, and not
 whether anything real produced it.** `rejudged_from` separates *replayed* from
 *measured now*, which is the distinction this page is about. It does not
