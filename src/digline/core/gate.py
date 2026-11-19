@@ -30,10 +30,11 @@ from digline.core.declared import Declared, nothing_judged
 
 if TYPE_CHECKING:
     from digline.core.compare import AssertionDelta, Comparison
-    from digline.core.run import Run
+    from digline.core.run import CaseResult, Run
 
 __all__ = [
     "CauseOfTwo",
+    "awaiting_unjudged",
     "causes_of_two",
     "pins_implicated",
     "unjudged_cases",
@@ -64,12 +65,33 @@ def unjudged_cases(run: Run) -> int:
 
     In `core` since ADR 0053, which needed it beside the other causes of 2;
     `digline.report` still exports it.
+
+    **An answer awaiting a person's verdict is not counted**: it is in no
+    gate, so its judge's error is no cause of 2. `awaiting_unjudged` counts
+    it, for the sentence that says so. (ADR 0067 §1 (a), ruled 2026-11-19,
+    P-1710)
     """
     return sum(
         1
         for case in run.results
-        if any(verdict.status == "error" for verdict in case.verdicts)
+        if not _awaiting(case)
+        and any(verdict.status == "error" for verdict in case.verdicts)
     )
+
+
+def awaiting_unjudged(run: Run) -> int:
+    """How many answers awaiting a person's verdict their judge could not
+    judge. Said, and never a cause of 2. (ADR 0067 §1 (a), P-1710)"""
+    return sum(
+        1
+        for case in run.results
+        if _awaiting(case)
+        and any(verdict.status == "error" for verdict in case.verdicts)
+    )
+
+
+def _awaiting(case: CaseResult) -> bool:
+    return case.reviewed is not None and case.reviewed.good is None
 
 
 def unpaired(

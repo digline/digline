@@ -238,6 +238,9 @@ RELEASED: dict[str, int] = {
     "1.2.0": 23,
     # Schema 24: `excluded_at_promotion` on a reference (ADR 0065), additive.
     "1.3.0": 24,
+    # Schema 25: a reviewed answer's record in its new shape, awaiting, about
+    # the whole answer, revised, held out (ADR 0067), additive.
+    "1.4.0": 25,
 }
 
 #: `digline>=0.4,<0.5` → the `0.5`. Only the upper bound: the floor is a

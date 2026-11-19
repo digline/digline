@@ -543,7 +543,9 @@ def test_migrating_a_schema_20_line_writes_no_marker() -> None:
     # on a recorded response are *not recorded* (ADR 0057).
     # 23 -> 24 writes nothing either: an absent `excluded_at_promotion`
     # is a reference promoted whole (ADR 0065 §1).
-    assert SCHEMA_VERSION == 24
+    # 24 -> 25 writes nothing either: a reviewed answer's record before 25
+    # is a blind verdict, held in, about its check (ADR 0067).
+    assert SCHEMA_VERSION == 25
     current = run_to_dict(execute(suite(), Answering(), created_at=CREATED))
     for line in lines(current).values():
         line.pop("every_call_seen")

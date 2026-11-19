@@ -355,9 +355,11 @@ def test_the_options_of_compare_belong_to_it(
 ) -> None:
     argv = ["record", "status", "--tenant", "acme", "--root", str(root), *extra]
     assert main(argv) == EXIT_USAGE
-    assert "belongs to `digline record compare`, not `digline record status`" in (
-        capsys.readouterr().err
-    )
+    said = capsys.readouterr().err
+    # `--case` belongs to `record revise` too since ADR 0067 §2, and the
+    # sentence names both owners.
+    assert "belongs to `digline record compare`" in said
+    assert "not `digline record status`" in said
 
 
 # -- for a program ------------------------------------------------------------ #

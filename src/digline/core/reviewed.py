@@ -11,6 +11,23 @@ exit `1`, and not `scale_lost`: a calibration band sits strictly between 0 and
 What lives here is the half that crosses into a run: which check, by identity
 and by name, and the person's yes or no. The answer itself is payload, declared
 in `digline.run.ReviewedAnswer`, and it is never written.
+
+**Since schema 25 (ADR 0067 §1, §2, §4)** a reviewed answer may also be:
+
+- **awaiting a verdict**: `good` is `None`. The judge judged it and the person
+  has not yet, so it is in no gate: `contradicted` passes over it;
+- **about the whole answer**: `check` is `None`, and every judged check of the
+  suite ran on it, by identity in `judged`. `good` is the overall yes or no,
+  and `failing` the identities of the checks the person expected to fail on a
+  no; every other judged check is expected to pass;
+- **revised**: `good` and `failing` are then the person's verdict after she
+  read the disagreements, the one the gate holds, and `revised` says so. Her
+  blind verdict is kept beside it: on an answer about one check it is the
+  other answer, since a revision that says the same is refused; on the whole
+  answer it is `blind_failing`, the checks she first expected to fail, empty
+  for a blind yes;
+- **held out**: `held_out` is the role the person chose for it when she chose
+  it.
 """
 
 from __future__ import annotations
@@ -42,38 +59,132 @@ class Reviewed:
     choice, and binding on it could match nothing and read as *the judge
     agreed*. (ADR 0024 §4.7, amended 2026-09-26)
 
-    `good` is the person's yes, `True`, or no, `False`, and nothing else.
+    `good` is the person's yes, `True`, or no, `False`, and nothing else; or
+    `None`, an answer awaiting the person's verdict, which no gate reads
+    (ADR 0067 §1 (a)). Where the person revised her verdict it is the revised
+    one, the verdict the gate holds, and `revised` is `True` (ADR 0067 §2).
+
+    **Two forms** (ADR 0067 §4). About one check: `check` and `assertion_id`
+    name it, and `judged` and `failing` are empty. About the whole answer:
+    `check` and `assertion_id` are `None`, `judged` holds the identity of
+    every judged check that ran on it, and `failing`, a part of `judged`, the
+    ones the person expected to fail. Only a no names any.
     """
 
-    check: str
-    assertion_id: str
-    good: bool
+    check: str | None
+    assertion_id: str | None
+    good: bool | None
+    revised: bool = False
+    held_out: bool = False
+    judged: tuple[str, ...] = ()
+    failing: tuple[str, ...] = ()
+    #: On a revised verdict about the whole answer, the identities of the
+    #: checks the blind verdict expected to fail: empty where it was a yes.
+    #: The blind agreement is read against it. (ADR 0067 §2)
+    blind_failing: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if not self.check:
+        whole = self.check is None
+        if whole != (self.assertion_id is None):
+            raise ValueError(
+                "a reviewed answer names a check and its identity together, or "
+                "neither, for an answer reviewed as a whole"
+            )
+        if self.check is not None and not self.check:
             raise ValueError(
                 "a reviewed answer names no check: the person's yes or no is "
-                "about one judged assertion"
+                "about one judged assertion, or about the whole answer"
             )
-        if not self.assertion_id:
+        if self.assertion_id is not None and not self.assertion_id:
             raise ValueError(
                 Written.said(
                     "the reviewed answer for ",
-                    NameRef("calibration_check", self.check),
+                    NameRef("calibration_check", self.check or ""),
                     " carries no assertion_id: it binds to its verdict by "
                     "identity, and one with none binds to nothing",
                 )
             )
-        # `bool` and nothing that is merely truthy: a person said yes or no.
-        if type(self.good) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+        # `bool` and nothing that is merely truthy: a person said yes or no,
+        # or has not said yet.
+        if self.good is not None and type(self.good) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
             raise ValueError(
                 Written.said(
                     "the reviewed answer for ",
-                    NameRef("calibration_check", self.check),
+                    NameRef("calibration_check", self.check or ""),
                     f" carries good={self.good!r}: good is true or false, the "
                     "person's yes or no",
                 )
             )
+        object.__setattr__(self, "judged", tuple(self.judged))
+        object.__setattr__(self, "failing", tuple(self.failing))
+        object.__setattr__(self, "blind_failing", tuple(self.blind_failing))
+        if self.blind_failing and not (whole and self.revised):
+            raise ValueError(
+                "a reviewed answer carries the blind verdict's failing checks "
+                "beside a verdict that is not a revision about the whole answer"
+            )
+        if not set(self.blind_failing) <= set(self.judged):
+            raise ValueError(
+                "a reviewed answer's blind verdict expects a check to fail that "
+                "did not run on it: `blind_failing` is a part of `judged`"
+            )
+        if not whole and (self.judged or self.failing):
+            raise ValueError(
+                "a reviewed answer about one check carries no `judged` and no "
+                "`failing`: those are the whole answer's"
+            )
+        if whole and not self.judged:
+            raise ValueError(
+                "a reviewed answer about the whole answer names no judged "
+                "check: every judged check of the suite runs on it"
+            )
+        if not set(self.failing) <= set(self.judged):
+            raise ValueError(
+                "a reviewed answer expects a check to fail that did not run on "
+                "it: `failing` is a part of `judged`"
+            )
+        if self.failing and self.good is not False:
+            raise ValueError(
+                "a reviewed answer names checks expected to fail beside a "
+                "verdict that is not a no"
+            )
+        if whole and self.good is False and not self.failing:
+            raise ValueError(
+                "a no about the whole answer names no check expected to fail: "
+                "a no that does not say which part was wrong expects nothing "
+                "of any check"
+            )
+        if self.good is None and self.revised:
+            raise ValueError(
+                "a reviewed answer awaiting a verdict cannot have been revised"
+            )
+
+    @property
+    def awaiting(self) -> bool:
+        """No verdict from the person yet: in no gate. (ADR 0067 §1 (a))"""
+        return self.good is None
+
+    @property
+    def blind(self) -> tuple[bool | None, tuple[str, ...]]:
+        """The person's blind verdict and the identities it expected to fail:
+        the verdict itself where it was not revised. (ADR 0067 §2)"""
+        if not self.revised:
+            return self.good, self.failing
+        if self.check is not None:
+            return (None if self.good is None else not self.good), ()
+        return not self.blind_failing, self.blind_failing
+
+    def expects_pass(self, assertion_id: str) -> bool | None:
+        """Whether the person expected the check with this identity to pass,
+        or `None` where she said nothing about it: awaiting, or a check the
+        reviewed answer did not ask."""
+        if self.good is None:
+            return None
+        if self.assertion_id is not None:
+            return self.good if assertion_id == self.assertion_id else None
+        if assertion_id not in self.judged:
+            return None
+        return assertion_id not in self.failing
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,26 +238,32 @@ def contradicted(run: Run) -> tuple[Contradiction, ...]:
     found: list[Contradiction] = []
     for case in run.results:
         reviewed = case.reviewed
-        if reviewed is None:
+        if reviewed is None or reviewed.good is None:
+            # Awaiting the person's verdict: the judge's stands alone, and no
+            # gate reads it. (ADR 0067 §1 (a))
             continue
         for verdict in case.verdicts:
             if verdict.status == "error":
                 continue
-            if verdict.assertion_id != reviewed.assertion_id:
-                # A trajectory check beside the one reviewed: only a yes
+            expected = reviewed.expects_pass(verdict.assertion_id)
+            if expected is None:
+                # A trajectory check beside the ones reviewed: only a yes
                 # binds it, and only a red one contradicts it.
                 if not reviewed.good or verdict.status == "pass":
                     continue
-                check, on_the_steps = verdict.score.name, True
-            elif (verdict.status == "pass") == reviewed.good:
+                check, good, on_the_steps = verdict.score.name, True, True
+            elif (verdict.status == "pass") == expected:
                 continue
             else:
-                check, on_the_steps = reviewed.check, False
+                check = (
+                    reviewed.check if reviewed.check is not None else verdict.score.name
+                )
+                good, on_the_steps = expected, False
             found.append(
                 Contradiction(
                     case_id=case.case_id,
                     check=check,
-                    good=reviewed.good,
+                    good=good,
                     score=verdict.score.score,
                     assertion_id=verdict.assertion_id,
                     on_the_steps=on_the_steps,

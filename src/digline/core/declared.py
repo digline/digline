@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 __all__ = [
     "CasesChanged",
     "Declared",
+    "all_awaiting",
+    "awaiting_cases",
     "cases_changed",
     "cases_that_count",
     "nothing_judged",
@@ -64,6 +66,24 @@ class CasesChanged:
         return bool(self.added or self.removed)
 
 
+def awaiting_cases(run: Run) -> frozenset[str]:
+    """The ids of the reviewed answers in `run` awaiting a person's verdict.
+    The judge judged them, and no gate reads that verdict. (ADR 0067 §1 (a))"""
+    return frozenset(
+        case.case_id
+        for case in run.results
+        if case.reviewed is not None and case.reviewed.good is None
+    )
+
+
+def all_awaiting(run: Run, declared: Declared | None) -> bool:
+    """Whether every case that counts is an answer awaiting a verdict: the
+    reason `nothing_judged` holds, said as its own sentence. (ADR 0067 §1 (a),
+    ruled 2026-11-19, P-1710)"""
+    counting = cases_that_count(run, declared)
+    return bool(counting) and counting <= awaiting_cases(run)
+
+
 def nothing_judged(run: Run, declared: Declared | None) -> bool:
     """Whether none of the cases that count was judged. (ADR 0049 §3)
 
@@ -81,8 +101,13 @@ def nothing_judged(run: Run, declared: Declared | None) -> bool:
     a suspended case has none, and an errored one has only `error`.
     Aggregates never count: a figure over the cases is not evidence that the
     cases were judged.
+
+    **An answer awaiting a person's verdict is never judged here**, whatever
+    its judge said: it is in no gate, so a run whose only cases await one
+    measured nothing and does not pass, fixed decision 3. (ADR 0067 §1 (a),
+    ruled 2026-11-19, P-1710)
     """
-    counting = cases_that_count(run, declared)
+    counting = cases_that_count(run, declared) - awaiting_cases(run)
     return not any(
         verdict.status in ("pass", "fail")
         for case in run.results

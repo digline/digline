@@ -42,6 +42,9 @@ from digline.core import (
     SystemConfig,
     Uncertain,
     Verdict,
+    all_awaiting,
+    awaiting_cases,
+    awaiting_unjudged,
     budget_exceedances,
     case_count,
     causes_of_two,
@@ -317,6 +320,11 @@ class Headline:
     #: two faults. (ADR 0059 §1)
     reviewed_passed_no: int = 0
     reviewed_failed_yes: int = 0
+    #: How many reviewed answers await a person's verdict, and how many of
+    #: those their judge could not judge. Said, and read by no exit code: an
+    #: answer awaiting a verdict is in no gate. (ADR 0067 §1 (a); P-1710)
+    awaiting: int = 0
+    awaiting_unjudged: int = 0
     #: How many run-level checks were measured over a different number of cases
     #: than the reference they are set beside. The fourteenth fact, and the
     #: first one added because a *sentence* was found saying something false
@@ -930,7 +938,7 @@ def headline(
     # Read against the suite's declaration, never the run alone: a run that
     # carries none of its subject cases still judged none of them. (ADR 0049 §3)
     judged_nothing = "nothing_judged" in causes
-    nothing_text = phrase(locale, "fact.nothing_judged") if judged_nothing else ""
+    nothing_text = nothing_judged_text(run, declared, locale) if judged_nothing else ""
 
     # *Nothing got worse.* is about the checks that were compared. It is not said
     # where no case was judged and no check was compared: a run whose every case
@@ -1123,6 +1131,8 @@ def headline(
     calibration_text = calibration_fact(lost, locale)
     contradictions = contradicted(run)
     reviewed_text = reviewed_fact(contradictions, locale)
+    waiting, waiting_unjudged = len(awaiting_cases(run)), awaiting_unjudged(run)
+    awaiting_text = awaiting_fact(waiting, waiting_unjudged, locale)
     gaps = unreconciled(run)
     unreconciled_text = unreconciled_fact(gaps, locale)
     # **And the reference's own gaps, which nothing read until now.** ADR 0027
@@ -1214,6 +1224,8 @@ def headline(
         scale_lost="scale_lost" in causes,
         reviewed_passed_no=_directed(contradictions, "passed_no"),
         reviewed_failed_yes=_directed(contradictions, "failed_yes"),
+        awaiting=waiting,
+        awaiting_unjudged=waiting_unjudged,
         denominator_moved=incomparable,
         unreconciled=len(gaps),
         reference_unreconciled=len(reference_gaps),
@@ -1254,6 +1266,9 @@ def headline(
                 # person about a known answer, so every judged number after it
                 # was graded by that judge. (ADR 0059 §1)
                 reviewed_text,
+                # And the answers no person has judged yet, beside them: in no
+                # gate, so said and never counted. (ADR 0067 §1 (a))
+                awaiting_text,
                 # Before the counts it would otherwise sit under: "Nothing got
                 # worse." about a run that judged nothing is the false sentence
                 # ADR 0049 exists to stop. (§1, §3)
@@ -1602,6 +1617,29 @@ def _many(count: int) -> str:
     return "one" if count == 1 else "many"
 
 
+def nothing_judged_text(run: Run, declared: Declared | None, locale: Locale) -> str:
+    """`fact.nothing_judged`, or its own sentence where the reason is that
+    every case that counts awaits a person's verdict. (ADR 0067 §1 (a);
+    P-1710)"""
+    if all_awaiting(run, declared):
+        return phrase(locale, "fact.nothing_judged.awaiting")
+    return phrase(locale, "fact.nothing_judged")
+
+
+def awaiting_fact(awaiting: int, unjudged: int, locale: Locale) -> str:
+    """How many answers await a person's verdict, and how many of them their
+    judge could not judge, or nothing at all where none await. (ADR 0067 §1
+    (a); P-1710)"""
+    if not awaiting:
+        return ""
+    text = phrase(locale, f"fact.awaiting.{_many(awaiting)}", count=awaiting)
+    if unjudged:
+        text += " " + phrase(
+            locale, f"fact.awaiting.unjudged.{_many(unjudged)}", count=unjudged
+        )
+    return text
+
+
 def reviewed_fact(found: Sequence[Contradiction], locale: Locale) -> str:
     """The clause a contradicted reviewed answer earns, or nothing at all.
 
@@ -1645,16 +1683,23 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     against = 0
     for case in run.results:
         reviewed = case.reviewed
-        if reviewed is None:
+        # An answer awaiting a person's verdict has none to set the judge's
+        # beside, and is in no gate: counted in the headline, never a row
+        # here. (ADR 0067 §1 (a))
+        if reviewed is None or reviewed.good is None:
             continue
-        said = phrase(locale, f"reviewed.{'yes' if reviewed.good else 'no'}")
         for verdict in case.verdicts:
-            if verdict.assertion_id != reviewed.assertion_id:
+            # Per check, as the person expected each: one check for an answer
+            # reviewed about it, every judged check for the whole answer, a
+            # yes for each but those she expected to fail. (ADR 0067 §4)
+            expected = reviewed.expects_pass(verdict.assertion_id)
+            if expected is None:
                 continue
+            said = phrase(locale, f"reviewed.{'yes' if expected else 'no'}")
             if verdict.status == "error":
                 result, agreement = phrase(locale, "detail.errored"), ""
             else:
-                agrees = (verdict.status == "pass") == reviewed.good
+                agrees = (verdict.status == "pass") == expected
                 against += 0 if agrees else 1
                 score = verdict.score.score
                 result = verdict.status if score is None else fmt_score(score)
@@ -1665,7 +1710,7 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
             rows.append(
                 "<tr>"
                 f"<td><code>{escape(case.case_id)}</code></td>"
-                f"<td><code>{escape(reviewed.check)}</code></td>"
+                f"<td><code>{escape(reviewed.check or verdict.score.name)}</code></td>"
                 f"<td>{escape(said)}</td>"
                 f"<td><b>{escape(result)}</b> {escape(agreement)}</td>"
                 f"<td>{escape(why)}</td>"

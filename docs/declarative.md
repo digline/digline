@@ -136,6 +136,7 @@ The same names as `Suite`'s own fields, the same defaults, the same refusals.
 | `artifacts` | files that *are* the thing under test — a prompt above all |
 | `record_responses` | `true` to keep what the target answered in the run, one entry per sample, so `digline rejudge` can judge it again. Default `false`. It is written inside the perimeter and never crosses it. It governs the answers and not the judge's words: where a judged check's samples disagree, what each said is kept in the run either way. Outside `config_hash` |
 | `deterministic_output` | `true` where the same input gives the same answer. Default `false`, never deduced from the checks. Read only by `digline record import`, where a yes then also writes the answer as an `expected`. Outside `config_hash` |
+| `review_rule` | *Arrives with digline 1.4.* What a person's yes means for this suite's reviewed answers, in your words: the [review page](view.md#the-review-one-answer-at-a-time) shows it above every verdict. Outside `config_hash` |
 
 `disclosure` is **not** settable here. See "What it cannot say".
 

@@ -364,6 +364,29 @@ __all__ = [
 #:    would have carried there, and the digest of 5 moved under the exception
 #:    beside `_BASE`.
 #:
+#: 6: **a bump for two keys that may now be `null`** (ADR 0067; ruled
+#:    2026-11-19, P-1710). A reviewed answer's record in the run document,
+#:    `reviewed`, carried `check`, always a string, and `good`, always a
+#:    boolean, since schema 23 under 5. ADR 0067 adds two forms that have
+#:    neither: an answer reviewed **as a whole**, about every judged check of
+#:    the suite, whose `check` is `null`, and an answer **awaiting** the
+#:    person's verdict, whose `good` is `null`. A key a consumer has read as a
+#:    string or a boolean that may now be `null` is a change a consumer can
+#:    see, and by the rule beside `_BASE` that is a bump, not an added key:
+#:    ADR 0067's header said no bump was needed, and its dated note of
+#:    2026-11-19 says why one is. The other way round, `"reviewed": null` on
+#:    those answers, would tell a consumer the case is not a reviewed answer,
+#:    which is false. Beside them, added keys that ship first under 6 and so
+#:    belong to its base: `revised` and `held_out` on `reviewed`, and
+#:    `awaiting` and `awaiting_unjudged` on `compare`'s headline.
+#:
+#:    The bump folds `_ADDED` into `_BASE`, as the bumps to 3, 4 and 5 did, by
+#:    keeping 5's base and what 5 added as they were written, `_BASE_AT_5` and
+#:    `_ADDED_UNDER_5`, and deriving `_BASE` from them with `_AT_6`: each key
+#:    keeps the provenance written beside it, and none is written twice.
+#:    `_ADDED` and `_ADDED_WORDS` are empty, as
+#:    `test_a_bump_since_the_last_release_leaves_added_empty` demands.
+#:
 #: **This record grows by an added key. No count of the keys is written, and no
 #: enumeration of a set that can be found by looking — but the criterion is
 #: narrower than either, and most counts in this repository are fine.**
@@ -396,7 +419,7 @@ __all__ = [
 #: *Since 2026-10-02 (#312), the paragraph above kept as written:* when you add
 #: a key, the record is an entry in `_ADDED` at the end of this module, and a
 #: test refuses the key until it is there. A paragraph here may still say why.
-OUTPUT_VERSION = 5
+OUTPUT_VERSION = 6
 
 EXIT_OK = 0
 EXIT_WORSE = 1
@@ -737,10 +760,10 @@ class _AddedWord:
     ref: str
 
 
-#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 5`, with
+#: Every word added to a map's key vocabulary under `OUTPUT_VERSION = 6`, with
 #: the issue or ADR that added it. Appended to, never edited, like `_ADDED`. The
 #: word added under 2, `projected` on `log.spread_absence`, is in `_BASE`'s
-#: vocabulary (#669). None was added under 3.
+#: vocabulary (#669). None was added under 3, and none under 5.
 _ADDED_WORDS: tuple[_AddedWord, ...] = ()
 
 
@@ -883,13 +906,15 @@ _VERDICT: Mapping[str, _Key] = {
     "tolerance": _NUM,
 }
 
-#: The shape of every document under `OUTPUT_VERSION = 5`. Written on
-#: 2026-10-02 as version 2's base, folded at the bump to 3 (#669), at the bump
-#: to 4 (#678) and at the bump to 5: every key and word added under 2, 3 and 4
-#: is in it, each beside the provenance its entry in `_ADDED` or `_ADDED_WORDS`
-#: carried. **It does not move** under `OUTPUT_VERSION = 5`: an added key goes in
-#: `_ADDED`, and anything else here is a bump.
-_BASE: Mapping[str, Mapping[str, _Key]] = {
+#: The shape of every document under `OUTPUT_VERSION = 5`, as 5's base was
+#: pinned. Written on 2026-10-02 as version 2's base, folded at the bump to 3
+#: (#669), at the bump to 4 (#678) and at the bump to 5: every key and word
+#: added under 2, 3 and 4 is in it, each beside the provenance its entry in
+#: `_ADDED` or `_ADDED_WORDS` carried. *Since the bump to 6 (ADR 0067), kept as
+#: written:* it is no longer `_BASE` but what `_BASE` is folded from, with
+#: `_ADDED_UNDER_5` and `_AT_6`, so each key keeps the provenance written
+#: beside it here and none is copied twice.
+_BASE_AT_5: Mapping[str, Mapping[str, _Key]] = {
     # `compare --json`, and the MCP `compare` tool. (compare.py)
     "compare": _HEADLINE,
     "compare.full": {
@@ -1488,12 +1513,12 @@ _SHAPE: Mapping[str, _Key] = {
     "finish": _STR_OR_NULL,
 }
 
-#: Every key added under `OUTPUT_VERSION = 5` since its `_BASE` was pinned, one
-#: entry each, with the issue or ADR that added it. Appended to, never edited:
-#: changing an entry's types is a change a consumer can see, and the rule for
-#: that is a bump. The keys added under 2, 3 and 4 are in `_BASE`, each beside
-#: the provenance its entry carried (#669, #678, and the bump to 5).
-_ADDED: tuple[_AddedKey, ...] = (
+#: Every key added under `OUTPUT_VERSION = 5` after its base was pinned, one
+#: entry each, with the issue or ADR that added it. *Since the bump to 6, kept
+#: as written:* folded into `_BASE` by `_derive`, beside `_BASE_AT_5`, and no
+#: longer appended to; `_ADDED` below is where a key added under 6 goes once a
+#: release has written 6.
+_ADDED_UNDER_5: tuple[_AddedKey, ...] = (
     *_shape_added(
         "record_compare",
         {
@@ -1975,6 +2000,45 @@ def _with_word(value: _Type, word: str) -> _Type:
     return value
 
 
+#: What the bump to 6 moved, as entries over the folded base (ADR 0067): a
+#: reviewed answer's `check` may be `null`, an answer reviewed as a whole, and
+#: its `good` too, an answer awaiting the person's verdict. A key that was
+#: always a string or a boolean and may now be `null` is the change the rule
+#: beside `_BASE` calls a bump. `revised` and `held_out` are new keys beside
+#: them, and the headline counts the answers awaiting a verdict and those of
+#: them the judge could not judge (P-1710). They ship first in the release
+#: that writes 6, so they are part of its base, not of `_ADDED`.
+_REVIEWED_AT_6 = "ADR 0067 §1, §2, §4; OUTPUT_VERSION 6"
+_AT_6: tuple[_AddedKey, ...] = (
+    *_shape_added(
+        "reviewed",
+        {
+            "check": _STR_OR_NULL,
+            "good": _k("boolean", "null"),
+            "revised": _BOOL,
+            "held_out": _BOOL,
+        },
+        _REVIEWED_AT_6,
+    ),
+    _AddedKey("compare", "awaiting", _INT, _REVIEWED_AT_6),
+    _AddedKey("compare", "awaiting_unjudged", _INT, _REVIEWED_AT_6),
+    _AddedKey("compare.full", "awaiting", _INT, _REVIEWED_AT_6),
+    _AddedKey("compare.full", "awaiting_unjudged", _INT, _REVIEWED_AT_6),
+)
+
+#: The shape of every document under `OUTPUT_VERSION = 6`: 5's base, what 5
+#: added after it was pinned, and what 6 moved. **It does not move** under
+#: `OUTPUT_VERSION = 6` once a release has written 6: an added key then goes
+#: in `_ADDED`, and anything else is a bump.
+_BASE: Mapping[str, Mapping[str, _Key]] = _derive(_BASE_AT_5, (*_ADDED_UNDER_5, *_AT_6))
+
+#: Every key added under `OUTPUT_VERSION = 6` since its `_BASE` was pinned, one
+#: entry each, with the issue or ADR that added it. Appended to, never edited:
+#: changing an entry's types is a change a consumer can see, and the rule for
+#: that is a bump. Empty until a release has written 6
+#: (`test_a_bump_since_the_last_release_leaves_added_empty`).
+_ADDED: tuple[_AddedKey, ...] = ()
+
 #: The contract as it stands: `_BASE` with every `_ADDED` entry in it. Derived,
 #: so the two parts above are the only places a key is written.
 _SHAPES: Mapping[str, Mapping[str, _Key]] = _derive(_BASE, _ADDED, _ADDED_WORDS)
@@ -2020,6 +2084,6 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: both: a `_BASE` that moved under the same version is a rename, a removal or
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
-    5,
-    "aec4de70bfa53e30c1ab54db34d27799f3e4c3219cc25ef39dcb89a56b26d3e4",
+    6,
+    "383ae02c1699653b7762246d84fde7b7801144db7c032c092e0be5f0662e1f4c",
 )

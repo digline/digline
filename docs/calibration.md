@@ -204,6 +204,34 @@ that passes what a person refused is lenient, one that fails what a person
 accepted is strict. `said-yes`, where the judge agreed, is not in the
 reading: among the three, only the report's section shows it.
 
+### The judge first, the person blind, a revision after
+
+*Arrives with digline 1.4.* A rubric tuned until the judge agrees with the
+person, on the answers it is then measured on, agrees by construction. The
+order that keeps the judge's verdict apart from the person's
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1, §2, §4):
+
+- **Choose, then run.** `digline record import --choose ID` writes an answer
+  **awaiting a verdict**, and the next run judges it before any person has:
+  its verdict is in the stored run before the person's exists. An answer
+  awaiting a verdict is in no gate and no aggregate; the headline, `explain`
+  and `compare --json` (`awaiting`, `awaiting_unjudged`) say how many.
+- **The person judges blind**, on the review page, which shows nothing of
+  any run, under the suite's `review_rule`.
+- **Two verdicts are kept.** The blind one, `good`, and the one after
+  reading the disagreements, `revised`, written by `digline record revise`.
+  The gate holds the newest, and the run records both, so the blind
+  agreement and the agreement after review can be read apart.
+- **Held in or held out.** `--held-out` marks the answers kept to test the
+  rubric rather than tune it; held in is the default. Reading the agreement
+  per criterion, blind and after review, held in and held out, comes with
+  ADR 0067's next pull request.
+- **About the whole answer.** `--whole` asks every judged check of the
+  suite about one answer, with one verdict from the person: a yes expects
+  each to pass, and a no names the checks that failed. Per answer it is
+  cheaper for the person and dearer for the judge: judged checks × samples
+  judgements, where a verdict about one check costs samples.
+
 ## Does the judge use the scale? Calibration cases
 
 A calibration case is an answer you know to be partly right, and a band

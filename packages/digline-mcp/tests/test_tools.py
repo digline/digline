@@ -384,7 +384,8 @@ def test_get_run_names_a_verdicts_check_assertion(repo: Path) -> None:
     no `name` beside it. `name` until `output_version` 4. (#678)"""
     run_key(repo)
     document = call(repo, "get_run", suite=str(repo / "suite_qa.py"))
-    assert document["output_version"] == 5
+    # 5 until ADR 0067's bump to 6, which kept `assertion` as 5 named it.
+    assert document["output_version"] >= 5
     verdicts = [v for case in document["results"] for v in case["verdicts"]]
     assert verdicts, "the control: the run carries a verdict"
     for verdict in verdicts:

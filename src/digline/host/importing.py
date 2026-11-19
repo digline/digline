@@ -73,7 +73,7 @@ import hashlib
 import json
 import os
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import ModuleType
 from typing import cast
@@ -90,7 +90,7 @@ from digline.core.run import (
 from digline.core.types import OutputKind
 from digline.host.toml_suite import read_cases, within_perimeter
 from digline.recorder import UNASSIGNED
-from digline.run.suite import CaptureSource, Case, Suite
+from digline.run.suite import CaptureSource, Case, Revised, Suite
 from digline.store.file_store import FileResultStore
 from digline.wire.recorder import SuiteRecordings
 from digline.wire.recordings import Listed, ListedGroup, Shape
@@ -117,6 +117,8 @@ __all__ = [
     "listing_lines",
     "read_recordings",
     "refuse_another_tenant",
+    "revise",
+    "revise_file",
     "group_setup_line",
     "setup_line",
     "setups_recorded",
@@ -219,6 +221,17 @@ class ImportAnswer:
     #: `metadata["reviewed_by"]`, or `None` where nothing was elected: what
     #: a page reads back after a press wrote it. (ADR 0066 §2)
     elected_by: str | None = None
+    #: The draft holds this answer awaiting the person's verdict: chosen with
+    #: `--choose`, judged by the judge alone. `--good` or `--bad` fills its
+    #: verdict in place. (ADR 0067 §1 (a); P-1710)
+    awaiting: bool = False
+    #: The draft holds this answer reviewed about the whole answer, not about
+    #: the source's check: a no names the checks it expected to fail.
+    #: (ADR 0067 §4)
+    whole: bool = False
+    #: The person's verdict after review, where she revised it: what the gate
+    #: holds, said beside the blind one. `None` where she did not. (ADR 0067 §2)
+    revised: bool | None = None
 
     @property
     def electable(self) -> bool:
@@ -647,6 +660,11 @@ def import_listing(
             if held is None or held.reviewed_answer is None
             else held.reviewed_answer.good
         )
+        awaiting = (
+            held is not None
+            and held.reviewed_answer is not None
+            and held.reviewed_answer.good is None
+        )
         dated = [r.recorded_at for r in recordings if r.recorded_at is not None]
         setup = in_force[first.id is not None]
         groups.setdefault(_shape(first), []).append(
@@ -661,7 +679,9 @@ def import_listing(
                 first_at=min(dated, key=instant_of) if dated else None,
                 setups=tuple(dict.fromkeys(r.setup_digest for r in recordings)),
                 elected=elected,
-                refusal=_refusal(recordings, setup, elected, held),
+                refusal=None
+                if awaiting
+                else _refusal(recordings, setup, elected, held),
                 attached=sum(split.attached.get(r.id, 0) for r in recordings if r.id),
                 call_sites=tuple(
                     dict.fromkeys(r.call_site for r in recordings if r.call_site)
@@ -674,6 +694,15 @@ def import_listing(
                     if held is None or elected is None
                     else _text(held.metadata.get("reviewed_by"))
                 ),
+                awaiting=awaiting,
+                whole=held is not None
+                and held.reviewed_answer is not None
+                and held.reviewed_answer.check is None,
+                revised=None
+                if held is None
+                or held.reviewed_answer is None
+                or held.reviewed_answer.revised is None
+                else held.reviewed_answer.revised.good,
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -813,6 +842,10 @@ def import_elect(
     good: Iterable[str] = (),
     bad: Iterable[str] = (),
     by: str | None,
+    choose: Iterable[str] = (),
+    held_out: bool = False,
+    whole: bool = False,
+    failing: Iterable[str] = (),
 ) -> tuple[str, ...]:
     """Write the answers named, each as a reviewed answer with the person's yes
     or no and mark, after the draft's last case, and return the ids written.
@@ -820,7 +853,20 @@ def import_elect(
     text, a source with no check, a suite that samples once, a missing mark,
     an id named twice or with both answers, an id the listing does not hold,
     an answer that cannot be elected, and, where the output is deterministic,
-    two yeses about one input or an input whose expected the file holds."""
+    two yeses about one input or an input whose expected the file holds.
+
+    **Since ADR 0067** (§1 (a), (e), §4; ruled 2026-11-19, P-1710):
+
+    - `choose` writes each answer **awaiting a verdict**, with no `good`: the
+      judge judges it before the person does. It takes no mark, because it
+      says nothing;
+    - `--good` or `--bad` on an answer the draft holds awaiting **fills its
+      verdict in place**, with the mark, and touches no other case's bytes;
+    - `held_out` writes the answers this invocation adds as held out;
+    - `whole` writes them about the whole answer, with no `check`, and
+      `failing` names the checks a no expects to fail: required on every
+      `--bad` of such an answer, refused anywhere else.
+    """
     declaration = found.declaration
     if declaration.repository == "public":
         raise RefusedError(
@@ -831,11 +877,12 @@ def import_elect(
             "hand-writing its client's text into its own repository is the act "
             "ADR 0023 §8 refuses"
         )
-    if declaration.check is None:
+    if declaration.check is None and not whole:
         raise RefusedError(
             f"suite {declaration.suite!r} declares a capture source with no "
             "check: a yes or no at the import is a reviewed answer for one "
-            "judged check, and the source names it, check=... (ADR 0059 §1)"
+            "judged check, and the source names it, check=... (ADR 0059 §1), "
+            "or about the whole answer, with --whole (ADR 0067 §4)"
         )
     if found.samples < 2:
         raise RefusedError(
@@ -844,13 +891,7 @@ def import_elect(
             "with the person would fail the gate for noise nobody chose. Set "
             "samples (with min_agreement) before writing one (ADR 0059 §1)"
         )
-    if by is None or not by.strip():
-        raise RefusedError(
-            "--by NAME is missing: the person who says yes or no puts their "
-            "name to it, and it is never read from git or from the "
-            "environment, because a name taken from a machine is inferred "
-            "(ADR 0059 §1)"
-        )
+    chosen = list(choose)
     named: dict[str, bool] = {}
     for verdict, ids in ((True, good), (False, bad)):
         for pair in ids:
@@ -860,22 +901,74 @@ def import_elect(
                     "--good or --bad"
                 )
             named[pair] = verdict
-    if not named:
+    if named and (by is None or not by.strip()):
+        raise RefusedError(
+            "--by NAME is missing: the person who says yes or no puts their "
+            "name to it, and it is never read from git or from the "
+            "environment, because a name taken from a machine is inferred "
+            "(ADR 0059 §1)"
+        )
+    if not named and not chosen:
         raise RefusedError(
             "no answer named: --good ID or --bad ID, once for each answer to "
-            "write. An answer not named stays out"
+            "write, or --choose ID to write one awaiting a verdict. An answer "
+            "not named stays out"
         )
+    if not named and by is not None:
+        raise RefusedError(
+            "--by marks a yes or a no, and nothing here gives one: --choose "
+            "writes an answer awaiting the person's verdict, which is given "
+            "later with --good or --bad and --by (ADR 0067 §1 (a))"
+        )
+    for pair in chosen:
+        if chosen.count(pair) > 1 or pair in named:
+            raise RefusedError(
+                f"{pair} is named twice: --choose writes an answer awaiting a "
+                "verdict, and --good or --bad gives one; name each answer once"
+            )
+    failing_names = tuple(failing)
     by_id = {answer.id: answer for answer in found.answers}
-    for pair in named:
+    for pair in (*named, *chosen):
         answer = by_id.get(pair)
         if answer is None:
             raise RefusedError(
                 f"{pair} is not an answer the recordings of suite "
                 f"{declaration.suite!r} hold: nothing was written"
             )
+        if answer.awaiting and pair in chosen:
+            raise RefusedError(
+                f"{pair} cannot be written: already in the file, awaiting a "
+                "verdict. Give it with --good or --bad and --by"
+            )
         if answer.refusal is not None:
             raise RefusedError(f"{pair} cannot be written: {answer.refusal}")
     draft = _draft(declaration.cases_file)
+    filled = [pair for pair in named if by_id[pair].awaiting]
+    if filled and (held_out or whole):
+        raise RefusedError(
+            f"{', '.join(filled)} is already in the file, awaiting a verdict: "
+            "its role and its form were written when it was chosen, so "
+            "--held-out and --whole say nothing here"
+        )
+    for pair, verdict in named.items():
+        held = draft[pair].reviewed_answer if pair in filled else None
+        is_whole = whole if held is None else held.check is None
+        if verdict is False and is_whole and not failing_names:
+            raise RefusedError(
+                f"{pair} is a no about the whole answer, and --failing names no "
+                "check: a no that does not say which part was wrong expects "
+                "nothing of any check. Give --failing CHECK, once per check "
+                "(ADR 0067 §4)"
+            )
+    if failing_names and not any(
+        not verdict
+        and (whole if pair not in filled else draft[pair].reviewed_answer.check is None)  # pyright: ignore[reportOptionalMemberAccess]
+        for pair, verdict in named.items()
+    ):
+        raise RefusedError(
+            "--failing names the checks a no about the whole answer expects "
+            "to fail, and no answer here is one (ADR 0067 §4)"
+        )
     if found.deterministic_output:
         yes = [by_id[pair] for pair, verdict in named.items() if verdict]
         cases = [answer.case for answer in yes]
@@ -886,26 +979,64 @@ def import_elect(
                 "and the suite declares deterministic_output, where a yes is "
                 "also the input's expected. One input has one expected answer"
             )
-        held = sorted(case for case in cases if case in draft)
-        if held:
+        held_cases = sorted(case for case in cases if case in draft)
+        if held_cases:
             raise RefusedError(
-                f"{', '.join(held)} is already in {declaration.cases_file.name}: "
-                "the suite declares deterministic_output, a yes writes the "
-                "input's expected, and the file holds one for it"
+                f"{', '.join(held_cases)} is already in "
+                f"{declaration.cases_file.name}: the suite declares "
+                "deterministic_output, a yes writes the input's expected, and "
+                "the file holds one for it"
             )
+    shape = _Shape(whole=whole, held_out=held_out, failing=failing_names)
+    for pair in filled:
+        verdict = named[pair]
+        _fill(
+            declaration.cases_file,
+            pair,
+            good=verdict,
+            failing=failing_names
+            if not verdict and draft[pair].reviewed_answer.check is None  # pyright: ignore[reportOptionalMemberAccess]
+            else None,
+            by=cast(str, by),
+        )
     entries: list[dict[str, object]] = []
     for answer in found.answers:
-        if answer.id not in named:
+        if answer.id in named and answer.id not in filled:
+            entries.append(
+                _reviewed(answer, named[answer.id], found, cast(str, by), shape)
+            )
+        elif answer.id in chosen:
+            entries.append(_reviewed(answer, None, found, None, shape))
+        else:
             continue
-        entries.append(_reviewed(answer, named[answer.id], found, by))
-        if named[answer.id] and found.deterministic_output:
-            entries.append(_expected(answer, found, by))
-    _append(declaration.cases_file, entries)
-    return tuple(cast(str, entry["id"]) for entry in entries)
+        if named.get(answer.id) and found.deterministic_output:
+            entries.append(_expected(answer, found, cast(str, by)))
+    for pair in filled:
+        if named[pair] and found.deterministic_output:
+            entries.append(_expected(by_id[pair], found, cast(str, by)))
+    if entries:
+        _append(declaration.cases_file, entries)
+    return (*filled, *(cast(str, entry["id"]) for entry in entries))
 
 
-def _metadata(found: ImportListing, answer: ImportAnswer, by: str) -> dict[str, object]:
-    metadata: dict[str, object] = {"source": SOURCE, "reviewed_by": by}
+@dataclass(frozen=True, slots=True)
+class _Shape:
+    """What one invocation says about every answer it adds: its form, its
+    role, and the checks a no about the whole answer expects to fail."""
+
+    whole: bool = False
+    held_out: bool = False
+    failing: tuple[str, ...] = ()
+
+
+def _metadata(
+    found: ImportListing, answer: ImportAnswer, by: str | None
+) -> dict[str, object]:
+    # No mark on an answer chosen to await a verdict: nobody said anything
+    # about it yet. The verdict brings the mark. (ADR 0067 §1 (a))
+    metadata: dict[str, object] = {"source": SOURCE}
+    if by is not None:
+        metadata["reviewed_by"] = by
     if answer.in_force is not None:
         metadata["setup_digest"] = answer.in_force
     if found.examined_through is not None:
@@ -934,14 +1065,24 @@ def _steps_of(
 
 
 def _reviewed(
-    answer: ImportAnswer, good: bool, found: ImportListing, by: str
+    answer: ImportAnswer,
+    good: bool | None,
+    found: ImportListing,
+    by: str | None,
+    shape: _Shape = _Shape(),
 ) -> dict[str, object]:
-    reviewed: dict[str, object] = {
-        "output": _output(answer),
-        "check": found.declaration.check,
-        "good": good,
-        "input": answer.input,
-    }
+    # Each key only where it says something, so an answer written as before
+    # ADR 0067 is written byte for byte as before. (ADR 0067 §1, §4)
+    reviewed: dict[str, object] = {"output": _output(answer)}
+    if not shape.whole:
+        reviewed["check"] = found.declaration.check
+    if good is not None:
+        reviewed["good"] = good
+        if not good and shape.whole:
+            reviewed["failing"] = list(shape.failing)
+    reviewed["input"] = answer.input
+    if shape.held_out:
+        reviewed["held_out"] = True
     if answer.steps is not None:
         reviewed["steps"] = [recorded_step_to_dict(step) for step in answer.steps]
     return {
@@ -963,17 +1104,158 @@ def _expected(answer: ImportAnswer, found: ImportListing, by: str) -> dict[str, 
     }
 
 
+def _entry_text(entry: Mapping[str, object]) -> str:
+    """One case as the import writes it: two spaces in, keys sorted."""
+    return "  " + json.dumps(
+        entry, indent=2, sort_keys=True, ensure_ascii=False
+    ).replace("\n", "\n  ")
+
+
+def _replace_entry(path: Path, case_id: str, entry: Mapping[str, object]) -> None:
+    """Write `entry` in place of the case `case_id`, and leave every other
+    byte of the file as it was. The import appends and never rewrites (ADR
+    0023 §7); a verdict filled into an answer awaiting it, and a revision, are
+    written into that one case, and this is the narrowest way to do it.
+    (ADR 0067 §1 (a), §2; P-1710)"""
+    text = path.read_text(encoding="utf-8")
+    decoder = json.JSONDecoder()
+    at = text.index("[") + 1
+    while True:
+        while text[at] in " \t\r\n,":
+            at += 1
+        if text[at] == "]":
+            raise RefusedError(f"{path}: no case {case_id!r} to write into")
+        value, end = cast("tuple[object, int]", decoder.raw_decode(text, at))
+        if (
+            isinstance(value, dict)
+            and cast("dict[str, object]", value).get("id") == case_id
+        ):
+            # The entry as written, re-indented from its own column.
+            replaced = _entry_text(entry).lstrip()
+            text = text[:at] + replaced + text[end:]
+            break
+        at = end
+    temporary = path.with_name(f".{path.name}.{os.getpid()}")
+    temporary.write_text(text, encoding="utf-8")
+    read_cases(temporary)  # the file still reads, or nothing is replaced
+    os.replace(temporary, path)
+
+
+def _raw_entry(path: Path, case_id: str) -> dict[str, object]:
+    """The case `case_id` as the file holds it, keys and all."""
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    for value in cast("list[object]", raw):
+        if not isinstance(value, dict):
+            continue
+        entry = dict(cast("dict[str, object]", value))
+        if entry.get("id") == case_id:
+            return entry
+    raise RefusedError(f"{path}: no case {case_id!r} in the file")
+
+
+def _fill(
+    path: Path,
+    case_id: str,
+    *,
+    good: bool,
+    failing: Sequence[str] | None,
+    by: str,
+) -> None:
+    """The person's verdict, written into an answer awaiting it, with her
+    mark. (ADR 0067 §1 (b); P-1710)"""
+    entry = _raw_entry(path, case_id)
+    reviewed = dict(cast("dict[str, object]", entry["reviewed_answer"]))
+    reviewed["good"] = good
+    if failing is not None:
+        reviewed["failing"] = list(failing)
+    entry["reviewed_answer"] = reviewed
+    metadata = dict(cast("dict[str, object]", entry.get("metadata", {})))
+    metadata["reviewed_by"] = by
+    entry["metadata"] = metadata
+    _replace_entry(path, case_id, entry)
+
+
+def revise_file(
+    root: Path, suite: Suite, module: ModuleType | None, tenant: str
+) -> Path:
+    """The file a revision is written into, the suite's capture file, after
+    the tenant's refusal the import makes. (ADR 0067 §2)"""
+    refuse_another_tenant(tenant, suite)
+    _, path = capture_file(suite, module, root)
+    return path
+
+
+def revise(
+    path: Path,
+    case_id: str,
+    *,
+    good: bool,
+    failing: Sequence[str] = (),
+    by: str | None,
+    at: str,
+    suite: Suite,
+) -> None:
+    """The person's verdict after she read the disagreements, written beside
+    the one she gave blind and never in its place. (ADR 0067 §2)
+
+    Refused before anything is written: no mark, a case the file does not
+    hold, a case that is not a reviewed answer, one awaiting its first
+    verdict, a revision that says what the verdict already says, and checks
+    expected to fail that are not judged checks of the suite. A second
+    revision replaces the first: the gate holds the newest. `at` is when, as
+    the host read the clock."""
+    if by is None or not by.strip():
+        raise RefusedError(
+            "--by NAME is missing: the person who changes her verdict puts "
+            "her name to it, never read from git or from the environment "
+            "(ADR 0067 §2)"
+        )
+    held = _draft(path).get(case_id)
+    if held is None:
+        raise RefusedError(
+            f"{case_id} is not a case in {path.name}: nothing was written"
+        )
+    answer = held.reviewed_answer
+    if answer is None:
+        raise RefusedError(
+            f"{case_id} is not a reviewed answer: a revision changes a person's "
+            "verdict, and this case holds none"
+        )
+    if answer.good is None:
+        raise RefusedError(
+            f"{case_id} awaits its first verdict: give it with `digline record "
+            "import --good|--bad ID --by NAME`, and revise it after reading the "
+            "disagreements"
+        )
+    if failing and answer.check is not None:
+        raise RefusedError(
+            f"{case_id} is reviewed about one check, {answer.check!r}: --failing "
+            "names the checks a no about the whole answer expects to fail"
+        )
+    revised = Revised(
+        good=good, by=by, at=at, failing=tuple(failing) if failing else None
+    )
+    # The suite's own rules, on the case as it would be written: the form,
+    # the names, and a revision that says the same thing are refused there.
+    # The suite as loaded may predate the case, chosen after it was loaded,
+    # so the case is put in whatever the suite held under its id.
+    updated = replace(held, reviewed_answer=replace(answer, revised=revised))
+    replace(suite, cases=[*(c for c in suite.cases if c.id != case_id), updated])
+    entry = _raw_entry(path, case_id)
+    reviewed = dict(cast("dict[str, object]", entry["reviewed_answer"]))
+    written: dict[str, object] = {"good": good, "by": by, "at": at}
+    if failing:
+        written["failing"] = list(failing)
+    reviewed["revised"] = written
+    entry["reviewed_answer"] = reviewed
+    _replace_entry(path, case_id, entry)
+
+
 def _append(path: Path, entries: Sequence[Mapping[str, object]]) -> None:
     """Append, never rewrite (ADR 0023 §7): the bytes before the array's
     closing bracket stay as they were, and the new entries go after the last
     case. A file that does not parse is refused and left as it is."""
-    written = [
-        "  "
-        + json.dumps(entry, indent=2, sort_keys=True, ensure_ascii=False).replace(
-            "\n", "\n  "
-        )
-        for entry in entries
-    ]
+    written = [_entry_text(entry) for entry in entries]
     if path.exists():
         read_cases(path)  # refuses, by name, a file that does not parse
         before = path.read_text(encoding="utf-8")
@@ -1026,6 +1308,8 @@ def answer_state(answer: ImportAnswer) -> str:
     """Whether an answer can be named, said as the listing says it: already in
     the file with the flag that put it there, why it cannot be, or
     `electable`."""
+    if answer.awaiting:
+        return "in the file, awaiting a verdict: --good or --bad, with --by"
     if answer.elected is not None:
         return f"already in the file, {'--good' if answer.elected else '--bad'}"
     if answer.refusal is not None:

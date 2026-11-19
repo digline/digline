@@ -158,8 +158,9 @@ def test_the_origin_round_trips_and_absent_is_not_recorded() -> None:
     document = json.loads(run_to_json(run))
     # 24 since `excluded_at_promotion` on a reference (ADR 0065 §1), after 23
     # for `finish` and `tools` (ADR 0057); the provenance this file holds rode
-    # 22 and is unchanged by either.
-    assert document["schema_version"] == SCHEMA_VERSION == 24
+    # 22 and is unchanged by either, and by 25, a reviewed answer's record in
+    # its new shape (ADR 0067).
+    assert document["schema_version"] == SCHEMA_VERSION == 25
     verdicts = document["results"][0]["verdicts"]
     assert [v["origin"] for v in verdicts] == ["builtin", "foreign"]
     assert run_from_json(run_to_json(run)) == run

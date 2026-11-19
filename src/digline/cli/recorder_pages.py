@@ -34,7 +34,7 @@ from __future__ import annotations
 
 import json
 import shlex
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlencode
@@ -1176,9 +1176,21 @@ def review_page(
     writes: Sequence[str] | None,
     by: str,
     written: tuple[str, ImportAnswer | None] | None = None,
+    rule: str | None = None,
+    judged: Sequence[str] = (),
 ) -> str:
     """One recorded answer to review, whole, with a yes and a no beside it,
     neither chosen (ADR 0066 §2). `answer` is `None` where none is left.
+
+    **Blind** (ADR 0067 §1 (b)): the page reads the recordings and the draft,
+    and nothing of any run, so no verdict, score, reason or count of the
+    judge's can reach it. An answer awaiting a verdict is offered as any
+    other, and a press fills its verdict. `rule` is the suite's review rule,
+    shown above the buttons, or a sentence that the suite gives none
+    (ADR 0067 §2). `judged` names the suite's judged checks: on a no about the
+    whole answer, the ones the person may mark as failing (§4). An answer
+    already given a verdict is offered a **second press**, the revision, with
+    the command that does the same, `digline record revise` (§2).
 
     `written` is what the press before this page wrote, read back from the
     draft: the id the address carries and the answer the listing holds for
@@ -1204,10 +1216,19 @@ def review_page(
         body.append(_reviewed_answer(answer, locale))
         if answer.elected is not None:
             body.append(_p(answer_state(answer) + _by(answer, locale), "state"))
+            if answer.revised is not None:
+                flag = "--good" if answer.revised else "--bad"
+                body.append(
+                    _p(phrase(locale, "view.review.revised", flag=flag), "state")
+                )
+            if writes is not None:
+                body.append(_rule(rule, locale))
+                body.append(_revise_form(found, answer, writes, by, judged, locale))
         elif answer.refusal is not None:
             body.append(_p(answer_state(answer), "state"))
         elif writes is not None:
-            body.append(_verdict_form(found, answer, writes, by, locale))
+            body.append(_rule(rule, locale))
+            body.append(_verdict_form(found, answer, writes, by, judged, locale))
         body.append(_writes_note(locale, writes))
         following = _next(order, answer)
         if following is not None:
@@ -1220,7 +1241,11 @@ def review_page(
         f'<p><a href="{escape(state_address(tenant, suite))}?locale={locale}">'
         f"{escape(phrase(locale, 'view.review.state'))}</a></p>\n"
     )
-    if answer is not None and answer.electable and writes is not None:
+    if (
+        answer is not None
+        and (answer.electable or answer.elected is not None)
+        and writes is not None
+    ):
         body.append(_GLUE)
     return screen(title, "".join(body), locale=locale, suite=suite, here="review")
 
@@ -1267,7 +1292,9 @@ def _read_back(written: tuple[str, ImportAnswer | None], locale: Locale) -> str:
         # never say a text of its own. (ADR 0066 §2)
         del named
         return _p(phrase(locale, "view.review.not_written"), "note")
-    flag = "--good" if held.elected else "--bad"
+    # A revision reads back as what the gate now holds. (ADR 0067 §2)
+    said = held.elected if held.revised is None else held.revised
+    flag = "--good" if said else "--bad"
     return _p(
         phrase(
             locale,
@@ -1338,16 +1365,105 @@ def _step_line(step: RecordedStep, locale: Locale) -> str:
     return said
 
 
+def _rule(rule: str | None, locale: Locale) -> str:
+    """The suite's review rule above the buttons, or that it gives none.
+    (ADR 0067 §2)"""
+    if rule is None:
+        return _p(phrase(locale, "view.review.no_rule"), "rule")
+    return (
+        f"<h2>{escape(phrase(locale, 'view.review.rule'))}</h2>\n"
+        f'<blockquote class="rule">{escape(rule)}</blockquote>\n'
+    )
+
+
+def _failing_fields(answer: ImportAnswer, judged: Sequence[str]) -> list[Field]:
+    """On a no about the whole answer, one box per judged check, none
+    ticked: the checks the person expected to fail. (ADR 0067 §4)"""
+    if not answer.whole:
+        return []
+    return [
+        Field("failing", name, "--failing", name, False, kind="checkbox")
+        for name in judged
+    ]
+
+
 def _verdict_form(
     found: ImportListing,
     answer: ImportAnswer,
     writes: Sequence[str],
     by: str,
+    judged: Sequence[str],
     locale: Locale,
 ) -> str:
     """Two buttons, `--good` and `--bad`, neither the default, and the name
     the server keeps for the session in one field. Under each button the
-    command it runs: the import, with the one answer and the name."""
+    command it runs: the import, with the one answer and the name. On an
+    answer awaiting a verdict about the whole answer, a box per judged check
+    for a no. (ADR 0066 §2; ADR 0067 §1 (b), §4)"""
+    return _press_form(
+        found,
+        answer,
+        by,
+        locale,
+        action="verdict",
+        command=lambda flag: ["digline", "record", "import", *writes, flag, answer.id],
+        flags=(("good", "--good"), ("bad", "--bad")),
+        failing=_failing_fields(answer, judged),
+    )
+
+
+def _revise_form(
+    found: ImportListing,
+    answer: ImportAnswer,
+    writes: Sequence[str],
+    by: str,
+    judged: Sequence[str],
+    locale: Locale,
+) -> str:
+    """The second press: the verdict after reading the disagreements, written
+    beside the blind one by `digline record revise`. About one check only the
+    other answer is offered, since a revision that says the same is refused;
+    about the whole answer both, a no naming its checks. An answer about one
+    check already revised has nothing left to offer: the only other verdict
+    is the blind one, and a revision back to it is refused. (ADR 0067 §2)"""
+    if not answer.whole and answer.revised is not None:
+        return ""
+    offered = (
+        (("good", "--good"), ("bad", "--bad"))
+        if answer.whole
+        else ((("bad", "--bad"),) if answer.elected else (("good", "--good"),))
+    )
+    return f"<h2>{escape(phrase(locale, 'view.review.revise'))}</h2>\n" + _press_form(
+        found,
+        answer,
+        by,
+        locale,
+        action="revise",
+        command=lambda flag: [
+            "digline",
+            "record",
+            "revise",
+            *writes,
+            "--case",
+            answer.id,
+            flag,
+        ],
+        flags=offered,
+        failing=_failing_fields(answer, judged),
+    )
+
+
+def _press_form(
+    found: ImportListing,
+    answer: ImportAnswer,
+    by: str,
+    locale: Locale,
+    *,
+    action: str,
+    command: Callable[[str], list[str]],
+    flags: Sequence[tuple[str, str]],
+    failing: Sequence[Field],
+) -> str:
     declaration = found.declaration
     address = review_address(declaration.tenant, declaration.suite, answer.id)
     name = Field("by", by, "--by", by, bool(by))
@@ -1363,13 +1479,21 @@ def _verdict_form(
         + _input(name, phrase(locale, "view.import.by"))
         + "</div>\n"
     )
-    for value, flag in (("good", "--good"), ("bad", "--bad")):
-        base = ["digline", "record", "import", *writes, flag, answer.id]
+    if failing:
+        parts.append(_p(phrase(locale, "view.review.failing"), "note"))
         parts.append(
-            f'<div class="picker"><button type="submit" name="verdict" '
+            '<div class="picker">'
+            + "".join(_input(box, box.value) for box in failing)
+            + "</div>\n"
+        )
+    for value, flag in flags:
+        base = command(flag)
+        shown = [name, *failing] if value == "bad" else [name]
+        parts.append(
+            f'<div class="picker"><button type="submit" name="{action}" '
             f'value="{value}">{flag}</button></div>\n'
             f'<pre class="snippet command" data-base="{escape(shlex.join(base))}">'
-            f"{escape(command_line(base, [name]))}</pre>\n"
+            f"{escape(command_line(base, shown))}</pre>\n"
         )
     parts.append(_p(phrase(locale, "view.command.note"), "note"))
     parts.append("</form>\n")

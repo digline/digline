@@ -55,7 +55,9 @@ __all__ = [
     "CaptureSource",
     "CallPlan",
     "Case",
+    "Revised",
     "ReviewedAnswer",
+    "judged_names",
     "ReviewedCounts",
     "TRAJECTORY_CHECKS",
     "Suite",
@@ -218,6 +220,94 @@ class Calibration:
 TRAJECTORY_CHECKS = (ToolsCalled, ToolCalledWith, Subsequence, Before, Never, MaxSteps)
 
 
+def _names(failing: object) -> tuple[str, ...]:
+    """`failing` as a tuple of check names, or a refusal: a list of names, each
+    a non-empty string, none twice, and never empty where it is given."""
+    if isinstance(failing, str) or not isinstance(failing, (list, tuple)):
+        raise RefusedError(
+            f"failing={failing!r}: it is a list of the names of the judged "
+            "checks the person expected to fail"
+        )
+    names = tuple(cast("Sequence[object]", failing))
+    if not names:
+        raise RefusedError(
+            "failing is empty: a no about the whole answer names the checks "
+            "that failed, and an empty list names none"
+        )
+    if not all(isinstance(name, str) and name for name in names):
+        raise RefusedError(
+            f"failing={failing!r}: each entry is the name of a judged check"
+        )
+    if len(set(names)) != len(names):
+        raise RefusedError(f"failing={failing!r} names a check twice")
+    return cast("tuple[str, ...]", names)
+
+
+def _verdict_rules(
+    good: object, failing: object, *, whole: bool, about: str
+) -> tuple[str, ...] | None:
+    """The rules `good` and `failing` keep together, in a verdict and in its
+    revision alike (ADR 0067 §4): `good` true or false; `failing` only on a no
+    about the whole answer, where it is required."""
+    if type(good) is not bool:
+        raise RefusedError(
+            f"the reviewed answer for {about} gives good={good!r}: good is "
+            "true or false, the person's yes or no, and a value that is merely "
+            "truthy is not one a person said"
+        )
+    if failing is None:
+        if whole and not good:
+            raise RefusedError(
+                f"the reviewed answer for {about} says no about the whole "
+                "answer and names no check that failed: give failing, the "
+                "names of the judged checks the person expected to fail. A no "
+                "that does not say which part was wrong expects nothing of any "
+                "check"
+            )
+        return None
+    if not whole:
+        raise RefusedError(
+            f"the reviewed answer for {about} names failing beside a check: a "
+            "verdict about one check is that check's, and failing belongs to a "
+            "verdict about the whole answer"
+        )
+    if good:
+        raise RefusedError(
+            f"the reviewed answer for {about} names failing beside a yes: a "
+            "yes about the whole answer expects every judged check to pass"
+        )
+    return _names(failing)
+
+
+@dataclass(frozen=True, slots=True)
+class Revised:
+    """The person's verdict after she read the judge's disagreements.
+    (ADR 0067 §2)
+
+    Written only where she changes her mind, never copied from the verdict it
+    revises, and never in place of it: both are kept. The gate holds this one.
+    `good` and `failing` keep the verdict's own rules; `by` is her name, given
+    with the revision and never read from a machine; `at` is when, as the host
+    read the clock, in ISO 8601.
+    """
+
+    good: bool
+    by: str
+    at: str
+    failing: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.by, str) or not self.by.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "a revised verdict names nobody: `by` is the name of the "
+                "person who changed it, never read from git or the environment"
+            )
+        if not isinstance(self.at, str) or not self.at:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError("a revised verdict says no `at`, when it was given")
+        if self.failing is not None:
+            object.__setattr__(self, "failing", _names(self.failing))
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewedAnswer:
     """An answer the application gave, and a person's yes or no about it.
@@ -256,42 +346,87 @@ class ReviewedAnswer:
     output: Output
     #: The name of the judged assertion this answer was reviewed for. It runs
     #: on the case, with the suite's trajectory checks where `steps` is given.
-    check: str
-    good: bool
+    #: `None` is a verdict about the whole answer: every judged check of the
+    #: suite runs on it (ADR 0067 §4).
+    check: str | None
+    #: The person's yes or no, given blind. `None` is an answer awaiting it,
+    #: chosen for review: the judge judges it and no gate reads that verdict
+    #: (ADR 0067 §1 (a)).
+    good: bool | None
     input: str
     steps: Sequence[RecordedStep] | None = None
+    #: On a no about the whole answer, the names of the judged checks the
+    #: person expected to fail; every other judged check is expected to pass.
+    #: Required there, refused everywhere else. (ADR 0067 §4)
+    failing: Sequence[str] | None = None
+    #: The person's verdict after reading the disagreements, kept beside
+    #: `good` and never in its place. The gate holds it. (ADR 0067 §2)
+    revised: Revised | None = None
+    #: Chosen to test the rubric rather than to tune it. Held in by default:
+    #: one who forgets reports no test, which is said out loud, rather than a
+    #: tuning reported as a test. (ADR 0067 §1 (e))
+    held_out: bool = False
 
     def __post_init__(self) -> None:
-        if not isinstance(self.check, str) or not self.check:  # pyright: ignore[reportUnnecessaryIsInstance]
+        if self.check is not None and (
+            not isinstance(self.check, str) or not self.check  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
             raise RefusedError(
                 "a reviewed answer names no check: `check` is the judged "
-                "assertion the person's yes or no is about, and only it runs"
+                "assertion the person's yes or no is about, and empty is none. "
+                "Leave it out for a verdict about the whole answer"
             )
+        about = "the whole answer" if self.check is None else repr(self.check)
+        if type(self.held_out) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
+            raise RefusedError(
+                f"the reviewed answer for {about} gives held_out="
+                f"{self.held_out!r}: it is true or false"
+            )
+        if self.good is None:
+            if self.failing is not None or self.revised is not None:
+                raise RefusedError(
+                    f"the reviewed answer for {about} awaits a verdict, and "
+                    "names failing or a revision: there is no verdict yet to "
+                    "say which checks failed, or to revise"
+                )
+        else:
+            failing = _verdict_rules(
+                self.good, self.failing, whole=self.check is None, about=about
+            )
+            object.__setattr__(self, "failing", failing)
+        if self.revised is not None:
+            if not isinstance(self.revised, Revised):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise RefusedError(
+                    f"the reviewed answer for {about} gives revised="
+                    f"{self.revised!r}: it is an object with good, by and at"
+                )
+            failing = _verdict_rules(
+                self.revised.good,
+                self.revised.failing,
+                whole=self.check is None,
+                about=about,
+            )
+            if (self.revised.good, failing) == (self.good, self.failing):
+                raise RefusedError(
+                    f"the reviewed answer for {about} is revised to the verdict "
+                    "it already has: a revision is written only where the "
+                    "person changed her mind"
+                )
         if not self.output:
             raise RefusedError(
                 Written.said(
                     "the reviewed answer for ",
-                    NameRef("verdict_name", self.check),
+                    NameRef("verdict_name", self.check or "the whole answer"),
                     " declares an empty output: the answer is the one the "
                     "person read, and an empty one is no answer to say yes or "
                     "no about",
-                )
-            )
-        if type(self.good) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
-            raise RefusedError(
-                Written.said(
-                    "the reviewed answer for ",
-                    NameRef("verdict_name", self.check),
-                    f" gives good={self.good!r}: good is true or false, the "
-                    "person's yes or no, and a value that is merely truthy is "
-                    "not one a person said",
                 )
             )
         if not isinstance(self.input, str) or not self.input:  # pyright: ignore[reportUnnecessaryIsInstance]
             raise RefusedError(
                 Written.said(
                     "the reviewed answer for ",
-                    NameRef("verdict_name", self.check),
+                    NameRef("verdict_name", self.check or "the whole answer"),
                     " declares no input: the judge reads the question beside "
                     "the answer, the target that would render it is not "
                     "called, and the recording carries it",
@@ -307,7 +442,7 @@ class ReviewedAnswer:
                 raise RefusedError(
                     Written.said(
                         "the reviewed answer for ",
-                        NameRef("verdict_name", self.check),
+                        NameRef("verdict_name", self.check or "the whole answer"),
                         " declares steps that are not the steps of one "
                         "trajectory, in order from 0",
                     )
@@ -315,6 +450,15 @@ class ReviewedAnswer:
             # A tuple, so the answer stays a value: a list given here and
             # changed later changes nothing the run reads.
             object.__setattr__(self, "steps", steps)
+
+    @property
+    def held(self) -> tuple[bool | None, tuple[str, ...]]:
+        """The verdict the gate holds, and the checks it expects to fail: the
+        revision where there is one, else the blind verdict. `None` while the
+        answer awaits the person. (ADR 0067 §2)"""
+        if self.revised is not None:
+            return self.revised.good, tuple(self.revised.failing or ())
+        return self.good, tuple(self.failing or ())
 
 
 @dataclass(frozen=True, slots=True)
@@ -613,6 +757,12 @@ class Suite:
     #: `expected`, with the person's mark. Outside `config_hash`, for the reason
     #: `capture` is. (ADR 0059 §2)
     deterministic_output: bool = False
+    #: What a person's yes means for this suite's reviewed answers, in her
+    #: words: the review page shows it above the two buttons of every answer.
+    #: `None` loads, and the page says the suite does not say what a yes means.
+    #: Outside `config_hash`, for the reason `capture` is: it is what a person
+    #: reads before judging, not how a check judges. (ADR 0067 §2)
+    review_rule: str | None = None
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -964,64 +1114,96 @@ class Suite:
             return ()
         return tuple(a for a in self.assertions if isinstance(a, TRAJECTORY_CHECKS))
 
-    def reviewed(self, answer: ReviewedAnswer) -> Assertion:
-        """The one declared assertion a reviewed answer names, as `calibrated`
-        is for a calibration: `_check_reviewed_answers` has refused a name that
-        is absent or shared, so this cannot miss. (ADR 0059 §1)"""
-        return next(a for a in self.assertions if a.name == answer.check)
+    def reviewed(self, answer: ReviewedAnswer) -> tuple[Assertion, ...]:
+        """The judged assertions a reviewed answer asks, in the suite's order:
+        the one it names, as `calibrated` is for a calibration, or, for a
+        verdict about the whole answer, every judged check of the suite.
+        `_check_reviewed_answers` has refused a name that is absent or shared,
+        so this cannot miss. (ADR 0059 §1, ADR 0067 §4)"""
+        if answer.check is None:
+            return tuple(a for a in self.assertions if judged(_unwrapped(a)))
+        return (next(a for a in self.assertions if a.name == answer.check),)
 
     def _check_reviewed_answers(self) -> None:
-        """Each reviewed answer names one judged check of this suite.
+        """Each reviewed answer names one judged check of this suite, or is
+        about the whole answer of a suite that has one; and each check it
+        expects to fail, in its verdict or its revision, is a judged check of
+        this suite. (ADR 0059 §1, ADR 0067 §4)
 
         Absent and ambiguous are refused for `_check_calibrations`' reason. A
         check that is not judged is refused because a person's yes or no about
         an answer is a measure of the judge, and a deterministic check has
         none: it is arithmetic, and agrees with nobody. `KIND` is read as there,
         through `Repeated`, and a class that declares none is not judged as far
-        as anything here can know. (ADR 0059 §1)
+        as anything here can know.
         """
         for case in self.cases:
             answer = case.reviewed_answer
             if answer is None:
                 continue
-            matches = [a for a in self.assertions if a.name == answer.check]
-            if not matches:
-                available = sorted({a.name for a in self.assertions})
-                raise RefusedError(
-                    Written.said(
-                        "case ",
-                        NameRef("case_id", case.id),
-                        " is a reviewed answer for ",
-                        NameRef("verdict_name", answer.check),
-                        f", which no assertion in suite {self.name!r} is called. "
-                        "Declared: ",
-                        *_listed("verdict_name", available),
+            if answer.check is None:
+                if not any(judged(_unwrapped(a)) for a in self.assertions):
+                    raise RefusedError(
+                        Written.said(
+                            "case ",
+                            NameRef("case_id", case.id),
+                            " is a reviewed answer about the whole answer, and "
+                            f"suite {self.name!r} declares no judged check: "
+                            "every judged check runs on it, and with none it "
+                            "would check nothing",
+                        )
                     )
+            else:
+                self._one_judged(case, answer.check, "is a reviewed answer for ")
+            for named in (
+                *(answer.failing or ()),
+                *((answer.revised.failing or ()) if answer.revised else ()),
+            ):
+                self._one_judged(
+                    case, named, "is a reviewed answer that expects to fail "
                 )
-            if len(matches) > 1:
-                raise RefusedError(
-                    Written.said(
-                        "case ",
-                        NameRef("case_id", case.id),
-                        " is a reviewed answer for ",
-                        NameRef("verdict_name", answer.check),
-                        f", which {len(matches)} assertions in suite {self.name!r} "
-                        "share. Give the one you mean a distinct `name`: a yes or "
-                        "no read against whichever came first is one nobody gave",
-                    )
+
+    def _one_judged(self, case: Case, name: str, said: str) -> None:
+        """`name` is one judged assertion of this suite, or a refusal naming
+        `case` with `said` before the check's name."""
+        matches = [a for a in self.assertions if a.name == name]
+        if not matches:
+            available = sorted({a.name for a in self.assertions})
+            raise RefusedError(
+                Written.said(
+                    "case ",
+                    NameRef("case_id", case.id),
+                    f" {said}",
+                    NameRef("verdict_name", name),
+                    f", which no assertion in suite {self.name!r} is called. "
+                    "Declared: ",
+                    *_listed("verdict_name", available),
                 )
-            if not judged(_unwrapped(matches[0])):
-                raise RefusedError(
-                    Written.said(
-                        "case ",
-                        NameRef("case_id", case.id),
-                        " is a reviewed answer for ",
-                        NameRef("verdict_name", answer.check),
-                        ", which is not a judged check: a person's yes or no "
-                        "measures a judge, and a check that nothing judges has "
-                        "no judge to agree or disagree with them",
-                    )
+            )
+        if len(matches) > 1:
+            raise RefusedError(
+                Written.said(
+                    "case ",
+                    NameRef("case_id", case.id),
+                    f" {said}",
+                    NameRef("verdict_name", name),
+                    f", which {len(matches)} assertions in suite {self.name!r} "
+                    "share. Give the one you mean a distinct `name`: a yes or "
+                    "no read against whichever came first is one nobody gave",
                 )
+            )
+        if not judged(_unwrapped(matches[0])):
+            raise RefusedError(
+                Written.said(
+                    "case ",
+                    NameRef("case_id", case.id),
+                    f" {said}",
+                    NameRef("verdict_name", name),
+                    ", which is not a judged check: a person's yes or no "
+                    "measures a judge, and a check that nothing judges has "
+                    "no judge to agree or disagree with them",
+                )
+            )
 
     def _check_capture(self) -> None:
         """A capture source's `check` names one judged assertion of this suite,
@@ -1029,6 +1211,15 @@ class Suite:
         reviewed answers for that check. Refused when the suite is loaded, so a
         mistyped name is met before an import writes a case the suite would
         then refuse. (ADR 0059 §1)"""
+        if self.review_rule is not None and (
+            not isinstance(self.review_rule, str) or not self.review_rule.strip()  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise RefusedError(
+                f"suite {self.name!r} declares review_rule={self.review_rule!r}: "
+                "it is the text that says what a yes means, shown above every "
+                "verdict, and an empty one says nothing; leave it out instead "
+                "(ADR 0067 §2)"
+            )
         if type(self.deterministic_output) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
             raise RefusedError(
                 f"suite {self.name!r} declares deterministic_output="
@@ -1305,17 +1496,25 @@ def checks_asked(suite: Suite, case: Case) -> frozenset[str]:
     if case.reviewed_answer is not None:
         answer = case.reviewed_answer
         return frozenset(
-            a.identity for a in (suite.reviewed(answer), *suite.on_the_steps(answer))
+            a.identity for a in (*suite.reviewed(answer), *suite.on_the_steps(answer))
         )
     return frozenset(a.identity for a in suite.assertions)
 
 
 @dataclass(frozen=True, slots=True)
 class ReviewedCounts:
-    """The reviewed answers among some cases, by the person's yes and no."""
+    """The reviewed answers among some cases, by the person's yes and no, the
+    verdict the gate holds, and those still awaiting one (ADR 0067 §1 (a))."""
 
     good: int
     bad: int
+    awaiting: int = 0
+
+
+def judged_names(suite: Suite) -> tuple[str, ...]:
+    """The names of the suite's judged checks, in its order: what a no about
+    the whole answer may name as failing. (ADR 0067 §4)"""
+    return tuple(a.name for a in suite.assertions if judged(_unwrapped(a)))
 
 
 def reviewed_counts(cases: Iterable[Case]) -> ReviewedCounts:
@@ -1327,8 +1526,12 @@ def reviewed_counts(cases: Iterable[Case]) -> ReviewedCounts:
     (ADR 0066 §1)
     """
     answers = [case.reviewed_answer for case in cases if case.reviewed_answer]
-    good = sum(1 for answer in answers if answer.good)
-    return ReviewedCounts(good=good, bad=len(answers) - good)
+    held = [answer.held[0] for answer in answers]
+    return ReviewedCounts(
+        good=held.count(True),
+        bad=held.count(False),
+        awaiting=sum(1 for verdict in held if verdict is None),
+    )
 
 
 def idle_checks(suite: Suite) -> tuple[str, ...]:
@@ -1765,9 +1968,12 @@ def planned_calls(
             calibration_calls += suite.samples * max(judge_samples, 1) * per_evaluation
             calibration_minimum = calibration_minimum or not known
         elif case.reviewed_answer is not None:
-            per_evaluation, known = _judge_calls(suite.reviewed(case.reviewed_answer))
-            reviewed_calls += suite.samples * max(judge_samples, 1) * per_evaluation
-            reviewed_minimum = reviewed_minimum or not known
+            # A verdict about the whole answer asks every judged check: judged
+            # checks times samples, the dearer form for the judge. (ADR 0067 §4)
+            for check in suite.reviewed(case.reviewed_answer):
+                per_evaluation, known = _judge_calls(check)
+                reviewed_calls += suite.samples * max(judge_samples, 1) * per_evaluation
+                reviewed_minimum = reviewed_minimum or not known
             reviewed += 1
     return CallPlan(
         cases=len(called),

@@ -304,7 +304,20 @@ __all__ = [
 #    a case was excluded; absent is *nothing excluded*, which is every document
 #    before 24. Outside `config_hash`: it is something a person did at the
 #    promotion, not something the suite declared (ADR 0065 §1, ADR 0014 §1).
-SCHEMA_VERSION = 24
+#
+# 25: one passenger, additive, and the step writes nothing for it: a reviewed
+#    answer's record on a case, `reviewed`, in its new shape (ADR 0067 §1, §2,
+#    §4). `good` absent is an answer awaiting the person's verdict, which no
+#    gate reads; `judged`, with `failing`, in place of `check` and
+#    `assertion_id`, is an answer reviewed as a whole; `revised` and
+#    `held_out`, written only where true, say the verdict is the person's
+#    after review and that she held the answer out; `blind_failing`, on a
+#    revised verdict about the whole answer, keeps what the blind one expected
+#    to fail. Every document before 25
+#    carries `check` and `good` and neither flag, which reads as what it was:
+#    a blind verdict, held in, about its check. Outside `config_hash`: what a
+#    person said, not what the suite declared (ADR 0014 §1).
+SCHEMA_VERSION = 25
 
 
 class DocumentRefusedError(ValueError):
@@ -2333,17 +2346,31 @@ def _check_projected(run: Run) -> None:
             )
         if case.reviewed is not None:
             # A check's name, as a band's is, so the same kind. (ADR 0059 §1)
-            token(
-                "calibration_check",
-                f"the reviewed answer's check {where}",
-                case.reviewed.check,
-            )
-            formed(
-                f"the reviewed answer's identity {where}",
-                case.reviewed.assertion_id,
-                "a digest",
-                bool(_DIGEST.fullmatch(case.reviewed.assertion_id)),
-            )
+            if case.reviewed.check is not None:
+                token(
+                    "calibration_check",
+                    f"the reviewed answer's check {where}",
+                    case.reviewed.check,
+                )
+            # Identities, each a digest: the whole answer's checks are named
+            # by identity alone, and their names are their verdicts'.
+            # (ADR 0067 §4)
+            for bound in (
+                *(
+                    ()
+                    if case.reviewed.assertion_id is None
+                    else (case.reviewed.assertion_id,)
+                ),
+                *case.reviewed.judged,
+            ):
+                # `failing` and `blind_failing` are parts of `judged`, which
+                # the reviewed answer refuses otherwise, so each is checked here.
+                formed(
+                    f"the reviewed answer's identity {where}",
+                    bound,
+                    "a digest",
+                    bool(_DIGEST.fullmatch(bound)),
+                )
     for v in run.aggregate:
         verdict(v, "in the aggregate", grouped=True)
     if run.metadata:
@@ -2450,14 +2477,32 @@ def _check_review_binds(case: CaseResult) -> None:
     reviewed = case.reviewed
     if reviewed is None or case.suspended is not None:
         return
-    if any(v.assertion_id == reviewed.assertion_id for v in case.verdicts):
+    carried = {v.assertion_id for v in case.verdicts}
+    if reviewed.assertion_id is None:
+        # About the whole answer: every judged check it names must have a
+        # verdict, or one that ran nowhere would read as one that agreed.
+        # (ADR 0067 §4)
+        unbound = sorted(set(reviewed.judged) - carried)
+        if not unbound:
+            return
+        raise ValueError(
+            Written.said(
+                "case ",
+                NameRef("case_id", case.case_id),
+                " is a reviewed answer about the whole answer, and none of its "
+                f"verdicts is the judged check {unbound[0]!r}'s. A reviewed "
+                "answer that binds no verdict checks nothing, and would read as "
+                "a judge that agreed with the person",
+            )
+        )
+    if reviewed.assertion_id in carried:
         return
     raise ValueError(
         Written.said(
             "case ",
             NameRef("case_id", case.case_id),
             " is a reviewed answer for ",
-            NameRef("calibration_check", reviewed.check),
+            NameRef("calibration_check", reviewed.check or ""),
             ", and none of its verdicts is that check's "
             f"(assertion_id {reviewed.assertion_id!r}). A reviewed answer that "
             "binds no verdict checks nothing, and would read as a judge that "
@@ -3274,15 +3319,42 @@ def case_to_dict(case: CaseResult, *, redacted: bool) -> dict[str, object]:
     # its input are not fields of this value and so cannot be written. Absent
     # on every other case, and on every document before 23. (ADR 0059 §1)
     if case.reviewed is not None:
-        payload["reviewed"] = {
-            "check": case.reviewed.check,
-            "assertion_id": case.reviewed.assertion_id,
-            "good": case.reviewed.good,
-        }
+        payload["reviewed"] = reviewed_to_dict(case.reviewed)
     # Written only when present: absent is a case that did not error at the
     # target or the mapper, and a document before 21. (#425)
     if case.error_kind is not None:
         payload["error_kind"] = case.error_kind
+    return payload
+
+
+def reviewed_to_dict(reviewed: Reviewed) -> dict[str, object]:
+    """A reviewed answer's record in the run, each key written only where it
+    says something (ADR 0067 §1, §2, §4, schema 25):
+
+    - `check` and `assertion_id`, for an answer about one check; absent for one
+      about the whole answer, which writes `judged` instead, and `failing`
+      where the person expected some to fail;
+    - `good`, the verdict the gate holds; absent while the answer awaits it;
+    - `revised` and `held_out`, written only where they are true.
+
+    So every document written before 25 is read as what it was: a blind
+    verdict, held in, about its check."""
+    payload: dict[str, object] = {}
+    if reviewed.check is not None:
+        payload["check"] = reviewed.check
+        payload["assertion_id"] = reviewed.assertion_id
+    else:
+        payload["judged"] = list(reviewed.judged)
+        if reviewed.failing:
+            payload["failing"] = list(reviewed.failing)
+        if reviewed.blind_failing:
+            payload["blind_failing"] = list(reviewed.blind_failing)
+    if reviewed.good is not None:
+        payload["good"] = reviewed.good
+    if reviewed.revised:
+        payload["revised"] = True
+    if reviewed.held_out:
+        payload["held_out"] = True
     return payload
 
 
@@ -3933,34 +4005,99 @@ def _calibration_from_dict(raw: object) -> CalibrationBand | None:
 
 
 def _reviewed_from_dict(raw: Mapping[str, Any], where: str) -> Reviewed | None:
-    """Absent is a case of another kind; anything present has the three keys
-    a writer writes, `good` a boolean and nothing truthy, and `null` is
-    refused, because no digline writes one. (ADR 0059 §1)"""
+    """Absent is a case of another kind. Anything present is one of the two
+    forms a writer writes (ADR 0067 §4): `check` and `assertion_id`, as text,
+    or `judged`, a list of identities, with `failing` a part of it. `good` is
+    a boolean and nothing truthy, or absent while the answer awaits it;
+    `revised` and `held_out` are `true` where written. `null` is refused,
+    because no digline writes one. (ADR 0059 §1)"""
     if "reviewed" not in raw:
         return None
     found = raw["reviewed"]
     if not isinstance(found, Mapping):
         raise DocumentRefusedError(f"{where}: 'reviewed' is not an object")
     fields_ = cast(Mapping[str, Any], found)
-    unknown = sorted(set(fields_) - {"check", "assertion_id", "good"})
+    unknown = sorted(
+        set(fields_)
+        - {
+            "check",
+            "assertion_id",
+            "good",
+            "revised",
+            "held_out",
+            "judged",
+            "failing",
+            "blind_failing",
+        }
+    )
     if unknown:
         raise DocumentRefusedError(
             f"{where}: 'reviewed' carries {', '.join(unknown)}, which no digline writes"
         )
-    check, identity, good = (
-        fields_.get("check"),
-        fields_.get("assertion_id"),
-        fields_.get("good"),
-    )
-    if not isinstance(check, str) or not isinstance(identity, str):
+    check, identity = fields_.get("check"), fields_.get("assertion_id")
+    whole = "judged" in fields_
+    if whole:
+        if "check" in fields_ or "assertion_id" in fields_:
+            raise DocumentRefusedError(
+                f"{where}: 'reviewed' carries both a 'check' and 'judged', and "
+                "an answer is reviewed about one check or about the whole"
+            )
+        judged, failing = fields_.get("judged"), fields_.get("failing", [])
+        blind = fields_.get("blind_failing", [])
+        if (
+            not _texts(judged)
+            or not _texts(failing, empty=True)
+            or not _texts(blind, empty=True)
+        ):
+            raise DocumentRefusedError(
+                f"{where}: 'reviewed' needs 'judged', and 'failing' where "
+                "written, each a list of identities as text"
+            )
+    elif not isinstance(check, str) or not isinstance(identity, str):
         raise DocumentRefusedError(
             f"{where}: 'reviewed' needs a 'check' and an 'assertion_id', as text"
         )
-    if type(good) is not bool:
+    elif "failing" in fields_ or "blind_failing" in fields_:
+        raise DocumentRefusedError(
+            f"{where}: 'reviewed' carries 'failing' beside a 'check': only an "
+            "answer reviewed as a whole names checks expected to fail"
+        )
+    good = fields_.get("good")
+    if "good" in fields_ and type(good) is not bool:
         raise DocumentRefusedError(
             f"{where}: 'reviewed' carries a 'good' that is not true or false"
         )
-    return Reviewed(check=check, assertion_id=identity, good=good)
+    for flag in ("revised", "held_out"):
+        if flag in fields_ and fields_[flag] is not True:
+            raise DocumentRefusedError(
+                f"{where}: 'reviewed' carries a '{flag}' that is not true; it "
+                "is written only where it is"
+            )
+    try:
+        return Reviewed(
+            check=None if whole else check,
+            assertion_id=None if whole else identity,
+            good=good,
+            revised=fields_.get("revised", False),
+            held_out=fields_.get("held_out", False),
+            judged=tuple(cast("list[str]", fields_.get("judged", []))),
+            failing=tuple(cast("list[str]", fields_.get("failing", []))),
+            blind_failing=tuple(cast("list[str]", fields_.get("blind_failing", []))),
+        )
+    except ValueError as exc:
+        raise DocumentRefusedError(
+            Written.of(exc, f"{where}: 'reviewed': ", named=False)
+        ) from exc
+
+
+def _texts(value: object, *, empty: bool = False) -> bool:
+    """A list of non-empty strings, and non-empty unless `empty` allows it."""
+    if not isinstance(value, list):
+        return False
+    items = cast("list[object]", value)
+    return (empty or bool(items)) and all(
+        isinstance(item, str) and item for item in items
+    )
 
 
 def run_from_dict(raw: object) -> Run:

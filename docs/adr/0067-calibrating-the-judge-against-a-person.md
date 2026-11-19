@@ -13,10 +13,26 @@
   the alternative beside it. Accepted as proposed, at 17:34, with the seven
   choices marked *decided here* that the report of its proposal set out,
   six in this record and one in ADR 0068. Not built yet: the construction
-  is the five pull requests of §10, in an order still to be decided
+  is the five pull requests of §10, in an order still to be decided.
+  *The first of §10's pull requests built 2026-11-19*, with Alessandro
+  Prandini's rulings of that day (P-1710), each noted where it applies:
+  the reviewed answer's new shape, the choice, the blind review, the rule,
+  the revision, schema 25 and `OUTPUT_VERSION` 6. The agreement (2), the
+  re-judge of the reviewed answers (3), the accepted contradiction (4) and
+  `at_least` (5) are in no file
 - Shipped: unreleased
 - Date: 2026-11-14
-- Opens: `SCHEMA_VERSION`, by keys on a reviewed answer's record in the run
+- Opens: *Noted 2026-11-19, by Alessandro Prandini's ruling of that day
+  (P-1710); the line below is kept as written.* **`OUTPUT_VERSION` 6 as
+  well.** The line says no bump was needed, every key added to `--json` being
+  an added key. Two are not: the run document's `reviewed` carried `check`,
+  always a string, and `good`, always a boolean, and §1 (a) and §4 add answers
+  with neither. A key a consumer has read as a string or a boolean that may
+  now be `null` is a change it can see, and by the rule beside `_BASE` in
+  `src/digline/wire/contract.py` that is a bump; `"reviewed": null` on those
+  answers would say the case is not a reviewed answer. `revised` and
+  `held_out` are new keys beside them.
+  `SCHEMA_VERSION`, by keys on a reviewed answer's record in the run
   (§2, §4) and on the reference (§6), under
   [ADR 0014](0014-what-may-ride-a-schema-bump.md) §1's passenger rule. No
   `OUTPUT_VERSION`: every key added to `--json` and to an MCP response is an
@@ -124,6 +140,16 @@ run says how many there are. The judge's verdict is therefore fixed in a
 stored run **before the person's exists**, so nothing the person said can
 have reached it, and nothing tuned since can have produced it.
 
+*Noted 2026-11-19, by Alessandro Prandini's ruling of that day (P-1710),
+the paragraph above kept as written.* **The exits.** A judge's error on an
+answer awaiting a verdict is no cause of exit `2`: that answer is in no gate,
+and the document says it, *"N awaiting answers were not judged"*. A run whose
+only cases await a verdict is exit `2`, fixed decision 3, with a sentence
+saying why: every case awaits a verdict, and nothing was judged. And **the
+first press** on an answer awaiting a verdict is `digline record import
+--good|--bad ID --by NAME`, which fills its verdict in place: the page shows
+it as the command, and ADR 0066 §2 holds.
+
 *The alternative not taken:* the person reviews first, as today, and the run
 comes after. It is also blind, trivially, but the judge's verdict is then
 produced after the person's is on disk, and a second, third or fourth run
@@ -199,6 +225,12 @@ verdict judges, and the review page shows it.*
   page, for an answer that is already a case, which ADR 0066 left undecided,
   and by the command that does the same, `digline record revise --case ID
   --good|--bad --by NAME`, so the page and the command leave one store.
+  *Noted 2026-11-19 (P-1710), the text kept as written:* on an answer about
+  the whole answer the command takes `--failing CHECK` too, once per check,
+  as the import does (§4), since a revised no names what failed. And the
+  run keeps the blind verdict beside a revision, `blind_failing` for the
+  whole answer, so the blind agreement of this section is read from the run
+  without moving the schema again.
 - **The gate holds the newest verdict**: `revised` where it is, else `good`.
   The person's considered verdict is the expected one.
 - **The reading gives both figures**, *blind agreement* and *agreement after

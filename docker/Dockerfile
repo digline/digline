@@ -28,7 +28,7 @@ FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb
 # reads the tags back out of this file rather than repeating them — so an image
 # that lags a release fails in the repository, before anything reaches a
 # registry.
-ARG DIGLINE_VERSION=1.3.0
+ARG DIGLINE_VERSION=1.4.0
 ARG DIGLINE_ANTHROPIC_VERSION=0.10.1
 ARG DIGLINE_OPENAI_VERSION=0.8.0
 ARG DIGLINE_BEDROCK_VERSION=0.9.1

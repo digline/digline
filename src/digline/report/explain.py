@@ -39,6 +39,8 @@ from digline.core import (
     SystemConfig,
     Uncertain,
     Verdict,
+    awaiting_cases,
+    awaiting_unjudged,
     case_count,
     cases_changed,
     checked_denominator,
@@ -215,6 +217,14 @@ type TallyKind = Literal[
     # verdict as settled that its own samples do not settle. Read off the run
     # alone, so it is stated with or without a reference. It gates nothing.
     "uncertain",
+    # The twelfth amendment, from ADR 0067 §1 (a), and the ruling of
+    # 2026-11-19 (P-1710): how many reviewed answers await a person's verdict,
+    # in no gate, and how many of those the judge could not judge, which is no
+    # cause of 2 for that reason. The report says both, and a reading that
+    # left them out would describe a run whose judged cases and exit code it
+    # could not account for. Read off the run alone. They gate nothing.
+    "awaiting",
+    "awaiting_unjudged",
 ]
 
 
@@ -416,6 +426,13 @@ def _tallies(run: Run, comparison: Comparison | None) -> list[Fact]:
     unsure = uncertain_cases(run)
     if unsure:
         out.append(TallyFact("uncertain", count=len(unsure), uncertain=unsure))
+    # Silent at zero, like the headline clause it mirrors. (ADR 0067 §1 (a))
+    waiting = len(awaiting_cases(run))
+    if waiting:
+        out.append(TallyFact("awaiting", count=waiting))
+    waiting_unjudged = awaiting_unjudged(run)
+    if waiting_unjudged:
+        out.append(TallyFact("awaiting_unjudged", count=waiting_unjudged))
     # Beside it, and read off the comparison rather than the run: it is a fact
     # about two measurements not being the same measurement, which one run alone
     # cannot know. (ADR 0012 §3, amended 2026-09-18)
@@ -1060,6 +1077,18 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
                 locale,
                 "explain.tally.denominator_moved."
                 f"{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "awaiting":
+            return phrase(
+                locale,
+                f"fact.awaiting.{'one' if fact.count == 1 else 'many'}",
+                count=fact.count,
+            )
+        case "awaiting_unjudged":
+            return phrase(
+                locale,
+                f"fact.awaiting.unjudged.{'one' if fact.count == 1 else 'many'}",
                 count=fact.count,
             )
         case "uncertain":

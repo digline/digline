@@ -52,7 +52,7 @@ from digline.report import (
 )
 from digline.run import Case, Response, Suite, execute
 from digline.store import FileResultStore
-from digline.wire import compare_json, exit_code
+from digline.wire import OUTPUT_VERSION, compare_json, exit_code
 from digline.wire.run import run_document
 
 SUITE = """\
@@ -1413,7 +1413,8 @@ def test_compare_json_carries_the_three_facts_as_added_keys() -> None:
     comparison, head = judged(after, before)
     payload = compare_json(comparison, head, baseline=before, full=False, run=after)
 
-    assert payload["output_version"] == 5
+    # 5 when these three were added; 6 since ADR 0067, which kept them.
+    assert payload["output_version"] == OUTPUT_VERSION >= 5
     missing = {"pinned_unreferenced", "pinned_withdrawn", "pinned_lost"} - set(payload)
     assert not missing, f"compare --json does not carry {sorted(missing)}"
     assert (

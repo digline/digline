@@ -91,6 +91,8 @@ from digline.host import (
     refused_exit,
     reported,
     resolve_key,
+    revise,
+    revise_file,
     suggest_for,
     suggest_model,
     suggest_new,
@@ -126,6 +128,7 @@ from digline.report import (
 )
 from digline.report import diff as diff_report
 from digline.report.pages import VIEW_PORT
+from digline.report.render import nothing_judged_text
 from digline.run import (
     CostCeilingReached,
     ReplayError,
@@ -520,7 +523,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     # while `report` and `explain` say `2` about the same run. (ADR 0049 §3,
     # amended 2026-10-22; #654)
     if judged_nothing:
-        say(f"digline: {phrase('en', 'fact.nothing_judged')}", err=True)
+        # Its own sentence where every case awaits a person's verdict: the
+        # judge judged them, and no gate reads it. (ADR 0067 §1 (a); P-1710)
+        said = nothing_judged_text(measured.run, suite.declared(), "en")
+        say(f"digline: {said}", err=True)
         return EXIT_UNJUDGED
     return EXIT_OK
 
@@ -1487,11 +1493,15 @@ def cmd_record(args: argparse.Namespace) -> int:
         "ceiling": ("on",),
         "interval": ("on",),
         "json": ("import", "status", "compare"),
-        "good": ("import",),
-        "bad": ("import",),
-        "by": ("import",),
-        "suite": ("import", "status", "compare"),
-        "case": ("compare",),
+        "good": ("import", "revise"),
+        "bad": ("import", "revise"),
+        "by": ("import", "revise"),
+        "choose": ("import",),
+        "held_out": ("import",),
+        "whole": ("import",),
+        "failing": ("import", "revise"),
+        "suite": ("import", "status", "compare", "revise"),
+        "case": ("compare", "revise"),
         "since": ("compare",),
         "setup": ("compare",),
         "show_setup": ("compare",),
@@ -1512,6 +1522,8 @@ def cmd_record(args: argparse.Namespace) -> int:
         return cmd_record_status(args)
     if args.action == "import":
         return cmd_record_import(args)
+    if args.action == "revise":
+        return cmd_record_revise(args)
     if args.action == "compare":
         return cmd_record_compare(args)
     if args.action == "proxy":
@@ -1691,20 +1703,38 @@ def cmd_record_import(args: argparse.Namespace) -> int:
     """
     if args.tenant is None or args.suite is None:
         raise UsageError("`digline record import` needs --tenant and --suite")
-    if args.json and (args.good or args.bad or args.by is not None):
+    writes = args.good or args.bad or args.choose or args.by is not None
+    if args.json and writes:
         raise UsageError(
             "--json lists and writes nothing, so it is refused with --good, "
-            "--bad and --by: a yes or a no about an answer is a person's, "
-            "given by reading the answer, and a listing for a program has no "
-            "answer in it to read. Leave out --json to write them"
+            "--bad, --choose and --by: a yes or a no about an answer is a "
+            "person's, given by reading the answer, and a listing for a program "
+            "has no answer in it to read. Leave out --json to write them"
+        )
+    if "" in (args.good or ()) or "" in (args.bad or ()):
+        raise UsageError(
+            "--good and --bad take the id of an answer, as the listing prints "
+            "it, once per answer"
+        )
+    if not writes and (args.held_out or args.whole or args.failing):
+        raise UsageError(
+            "--held-out, --whole and --failing say how answers are written, and "
+            "nothing here writes one: name it with --choose, --good or --bad"
         )
     suite, loaded = _record_suite(args)
     found = import_listing(
         Path(args.root), suite, loaded.module, args.tenant, taken_from=args.taken_from
     )
-    if args.good or args.bad or args.by is not None:
+    if writes:
         written = import_elect(
-            found, good=args.good or (), bad=args.bad or (), by=args.by
+            found,
+            good=args.good or (),
+            bad=args.bad or (),
+            by=args.by,
+            choose=args.choose or (),
+            held_out=args.held_out,
+            whole=args.whole,
+            failing=args.failing or (),
         )
         for line in written_lines(found, written):
             say(line)
@@ -1725,6 +1755,42 @@ def cmd_record_import(args: argparse.Namespace) -> int:
         return EXIT_OK
     for line in listing_lines(found):
         say(line)
+    return EXIT_OK
+
+
+def cmd_record_revise(args: argparse.Namespace) -> int:
+    """A person's verdict after she read the disagreements, written beside the
+    one she gave blind, in the suite's capture file. It writes and stops: no
+    commit, no run, no promotion. `at` is the host's clock, `utc_now_iso`.
+    (ADR 0067 §2; `--failing` by the ruling of 2026-11-19, P-1710)"""
+    if args.tenant is None or args.suite is None or args.case is None:
+        raise UsageError(
+            "`digline record revise` needs --tenant, --suite and --case, and "
+            "--good or --bad, with --by"
+        )
+    verdicts = [*(args.good or ()), *(args.bad or ())]
+    if len(verdicts) != 1 or verdicts[0] != "":
+        raise UsageError(
+            "`digline record revise` takes one of --good and --bad, with no id: "
+            "the case is --case"
+        )
+    suite, loaded = _record_suite(args)
+    path = revise_file(Path(args.root), suite, loaded.module, args.tenant)
+    revise(
+        path,
+        args.case,
+        good=bool(args.good),
+        failing=tuple(args.failing or ()),
+        by=args.by,
+        at=utc_now_iso(),
+        suite=suite,
+    )
+    say(
+        f"revised {args.case} in {path}, "
+        f"{'--good' if args.good else '--bad'}, by {args.by}: the verdict given "
+        "blind stays beside it; nothing was committed, run or promoted "
+        "(ADR 0067 §2)"
+    )
     return EXIT_OK
 
 
@@ -2636,11 +2702,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rec_p.add_argument(
         "action",
-        choices=("on", "off", "status", "import", "compare", "proxy"),
+        choices=("on", "off", "status", "import", "revise", "compare", "proxy"),
         help=(
             "on and off write .digline/<tenant>/recorder.toml; status reads it "
             "and the tenant's recordings, and is never a gate; import lists a "
-            "suite's recorded cases, or writes the ones named; compare shows a "
+            "suite's recorded cases, or writes the ones named; revise writes a "
+            "person's verdict after review beside the one she gave blind; "
+            "compare shows a "
             "suite's recorded answers by case and by setup, and writes nothing; "
             "proxy forwards an application's calls from 127.0.0.1 and records "
             "them as the recorder in process does"
@@ -2693,7 +2761,10 @@ def build_parser() -> argparse.ArgumentParser:
     rec_p.add_argument(
         "--case",
         metavar="ID",
-        help="compare only: one case, by the id compare and import print",
+        help=(
+            "compare and revise: one case, by the id compare and import print; "
+            "for revise, the reviewed answer whose verdict changes"
+        ),
     )
     rec_p.add_argument(
         "--since",
@@ -2720,19 +2791,59 @@ def build_parser() -> argparse.ArgumentParser:
     rec_p.add_argument(
         "--good",
         action="append",
+        nargs="?",
+        const="",
         metavar="ID",
         help=(
-            "import only: write this recorded answer as reviewed good, by the "
-            "id the listing prints; once per answer"
+            "import: write this recorded answer as reviewed good, by the id the "
+            "listing prints, once per answer; an answer awaiting a verdict is "
+            "given it. revise: the verdict after review is good, with no id"
         ),
     )
     rec_p.add_argument(
         "--bad",
         action="append",
+        nargs="?",
+        const="",
         metavar="ID",
         help=(
-            "import only: write this recorded answer as reviewed bad, by the "
-            "id the listing prints; once per answer"
+            "import: write this recorded answer as reviewed bad, by the id the "
+            "listing prints, once per answer; an answer awaiting a verdict is "
+            "given it. revise: the verdict after review is bad, with no id"
+        ),
+    )
+    rec_p.add_argument(
+        "--choose",
+        action="append",
+        metavar="ID",
+        help=(
+            "import only: write this recorded answer awaiting a person's "
+            "verdict, to be judged first by the judge alone; once per answer"
+        ),
+    )
+    rec_p.add_argument(
+        "--held-out",
+        action="store_true",
+        help=(
+            "import only: the answers this invocation writes are held out, to "
+            "test the rubric rather than tune it; held in by default"
+        ),
+    )
+    rec_p.add_argument(
+        "--whole",
+        action="store_true",
+        help=(
+            "import only: the verdict is about the whole answer, and every "
+            "judged check runs on it, rather than about the source's check"
+        ),
+    )
+    rec_p.add_argument(
+        "--failing",
+        action="append",
+        metavar="CHECK",
+        help=(
+            "import and revise: on a no about the whole answer, a judged check "
+            "the person expected to fail; once per check"
         ),
     )
     rec_p.add_argument(

@@ -118,7 +118,7 @@ with the tenant alone, `{"tenant": "acme"}`, it answered:
 
 ```json
 {
-  "output_version": 5,
+  "output_version": 6,
   "tenant": "acme",
   "suite": "category",
   "state": "no_suite_yet",
@@ -281,7 +281,7 @@ $ diff suite.proposed.toml suite.toml
 
 ```json
 {
-  "output_version": 5,
+  "output_version": 6,
   "tenant": "acme",
   "suite": "category",
   "declaration": {

@@ -536,6 +536,21 @@ def _add_schema_twenty_four(raw: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
+def _add_schema_twenty_five(raw: dict[str, Any]) -> dict[str, Any]:
+    """24 -> 25. One passenger, and the step writes nothing for it: a reviewed
+    answer's record in its new shape (ADR 0067 §1, §2, §4).
+
+    It **invents nothing**. A record before 25 carries `check`,
+    `assertion_id` and `good`, and nothing else, because no digline before 25
+    could write anything else: it is an answer about its check, given a verdict
+    by the person, which was blind because nothing showed her the judge's, never
+    revised and held in. Absent `revised`, `held_out`, `judged` and `failing`
+    say exactly that. A reference before 25 accepted no contradiction, because
+    none could be. Nothing is written.
+    """
+    return raw
+
+
 #: from-version -> how to reach the next one, and what the step declares it
 #: does. A version absent from this table is one whose bump was not additive,
 #: and the absence is the whole statement. Every entry declares its nature, and
@@ -573,6 +588,7 @@ _STEPS: Mapping[int, Step] = {
     21: Step(_add_schema_twenty_two, WritesNothing()),
     22: Step(_add_schema_twenty_three, WritesNothing()),
     23: Step(_add_schema_twenty_four, WritesNothing()),
+    24: Step(_add_schema_twenty_five, WritesNothing()),
 }
 
 #: The steps whose default states something that was not true of the run, by
