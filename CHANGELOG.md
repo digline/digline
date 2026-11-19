@@ -49,8 +49,16 @@ requirements as 0.9.0.
   tokens on the bare id and a geographic profile, with cache reads at $0.33
   and 5-minute writes at $4.125, and $3 / $15, $0.30 and $3.75 on `global.`.
   Before, a suite on Sonnet 4.6 was refused at `preflight` until it passed a
-  `pricing=`, which still overrides this list. The other rows were not read
-  again. Found in a Java application with a judged suite.
+  `pricing=`, which still overrides this list. Found in a Java application
+  with a judged suite.
+- **Claude Sonnet 5.5's cache reads are halved**, to $0.11 per million tokens
+  on its `us.` and `eu.` profiles and $0.10 on `global.`, in the five seeded
+  regions. Read on 2026-11-19 from the same page, which says *"Starting
+  October 7, 2026, cache read pricing for Claude Sonnet 5.5 is reduced by 50%
+  from the prior rate."* The rest of its row read the same. Before, this list
+  priced those reads at $0.22 and $0.20, above what they cost, which fails a
+  `CostBudget` loudly rather than passing one in silence. The other rows were
+  not read again.
 
 ## 1.3.0 — 2026-11-16
 

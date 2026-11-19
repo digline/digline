@@ -410,8 +410,10 @@ PUBLISHED: dict[tuple[str, str], tuple[float, float, float, float]] = {
     ("eu-west-3", "global.anthropic.claude-fable-5-1"): (10.0, 50.0, 0.25, 12.50),
     ("eu-central-1", "eu.anthropic.claude-opus-5-5"): (4.40, 22.0, 0.22, 5.50),
     ("us-east-1", "global.anthropic.claude-opus-5-5"): (4.0, 20.0, 0.20, 5.0),
-    ("eu-west-1", "eu.anthropic.claude-sonnet-5-5"): (2.20, 11.0, 0.22, 2.75),
-    ("us-west-2", "global.anthropic.claude-sonnet-5-5"): (2.0, 10.0, 0.20, 2.50),
+    # Sonnet 5.5's cache reads read again on 2026-11-19 from the pricing page,
+    # halved from 2026-10-07; its other figures read the same.
+    ("eu-west-1", "eu.anthropic.claude-sonnet-5-5"): (2.20, 11.0, 0.11, 2.75),
+    ("us-west-2", "global.anthropic.claude-sonnet-5-5"): (2.0, 10.0, 0.10, 2.50),
     # Read on 2026-11-19 from the pricing page, alone.
     ("us-east-1", SONNET_4_6): (3.30, 16.50, 0.33, 4.125),
     ("eu-central-1", f"eu.{SONNET_4_6}"): (3.30, 16.50, 0.33, 4.125),
