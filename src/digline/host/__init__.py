@@ -46,12 +46,12 @@ from digline.host.importing import (
     Shape,
     answer_id,
     import_elect,
-    revise,
-    revise_file,
     import_listing,
     imported_since,
     listed,
     listing_lines,
+    revise,
+    revise_file,
     written_lines,
 )
 from digline.host.listing import (
