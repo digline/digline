@@ -1172,10 +1172,22 @@ def _review(
     the suite's trajectory checks run beside `check`. On a yes, a red one is
     a contradiction too.
     """
-    check = suite.reviewed(answer)
-    checks = (check, *suite.on_the_steps(answer))
+    asked = suite.reviewed(answer)
+    checks = (*asked, *suite.on_the_steps(answer))
+    # What the person said, as the gate holds it: the revision where there is
+    # one, else the blind verdict, or nothing yet (ADR 0067 §1 (a), §2). The
+    # whole answer's checks are bound by identity, and the names it expects to
+    # fail are read as identities here, where the suite is. (ADR 0067 §4)
+    good, failing = answer.held
+    whole = answer.check is None
     reviewed = Reviewed(
-        check=answer.check, assertion_id=check.identity, good=answer.good
+        check=answer.check,
+        assertion_id=None if whole else asked[0].identity,
+        good=good,
+        revised=answer.revised is not None,
+        held_out=answer.held_out,
+        judged=tuple(a.identity for a in asked) if whole else (),
+        failing=tuple(a.identity for a in asked if a.name in failing),
     )
     reported: dict[str, object] = {}
     if answer.steps is not None:

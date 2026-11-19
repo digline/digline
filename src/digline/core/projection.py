@@ -363,14 +363,18 @@ def _case(case: CaseResult, name: Rename) -> CaseResult:
         ),
         # A check's name, as the band's is, so the same kind; the person's yes
         # or no is digline's boolean and crosses as it is. (ADR 0059 §1)
+        # The whole answer's checks are identities, digests that cross as a
+        # verdict's do, and its flags are digline's booleans. (ADR 0067 §4)
         reviewed=(
             None
-            if case.reviewed is None
+            if case.reviewed is None or case.reviewed.check is None
             else replace(
                 case.reviewed,
                 check=name("calibration_check", case.reviewed.check),
             )
-        ),
+        )
+        if case.reviewed is None or case.reviewed.check is not None
+        else case.reviewed,
     )
 
 
