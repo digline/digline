@@ -1029,6 +1029,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Reviewing as {by}. Change the name below for a press of your own."
         ),
         "view.review.next": "Next, without writing",
+        "view.review.rule": "What a yes means, in this suite's words",
+        "view.review.no_rule": (
+            "This suite does not say what a yes means: review_rule in its "
+            "[suite] would say it here, above every verdict."
+        ),
+        "view.review.failing": (
+            "On a no about the whole answer, tick the checks that failed: every "
+            "other judged check is expected to pass."
+        ),
+        "view.review.revise": (
+            "Change the verdict, after reading the disagreements: written "
+            "beside the one given blind, never in its place"
+        ),
+        "view.review.revised": "Revised to {flag}: the gate holds this one.",
         "view.review.state": "The state of the suite",
         "view.where.idle_checks": "Checks that judge no case: {checks}",
         "view.where.command": "The command",
@@ -2930,6 +2944,20 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Rivedi come {by}. Cambia il nome qui sotto per una pressione tua."
         ),
         "view.review.next": "Avanti, senza scrivere",
+        "view.review.rule": "Che cosa vuol dire un sì, con le parole di questa suite",
+        "view.review.no_rule": (
+            "Questa suite non dice che cosa vuol dire un sì: review_rule nel suo "
+            "[suite] lo direbbe qui, sopra ogni verdetto."
+        ),
+        "view.review.failing": (
+            "Su un no all'intera risposta, spunta i controlli che non sono "
+            "passati: ogni altro controllo giudicato è atteso passare."
+        ),
+        "view.review.revise": (
+            "Cambia il verdetto, dopo aver letto i disaccordi: scritto accanto "
+            "a quello dato alla cieca, mai al suo posto"
+        ),
+        "view.review.revised": "Rivisto in {flag}: il gate tiene questo.",
         "view.review.state": "Lo stato della suite",
         "view.where.idle_checks": "Controlli che non giudicano nessun caso: {checks}",
         "view.where.command": "Il comando",

@@ -118,6 +118,7 @@ __all__ = [
     "read_recordings",
     "refuse_another_tenant",
     "revise",
+    "revise_file",
     "group_setup_line",
     "setup_line",
     "setups_recorded",
@@ -224,6 +225,13 @@ class ImportAnswer:
     #: `--choose`, judged by the judge alone. `--good` or `--bad` fills its
     #: verdict in place. (ADR 0067 §1 (a); P-1710)
     awaiting: bool = False
+    #: The draft holds this answer reviewed about the whole answer, not about
+    #: the source's check: a no names the checks it expected to fail.
+    #: (ADR 0067 §4)
+    whole: bool = False
+    #: The person's verdict after review, where she revised it: what the gate
+    #: holds, said beside the blind one. `None` where she did not. (ADR 0067 §2)
+    revised: bool | None = None
 
     @property
     def electable(self) -> bool:
@@ -687,6 +695,14 @@ def import_listing(
                     else _text(held.metadata.get("reviewed_by"))
                 ),
                 awaiting=awaiting,
+                whole=held is not None
+                and held.reviewed_answer is not None
+                and held.reviewed_answer.check is None,
+                revised=None
+                if held is None
+                or held.reviewed_answer is None
+                or held.reviewed_answer.revised is None
+                else held.reviewed_answer.revised.good,
             )
         )
     stamps = [r.recorded_at for r in split.recordings if r.recorded_at is not None]
@@ -1157,6 +1173,16 @@ def _fill(
     metadata["reviewed_by"] = by
     entry["metadata"] = metadata
     _replace_entry(path, case_id, entry)
+
+
+def revise_file(
+    root: Path, suite: Suite, module: ModuleType | None, tenant: str
+) -> Path:
+    """The file a revision is written into, the suite's capture file, after
+    the tenant's refusal the import makes. (ADR 0067 §2)"""
+    refuse_another_tenant(tenant, suite)
+    _, path = capture_file(suite, module, root)
+    return path
 
 
 def revise(

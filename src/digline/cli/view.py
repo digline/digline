@@ -92,6 +92,8 @@ from digline.host import (
     found_proposal,
     import_elect,
     import_listing,
+    revise,
+    revise_file,
     imported_since,
     left_out_parts,
     promote_priced,
@@ -124,6 +126,7 @@ from digline.report.pages import VIEW_PORT
 from digline.report.render import excluded_fact
 from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
+from digline.run.suite import judged_names
 from digline.store import PathRefusedError, ResultStore, RunRef, checked_name
 
 __all__ = [
@@ -1290,6 +1293,8 @@ class ViewHandler(BaseHTTPRequestHandler):
                 writes=self._import_flags(tenant),
                 by=self.launch.reviewer if self.launch is not None else "",
                 written=(after, answers.get(after)) if after else None,
+                rule=self.suite.review_rule,
+                judged=judged_names(self.suite),
             ),
             here="review",
             locale=locale,
@@ -1763,23 +1768,53 @@ class ViewHandler(BaseHTTPRequestHandler):
         `import_elect`, the path the import takes (ADR 0061 §2, #904). The
         name is the one the form carries, which the server then keeps for the
         session (ADR 0066 §3). A 303 to the next answer not yet reviewed,
-        which reads back from the draft what this wrote."""
+        which reads back from the draft what this wrote.
+
+        On an answer awaiting a verdict the press fills it, and a no about the
+        whole answer carries the boxes ticked, `--failing` (ADR 0067 §1 (b),
+        §4). The second press, `revise`, is `digline record revise --case ID
+        --good|--bad --by NAME`, through the same host function, and leads
+        back to the same answer (ADR 0067 §2)."""
         verdict = (form.get("verdict") or [""])[0]
-        if verdict not in ("good", "bad"):
-            self._error(400, "refused: the form names no verdict, good or bad")
+        revision = (form.get("revise") or [""])[0]
+        if (verdict in ("good", "bad")) == (revision in ("good", "bad")):
+            self._error(
+                400, "refused: the form names no verdict, good or bad, or names two"
+            )
             return
         by = (form.get("by") or [None])[0]
+        failing = [name for name in form.get("failing", []) if name]
         root = Path(self.root)
         try:
             found = import_listing(root, self.suite, self.module, tenant)
-            import_elect(
-                found,
-                good=[answer] if verdict == "good" else [],
-                bad=[answer] if verdict == "bad" else [],
-                by=by,
-            )
+            if revision:
+                revise(
+                    revise_file(root, self.suite, self.module, tenant),
+                    answer,
+                    good=revision == "good",
+                    failing=tuple(failing) if revision == "bad" else (),
+                    by=by,
+                    at=utc_now_iso(),
+                    suite=self.suite,
+                )
+            else:
+                import_elect(
+                    found,
+                    good=[answer] if verdict == "good" else [],
+                    bad=[answer] if verdict == "bad" else [],
+                    by=by,
+                    failing=failing if verdict == "bad" else (),
+                )
         except REFUSALS as exc:
             self._refused(locale, str(exc))
+            return
+        if revision:
+            assert self.launch is not None and by is not None
+            self.launch.remember(by)
+            address = pages.review_address(tenant, self.suite.name, answer)
+            self._see_other(
+                f"{address}?{urllib.parse.urlencode({'after': answer})}", locale
+            )
             return
         assert self.launch is not None and by is not None
         self.launch.remember(by)

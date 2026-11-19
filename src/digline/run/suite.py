@@ -57,6 +57,7 @@ __all__ = [
     "Case",
     "Revised",
     "ReviewedAnswer",
+    "judged_names",
     "ReviewedCounts",
     "TRAJECTORY_CHECKS",
     "Suite",
@@ -756,6 +757,12 @@ class Suite:
     #: `expected`, with the person's mark. Outside `config_hash`, for the reason
     #: `capture` is. (ADR 0059 §2)
     deterministic_output: bool = False
+    #: What a person's yes means for this suite's reviewed answers, in her
+    #: words: the review page shows it above the two buttons of every answer.
+    #: `None` loads, and the page says the suite does not say what a yes means.
+    #: Outside `config_hash`, for the reason `capture` is: it is what a person
+    #: reads before judging, not how a check judges. (ADR 0067 §2)
+    review_rule: str | None = None
 
     def __post_init__(self) -> None:
         # **Frozen first, because every check below is made once.** A list
@@ -1204,6 +1211,15 @@ class Suite:
         reviewed answers for that check. Refused when the suite is loaded, so a
         mistyped name is met before an import writes a case the suite would
         then refuse. (ADR 0059 §1)"""
+        if self.review_rule is not None and (
+            not isinstance(self.review_rule, str) or not self.review_rule.strip()  # pyright: ignore[reportUnnecessaryIsInstance]
+        ):
+            raise RefusedError(
+                f"suite {self.name!r} declares review_rule={self.review_rule!r}: "
+                "it is the text that says what a yes means, shown above every "
+                "verdict, and an empty one says nothing; leave it out instead "
+                "(ADR 0067 §2)"
+            )
         if type(self.deterministic_output) is not bool:  # pyright: ignore[reportUnnecessaryComparison]
             raise RefusedError(
                 f"suite {self.name!r} declares deterministic_output="
@@ -1493,6 +1509,12 @@ class ReviewedCounts:
     good: int
     bad: int
     awaiting: int = 0
+
+
+def judged_names(suite: Suite) -> tuple[str, ...]:
+    """The names of the suite's judged checks, in its order: what a no about
+    the whole answer may name as failing. (ADR 0067 §4)"""
+    return tuple(a.name for a in suite.assertions if judged(_unwrapped(a)))
 
 
 def reviewed_counts(cases: Iterable[Case]) -> ReviewedCounts:

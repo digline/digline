@@ -1,7 +1,7 @@
 """Read a PreToolUse payload and ask a person before a person's decision:
 `digline promote`, `digline register`, `digline view --allow-promote`,
 `digline view --allow-record`, `digline record import` with `--good` or
-`--bad`, or `digline record on`.
+`--bad`, `digline record revise`, or `digline record on`.
 
 Started by `ask-a-person`, which has already decided that the project is a
 digline project. Standard library only: it runs in the project's `.venv`, but
@@ -30,7 +30,9 @@ or `--bad` make, left standing for as long as the server is up (ADR 0061 §4).
 **`record` is read past its first word too, for the same reason.** Bare
 `digline record import` lists and writes nothing; with `--good` or `--bad` it
 writes a person's yes or no, under their name, into the suite's cases (ADR
-0059 §1). `digline record on` decides what of an application's calls is kept
+0059 §1). `digline record revise` writes a person's verdict after review,
+under her name, beside the one she gave blind (ADR 0067 §2), by its action
+alone. `digline record on` decides what of an application's calls is kept
 (ADR 0058 §10). `off`, `status`, `compare` and the listing read, and are not
 asked about. The action is found as a word of the parsed command, never as a
 string, and an extra word that happens to be `on` asks once too often rather
@@ -87,6 +89,11 @@ REASONS = {
         "about a recorded answer, under the name given to --by, into the "
         "suite's cases"
     ),
+    "record revise": (
+        "digline record revise writes a person's verdict after she read the "
+        "judge's disagreements, under the name given to --by, beside the one "
+        "she gave blind in the suite's cases"
+    ),
     "record on": (
         "digline record on switches the recorder on for a tenant, which decides "
         "what of an application's calls is kept under "
@@ -110,8 +117,8 @@ class Rule(NamedTuple):
 #: the committed reference (ADR 0032 §3), and `--allow-record` into one that
 #: writes the recorder's switch and the suite's cases (ADR 0061 §4). `record
 #: import` lists until `--good`
-#: or `--bad` names an answer, and `record on` is a decision by its action
-#: alone (ADR 0059 §1, ADR 0058 §10).
+#: or `--bad` names an answer, and `record revise` and `record on` are each a
+#: decision by its action alone (ADR 0059 §1, ADR 0067 §2, ADR 0058 §10).
 FLAGGED: dict[str, tuple[Rule, ...]] = {
     "view": (
         Rule(None, ("--allow-promote",), "view --allow-promote"),
@@ -119,6 +126,7 @@ FLAGGED: dict[str, tuple[Rule, ...]] = {
     ),
     "record": (
         Rule("import", ("--good", "--bad"), "record import"),
+        Rule("revise", (), "record revise"),
         Rule("on", (), "record on"),
     ),
 }
