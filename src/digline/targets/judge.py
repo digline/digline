@@ -73,12 +73,14 @@ SCORE_SYSTEM = (
     "context is what the system was allowed to use, not what you grade.\n\n"
     "Reply with one JSON object and nothing else, and write it before any "
     "other word: no reasoning, heading or preamble ahead of it.\n"
-    '{"score": <number between 0 and 1>, "reason": "<one sentence>"}\n\n'
+    '{"reason": "<one short sentence>", "score": <number between 0 and 1>}\n\n'
+    "Write the reason first and the score after it, in that one object: the "
+    "reason is what the score is then given against. Keep it short. It is "
+    "read by someone deciding whether to trust the score, so state what in "
+    "the output decided it, and do not quote more of the output than the "
+    "sentence needs.\n\n"
     "1 means the output fully satisfies the rubric, 0 that it fails it "
-    "entirely. Use the range: a partial answer is not a 0 and not a 1. The "
-    "reason is read by someone deciding whether to trust the score, so state "
-    "what in the output decided it, and do not quote more of the output than "
-    "the sentence needs.\n\n"
+    "entirely. Use the range: a partial answer is not a 0 and not a 1.\n\n"
     "If the output cannot be scored against this rubric at all — it is a "
     "refusal, it is empty, or it is not the kind of thing the rubric applies "
     "to — do not invent a score. Reply instead with one JSON object and "
@@ -101,7 +103,10 @@ CLAIM_SYSTEM = (
     "it to be true from elsewhere does not make it supported.\n\n"
     "Reply with one JSON object and nothing else, and write it before any "
     "other word: no reasoning, heading or preamble ahead of it.\n"
-    '{"supported": <integer>, "total": <integer>, "reason": "<one sentence>"}\n\n'
+    '{"reason": "<one short sentence>", "supported": <integer>, "total": <integer>}\n\n'
+    "Write the reason first and the counts after it, in that one object, and "
+    "keep it short: say which claim the context does not support, or that "
+    "it supports them all.\n\n"
     "`total` is how many claims the output makes, `supported` how many of them "
     "the context supports. `supported` can never exceed `total`.\n\n"
     "If you cannot work out what the output claims at all, do not report "
@@ -139,9 +144,13 @@ def loads_lenient(text: str) -> Mapping[str, Any]:
     caller turns that into `error`. Three shapes are accepted and they are the
     three a model actually produces:
 
-        {"score": 1, "reason": "..."}
-        ```json\\n{"score": 1, "reason": "..."}\\n```
-        Sure! {"score": 1, "reason": "..."}
+        {"reason": "...", "score": 1}
+        ```json\\n{"reason": "...", "score": 1}\\n```
+        Sure! {"reason": "...", "score": 1}
+
+    The keys are read by name, so their order is the model's: the
+    instruction asks for the reason first, and a reply that puts the score
+    first has answered all the same.
 
     One escape is repaired, and only one: `\\'` inside a string, which JSON
     does not have and a model writes for an apostrophe, is read as `'`. It is
