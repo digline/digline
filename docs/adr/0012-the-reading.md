@@ -359,6 +359,18 @@ three shapes:
     tally, `uncertain`, recorded in `_ADDED`; every other fact is byte for byte
     what it was.
 
+  *Amended 2026-11-19, by [ADR 0067](0067-calibrating-the-judge-against-a-person.md)
+  §1 (a) and Alessandro Prandini's ruling of that day (P-1710).* **`awaiting`
+  and `awaiting_unjudged` join the list**: how many reviewed answers await a
+  person's verdict, and how many of those their judge could not judge.
+  - **Why they pass this section's test.** The report says both, in its
+    headline, and a reading that left them out would describe a run whose
+    judged cases it could not account for: an answer awaiting a verdict is in
+    no gate, so its verdict counts nowhere, and its judge's error is no cause
+    of 2.
+  - **Where they read from.** The run alone, so each is stated with or
+    without a reference, and each is silent at zero. They move no exit code.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

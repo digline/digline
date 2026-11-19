@@ -6,8 +6,64 @@ upgrading, and what deliberately did not move. The reasoning lives in
 read the [release titles](https://github.com/digline/digline/releases) — the
 notes under them are this file, verbatim.
 
-## digline — unreleased
+## 1.4.0 — unreleased
 
+digline **1.4.0**, a minor, because its stored document moves to schema 25
+and its `--json` output to `OUTPUT_VERSION` 6 (ADR 0067), and a schema that
+has moved belongs to no release until one carries it. Beside them, a judge set
+up as a table in a `suite.toml` (ADR 0068), and the repairs below. No public
+name is removed or renamed. Written when the number moved; the cut writes the
+rest of this opening.
+
+- **Schema 25: a reviewed answer awaiting a verdict, about the whole answer,
+  revised, held out** (ADR 0067 §1, §2, §4, the first of its five pull
+  requests). *Arrives with digline 1.4.*
+  - `digline record import --choose ID` writes an answer **awaiting the
+    person's verdict**, with no `good`: a run judges it, the target is not
+    called, and its verdict is in no gate and no aggregate. The run says how
+    many await one. A run whose only cases await a verdict judged nothing and
+    exits 2, with a sentence that says so; a judge that errors on an awaiting
+    answer is no cause of 2, and is said (*"N awaiting answers were not
+    judged"*).
+  - The person then judges **blind**, on the review page of `digline view
+    --allow-record`, which reads the recordings and the cases file and nothing
+    of any run. A press, or `digline record import --good|--bad ID --by NAME`,
+    fills the awaiting answer's verdict in place; every other case's bytes stay
+    as they were.
+  - `[suite] review_rule`, and `Suite(review_rule=...)`, says what a yes
+    means; the page shows it above the buttons, or says the suite gives none.
+    Outside `config_hash`.
+  - `--whole` writes a verdict about **the whole answer**: every judged check
+    runs on it, a yes expects each to pass, and a no names the checks it
+    expects to fail with `--failing CHECK`, every other expected to pass. On a
+    reviewed answer, `check` and `good` are optional in the cases file, and
+    `failing` is new; a `good = false` about the whole answer without it is
+    refused.
+  - `digline record revise --case ID --good|--bad --by NAME`, with
+    `--failing` for the whole answer, writes the verdict **after review**
+    beside the blind one, `revised`, which the gate then holds; the page's
+    second press does the same. A revision that says what the verdict says is
+    refused.
+  - `--held-out` writes the answers chosen as held out; held in is the
+    default. The agreement that reads it comes with ADR 0067's second pull
+    request.
+  - The run's `reviewed` record carries the verdict the gate holds, `revised`,
+    `held_out`, and for the whole answer the identities it ran and expected to
+    fail, with the blind ones beside a revision. The step from 24 writes
+    nothing: a record before 25 is a blind verdict, held in, about its check.
+    Run `digline migrate` on a store written by 1.3; an older digline refuses
+    a schema-25 document. New public names: `Revised` and `judged_names` in
+    `digline.run`; `awaiting_cases`, `all_awaiting` and `awaiting_unjudged` in
+    `digline.core`; `revise` and `revise_file` in `digline.host`.
+    `ReviewedAnswer` takes `failing`, `revised` and `held_out`, each optional,
+    and its `check` and `good` may be `None`.
+- **`OUTPUT_VERSION` 6.** On the run document's `reviewed`, `check` is `null`
+  for an answer reviewed as a whole and `good` for one awaiting a verdict, and
+  `revised` and `held_out` are new. A key that was a string or a boolean and
+  may now be `null` is a bump by the contract's own rule
+  (`src/digline/wire/contract.py`, beside `_BASE`). `compare --json` adds
+  `awaiting` and `awaiting_unjudged`, and `explain` two tally facts of the same
+  names. Every other key reads as it did under 5.
 - **A missing provider says which environment was searched.** *"no provider
   named … is installed"* now ends on *"digline is running from the
   environment at <sys.prefix>, and a plugin installed in another one is not

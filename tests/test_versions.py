@@ -225,6 +225,11 @@ RECORDED: dict[str, dict[str, str]] = {
             "(#402): history, told as 'through 0.27.0'"
         ),
     },
+    "packages/digline-mcp/src/digline_mcp/server.py": {
+        "1.3.0": "NEEDS_CORE, the first core that carries what the server "
+        "reads, `where`'s `idle_checks`: a floor, held to the package's own "
+        "in pyproject.toml, not a claim of the current release",
+    },
     "packages/digline-mcp/src/digline_mcp/errors.py": {
         "0.18.0": (
             "when the rules that moved began arriving inside a refusal's text, "
@@ -481,6 +486,12 @@ RECORDED: dict[str, dict[str, str]] = {
         "2.4.0": "the anthropic SDK the story was run with, not a digline one",
     },
     "RELEASING.md": {
+        "1.3.0": (
+            "the release before 1.4.0, told as history: its paragraph in the "
+            "Status block, with the tags, the index, the image, the examples "
+            "and the action it moved, and the rows of *Owed to the next "
+            "version* that name what changed since it"
+        ),
         "1.2.0": (
             "the release before 1.3.0, told as history: its paragraph in the "
             "Status block, with the tags, the index, the image, the examples "
@@ -1263,10 +1274,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "and named three times on purpose: once as what it was tested against, "
         "once because what a raising tool does was measured on *that* version "
         "and not assumed, and once in the floor the weekly run watches",
-        "1.4.0": "langchain, beside it, held by the same test. Two packages "
-        "rather than one because `create_agent` moved out of langgraph and into "
-        "langchain in v1, so a reader with only one of the two cannot "
-        "reproduce the run",
+        # "1.4.0", langchain beside it, left this table at the bump of
+        # digline to 1.4.0 (ADR 0067): a record may not name the current
+        # version, and the sweep accepts it as that. It is still langchain's.
     },
     "examples/llamaindex/README.md": {
         "0.14.24": "the llama-index-core version the example was run against, "
@@ -1274,6 +1284,9 @@ RECORDED: dict[str, dict[str, str]] = {
         "tests/test_examples.py, which is where a third-party version belongs",
     },
     "examples/langchain4j/README.md": {
+        "1.3.0": "the floor the example's pin names, `digline>=1.3.0,<2`, which "
+        "the cut moves with the locks: a floor, not a claim of the current "
+        "release",
         "0.21.0": "the release `expect_config` arrived in, named where the "
         "README says the line is now owed. A fact about one release",
         "0.3.0": "'Needs digline 0.3.0 (config_path on HttpTarget)' — the same "

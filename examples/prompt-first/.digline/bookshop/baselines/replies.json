@@ -461,7 +461,7 @@
       ]
     }
   ],
-  "schema_version": 24,
+  "schema_version": 25,
   "suite": "replies",
   "target_config": {
     "named": [
