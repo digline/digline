@@ -21,16 +21,19 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from tests.test_projection import Table
 
 from digline.core import (
     AgreementTally,
     Composite,
+    Contains,
     JudgeReply,
     LlmRubric,
     Reviewed,
     Run,
     Score,
     Verdict,
+    project_served,
     reviewed_agreement,
 )
 from digline.core.run import CaseResult
@@ -39,8 +42,12 @@ from digline.host.toml_suite import load_toml_suite
 from digline.report import explain_text, facts, render_run_html, rule_words
 from digline.run import Case, Suite
 from digline.wire import explain_json
+from digline.wire.explain import agreement_json
 
-ACC, POL, OV = "id-accurate", "id-polite", "id-overall"
+#: Identities in the shape a projection asks for, a digest, so the fixture
+#: can be projected as it is.
+IDS = {"accurate": "a" * 16, "polite": "b" * 16, "overall": "c" * 16}
+ACC, POL, OV = IDS["accurate"], IDS["polite"], IDS["overall"]
 WHOLE = (OV, ACC, POL)
 COMPOSITES = (Composite(OV, (ACC, POL)),)
 
@@ -54,7 +61,7 @@ def verdict(name: str, status: str) -> Verdict:
         reason="the judge could not answer" if score is None else "the judge's words",
         tolerance=0.05,
         judged=True,
-        assertion_id=f"id-{name}",
+        assertion_id=IDS[name],
     )
 
 
@@ -426,8 +433,6 @@ def test_each_wrong_criteria_is_refused_by_name(
 
 
 def test_a_criterion_that_is_not_judged_is_refused() -> None:
-    from digline.core import Contains
-
     with pytest.raises(ValueError, match="not a judged check"):
         suite(
             assertions=[rubric("overall"), Contains(needle="x")],
@@ -495,3 +500,21 @@ def test_criteria_in_the_suite_table_is_refused_with_where_it_goes(
     )
     with pytest.raises(UsageError, match="a key of the composite check"):
         load_toml_suite(write(tmp_path, text))
+
+
+def test_a_projected_reading_names_no_check_and_one_token_per_check() -> None:
+    """Under a projection (the MCP `explain` with `--names project`), a row's
+    name is the verdict's own token: never the name in clear, and never a
+    reviewed answer's `check` token beside a verdict's for the same check."""
+    served = project_served(fixture_run(), Table())
+    reading = reviewed_agreement(served, COMPOSITES)
+    assert reading is not None
+    said = json.dumps(agreement_json(reading))
+    for name in ("accurate", "polite", "overall", "w1"):
+        assert f'"{name}"' not in said, name
+    verdicts = {
+        v.assertion_id: v.score.name for case in served.results for v in case.verdicts
+    }
+    assert all(row.check == verdicts[row.assertion_id] for row in reading.rows)
+    # The control: read in clear, the same rows carry the names.
+    assert {row.check for row in read().rows} == {"accurate", "polite", "overall"}

@@ -422,10 +422,10 @@ def reviewed_agreement(
             if expected is None or first is None:
                 continue
             key = (verdict.assertion_id, reviewed.held_out)
-            names.setdefault(
-                verdict.assertion_id,
-                reviewed.check if reviewed.check is not None else verdict.score.name,
-            )
+            # The verdict's own name, on both forms: under a projection a
+            # reviewed answer's `check` and a verdict's name are tokens of two
+            # kinds, and one row must not carry whichever came first.
+            names.setdefault(verdict.assertion_id, verdict.score.name)
             blind.setdefault(key, [0, 0, 0])
             after.setdefault(key, [0, 0, 0])
             moved[key] = moved.get(key, 0) + (first != expected)
