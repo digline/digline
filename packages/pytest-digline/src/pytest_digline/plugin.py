@@ -1088,7 +1088,9 @@ def pytest_terminal_summary(
         prefix = _from_where_pytest_started(
             config.rootpath, config.invocation_params.dir, nodeid
         )
-        lines = [opened.headline]
+        # A line at a time, as `digline compare` prints it: the unpaired
+        # clause lists its pairs one to a line.
+        lines = opened.headline.split("\n")
         if opened.note:
             lines.append(f"note: {opened.note}")
         for line in lines:

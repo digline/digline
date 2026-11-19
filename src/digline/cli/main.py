@@ -842,7 +842,11 @@ def cmd_compare(args: argparse.Namespace) -> int:
         emit(json.dumps(payload, sort_keys=True, indent=2, ensure_ascii=False))
         return exit_code(head)
 
-    say(head.sentence)
+    # A line at a time: the unpaired clause lists its pairs one to a line, and
+    # `say()` shows a break inside a line as `\x0a`. Every other break in the
+    # sentence was made visible where it was built (`render._one_line`).
+    for line in head.sentence.split("\n"):
+        say(line)
     # Right under the verdict, because it is what the verdict is relative to —
     # and the key a promotion of this run has to name. (ADR 0031 §2)
     say(against_line(baseline, locale=args.locale))

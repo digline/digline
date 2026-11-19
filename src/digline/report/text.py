@@ -131,10 +131,13 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "hold a different check under its name: {pairs}. Whether it was "
             "changed or replaced, the two documents cannot say."
         ),
+        # One pair to a line, `{pairs}` already joined that way by the
+        # renderer: three pairs on one line were a paragraph nobody could
+        # scan. The report's paragraph keeps the breaks (`.answer p`).
         "fact.unpaired.many": (
             "{count} checks were not compared, because the reference and this "
-            "run hold a different check under each name: {pairs}. Whether each "
-            "was changed or replaced, the two documents cannot say."
+            "run hold a different check under each name:\n{pairs}\nWhether "
+            "each was changed or replaced, the two documents cannot say."
         ),
         # The way back in line, after what the two documents cannot say: the
         # run made the reference, which `promote` does not refuse for this.
@@ -2110,9 +2113,9 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "fact.unpaired.many": (
             "{count} controlli non sono stati confrontati, perché il riferimento "
-            "e questa esecuzione hanno un controllo diverso sotto ciascun nome: "
-            "{pairs}. Se ciascuno sia stato modificato o sostituito, i due "
-            "documenti non possono dirlo."
+            "e questa esecuzione hanno un controllo diverso sotto ciascun "
+            "nome:\n{pairs}\nSe ciascuno sia stato modificato o sostituito, i "
+            "due documenti non possono dirlo."
         ),
         "fact.unpaired.step": (
             "Se il cambiamento era voluto, rendi questa esecuzione il riferimento "
