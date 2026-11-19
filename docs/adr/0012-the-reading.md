@@ -371,6 +371,24 @@ three shapes:
   - **Where they read from.** The run alone, so each is stated with or
     without a reference, and each is silent at zero. They move no exit code.
 
+  *Amended 2026-11-19, by [ADR 0067](0067-calibrating-the-judge-against-a-person.md)
+  §1 (c), (e), §2 and §5 and Alessandro Prandini's rulings of that day
+  (P-1713).* **`agreement` joins the list**: the judge's verdicts read against
+  the person's, per judged check and role, blind and after review, with the
+  composite read against the criteria a suite declares.
+  - **Why it passes this section's test.** The report says it, in a section
+    of its own. A reading that left it out would call a judge calibrated, or
+    not, with no figure behind either.
+  - **What it carries, and what it does not.** Counts, check names,
+    identities, and the held-in composite disagreements by case. A held-out
+    answer is counted and never named (ADR 0067 §1 (e)). The suite's review
+    rule is quoted under it in the terminal alone, by `rule_words`, a
+    function beside the facts as `judge_words` is: it is the suite's own
+    words, and §4 holds.
+  - **Where it reads from.** The run alone, and the suite's `criteria`
+    handed in by the front end, which a run does not record. Absent where no
+    reviewed answer carries a verdict. It moves no exit code.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

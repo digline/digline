@@ -204,6 +204,14 @@ name = "starts_capitalised"
 `name` is worth setting whenever a suite has two checks of one kind: it is what
 the report prints and what a comparison pairs on.
 
+**`criteria`, on a composite judged check.** *Arrives with digline 1.4.* The
+names of the judged checks that ask apart what this one asks in one rubric:
+`criteria = ["addressee", "language"]`. The agreement reading then names the
+reviewed answers on which the composite is not the conjunction of its
+criteria ([calibration](calibration.md#choosing-the-judge)). It is the suite's
+and not the check's: written in `[suite]` it is refused with where it goes,
+and it is outside `config_hash` and every identity.
+
 **A date or a time goes in quotes.** TOML has date and time literals, and
 `arguments = { when = 1999-09-09T09:00:00Z }` is one. A model sends JSON, which
 has none, so the value arrives as text, and a literal could never match it:

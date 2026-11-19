@@ -419,6 +419,67 @@ case's `case_id`, `check`, `score`, `threshold`, `margin`,
 as tokens, as every fact does
 ([ADR 0012](adr/0012-the-reading.md) §3, as amended 2026-11-14).
 
+## The judge against the person
+
+*Arrives with digline 1.4.* Where the run holds reviewed answers with a
+person's verdict, the reading closes its counts with *How the judge agrees
+with the person*: one line per judged check and role, then the line that says
+whether the suite can gate
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1 (c), (e),
+§2, §5):
+
+```text
+accurate, held in: blind, 2 of 6 agree (3 passed a no, 1 failed a yes); after review, 4 of 6 agree (1 passed a no, 1 failed a yes). 2 answers were revised between the two. 1 answer could not be judged on it.
+Held out: 4 of 6 verdicts agree after review, check by check; 7 held-in answers served the tuning and are not counted here.
+No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+```
+
+These lines come from the fixture in `tests/test_agreement.py`, which asserts
+each one word for word, and not from a suite run end to end.
+
+- **Blind and after review.** *Blind* reads the judge's verdicts against the
+  person's verdict given before any disagreement was read. *After review*
+  reads them against the verdict the gate holds, the `revised` one where
+  there is one. The revised count is how many answers moved between the two:
+  a judge that agrees only after the person revised toward it persuaded the
+  person.
+- **Held in and held out**, never summed. The `Held out:` line reads the
+  held-out verdicts after review alone. Where no answer is held out, the line
+  says so instead: *the agreement above was measured on the answers the
+  rubric was tuned on*. Held-out answers are **counted, never named**, here
+  and in `--json`.
+- **What is not counted.** An answer awaiting a verdict, a check the answer
+  was not reviewed for, and a check on an episode's steps. A verdict that
+  errored is counted apart, as *could not be judged*, in neither figure.
+- **Stability.** No answer is set apart as unstable, because this release
+  does not measure stability. The line says so rather than leaving it out.
+- **The composite against its criteria.** Where the suite declares
+  `criteria` on a composite check, the reading names each held-in answer about
+  the whole answer on which the composite is not the conjunction of its
+  criteria, *w1: overall passed, polite failed*, and counts the held-out ones.
+  See [calibration](calibration.md#choosing-the-judge).
+- **The review rule.** Under the agreement, the terminal reading quotes the
+  suite's `review_rule`, or says the suite does not say what a yes means. It
+  is the suite's own words, so it is text and not a fact, as the judge's words
+  are: neither `--json` nor the MCP `explain` carries it.
+
+Only the gate's own sentence, among the counts above, names a contradicted
+answer whatever its role: a contradiction fails the run, held out or not.
+
+In `--json` it is a fact with `"kind": "agreement"`, whose `count` is the
+reviewed answers with a verdict. Its `agreement` object carries:
+
+- `held_in` and `held_out`;
+- `stability_measured`, `false`;
+- `checks`, one entry per check and role, each with `check`, `assertion_id`,
+  `held_out`, `blind` and `after` (each of `agree`, `passed_no`,
+  `failed_yes`), `revised` and `unjudged`;
+- `composites`, the held-in disagreements (`case_id`, `composite`,
+  `composite_passed`, `failed`);
+- `composites_held_out`, the count of the held-out ones.
+
+The run's report shows the same lines in a section of its own.
+
 ## What it will not tell you
 
 **The judge's words.** No fact carries a `reason` — the field does not exist on

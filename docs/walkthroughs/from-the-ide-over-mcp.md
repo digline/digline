@@ -520,6 +520,12 @@ No case is suspended.
 The suite's checks are unchanged from the reference.
 The cases changed since the reference: 1 added (cap-9886a52f697cd007-1d630127). The cases both hold are compared as before.
 
+How the judge agrees with the person
+llm_rubric, held in: blind, 4 of 5 agree (0 passed a no, 1 failed a yes); after review, 4 of 5 agree (0 passed a no, 1 failed a yes).
+No reviewed answer is held out: the agreement above was measured on the answers the rubric was tuned on.
+No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+This suite does not say what a yes means.
+
 What differed underneath
 Nothing in this group.
 

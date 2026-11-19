@@ -2006,9 +2006,12 @@ def _with_word(value: _Type, word: str) -> _Type:
 #: always a string or a boolean and may now be `null` is the change the rule
 #: beside `_BASE` calls a bump. `revised` and `held_out` are new keys beside
 #: them, and the headline counts the answers awaiting a verdict and those of
-#: them the judge could not judge (P-1710). They ship first in the release
-#: that writes 6, so they are part of its base, not of `_ADDED`.
+#: them the judge could not judge (P-1710). And the agreement reading on
+#: `explain`'s `agreement` tally, with ADR 0067's second pull request (P-1713):
+#: added keys only. They ship first in the release that writes 6, so they are
+#: part of its base, not of `_ADDED`.
 _REVIEWED_AT_6 = "ADR 0067 §1, §2, §4; OUTPUT_VERSION 6"
+_AGREEMENT_AT_6 = "ADR 0067 §1 (c), (e), §5; the agreement reading"
 _AT_6: tuple[_AddedKey, ...] = (
     *_shape_added(
         "reviewed",
@@ -2024,6 +2027,55 @@ _AT_6: tuple[_AddedKey, ...] = (
     _AddedKey("compare", "awaiting_unjudged", _INT, _REVIEWED_AT_6),
     _AddedKey("compare.full", "awaiting", _INT, _REVIEWED_AT_6),
     _AddedKey("compare.full", "awaiting_unjudged", _INT, _REVIEWED_AT_6),
+    # The agreement reading, on `explain`'s `agreement` tally (ADR 0067 §1
+    # (c), (e), §5, ADR 0012 §3's thirteenth amendment): added keys, and in
+    # 6's base because no release has written 6 yet.
+    _AddedKey(
+        "fact.tally",
+        "agreement",
+        _k(_Obj("fact.tally.agreement"), optional=True),
+        _AGREEMENT_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.agreement",
+        {
+            "held_in": _INT,
+            "held_out": _INT,
+            "stability_measured": _BOOL,
+            "checks": _k(_arr(_Obj("fact.tally.agreement.check"))),
+            "composites": _k(_arr(_Obj("fact.tally.agreement.composite"))),
+            "composites_held_out": _INT,
+        },
+        _AGREEMENT_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.agreement.check",
+        {
+            "check": _STR,
+            "assertion_id": _STR,
+            "held_out": _BOOL,
+            "blind": _k(_Obj("fact.tally.agreement.tally")),
+            "after": _k(_Obj("fact.tally.agreement.tally")),
+            "revised": _INT,
+            "unjudged": _INT,
+        },
+        _AGREEMENT_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.agreement.tally",
+        {"agree": _INT, "passed_no": _INT, "failed_yes": _INT},
+        _AGREEMENT_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.agreement.composite",
+        {
+            "case_id": _STR,
+            "composite": _STR,
+            "composite_passed": _BOOL,
+            "failed": _STRINGS,
+        },
+        _AGREEMENT_AT_6,
+    ),
 )
 
 #: The shape of every document under `OUTPUT_VERSION = 6`: 5's base, what 5
@@ -2085,5 +2137,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     6,
-    "383ae02c1699653b7762246d84fde7b7801144db7c032c092e0be5f0662e1f4c",
+    "a8a88f5cd790325da8de4fae0b3cf3ff9664e06c3c008bc3f2b31051ea1625ad",
 )

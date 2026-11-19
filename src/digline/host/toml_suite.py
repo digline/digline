@@ -215,7 +215,7 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
     # `config_hash`, and no run reads it. (ADR 0063 §4)
     _suggest(document, where)
     table = _table(document, "suite", where)
-    assertions, aggregates = _assertions(document, where)
+    assertions, aggregates, criteria = _assertions(document, where)
 
     suite_keys = _init_fields(Suite)
     _refuse_unknown(
@@ -231,6 +231,12 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
             "suite that is data cannot widen it — that is ADR 0007 §7, and in "
             "world 3 it is a security property. A suite that genuinely needs "
             "to disclose more is a suite.py."
+        )
+    if "criteria" in table:
+        raise UsageError(
+            f"{where}, [suite]: `criteria` is a key of the composite check, "
+            "written on its [[assertions]] table: "
+            '`criteria = ["accurate", "polite"]` (ADR 0067 §5)'
         )
     if "capture" in table:
         raise UsageError(
@@ -292,6 +298,8 @@ def load_toml_suite(path: Path, *, root: Path | None = None) -> tuple[Suite, Tar
     declared["cases"] = cases
     if capture is not None:
         declared["capture"] = capture
+    if criteria:
+        declared["criteria"] = criteria
     if "artifacts" in declared:
         # An array here, `Path` there: the str-to-Path step is `Suite`'s own
         # (`__post_init__`), so the data form and the Python constructor coerce
@@ -487,7 +495,12 @@ def _sequence(value: object, key: str, where: str) -> Sequence[object]:
 
 def _assertions(
     document: Mapping[str, object], where: str
-) -> tuple[list[Any], list[Any]]:
+) -> tuple[list[Any], list[Any], dict[str, object]]:
+    """The checks, the aggregates, and the `criteria` each composite check
+    declares on its own table, by the check's name. `criteria` is the suite's
+    and not the check's constructor's: it is taken off the table here, as
+    `judge_pricing` is, and handed to `Suite`, which refuses it by name.
+    (ADR 0067 §5, P-1713)"""
     entries = document.get("assertions")
     if entries is None:
         raise UsageError(
@@ -496,13 +509,23 @@ def _assertions(
         )
     per_case: list[Any] = []
     per_run: list[Any] = []
+    criteria: dict[str, object] = {}
     for index, entry in enumerate(_sequence(entries, "assertions", where), start=1):
         spot = f"{where}, [[assertions]] #{index}"
         if not isinstance(entry, Mapping):
             raise UsageError(f"{spot}: this entry is not a table")
-        built, is_aggregate = _one(cast("Mapping[str, object]", entry), spot)
+        table = dict(cast("Mapping[str, object]", entry))
+        listed = table.pop("criteria", None)
+        built, is_aggregate = _one(table, spot)
+        if listed is not None:
+            if is_aggregate:
+                raise UsageError(
+                    f"{spot}: `criteria` is a key of a judged check, and this "
+                    "is an aggregate"
+                )
+            criteria[built.name] = listed
         (per_run if is_aggregate else per_case).append(built)
-    return per_case, per_run
+    return per_case, per_run, criteria
 
 
 def _one(entry: Mapping[str, object], where: str) -> tuple[Any, bool]:

@@ -174,7 +174,17 @@ from digline.core.resolution import (
     WrongRowError,
     resolve_tokens,
 )
-from digline.core.reviewed import Contradiction, Reviewed, contradicted
+from digline.core.reviewed import (
+    AgreementReading,
+    AgreementTally,
+    CheckAgreement,
+    Composite,
+    CompositeMismatch,
+    Contradiction,
+    Reviewed,
+    contradicted,
+    reviewed_agreement,
+)
 from digline.core.run import (
     DECLARED_PRICE_FIELDS,
     JUDGE_PROMPT_DIGESTS,
@@ -333,6 +343,12 @@ __all__ = [
     "ScaleLost",
     "Uncertain",
     "Reviewed",
+    "AgreementReading",
+    "AgreementTally",
+    "CheckAgreement",
+    "Composite",
+    "CompositeMismatch",
+    "reviewed_agreement",
     "Contradiction",
     "Cause",
     "CheckKind",

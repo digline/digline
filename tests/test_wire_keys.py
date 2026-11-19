@@ -43,6 +43,7 @@ from digline.core import (
     Artifact,
     CalibrationBand,
     CaseResult,
+    Composite,
     Disclosure,
     Exclusion,
     RegisterEntry,
@@ -663,6 +664,40 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "explain_json uncertain verdicts",
         "explain",
         explain_json(facts(unsure), reading="run", exit_code=0, run=unsure),
+    )
+    # A reviewed answer about the whole answer on which a composite passed
+    # and its criterion failed: the agreement reading names it. (ADR 0067 §5)
+    whole = dataclasses.replace(
+        now,
+        results=(
+            CaseResult(
+                "c6",
+                (
+                    _verdict("overall", 1.0, judged=True),
+                    _verdict("accurate", 0.0, judged=True),
+                ),
+                reviewed=Reviewed(
+                    check=None,
+                    assertion_id=None,
+                    good=False,
+                    judged=("id-overall", "id-accurate"),
+                    failing=("id-accurate",),
+                ),
+            ),
+        ),
+    )
+    yield (
+        "explain_json a composite against its criteria",
+        "explain",
+        explain_json(
+            facts(
+                whole,
+                composites=(Composite("id-overall", ("id-accurate",)),),
+            ),
+            reading="run",
+            exit_code=1,
+            run=whole,
+        ),
     )
     yield (
         "explain_json without its documents",

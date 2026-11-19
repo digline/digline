@@ -19,12 +19,17 @@ from digline.core import (
     IDENTITY_FIELD,
     NEVER_LANGUAGE,
     OBSERVED_FIELDS,
+    AgreementReading,
+    AgreementTally,
     ArtifactDelta,
     AssertionDelta,
     CaseResult,
     CasesChanged,
     CauseOfTwo,
+    CheckAgreement,
     Comparison,
+    Composite,
+    CompositeMismatch,
     ConfigDelta,
     ConfigValue,
     Contradiction,
@@ -56,6 +61,7 @@ from digline.core import (
     key_of,
     misnamed,
     on_the_line,
+    reviewed_agreement,
     scale_lost,
     uncertain_cases,
     unjudged_cases,
@@ -71,6 +77,8 @@ from digline.report.text import Locale, phrase, strings
 
 __all__ = [
     "fmt_score",
+    "agreement_lines",
+    "agreement_section",
     "ABSENT",
     "DIRTY_SUFFIX",
     "RUN_SECTIONS",
@@ -1736,6 +1744,129 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     )
 
 
+def agreement_lines(reading: AgreementReading, locale: Locale) -> tuple[str, ...]:
+    """The agreement reading, one sentence per line: a row per judged check
+    and role, the line that says whether the suite can gate, the stability
+    line, and the composite's disagreements with its criteria. `explain`
+    prints these, and the report's section is built from them, so the two
+    cannot word one figure two ways. (ADR 0067 §1 (c), (e), §2, §5)
+
+    **A held-out answer is counted and never named** (§1 (e)): its rows are
+    counts, and its composite disagreements are a count beside the named
+    held-in ones.
+    """
+    lines = [_agreement_row(row, locale) for row in reading.rows]
+    if reading.held_out:
+        total = reading.total(held_out=True)
+        key = (
+            "agreement.ready.none_in"
+            if not reading.held_in
+            else f"agreement.ready.{_many(reading.held_in)}"
+        )
+        lines.append(
+            phrase(
+                locale,
+                key,
+                agree=total.agree,
+                judged=total.judged,
+                held_in=reading.held_in,
+            )
+        )
+    else:
+        lines.append(phrase(locale, "agreement.no_held_out"))
+    if not reading.stability_measured:
+        lines.append(phrase(locale, "agreement.stability"))
+    named = [m for m in reading.mismatches if not m.held_out]
+    if named:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.composite.{_many(len(named))}",
+                count=len(named),
+                cases="; ".join(_mismatch_said(m, locale) for m in named),
+            )
+        )
+    hidden = len(reading.mismatches) - len(named)
+    if hidden:
+        lines.append(
+            phrase(
+                locale, f"agreement.composite.held_out.{_many(hidden)}", count=hidden
+            )
+        )
+    return tuple(lines)
+
+
+def _agreement_row(row: CheckAgreement, locale: Locale) -> str:
+    said = phrase(
+        locale,
+        "agreement.row",
+        check=row.check,
+        role=phrase(locale, f"agreement.role.{'out' if row.held_out else 'in'}"),
+        blind=_agreement_tally(row.blind, locale),
+        after=_agreement_tally(row.after, locale),
+    )
+    if row.revised:
+        said += phrase(
+            locale, f"agreement.revised.{_many(row.revised)}", count=row.revised
+        )
+    if row.unjudged:
+        said += phrase(
+            locale, f"agreement.unjudged.{_many(row.unjudged)}", count=row.unjudged
+        )
+    return said
+
+
+def _agreement_tally(tally: AgreementTally, locale: Locale) -> str:
+    against = tally.passed_no or tally.failed_yes
+    return phrase(
+        locale,
+        "agreement.tally.against" if against else "agreement.tally",
+        agree=tally.agree,
+        judged=tally.judged,
+        passed_no=tally.passed_no,
+        failed_yes=tally.failed_yes,
+    )
+
+
+def _mismatch_said(item: CompositeMismatch, locale: Locale) -> str:
+    if item.composite_passed:
+        return phrase(
+            locale,
+            "agreement.composite.passed",
+            case=item.case_id,
+            composite=item.composite,
+            failed=", ".join(item.failed),
+        )
+    return phrase(
+        locale,
+        "agreement.composite.failed",
+        case=item.case_id,
+        composite=item.composite,
+    )
+
+
+def agreement_section(
+    run: Run, locale: Locale, *, composites: Sequence[Composite] = ()
+) -> str:
+    """`agreement_lines` as a section of the report, or nothing at all where
+    no reviewed answer carries a person's verdict, so every report of a suite
+    that declares none stays byte for byte what it was. Open where the judge
+    disagreed with the person after review, closed where it agreed with every
+    verdict: the calibration section's rule. (ADR 0067 §1 (c))"""
+    reading = reviewed_agreement(run, composites)
+    if reading is None:
+        return ""
+    title = escape(phrase(locale, "section.agreement"))
+    items = "".join(
+        f"<li>{escape(line)}</li>" for line in agreement_lines(reading, locale)
+    )
+    disagreed = any(
+        row.after.passed_no or row.after.failed_yes for row in reading.rows
+    ) or bool(reading.mismatches)
+    open_attr = " open" if disagreed else ""
+    return f"<details{open_attr}><summary>{title}</summary><ul>{items}</ul></details>"
+
+
 def calibration_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     """Where the judge placed each calibration answer, against its band.
 
@@ -1812,12 +1943,21 @@ def _uncertain_block(run: Run, locale: Locale) -> str:
     )
 
 
-def _calibration_block(run: Run, locale: Locale, *, reasons: bool) -> str:
+def _calibration_block(
+    run: Run,
+    locale: Locale,
+    *,
+    reasons: bool,
+    composites: Sequence[Composite] = (),
+) -> str:
     """`calibration_section` with its own line break, or nothing — so a report
-    of a suite with no calibration case gains not even an empty line."""
+    of a suite with no calibration case gains not even an empty line. The
+    reviewed answers' section follows it, and the agreement read off them
+    after that. (ADR 0067 §1 (c))"""
     section = calibration_section(run, locale, reasons=reasons)
     reviewed = reviewed_section(run, locale, reasons=reasons)
-    return (f"{section}\n" if section else "") + (f"{reviewed}\n" if reviewed else "")
+    agreed = agreement_section(run, locale, composites=composites)
+    return "".join(f"{part}\n" for part in (section, reviewed, agreed) if part)
 
 
 def _incomparable_section(
@@ -3050,6 +3190,7 @@ def render_html(
     *,
     locale: Locale,
     declared: Declared | None,
+    composites: Sequence[Composite] = (),
 ) -> str:
     """A self-contained HTML document, deterministic byte for byte.
 
@@ -3063,6 +3204,9 @@ def render_html(
 
     `locale` is mandatory and has no default: the language of a document with a
     recipient is not something to settle by omission.
+
+    `composites` is the suite's `criteria`, resolved, for the agreement
+    section: a run does not record it. `()` reads no composite. (ADR 0067 §5)
     """
     head = headline(comparison, run, baseline, locale=locale, declared=declared)
     answer = phrase(locale, "answer.yes" if head.worse else "answer.no")
@@ -3115,7 +3259,11 @@ def render_html(
         f"{_artifacts(comparison, locale)}\n"
         f"{_configs(comparison, locale)}\n"
         f"{sections}\n"
-        f"{_calibration_block(run, locale, reasons=head.reasons_available)}"
+        f"{
+            _calibration_block(
+                run, locale, reasons=head.reasons_available, composites=composites
+            )
+        }"
         f"{_uncertain_block(run, locale)}"
         "</body>\n"
         "</html>\n"
@@ -3454,7 +3602,9 @@ def _recorded_answers(run: Run, locale: Locale) -> str:
     )
 
 
-def render_run_html(run: Run, *, locale: Locale) -> str:
+def render_run_html(
+    run: Run, *, locale: Locale, composites: Sequence[Composite] = ()
+) -> str:
     """One run, rendered on its own, because there is no reference yet.
 
     The same document as `render_html` wherever a section is a statement about
@@ -3504,7 +3654,7 @@ def render_run_html(run: Run, *, locale: Locale) -> str:
         f"{_run_artifacts(run, locale)}\n"
         f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
-        f"{_calibration_block(run, locale, reasons=reasons)}"
+        f"{_calibration_block(run, locale, reasons=reasons, composites=composites)}"
         f"{_uncertain_block(run, locale)}"
         f"{_recorded_answers(run, locale)}\n"
         "</body>\n"

@@ -15,6 +15,7 @@ from digline.report.explain import (
     explain_text,
     facts,
     judge_words,
+    rule_words,
 )
 from digline.report.history import CaseEntry, CaseHistory, case_history
 from digline.report.judged import judge_reading
@@ -133,6 +134,7 @@ __all__ = [
     "contradicted_said",
     "explain_text",
     "judge_words",
+    "rule_words",
     "facts",
     "run_page",
     "run_tally",
