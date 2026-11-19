@@ -101,6 +101,29 @@ def test_an_unknown_provider_lists_what_is_installed_and_the_group(only: Only) -
     assert "anthropic" in message
 
 
+@pytest.mark.parametrize("name", ["anthropic", "llama"])
+def test_a_missing_provider_says_which_environment_was_searched(
+    only: Only, name: str
+) -> None:
+    """A digline installed with `uv tool install` has a venv of its own, and a
+    plugin added to the project's `.venv` is invisible to it: the sentence
+    names the environment, so whoever reads it can tell the two apart."""
+    only(openai="REGISTERED")
+    with pytest.raises(ProviderNotFound) as caught:
+        resolve(name)
+    assert f"running from the environment at {sys.prefix}," in str(caught.value)
+
+
+def test_a_near_miss_does_not_say_the_environment(only: Only) -> None:
+    """A typo is not a wrong environment, and the path would only bury the
+    name it meant."""
+    only(anthropic="REGISTERED")
+    with pytest.raises(ProviderNotFound) as caught:
+        resolve("anthropi")
+    assert "Did you mean 'anthropic'" in str(caught.value)
+    assert sys.prefix not in str(caught.value)
+
+
 def test_an_empty_environment_still_answers_in_a_sentence(only: Only) -> None:
     only()
     with pytest.raises(ProviderNotFound, match="none"):

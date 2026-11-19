@@ -23,6 +23,7 @@ arrangement exists to avoid.
 from __future__ import annotations
 
 import difflib
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import cache
@@ -186,13 +187,26 @@ def _missing(name: str) -> str:
         return (
             f"no provider named {name!r} is installed. It comes from "
             f"{package}: `uv add {package}`, or `pip install {package}`. "
-            f"Installed providers: {listing}"
+            f"Installed providers: {listing}. {_where()}"
         )
     return (
         f"no provider named {name!r} is installed. Installed providers: "
         f"{listing}. A provider comes from a plugin that registers it under "
         f"the {GROUP!r} entry point; the ones digline publishes are "
-        f"{', '.join(sorted(FIRST_PARTY.values()))}"
+        f"{', '.join(sorted(FIRST_PARTY.values()))}. {_where()}"
+    )
+
+
+def _where() -> str:
+    """Which environment was searched. A plugin installed in a project's
+    `.venv` is not seen by a digline installed with `uv tool install`, which
+    has an environment of its own, and the sentence above cannot tell the two
+    apart. A path on this machine, said to the person who ran the command: a
+    `ProviderNotFound` reaches a front end as a `UsageError`, never a run.
+    The near miss does not say it: a typo is not a wrong environment."""
+    return (
+        f"digline is running from the environment at {sys.prefix}, and a "
+        "plugin installed in another one is not seen from here"
     )
 
 

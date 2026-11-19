@@ -174,6 +174,10 @@ over it, each with exit `0`.
 When your judge is a real model, add a provider plugin:
 `uv add digline-anthropic` (or `pip install digline-anthropic`), likewise
 `digline-openai` and `digline-bedrock`.
+A digline installed with `uv tool install digline` runs from an environment
+of its own and does not see a plugin added to the project: add the plugin to
+the tool, `uv tool install digline --with digline-bedrock` and likewise for the
+others, or run the project's own `.venv/bin/digline`.
 
 ```console suite=support
 $ digline run --suite suite.py
