@@ -25,6 +25,7 @@ from digline.core import (
     RunUsage,
     Score,
     Verdict,
+    check_type,
     combine_samples,
     config_hash,
     origin,
@@ -132,10 +133,13 @@ def test_a_suite_at_one_sample_produces_the_bytes_it_produced_before() -> None:
                 # And who wrote each verdict's metadata, which the driver
                 # stamps on every verdict since schema 22 and an assertion does
                 # not (ADR 0034 §17.3): stamped here as `digline_version` is.
+                # And its type, stamped beside it since schema 25's second
+                # passenger. (ADR 0067 §1 (d))
                 tuple(
                     replace(
                         a(default_mapper(steady_target(case), case)),
                         origin=origin(a),
+                        check_type=check_type(a),
                     )
                     for a in assertions
                 ),
