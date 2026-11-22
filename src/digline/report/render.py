@@ -1875,7 +1875,7 @@ def rubric_lines(comparison: RubricComparison, locale: Locale) -> tuple[str, ...
     answer that changed verdict and in which direction, and the held-out ones
     counted. `rejudge --reviewed` prints these, `explain` prints them, and the
     report's section is built from them. (ADR 0067 §1 (d), (e))"""
-    if not comparison.read:
+    if not comparison.source_held:
         return (phrase(locale, "rubric.unread", source=comparison.source),)
     lines = [
         phrase(
@@ -1934,7 +1934,7 @@ def rubric_section(comparison: RubricComparison | None, locale: Locale) -> str:
         f"<li>{escape(line)}</li>" for line in rubric_lines(comparison, locale)
     )
     moved = (
-        not comparison.read
+        not comparison.source_held
         or bool(comparison.changes)
         or bool(comparison.unpaired)
         or bool(comparison.held_out_changes)

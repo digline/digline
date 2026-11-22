@@ -2090,7 +2090,7 @@ _AT_6: tuple[_AddedKey, ...] = (
         "fact.tally.rubrics",
         {
             "source": _STR,
-            "read": _BOOL,
+            "source_held": _BOOL,
             "answers": _INT,
             "paired": _k(_arr(_Obj("fact.tally.rubrics.paired"))),
             "unpaired": _k(_arr(_Obj("fact.tally.rubrics.unpaired"))),
@@ -2192,5 +2192,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     6,
-    "c22e30285747c640cc836748915914e33eae8de9617f3b498db3324e2de1f14b",
+    "f08041d83e2592d9fe0bc8e82587560f88078142b87a3e0d75bca71c845936dc",
 )

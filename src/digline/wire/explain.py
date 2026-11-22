@@ -233,7 +233,7 @@ def rubrics_json(comparison: RubricComparison) -> dict[str, object]:
     held-out answer is counted, never named. (ADR 0067 §1 (d), (e))"""
     return {
         "source": comparison.source,
-        "read": comparison.read,
+        "source_held": comparison.source_held,
         "answers": comparison.answers,
         "paired": [
             {

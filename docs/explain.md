@@ -514,7 +514,7 @@ asserts them word for word, and not from a suite run end to end.
 `digline rejudge --reviewed` prints the same lines at its end
 ([rejudge](rejudge.md#a-round-on-the-reviewed-answers-alone-reviewed)). In
 `--json` it is a fact with `"kind": "rubrics"`, whose `count` is the reviewed
-answers read in both. Its `rubrics` object carries `source`, `read`,
+answers read in both. Its `rubrics` object carries `source`, `source_held`,
 `answers`, `paired` (`check`, `check_type`, `before_id`, `after_id`,
 `changed`), `unpaired` (`check`, `why`, `before`, `after`), `changes`
 (`case_id`, `check`, `before`, `after`, `toward`) and `held_out_changes`. The

@@ -106,12 +106,12 @@ class RubricComparison:
     #: `False` where the front end could not read the source run, which it
     #: says rather than leaving the comparison out in silence; every figure
     #: above is then empty. Built by `unread`.
-    read: bool = True
+    source_held: bool = True
 
     @classmethod
     def unread(cls, source: str) -> RubricComparison:
         """The comparison of a re-judge whose source could not be read."""
-        return cls(source, 0, (), (), (), 0, read=False)
+        return cls(source, 0, (), (), (), 0, source_held=False)
 
 
 def rubric_comparison(source: Run, rejudged: Run) -> RubricComparison | None:
