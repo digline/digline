@@ -46,14 +46,18 @@ from digline.core import (
     Composite,
     Disclosure,
     Exclusion,
+    PairedCheck,
     RegisterEntry,
     Reviewed,
+    RubricComparison,
     Run,
     RunUsage,
     Score,
     SystemConfig,
+    UnpairedCheck,
     Usage,
     Verdict,
+    VerdictChange,
     compare,
     diff,
     key_of,
@@ -698,6 +702,26 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
             exit_code=1,
             run=whole,
         ),
+    )
+    # A re-judge against the run it was made from: a check paired, one not
+    # paired with a type on one side alone, and two changes, one toward the
+    # person and one toward neither, so `toward` is reached as a boolean and
+    # as null. (ADR 0067 §1 (d))
+    rubrics = RubricComparison(
+        source=keys[0],
+        answers=2,
+        paired=(PairedCheck("tone", "llm_rubric", "id-tone-1", "id-tone-2"),),
+        unpaired=(UnpairedCheck("addressee", "type_not_recorded", None, "contains"),),
+        changes=(
+            VerdictChange("c1", "tone", False, "fail", "pass", True),
+            VerdictChange("c2", "tone", False, "error", "pass", None),
+        ),
+        held_out_changes=1,
+    )
+    yield (
+        "explain_json a re-judge against its source",
+        "explain",
+        explain_json(facts(now, rubrics=rubrics), reading="run", exit_code=0, run=now),
     )
     yield (
         "explain_json without its documents",

@@ -105,9 +105,62 @@ pipeline can mistake one thing for another. Until it exists, the one place that
 needs the answer — `RELEASING.md` *After the tag*, step 5 — keeps a named
 exception instead of a rule.
 
+## A round on the reviewed answers alone: `--reviewed`
+
+*Arrives with digline 1.4.* A rubric corrected for one reviewed answer can
+move the verdicts of others, and finding out used to cost a whole run.
+`--reviewed` judges again the run's reviewed answers, and nothing else, under
+the suite as it is declared now
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1 (d)):
+
+```console
+$ digline rejudge --suite suite.py --run latest --reviewed
+digline: tenant 'acme' · 0 cases × 2 recorded answers = 0 answers replayed; no call to the target; 2 reviewed answers judged 4 times, with no call to the target
+digline: judge: not recorded
+digline: Read against 2026-11-22T09-51-38-661487-00-00-aafc62e73f5856a4, the run this was re-judged from, on 2 reviewed answers in both.
+digline: llm_rubric changed since that run, its rubric or another of its settings; verdicts paired by name.
+digline: no-bad · llm_rubric: passed → failed, toward the person.
+2026-11-22T09-51-39-013412-00-00-db72ae11bf322317
+```
+
+The lines come from the suite of `tests/test_rejudge_reviewed.py`, whose judge
+is a function, which is why the bill says the judge is not recorded, and whose
+rubric was edited between the run and the round.
+
+- **No target is called, and no recorded answer is needed.** A reviewed
+  answer carries its answer in the declaration, so the suite does not need
+  `record_responses` for this round. A reviewed answer the run holds and the
+  suite no longer declares is refused by name; one the suite declares and the
+  run does not hold is not the run's, is not judged, and is counted on
+  stderr. A run with no reviewed answer is refused.
+- **Still whole.** The round judges every reviewed answer the run holds, never
+  some of them, so the line above holds for it too.
+- **It writes a run that declares `rejudged_from`**, and like every replay it
+  is not promotable ([ADR 0015](adr/0015-the-recorded-output-and-the-declared-re-judge.md)
+  §7, below).
+- **The two rubrics, compared.** At the end the round says what it changed
+  against the run it was made from. A rubric's text is part of its check's
+  identity, so a corrected rubric is a new check to `diff`; here verdicts are
+  paired by **check name and case** instead. Each check the person said
+  something about is said changed or unchanged; each held-in reviewed answer
+  whose verdict changed is named, with its check and whether the change moved
+  toward the person's verdict or away; a held-out one is counted and never
+  named. A check whose **type** changed is not paired, and says so, and
+  neither is one whose type the source run did not record: a run written
+  before schema 25 records none, and the line says *the type of the run it was
+  re-judged from is not recorded*. *Changed* means the check's identity moved:
+  its rubric, or another of its settings, such as the judge it names.
+- **Read again later.** `digline explain` of the round reads the run it was
+  made from and prints the same lines, its `--json` carries them as the
+  `rubrics` tally, and the report has a section of its own
+  ([explain](explain.md#a-re-judge-against-the-run-it-was-made-from)).
+
 ## The five refusals
 
 Each one arrives before the first judge is paid, and each names what is missing.
+They are the refusals of a replay of recorded answers; `--reviewed` reads none,
+and its own refusals are in the list above, beside the tenant's, which
+every replay shares.
 
 1. **The stored run recorded no answers.** Recording is opt-in, so this is the
    ordinary first encounter: set `record_responses=True` and run it again.

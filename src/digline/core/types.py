@@ -12,7 +12,7 @@ import math
 from collections.abc import Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Literal, cast
+from typing import Literal, cast, get_args
 
 from digline.core.refused import NameRef, Written
 
@@ -26,7 +26,9 @@ __all__ = [
     "REDACTED",
     "STORAGE_STEP",
     "Cause",
+    "CHECK_TYPES",
     "CheckKind",
+    "CheckType",
     "DRIVER_METADATA_KEYS",
     "ErrorKind",
     "ClaimReply",
@@ -165,6 +167,44 @@ type ErrorKind = Literal["raised", "shape"]
 #: is *not recorded*, which a projection never reads as digline's. (ADR 0034
 #: §17.3; #711)
 type Origin = Literal["builtin", "foreign"]
+
+#: The type a check was declared with, in the word a `suite.toml` writes it
+#: with: digline's own checks, each by the token its table takes, and nothing
+#: else. A check whose class is not one of these, a suite's own or a plugin's,
+#: or a subclass written in a suite, has no word here, and its verdict records
+#: none. `Repeated` is not a type of its own: it is read through to what it
+#: wraps, as `judged` and `origin` are. Closed, so a projection crosses it in
+#: clear as digline's vocabulary. (ADR 0067 §1 (d), as noted 2026-11-22)
+type CheckType = Literal[
+    "equals",
+    "contains",
+    "not_contains",
+    "affix",
+    "is_json",
+    "json_schema",
+    "length",
+    "levenshtein",
+    "regex",
+    "tool_called_with",
+    "tools_called",
+    "subsequence",
+    "before",
+    "never",
+    "max_steps",
+    "llm_rubric",
+    "faithfulness",
+    "pii_absent",
+    "cost_budget",
+    "latency_budget",
+    "from_autoevals",
+    "precision",
+    "recall",
+    "accuracy",
+    "f1",
+]
+
+#: `CheckType`'s words, read off the type so the two cannot drift.
+CHECK_TYPES: frozenset[str] = frozenset(get_args(CheckType.__value__))
 
 #: The metadata keys the driver writes on a verdict, whatever its origin: the
 #: two markers `unmarked` takes off every verdict an assertion returns, and
@@ -723,6 +763,14 @@ class Verdict:
     #: `config_hash`: a projection reads it, and nothing compares on it. (ADR
     #: 0034 §17.3)
     origin: Origin | None = field(default=None, kw_only=True)
+    #: The type its check was declared with, `CheckType`'s word, or `None`:
+    #: *not recorded*, a verdict written before schema 25, built by hand, or
+    #: from a check digline has no word for. Stamped by the driver beside
+    #: `judged`, and like it outside `identity` and `config_hash`. The
+    #: comparison of a re-judge with the run it was made from reads it, and
+    #: never pairs two verdicts of one name whose types differ or are not
+    #: recorded. (ADR 0067 §1 (d), as noted 2026-11-22)
+    check_type: CheckType | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         if not self.assertion_id:
@@ -745,6 +793,15 @@ class Verdict:
             raise ValueError(
                 "a verdict's origin is builtin or foreign, or not recorded: "
                 "anything else is a provenance nothing classifies"
+            )
+        # The same, for the same reason: a projection crosses the word in clear,
+        # so a word outside the vocabulary would be a string nothing classifies.
+        if self.check_type is not None and cast(object, self.check_type) not in (
+            CHECK_TYPES
+        ):
+            raise ValueError(
+                "a verdict's check_type is one of digline's words for a check's "
+                "type, or not recorded"
             )
         if self.floor_standard_errors is not None:
             object.__setattr__(

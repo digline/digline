@@ -89,6 +89,36 @@ rest of this opening.
     `AgreementTally`, `Composite` and `CompositeMismatch` in `digline.core`;
     `Suite.criteria` and `Suite.composites()`; `rule_words` in
     `digline.report`.
+- **A new round on the reviewed answers alone, and two rubrics compared**
+  (ADR 0067 §1 (d), its third pull request). *Arrives with digline 1.4.*
+  - `digline rejudge --reviewed --run KEY` judges the run's reviewed answers
+    again, and nothing else, under the suite as declared now. No target is
+    called and no recorded answer is needed: a reviewed answer carries its
+    own. The run it writes declares `rejudged_from` and is not promotable,
+    as every re-judge (ADR 0015 §7). A reviewed answer the run holds and the
+    suite no longer declares is refused by name, and a run with none is
+    refused.
+  - At its end it says what changed against the run it was made from,
+    pairing the two by check name and case, because a corrected rubric is a
+    new identity: each check said changed or unchanged, each held-in reviewed
+    answer whose verdict changed named with its check and whether toward the
+    person or away, the held-out ones counted. A check whose type changed is
+    not paired, and says so. `explain` of the round reads the run it was made
+    from and says the same, or that the store no longer holds it; the report
+    has a section of its own, in en and it.
+  - Schema 25 takes a second passenger: each verdict records `check_type`,
+    the word its check's type is declared with in a `suite.toml`, read
+    through `Repeated`. Absent on every verdict before 25, and on a check
+    digline has no word for; the comparison then does not pair it and says
+    the source's type is not recorded. Outside `config_hash` and every
+    identity. The step from 24 writes nothing for it.
+  - Under `OUTPUT_VERSION` 6, `explain --json` gains a tally kind, `rubrics`,
+    with its `rubrics` object, added keys only. New public names:
+    `rubric_comparison`, `RubricComparison`, `PairedCheck`, `UnpairedCheck`,
+    `Unpaired`, `VerdictChange`, `check_type`, `TYPE_OF_CLASS`, `CheckType`,
+    `CHECK_TYPES` and `Verdict.check_type` in `digline.core`;
+    `rejudge_reviewed`, `reviewed_round` and `reviewed_left_out` in
+    `digline.run`; `rubric_lines` in `digline.report`.
 - **A missing provider says which environment was searched.** *"no provider
   named … is installed"* now ends on *"digline is running from the
   environment at <sys.prefix>, and a plugin installed in another one is not

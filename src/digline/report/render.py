@@ -39,6 +39,7 @@ from digline.core import (
     Exclusion,
     Noise,
     Outcome,
+    RubricComparison,
     Run,
     ScaleLost,
     Scope,
@@ -1867,6 +1868,81 @@ def agreement_section(
     return f"<details{open_attr}><summary>{title}</summary><ul>{items}</ul></details>"
 
 
+def rubric_lines(comparison: RubricComparison, locale: Locale) -> tuple[str, ...]:
+    """A re-judge against the run it was made from, one sentence per line:
+    the source and how many reviewed answers it read, a line per check the
+    person said something about, paired or not and why, then each held-in
+    answer that changed verdict and in which direction, and the held-out ones
+    counted. `rejudge --reviewed` prints these, `explain` prints them, and the
+    report's section is built from them. (ADR 0067 §1 (d), (e))"""
+    if not comparison.source_held:
+        return (phrase(locale, "rubric.unread", source=comparison.source),)
+    lines = [
+        phrase(
+            locale,
+            f"rubric.source.{_many(comparison.answers)}",
+            source=comparison.source,
+            count=comparison.answers,
+        )
+    ]
+    for check in comparison.paired:
+        key = "rubric.changed" if check.changed else "rubric.unchanged"
+        lines.append(phrase(locale, key, check=check.check))
+    for item in comparison.unpaired:
+        lines.append(
+            phrase(
+                locale,
+                f"rubric.{item.why}",
+                check=item.check,
+                before=_type_word(item.before, locale),
+                after=_type_word(item.after, locale),
+            )
+        )
+    for change in comparison.changes:
+        way = {True: "toward", False: "away", None: "neither"}[change.toward]
+        lines.append(
+            phrase(
+                locale,
+                f"rubric.change.{way}",
+                case=change.case_id,
+                check=change.check,
+                before=phrase(locale, f"rubric.status.{change.before}"),
+                after=phrase(locale, f"rubric.status.{change.after}"),
+            )
+        )
+    if comparison.held_out_changes:
+        count = comparison.held_out_changes
+        lines.append(phrase(locale, f"rubric.held_out.{_many(count)}", count=count))
+    if comparison.paired and not comparison.changes and not comparison.held_out_changes:
+        lines.append(phrase(locale, "rubric.none"))
+    return tuple(lines)
+
+
+def _type_word(word: str | None, locale: Locale) -> str:
+    return phrase(locale, "rubric.type_unnamed") if word is None else word
+
+
+def rubric_section(comparison: RubricComparison | None, locale: Locale) -> str:
+    """`rubric_lines` as a section of the report, or nothing where the run is
+    no re-judge or no reviewed answer is in both. Open where a verdict
+    changed, a check was not paired, or the source could not be read; closed
+    where nothing moved. (ADR 0067 §1 (d))"""
+    if comparison is None:
+        return ""
+    title = escape(phrase(locale, "section.rubric"))
+    items = "".join(
+        f"<li>{escape(line)}</li>" for line in rubric_lines(comparison, locale)
+    )
+    moved = (
+        not comparison.source_held
+        or bool(comparison.changes)
+        or bool(comparison.unpaired)
+        or bool(comparison.held_out_changes)
+    )
+    open_attr = " open" if moved else ""
+    return f"<details{open_attr}><summary>{title}</summary><ul>{items}</ul></details>"
+
+
 def calibration_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     """Where the judge placed each calibration answer, against its band.
 
@@ -1949,15 +2025,18 @@ def _calibration_block(
     *,
     reasons: bool,
     composites: Sequence[Composite] = (),
+    rubrics: RubricComparison | None = None,
 ) -> str:
     """`calibration_section` with its own line break, or nothing — so a report
     of a suite with no calibration case gains not even an empty line. The
-    reviewed answers' section follows it, and the agreement read off them
-    after that. (ADR 0067 §1 (c))"""
+    reviewed answers' section follows it, the agreement read off them after
+    that, and last, on a re-judge, what it changed against the run it was made
+    from. (ADR 0067 §1 (c), (d))"""
     section = calibration_section(run, locale, reasons=reasons)
     reviewed = reviewed_section(run, locale, reasons=reasons)
     agreed = agreement_section(run, locale, composites=composites)
-    return "".join(f"{part}\n" for part in (section, reviewed, agreed) if part)
+    changed = rubric_section(rubrics, locale)
+    return "".join(f"{part}\n" for part in (section, reviewed, agreed, changed) if part)
 
 
 def _incomparable_section(
@@ -3191,6 +3270,7 @@ def render_html(
     locale: Locale,
     declared: Declared | None,
     composites: Sequence[Composite] = (),
+    rubrics: RubricComparison | None = None,
 ) -> str:
     """A self-contained HTML document, deterministic byte for byte.
 
@@ -3207,6 +3287,10 @@ def render_html(
 
     `composites` is the suite's `criteria`, resolved, for the agreement
     section: a run does not record it. `()` reads no composite. (ADR 0067 §5)
+
+    `rubrics` is a re-judge read against the run it was made from, which the
+    front end reads by `rejudged_from` and compares: `None` renders no such
+    section. (ADR 0067 §1 (d))
     """
     head = headline(comparison, run, baseline, locale=locale, declared=declared)
     answer = phrase(locale, "answer.yes" if head.worse else "answer.no")
@@ -3261,7 +3345,11 @@ def render_html(
         f"{sections}\n"
         f"{
             _calibration_block(
-                run, locale, reasons=head.reasons_available, composites=composites
+                run,
+                locale,
+                reasons=head.reasons_available,
+                composites=composites,
+                rubrics=rubrics,
             )
         }"
         f"{_uncertain_block(run, locale)}"
@@ -3603,7 +3691,11 @@ def _recorded_answers(run: Run, locale: Locale) -> str:
 
 
 def render_run_html(
-    run: Run, *, locale: Locale, composites: Sequence[Composite] = ()
+    run: Run,
+    *,
+    locale: Locale,
+    composites: Sequence[Composite] = (),
+    rubrics: RubricComparison | None = None,
 ) -> str:
     """One run, rendered on its own, because there is no reference yet.
 
@@ -3654,7 +3746,11 @@ def render_run_html(
         f"{_run_artifacts(run, locale)}\n"
         f"{_run_configs(run, locale)}\n"
         f"{sections}\n"
-        f"{_calibration_block(run, locale, reasons=reasons, composites=composites)}"
+        f"{
+            _calibration_block(
+                run, locale, reasons=reasons, composites=composites, rubrics=rubrics
+            )
+        }"
         f"{_uncertain_block(run, locale)}"
         f"{_recorded_answers(run, locale)}\n"
         "</body>\n"

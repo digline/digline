@@ -389,6 +389,23 @@ three shapes:
     handed in by the front end, which a run does not record. Absent where no
     reviewed answer carries a verdict. It moves no exit code.
 
+  *Amended 2026-11-22, by [ADR 0067](0067-calibrating-the-judge-against-a-person.md)
+  §1 (d) and Alessandro Prandini's ruling of that day (P-1715).* **`rubrics`
+  joins the list**: a re-judge read against the run it was made from, the
+  reviewed answers whose verdict changed and for which check, paired by name,
+  and the checks not paired and why.
+  - **Why it passes this section's test.** The report says it, in a section
+    of its own. A reading that left it out would describe a corrected
+    rubric's round with nothing to say what it moved.
+  - **What it carries, and what it does not.** Counts, check names,
+    identities, types and statuses, the source's key, and the held-in changes
+    by case. A held-out answer is counted and never named (ADR 0067 §1 (e)).
+    No reason.
+  - **Where it reads from.** The run, and the run its `rejudged_from` names,
+    which the front end reads from the store and hands in; where the store no
+    longer holds it, the fact says so. Only on a re-judge holding a reviewed
+    answer. It moves no exit code.
+
 Not one wide type with fifteen optional fields, and not ten types with one each.
 Three is what the data has, and a union of three discriminated by `kind` is what
 lets both renderers dispatch with `match` — Python's structural pattern match,

@@ -24,12 +24,14 @@ from typing import Literal
 
 from digline.core import (
     Minter,
+    RubricComparison,
     Run,
     compare,
     key_of,
     project_declared,
     project_served,
     redact,
+    rubric_comparison,
     withhold_artifacts,
 )
 from digline.host.errors import UsageError
@@ -51,6 +53,7 @@ from digline.store import (
     Register,
     RegisterRefusedError,
     ResultStore,
+    RunNotFoundError,
 )
 from digline.wire import exit_code, run_exit_code
 
@@ -97,18 +100,23 @@ def explained(
     run = read_run(store, suite, key)
     baseline = store.read_baseline(suite.tenant, suite.name)
     declared = suite.declared()
+    source = _source(store, suite, run)
     if mint is not None:
         table = one_table(mint, where="reading")
         run = project_served(run, table)
         baseline = None if baseline is None else project_served(baseline, table)
         declared = project_declared(declared, table)
+        # Through the same table, so a check's name is one token in both.
+        if isinstance(source, Run):
+            source = project_served(source, table)
+    rubrics = _rubrics(source, run)
     if baseline is None:
         # A lost scale needs no reference either: it compares a score with a
         # declared band, not with a past. (ADR 0024 §4.5)
         return Explained(
             run,
             None,
-            facts(run, composites=suite.composites()),
+            facts(run, composites=suite.composites(), rubrics=rubrics),
             "run",
             run_exit_code(run, declared=declared),
         )
@@ -117,10 +125,33 @@ def explained(
     return Explained(
         run,
         baseline,
-        facts(run, comparison, composites=suite.composites()),
+        facts(run, comparison, composites=suite.composites(), rubrics=rubrics),
         "comparison",
         exit_code(head),
     )
+
+
+def _source(store: ResultStore, suite: Suite, run: Run) -> Run | str | None:
+    """The run `run` was re-judged from, where it is a re-judge holding a
+    reviewed answer: the run, or its key where the store no longer holds it,
+    which the reading then says. `None` where there is nothing to compare.
+    (ADR 0067 §1 (d))"""
+    if run.rejudged_from is None:
+        return None
+    if not any(case.reviewed is not None for case in run.results):
+        return None
+    try:
+        return read_run(store, suite, run.rejudged_from)
+    except RunNotFoundError:
+        return run.rejudged_from
+
+
+def _rubrics(source: Run | str | None, run: Run) -> RubricComparison | None:
+    if source is None:
+        return None
+    if isinstance(source, str):
+        return RubricComparison.unread(source)
+    return rubric_comparison(source, run)
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +184,9 @@ def reported(
     """
     read = read_run(store, suite, key)
     baseline = store.read_baseline(suite.tenant, suite.name)
+    # Read off the run as read, before any redaction: what it carries is
+    # names, identities, types and statuses, no reason. (ADR 0067 §1 (d))
+    rubrics = _rubrics(_source(store, suite, read), read)
 
     if baseline is None:
         # Not a refusal, and this is the whole point of the command existing.
@@ -167,7 +201,9 @@ def reported(
         # reference exists. A flag would have to be an error when a baseline is
         # present, and would leave the dead end intact for whoever has not yet
         # learned the flag.
-        return _reported_single(read, suite, locale=locale, redacted=redacted)
+        return _reported_single(
+            read, suite, locale=locale, redacted=redacted, rubrics=rubrics
+        )
 
     run = read
     comparison = compare(run, baseline)
@@ -201,6 +237,7 @@ def reported(
         locale=locale,
         declared=declared,
         composites=suite.composites(),
+        rubrics=rubrics,
     )
     # From the comparison the document was rendered from, never a fresh one:
     # over a redacted run a fresh `compare` has lost the digests, reads a moved
@@ -212,7 +249,12 @@ def reported(
 
 
 def _reported_single(
-    read: Run, suite: Suite, *, locale: Locale, redacted: bool
+    read: Run,
+    suite: Suite,
+    *,
+    locale: Locale,
+    redacted: bool,
+    rubrics: RubricComparison | None = None,
 ) -> Reported:
     """The run on its own, and an exit code that claims no more than it can.
 
@@ -229,7 +271,9 @@ def _reported_single(
         # where nothing is compared.
         run = redact(run, suite.disclosure)
 
-    document = render_run_html(run, locale=locale, composites=suite.composites())
+    document = render_run_html(
+        run, locale=locale, composites=suite.composites(), rubrics=rubrics
+    )
     # And so does a lost scale: a band is declared, not referenced. (ADR 0024
     # §4.5)
     return Reported(document, run_exit_code(run, declared=suite.declared()), read, None)

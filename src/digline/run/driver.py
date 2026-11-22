@@ -43,6 +43,7 @@ from digline.core import (
     SystemConfig,
     Usage,
     Verdict,
+    check_type,
     combine_samples,
     error_verdict,
     fold_judgements,
@@ -796,6 +797,9 @@ def _stamped(assertion: Assertion, verdict: Verdict) -> Verdict:
         verdict,
         judged=True if judged(assertion) else verdict.judged,
         origin=origin(assertion),
+        # Its type, in the word a `suite.toml` writes it with, which an
+        # assertion cannot claim either. (ADR 0067 §1 (d), as noted 2026-11-22)
+        check_type=check_type(assertion),
     )
 
 
@@ -1760,6 +1764,7 @@ def execute(
             # Who wrote the aggregate's metadata: a run-level check digline
             # wrote, or one the suite did. (ADR 0034 §17.3)
             origin=origin(run_assertion),
+            check_type=check_type(run_assertion),
         )
         for run_assertion in suite.run_assertions
     )
