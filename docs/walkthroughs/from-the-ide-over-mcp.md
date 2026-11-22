@@ -523,7 +523,7 @@ The cases changed since the reference: 1 added (cap-9886a52f697cd007-1d630127). 
 How the judge agrees with the person
 llm_rubric, held in: blind, 4 of 5 agree (0 passed a no, 1 failed a yes); after review, 4 of 5 agree (0 passed a no, 1 failed a yes).
 No reviewed answer is held out: the agreement above was measured on the answers the rubric was tuned on.
-No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+Stability was read across 3 runs of this suite with these checks: every verdict held.
 This suite does not say what a yes means.
 
 What differed underneath

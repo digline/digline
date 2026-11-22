@@ -149,7 +149,7 @@ No case is suspended.
 How the judge agrees with the person
 llm_rubric, held in: blind, 1 of 2 agree (1 passed a no, 0 failed a yes); after review, 1 of 2 agree (1 passed a no, 0 failed a yes).
 No reviewed answer is held out: the agreement above was measured on the answers the rubric was tuned on.
-No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+Stability across runs was not measured: no other run of this suite holds these answers under these checks, so only a verdict whose samples split is set apart.
 This suite does not say what a yes means.
 
 How it was set up
@@ -236,9 +236,10 @@ order that keeps the judge's verdict apart from the person's
   held-out answer is counted and never named
   ([explain](explain.md#the-judge-against-the-person)). The reading works on
   any run whose reviewed answers already carry the person's verdict, such as
-  a new `digline run` after the review, or the cheaper round below. No answer
-  is yet set apart as unstable, because stability is not measured in this
-  release, and the reading says so.
+  a new `digline run` after the review, or the cheaper round below. A
+  held-out answer the judge disagreed with is named only on request,
+  `explain --show-held-out`, which says that, read before the rubric is
+  frozen, it is no longer held out.
 - **A rubric corrected, one round at a time.** A rubric touched up for one
   case can move the verdicts of others. `digline rejudge --reviewed --run KEY`
   judges the run's reviewed answers again, and nothing else, under the suite
@@ -248,6 +249,28 @@ order that keeps the judge's verdict apart from the person's
   rubric is a new identity. A check whose type changed is not paired, and
   says so. The round is a re-judge, so it is not promotable
   ([rejudge](rejudge.md#a-round-on-the-reviewed-answers-alone-reviewed)).
+- **Stability at a fixed rubric.** A verdict the judge could not hold is
+  **unstable**: its samples split, or one could not judge; its judgements
+  under `--judge-samples` fall on the two sides of the threshold; or the
+  suite's runs gave the answer different verdicts. The agreement reading
+  counts it in neither figure and names it apart. To measure it, repeat
+  without changing anything: `digline rejudge --reviewed --run KEY` costs
+  the judge alone, and `--judge-samples M` asks it more times per answer.
+  **`explain` and `promote` read the store for this**, as `explain` already
+  reads a re-judge's source: the runs read are this run and every other
+  stored run of the suite that holds one of its reviewed answers judged by a
+  check of the same identity, and the reading says how many. Stability
+  across runs is measured from two
+  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3).
+- **A contradiction accepted by name.** A contradiction keeps a run from
+  becoming the reference. Where the verdict is unstable, and only there,
+  `digline promote --accept-contradiction CASE --by NAME` accepts it. A stable
+  contradiction is refused, *correct the rubric or revise the verdict*. The
+  reference records the acceptance with how many judgements went against the
+  person, who and when, and `compare` says it while the reference stands. It
+  does not carry over: the next run's contradiction is refused at its own
+  promotion until accepted again (§6). The gate does not change: the run
+  that contradicts still exits 1.
 - **About the whole answer.** `--whole` asks every judged check of the
   suite about one answer, with one verdict from the person: a yes expects
   each to pass, and a no names the checks that failed. Per answer it is
