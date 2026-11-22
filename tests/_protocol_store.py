@@ -83,6 +83,7 @@ class MemoryStore:
         accepting_pins: Collection[str] = frozenset(),
         excluding: Collection[str] = frozenset(),
         excluded_by: str = "",
+        accepting_contradictions: Collection[str] = frozenset(),
     ) -> Run:
         raise NotImplementedError(
             "MemoryStore does not promote: condition 8 is not asserted through a "
