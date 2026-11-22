@@ -2840,7 +2840,7 @@ pair verdicts that were never the same check. An assertion built on
 `AssertionBase` passes its `identity` and never meets it.
 
 `Verdict` and `Score` are frozen dataclasses. Beside the constructor's
-arguments, a **`Verdict`** has two fields more:
+arguments, a **`Verdict`** has three fields more:
 
 - `judged`: `True` when a model placed the score on its scale, meaning the
   check's `KIND` is `judged`. The driver stamps it and an assertion never sets
@@ -2855,6 +2855,18 @@ arguments, a **`Verdict`** has two fields more:
   class**: `FromAutoevals` is digline's class and `foreign`, because the keys
   it records are the scorer's. A projection reads it
   ([below](#the-projection)), and nothing compares on it (ADR 0034 §17.3).
+- `check_type`: *Arrives with digline 1.4.* The type its check was declared
+  with, the word a `suite.toml` builds it from (`"llm_rubric"`,
+  `"contains"`, …, `CHECK_TYPES`), or `None` for *not recorded*: a verdict
+  written before schema 25, built by hand, or from a check digline has no
+  word for, a suite's own class or a plugin's. `check_type(assertion)`
+  answers it, read through `Repeated`, and the driver stamps it beside
+  `judged`. Outside `assertion_id` and `config_hash`, and a projection
+  crosses it in clear as digline's vocabulary. The comparison of a re-judge
+  with the run it was made from reads it, and never pairs two verdicts of one
+  name whose types differ or are not recorded
+  ([rejudge](rejudge.md#a-round-on-the-reviewed-answers-alone-reviewed);
+  ADR 0067 §1 (d)).
 
 A verdict's **`Score`**, `verdict.score`, carries:
 

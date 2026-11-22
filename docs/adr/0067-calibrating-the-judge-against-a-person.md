@@ -25,7 +25,12 @@
   blind and after review, held in and held out, and the composite against the
   criteria a suite declares, in `explain`, the report and `--json`. The
   re-judge (3), stability and the accepted contradiction (4), and `at_least`
-  (5) are in no file
+  (5) are in no file.
+  *The third built 2026-11-22*, with Alessandro Prandini's rulings of that
+  day (P-1715), each noted where it applies: `rejudge --reviewed`, the
+  comparison of two rubrics paired by name, and the type each verdict records
+  so a change of type is not paired. Stability and the accepted contradiction
+  (4) and `at_least` (5) are in no file
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: *Noted 2026-11-19, by Alessandro Prandini's ruling of that day
@@ -188,6 +193,42 @@ comparison pairs by **check name and case** instead, between a run and the
 re-judge made from it, and says so in its first line: *"the rubric of
 `addressee` changed; verdicts paired by name"*. It never pairs a check whose
 type changed.
+
+*Noted 2026-11-22, by Alessandro Prandini's rulings of that day (P-1715), the
+paragraph above kept as written.*
+- **The type is recorded on each verdict.** A run recorded a check's name
+  and its identity, a digest, and nothing from which its type could be read,
+  so *a check whose type changed* could not be told from two runs. From
+  schema 25 each verdict carries `check_type`, the word the check is built
+  from in a `suite.toml` (`llm_rubric`, `contains`, `faithfulness`, …),
+  stamped by the driver beside `judged`, read through `Repeated` as `judged`
+  is, and outside every identity and `config_hash`. A check digline has no
+  word for, a suite's own class or a plugin's, records none.
+- **Not paired, and said.** A verdict with no type recorded, which is every
+  verdict of a run written before 25, is not paired: the comparison says *the
+  type of the run it was re-judged from is not recorded*. A check whose type
+  differs between the two runs is not paired either, a check digline names
+  replaced by one it has no word for included, and nor is a name two checks
+  share on one answer. No migration writes a type: absent is *not recorded*,
+  and nothing is invented.
+- **Where it is said.** At the end of `rejudge --reviewed`, on stderr; in
+  `explain` of a run that declares `rejudged_from`, which reads the run it
+  names, and in its `--json` as a tally kind, `rubrics` (ADR 0012 §3, the
+  fourteenth amendment); and in the report, in a section of its own. `compare`
+  is unchanged. A source the store no longer holds is said, not passed over.
+- **The first line, as measured.** The sentence above, *"the rubric of
+  `addressee` changed"*, says more than two runs show: a check's identity
+  holds its rubric and its other settings, the judge it names among them, so
+  a moved identity is a changed check, not always a changed rubric. The
+  reading says *"`addressee` changed since that run, its rubric or another of
+  its settings; verdicts paired by name"*.
+- **Held out.** A held-out answer whose verdict changed is counted and never
+  named, as §1 (e) has the reading of (c) do.
+- **The round is the run's reviewed answers, all of them.** A reviewed answer
+  the run holds and the suite no longer declares is refused by name; one the
+  suite declares and the run does not hold is not judged, and counted. The
+  run it writes declares `rejudged_from`, and ADR 0015 §7 refuses its
+  promotion as written.
 
 **(e) Held-in and held-out, and the readiness that reads only the second.**
 Every reviewed answer is **held-in** or **held-out**. *Decided here:* the
@@ -497,6 +538,9 @@ from the judge's, and no held-out answer is chosen by digline.
   the checks expected to fail; the reference carries
   `accepted_contradictions`. The migration step invents nothing: absent is
   *a blind verdict, held-in, about its check, nothing accepted*.
+  *Noted 2026-11-22 (P-1715), the item kept as written:* and each verdict
+  carries `check_type`, the type its check was declared with (§1 (d)). The
+  step invents nothing for it either: absent is *not recorded*.
 - `config_hash` moves only for a suite that declares `at_least`. No
   assertion identity moves.
 - New options: `record import --choose`, `--held-out`, `--whole`,

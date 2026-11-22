@@ -236,10 +236,18 @@ order that keeps the judge's verdict apart from the person's
   held-out answer is counted and never named
   ([explain](explain.md#the-judge-against-the-person)). The reading works on
   any run whose reviewed answers already carry the person's verdict, such as
-  a new `digline run` after the review. The cheaper round, `digline rejudge
-  --reviewed`, which judges the reviewed answers alone, comes with ADR 0067's
-  third pull request. No answer is yet set apart as unstable, because
-  stability is not measured in this release, and the reading says so.
+  a new `digline run` after the review, or the cheaper round below. No answer
+  is yet set apart as unstable, because stability is not measured in this
+  release, and the reading says so.
+- **A rubric corrected, one round at a time.** A rubric touched up for one
+  case can move the verdicts of others. `digline rejudge --reviewed --run KEY`
+  judges the run's reviewed answers again, and nothing else, under the suite
+  as declared now, with no call to any target and no whole run. It then says
+  which reviewed answers changed verdict, for which check, and whether toward
+  the person or away, pairing the two runs by check name because a corrected
+  rubric is a new identity. A check whose type changed is not paired, and
+  says so. The round is a re-judge, so it is not promotable
+  ([rejudge](rejudge.md#a-round-on-the-reviewed-answers-alone-reviewed)).
 - **About the whole answer.** `--whole` asks every judged check of the
   suite about one answer, with one verdict from the person: a yes expects
   each to pass, and a no names the checks that failed. Per answer it is

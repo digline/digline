@@ -480,6 +480,46 @@ reviewed answers with a verdict. Its `agreement` object carries:
 
 The run's report shows the same lines in a section of its own.
 
+## A re-judge against the run it was made from
+
+*Arrives with digline 1.4.* Where the run is a re-judge, `rejudged_from`, and
+holds reviewed answers with a person's verdict, `explain` reads the run it was
+made from and closes its counts with *What the re-judge changed, against the
+run it was made from*
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1 (d)):
+
+```text
+Read against 2026-11-22T09-00-00-000000-00-00-0123456789abcdef, the run this was re-judged from, on 3 reviewed answers in both.
+llm_rubric changed since that run, its rubric or another of its settings; verdicts paired by name.
+no-bad · llm_rubric: passed → failed, toward the person.
+1 held-out answer changed verdict on a paired check, counted and not named.
+```
+
+These lines come from the fixture in `tests/test_rejudge_reviewed.py`, which
+asserts them word for word, and not from a suite run end to end.
+
+- **Paired by name.** A corrected rubric is a new identity, so the two runs
+  are paired by check name and case. Each check the person said something
+  about is said *changed*, its identity moved, or *unchanged*.
+- **Not paired.** A check whose type changed, *its type changed,
+  llm_rubric → faithfulness*; one whose type the source did not record, which
+  is every run written before schema 25; and a name two checks share on one
+  answer. Their verdicts are listed nowhere.
+- **Each change, with its direction.** A held-in answer whose verdict changed
+  is named, toward the person's verdict or away; where one side could not be
+  judged, toward neither. A held-out one is counted and never named.
+- **A source the store no longer holds** is said, *could not be read: its
+  verdicts are not compared*, rather than the block being left out.
+
+`digline rejudge --reviewed` prints the same lines at its end
+([rejudge](rejudge.md#a-round-on-the-reviewed-answers-alone-reviewed)). In
+`--json` it is a fact with `"kind": "rubrics"`, whose `count` is the reviewed
+answers read in both. Its `rubrics` object carries `source`, `read`,
+`answers`, `paired` (`check`, `check_type`, `before_id`, `after_id`,
+`changed`), `unpaired` (`check`, `why`, `before`, `after`), `changes`
+(`case_id`, `check`, `before`, `after`, `toward`) and `held_out_changes`. The
+run's report shows the same lines in a section of its own.
+
 ## What it will not tell you
 
 **The judge's words.** No fact carries a `reason` — the field does not exist on
