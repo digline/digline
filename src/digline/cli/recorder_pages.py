@@ -70,7 +70,7 @@ from digline.report.pages import (
     state_address,
     where_address,
 )
-from digline.report.render import excluded_fact
+from digline.report.render import accepted_fact, excluded_fact
 from digline.wire.record_compare import (
     SHORT,
     ComparedCase,
@@ -1593,6 +1593,11 @@ def state_page(
         excluded = excluded_fact(state.excluded, locale)
         if excluded:
             body.append(_p(excluded))
+        # And the contradictions a person accepted at that promotion, in the
+        # sentence `compare` says. (ADR 0067 §6)
+        accepted = accepted_fact(state.accepted, locale)
+        if accepted:
+            body.append(_p(accepted))
     body.append(f"<h2>{escape(phrase(locale, 'view.state.recordings'))}</h2>\n")
     body.append(_waiting(state, tenant, locale))
     if to_review is not None:

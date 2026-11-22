@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
 
-from digline.core.run import Exclusion
+from digline.core.run import AcceptedContradiction, Exclusion
 from digline.host.importing import imported_since
 from digline.host.listing import suite_runs
 from digline.host.recording import recorder_status
@@ -77,6 +77,9 @@ class SuiteState:
     promoted_at: str | None
     excluded: tuple[Exclusion, ...]
     recordings: SuiteRecordings | None
+    #: The contradictions a person accepted at the reference's promotion,
+    #: said where the exclusions are. (ADR 0067 §6)
+    accepted: tuple[AcceptedContradiction, ...] = ()
 
 
 def suite_state(
@@ -128,6 +131,7 @@ def suite_state(
         baseline_refused=listed.baseline_refused,
         promoted_at=None if reference is None else reference.promoted_at,
         excluded=() if reference is None else reference.excluded_at_promotion,
+        accepted=() if reference is None else reference.accepted_contradictions,
         recordings=next(
             (entry for entry in status.suites if entry.suite == suite.name), None
         ),
