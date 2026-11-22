@@ -222,6 +222,16 @@ and it is not the reading of (c): the gate's own sentence names every answer
 whose judge contradicted the person, held out or not, as §3 keeps the gate
 what it is today.
 
+*Noted 2026-11-22, by Alessandro Prandini's ruling of that day (P-1715), the
+note above kept as written.* **Two things name a held-out answer, not one.**
+Beside the gate's sentence, the report's section *What the judge said of the
+reviewed answers* names every reviewed answer and quotes the judge's reason
+for it, held out or not. Both were read after the second pull request was
+built, on the run its tests make. Neither is changed before the fourth, which
+decides with `--show-held-out` what names a held-out answer and where. Until
+then the count of the reading of (c) is not the only thing that reaches a
+person about a held-out disagreement.
+
 ### 2. Two verdicts per reviewed answer, and the review rule
 
 *Dictated: both verdicts are kept. The blind agreement is the measure of the
