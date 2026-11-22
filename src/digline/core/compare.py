@@ -17,7 +17,7 @@ from typing import Literal
 from digline.core.aggregate import split_grouped_name
 from digline.core.declared import CasesChanged, cases_changed
 from digline.core.reconcile import unreconciled
-from digline.core.run import Exclusion, Run, SystemConfig
+from digline.core.run import AcceptedContradiction, Exclusion, Run, SystemConfig
 from digline.core.types import ConfigValue, Verdict, at_precision, meets, within
 
 __all__ = [
@@ -448,6 +448,11 @@ class Comparison:
     #: is in force, beside `promoted_at`: it is not a movement, and it moves no
     #: exit code. (ADR 0065 §1)
     excluded_at_promotion: tuple[Exclusion, ...] = ()
+    #: The contradictions a person accepted by name at the reference's
+    #: promotion, read off the reference, in its order. Said while it is in
+    #: force, as an exclusion is, and it moves no exit code: an acceptance
+    #: holds for the run it was made on, never for this one. (ADR 0067 §6)
+    accepted_contradictions: tuple[AcceptedContradiction, ...] = ()
 
     @property
     def artifacts_changed(self) -> bool:
@@ -1655,6 +1660,7 @@ def compare(run: Run, baseline: Run) -> Comparison:
             frozenset(case.case_id for case in run.results),
         ),
         excluded_at_promotion=baseline.excluded_at_promotion,
+        accepted_contradictions=baseline.accepted_contradictions,
         # Computed whatever `config_hash` says, rather than only when it moved.
         # Gating it on the flag would make the flag the source of truth for the
         # rows and the rows the explanation of the flag, which is two answers to

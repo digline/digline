@@ -40,12 +40,14 @@ import pytest
 from tests._tags import tags_absent
 
 from digline.core import (
+    AcceptedContradiction,
     Artifact,
     CalibrationBand,
     CaseResult,
     Composite,
     Disclosure,
     Exclusion,
+    Instability,
     PairedCheck,
     RegisterEntry,
     Reviewed,
@@ -53,6 +55,7 @@ from digline.core import (
     Run,
     RunUsage,
     Score,
+    Stability,
     SystemConfig,
     UnpairedCheck,
     Usage,
@@ -537,6 +540,19 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         before,
         promoted_at=CREATED,
         excluded_at_promotion=(Exclusion(case_id="gone", by="Ada", at=CREATED),),
+        # And a contradiction accepted at the same promotion, so its shape is
+        # reached on both documents too. (ADR 0067 §6)
+        accepted_contradictions=(
+            AcceptedContradiction(
+                case_id="c1",
+                check="tone",
+                direction="passed_no",
+                against=2,
+                judgements=3,
+                by="Ada",
+                at=CREATED,
+            ),
+        ),
     )
     against = compare(now, excluding)
     yield (
@@ -722,6 +738,43 @@ def documents() -> Iterator[tuple[str, str, dict[str, object]]]:
         "explain_json a re-judge against its source",
         "explain",
         explain_json(facts(now, rubrics=rubrics), reading="run", exit_code=0, run=now),
+    )
+    # Held-out answers named on request: one the judge disagreed with, one
+    # unstable, so the agreement's lists reach their entries. (ADR 0067 §3,
+    # §1 (e))
+    held = dataclasses.replace(
+        now,
+        results=(
+            CaseResult(
+                "c7",
+                (_verdict("tone", 1.0, judged=True),),
+                reviewed=Reviewed(
+                    check="tone", assertion_id="id-tone", good=False, held_out=True
+                ),
+            ),
+            CaseResult(
+                "c8",
+                (_verdict("tone", 1.0, judged=True),),
+                reviewed=Reviewed(
+                    check="tone", assertion_id="id-tone", good=True, held_out=True
+                ),
+            ),
+        ),
+    )
+    steady = Stability(
+        runs_read=2,
+        unstable=(Instability("c8", "tone", "id-tone", True, "runs"),),
+    )
+    yield (
+        "explain_json held-out answers shown on request",
+        "explain",
+        explain_json(
+            facts(held, stability=steady),
+            reading="run",
+            exit_code=1,
+            run=held,
+            show_held_out=True,
+        ),
     )
     yield (
         "explain_json without its documents",

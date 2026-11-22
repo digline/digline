@@ -431,6 +431,17 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} cases were excluded at promotion from the reference: {cases}."
         ),
         "fact.excluded.case": "{case}, by {by}",
+        # The contradictions a person accepted by name at the reference's
+        # promotion: said while it stands, moving no exit code. (ADR 0067 §6)
+        "fact.accepted.one": "1 contradiction accepted at promotion: {cases}.",
+        "fact.accepted.many": (
+            "{count} contradictions accepted at promotion: {cases}."
+        ),
+        "fact.accepted.case": (
+            "{case}, `{check}`, {went}, {against} of {judgements} judgements, by {by}"
+        ),
+        "fact.accepted.passed_no": "passed where the person said no",
+        "fact.accepted.failed_yes": "failed where the person said yes",
         "fact.cases_changed": (
             "The cases changed since the reference: {changes}. The cases both "
             "hold are compared as before."
@@ -793,9 +804,76 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "No reviewed answer is held out: the agreement above was measured "
             "on the answers the rubric was tuned on."
         ),
-        "agreement.stability": (
-            "No answer is set apart as unstable: this run's stability was not "
-            "measured, so every answer is counted."
+        # Stability at a fixed rubric, read across the suite's runs, and the
+        # held-out answers named only on request. (ADR 0067 §3, §1 (e))
+        "agreement.stability.alone": (
+            "Stability across runs was not measured: no other run of this suite "
+            "holds these answers under these checks, so only a verdict whose "
+            "samples split is set apart."
+        ),
+        "agreement.stability.measured": (
+            "Stability was read across {runs} runs of this suite with these checks."
+        ),
+        "agreement.stability.held": (
+            "Stability was read across {runs} runs of this suite with these "
+            "checks: every verdict held."
+        ),
+        "agreement.unstable.one": (
+            "1 verdict is unstable and counted in neither figure: {cases}."
+        ),
+        "agreement.unstable.many": (
+            "{count} verdicts are unstable and counted in neither figure: {cases}."
+        ),
+        "agreement.unstable.case": "{case}, {check} ({why})",
+        "agreement.unstable.why.runs": "the runs read disagree",
+        "agreement.unstable.why.samples": "its samples split",
+        "agreement.unstable.why.judge_samples": (
+            "its judgements under --judge-samples split"
+        ),
+        "agreement.unstable.held_out.one": (
+            "1 held-out verdict is unstable, counted in neither figure and not named."
+        ),
+        "agreement.unstable.held_out.many": (
+            "{count} held-out verdicts are unstable, counted in neither figure "
+            "and not named."
+        ),
+        "agreement.unstable.held_out.named.one": (
+            "1 held-out verdict is unstable and counted in neither figure: {cases}."
+        ),
+        "agreement.unstable.held_out.named.many": (
+            "{count} held-out verdicts are unstable and counted in neither "
+            "figure: {cases}."
+        ),
+        "agreement.held_out.hidden.one": (
+            "1 held-out verdict disagrees with the person, counted and not "
+            "named: digline explain --show-held-out names it."
+        ),
+        "agreement.held_out.hidden.many": (
+            "{count} held-out verdicts disagree with the person, counted and not "
+            "named: digline explain --show-held-out names them."
+        ),
+        "agreement.held_out.shown": (
+            "The held-out answers, shown on request: read before the rubric is "
+            "frozen, these answers are no longer held out."
+        ),
+        "agreement.held_out.disagreement": (
+            "{case}, {check}, held out: {went}. The judge said: {reason}"
+        ),
+        "agreement.composite.held_out.named.one": (
+            "1 held-out answer on which a composite is not the conjunction of "
+            "its criteria: {cases}."
+        ),
+        "agreement.composite.held_out.named.many": (
+            "{count} held-out answers on which a composite is not the "
+            "conjunction of its criteria: {cases}."
+        ),
+        "reviewed.held_out.one": (
+            "1 held-out answer is counted here and not shown: digline explain "
+            "--show-held-out shows it."
+        ),
+        "reviewed.held_out.many": (
+            "{count} held-out answers are counted here and not shown: digline "
+            "explain --show-held-out shows them."
         ),
         "agreement.composite.passed": "{case}: {composite} passed, {failed} failed",
         "agreement.composite.failed": (
@@ -2486,6 +2564,16 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "{count} casi sono stati esclusi alla promozione dal riferimento: {cases}."
         ),
         "fact.excluded.case": "{case}, da {by}",
+        "fact.accepted.one": ("1 contraddizione accettata alla promozione: {cases}."),
+        "fact.accepted.many": (
+            "{count} contraddizioni accettate alla promozione: {cases}."
+        ),
+        "fact.accepted.case": (
+            "{case}, `{check}`, {went}, {against} giudizi su {judgements} "
+            "contro la persona, da {by}"
+        ),
+        "fact.accepted.passed_no": "promossa dove la persona ha detto no",
+        "fact.accepted.failed_yes": "bocciata dove la persona ha detto sì",
         "fact.cases_changed": (
             "I casi sono cambiati rispetto al riferimento: {changes}. I casi "
             "presenti in entrambi sono confrontati come prima."
@@ -2816,9 +2904,79 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Nessuna risposta rivista è tenuta da parte: l'accordo qui sopra è "
             "misurato sulle risposte su cui la rubrica è stata messa a punto."
         ),
-        "agreement.stability": (
-            "Nessuna risposta è messa da parte come instabile: la stabilità di "
-            "questo run non è stata misurata, quindi ogni risposta è contata."
+        "agreement.stability.alone": (
+            "La stabilità fra run non è stata misurata: nessun altro run di "
+            "questa suite contiene queste risposte con questi controlli, quindi "
+            "è messo da parte solo un verdetto i cui campioni si sono divisi."
+        ),
+        "agreement.stability.measured": (
+            "La stabilità è stata letta su {runs} run di questa suite con questi "
+            "controlli."
+        ),
+        "agreement.stability.held": (
+            "La stabilità è stata letta su {runs} run di questa suite con questi "
+            "controlli: ogni verdetto ha tenuto."
+        ),
+        "agreement.unstable.one": (
+            "1 verdetto è instabile e non è contato in nessuna delle due cifre: "
+            "{cases}."
+        ),
+        "agreement.unstable.many": (
+            "{count} verdetti sono instabili e non sono contati in nessuna delle "
+            "due cifre: {cases}."
+        ),
+        "agreement.unstable.case": "{case}, {check} ({why})",
+        "agreement.unstable.why.runs": "i run letti non concordano",
+        "agreement.unstable.why.samples": "i suoi campioni si sono divisi",
+        "agreement.unstable.why.judge_samples": (
+            "i suoi giudizi con --judge-samples si sono divisi"
+        ),
+        "agreement.unstable.held_out.one": (
+            "1 verdetto tenuto da parte è instabile, non contato in nessuna delle "
+            "due cifre e non nominato."
+        ),
+        "agreement.unstable.held_out.many": (
+            "{count} verdetti tenuti da parte sono instabili, non contati in "
+            "nessuna delle due cifre e non nominati."
+        ),
+        "agreement.unstable.held_out.named.one": (
+            "1 verdetto tenuto da parte è instabile e non è contato in nessuna "
+            "delle due cifre: {cases}."
+        ),
+        "agreement.unstable.held_out.named.many": (
+            "{count} verdetti tenuti da parte sono instabili e non sono contati "
+            "in nessuna delle due cifre: {cases}."
+        ),
+        "agreement.held_out.hidden.one": (
+            "1 verdetto tenuto da parte non è d'accordo con la persona, contato e "
+            "non nominato: digline explain --show-held-out lo nomina."
+        ),
+        "agreement.held_out.hidden.many": (
+            "{count} verdetti tenuti da parte non sono d'accordo con la persona, "
+            "contati e non nominati: digline explain --show-held-out li nomina."
+        ),
+        "agreement.held_out.shown": (
+            "Le risposte tenute da parte, mostrate a richiesta: lette prima che "
+            "la rubrica sia fissata, queste risposte non sono più tenute da parte."
+        ),
+        "agreement.held_out.disagreement": (
+            "{case}, {check}, tenuta da parte: {went}. Il giudice ha detto: {reason}"
+        ),
+        "agreement.composite.held_out.named.one": (
+            "1 risposta tenuta da parte su cui un controllo composto non è la "
+            "congiunzione dei suoi criteri: {cases}."
+        ),
+        "agreement.composite.held_out.named.many": (
+            "{count} risposte tenute da parte su cui un controllo composto non è "
+            "la congiunzione dei suoi criteri: {cases}."
+        ),
+        "reviewed.held_out.one": (
+            "1 risposta tenuta da parte è contata qui e non mostrata: digline "
+            "explain --show-held-out la mostra."
+        ),
+        "reviewed.held_out.many": (
+            "{count} risposte tenute da parte sono contate qui e non mostrate: "
+            "digline explain --show-held-out le mostra."
         ),
         "agreement.composite.passed": (
             "{case}: {composite} promossa, {failed} bocciata"

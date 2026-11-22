@@ -62,6 +62,7 @@ from digline.core import (
     CHECK_TYPES,
     DRIVER_METADATA_KEYS,
     NAMED_CONFIG_KEYS,
+    AcceptedContradiction,
     Exclusion,
     Run,
     is_token,
@@ -154,6 +155,17 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.excluded_at_promotion[].case_id": ("c", is_token),
     "$.excluded_at_promotion[].by": ("c", is_token),
     "$.excluded_at_promotion[].at": ("a", _form(_TIME)),
+    # A contradiction accepted at a promotion: the case, the check and the
+    # person are tokens; the direction is digline's vocabulary and the time
+    # digline's. The counts are numbers. (ADR 0067 §6)
+    "$.accepted_contradictions[].case_id": ("c", is_token),
+    "$.accepted_contradictions[].check": ("c", is_token),
+    "$.accepted_contradictions[].by": ("c", is_token),
+    "$.accepted_contradictions[].direction": (
+        "a",
+        {"passed_no", "failed_yes"}.__contains__,
+    ),
+    "$.accepted_contradictions[].at": ("a", _form(_TIME)),
     "$.target_config.values{}": ("c", is_token),
     "$.target_config.withheld[]": ("a|c", _token_or_named),
     "$.target_config.identities[]": ("c", is_token),
@@ -233,6 +245,11 @@ FIELDS: dict[str, str] = {
     "Exclusion.case_id": "$.excluded_at_promotion[].case_id",
     "Exclusion.by": "$.excluded_at_promotion[].by",
     "Exclusion.at": "$.excluded_at_promotion[].at",
+    "AcceptedContradiction.case_id": "$.accepted_contradictions[].case_id",
+    "AcceptedContradiction.check": "$.accepted_contradictions[].check",
+    "AcceptedContradiction.direction": "$.accepted_contradictions[].direction",
+    "AcceptedContradiction.by": "$.accepted_contradictions[].by",
+    "AcceptedContradiction.at": "$.accepted_contradictions[].at",
     "Score.name": "$.results[].verdicts[].assertion",
     "Score.metadata": "$.results[].verdicts[].metadata",
     "SystemConfig.values": "$.target_config.values{}",
@@ -292,6 +309,19 @@ def _projected() -> dict[str, object]:
         excluded_at_promotion=(
             Exclusion(
                 case_id="rossi-left-out",
+                by="Mario Rossi",
+                at="2026-09-30T12:00:00+00:00",
+            ),
+        ),
+        # And a contradiction a person accepted there, with their name: the
+        # case, the check and the person walked as tokens. (ADR 0067 §6)
+        accepted_contradictions=(
+            AcceptedContradiction(
+                case_id="rossi-accepted",
+                check="rossi_tone",
+                direction="passed_no",
+                against=2,
+                judgements=3,
                 by="Mario Rossi",
                 at="2026-09-30T12:00:00+00:00",
             ),

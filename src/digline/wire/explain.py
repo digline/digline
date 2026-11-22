@@ -39,7 +39,10 @@ __all__ = ["agreement_json", "explain_json", "fact_json"]
 
 
 def fact_json(
-    fact: Fact, *, before_interval: Mapping[str, object] | None = None
+    fact: Fact,
+    *,
+    before_interval: Mapping[str, object] | None = None,
+    show_held_out: bool = False,
 ) -> dict[str, object]:
     """One fact, as a program reads it.
 
@@ -183,7 +186,9 @@ def fact_json(
             # counted and never named: its composite disagreements are a
             # count beside the held-in ones. (ADR 0067 §1 (c), (e), §5)
             if fact.agreement is not None:
-                payload["agreement"] = agreement_json(fact.agreement)
+                payload["agreement"] = agreement_json(
+                    fact.agreement, show_held_out=show_held_out
+                )
             # And a re-judge against the run it was made from. Only on the
             # `rubrics` tally. (ADR 0067 §1 (d))
             if fact.rubrics is not None:
@@ -192,14 +197,42 @@ def fact_json(
     assert_never(fact)
 
 
-def agreement_json(reading: AgreementReading) -> dict[str, object]:
+def agreement_json(
+    reading: AgreementReading, *, show_held_out: bool = False
+) -> dict[str, object]:
     """The agreement reading, for a program. Counts, check names and
-    identities, and the held-in composite disagreements by case: no reason,
-    and no held-out case. (ADR 0067 §1 (c), (e), §5; ADR 0012 §4)"""
+    identities, and the held-in composite disagreements and unstable verdicts
+    by case: no reason, and no held-out case. (ADR 0067 §1 (c), (e), §3, §5;
+    ADR 0012 §4)
+
+    `show_held_out`, `explain --show-held-out --json`, names the held-out
+    cases too: their composite disagreements and unstable verdicts join the
+    lists, each entry saying `held_out`, and `held_out_disagreements` names
+    their disagreements with the person, empty without it. The counts are
+    the same either way. (§1 (e), as noted 2026-11-22)"""
     return {
         "held_in": reading.held_in,
         "held_out": reading.held_out,
         "stability_measured": reading.stability_measured,
+        "runs_read": reading.runs_read,
+        "unstable": [
+            {
+                "case_id": item.case_id,
+                "check": item.check,
+                "assertion_id": item.assertion_id,
+                "held_out": item.held_out,
+                "why": item.why,
+            }
+            for item in reading.unstable
+            if show_held_out or not item.held_out
+        ],
+        "unstable_held_out": sum(1 for item in reading.unstable if item.held_out),
+        "held_out_disagreed": sum(1 for d in reading.disagreements if d.held_out),
+        "held_out_disagreements": [
+            {"case_id": d.case_id, "check": d.check, "direction": d.direction}
+            for d in reading.disagreements
+            if d.held_out and show_held_out
+        ],
         "checks": [
             {
                 "check": row.check,
@@ -209,6 +242,7 @@ def agreement_json(reading: AgreementReading) -> dict[str, object]:
                 "after": _tally_json(row.after),
                 "revised": row.revised,
                 "unjudged": row.unjudged,
+                "unstable": row.unstable,
             }
             for row in reading.rows
         ],
@@ -218,9 +252,10 @@ def agreement_json(reading: AgreementReading) -> dict[str, object]:
                 "composite": item.composite,
                 "composite_passed": item.composite_passed,
                 "failed": list(item.failed),
+                "held_out": item.held_out,
             }
             for item in reading.mismatches
-            if not item.held_out
+            if show_held_out or not item.held_out
         ],
         "composites_held_out": sum(1 for item in reading.mismatches if item.held_out),
     }
@@ -284,6 +319,7 @@ def explain_json(
     note: str = "",
     run: Run | None = None,
     baseline: Run | None = None,
+    show_held_out: bool = False,
 ) -> dict[str, object]:
     """The whole reading, for a program.
 
@@ -301,6 +337,9 @@ def explain_json(
     the reference only where there was one to hold the run against, which is
     the `"comparison"` scope. Each is absent where its document was not passed,
     which is a caller written before them. Added keys. (#448)
+
+    `show_held_out` is `explain --show-held-out`: the agreement reading names
+    its held-out cases, never their reasons. (ADR 0067 §1 (e))
     """
     spans = _reference_spans(baseline)
     payload: dict[str, object] = {
@@ -311,7 +350,11 @@ def explain_json(
         # surfaces must not answer differently. (ADR 0011 §4)
         "exit_code": exit_code,
         "facts": [
-            fact_json(fact, before_interval=_before_interval(fact, spans))
+            fact_json(
+                fact,
+                before_interval=_before_interval(fact, spans),
+                show_held_out=show_held_out,
+            )
             for fact in facts
         ],
         "note": note,

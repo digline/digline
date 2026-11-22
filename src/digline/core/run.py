@@ -19,7 +19,7 @@ from digline.core.aggregate import RunAssertion, split_grouped_name
 from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.refused import NameRef, RefusedError, Said, Withheld, Written
-from digline.core.reviewed import Reviewed
+from digline.core.reviewed import Against, Reviewed
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
@@ -325,6 +325,13 @@ __all__ = [
 #    day). Absent is *not recorded*: every verdict before 25, and every check
 #    digline has no word for. Outside `identity` and `config_hash`: a copy of
 #    a declaration, read by the comparison of a re-judge with its source.
+#    A third, of 2026-11-22, additive, and the step writes nothing for it:
+#    `accepted_contradictions` on a reference, each contradiction a person
+#    accepted by name at `promote --accept-contradiction`, with its check,
+#    direction, the judgements that went against the person, who and when
+#    (ADR 0067 §6). Absent is *nothing accepted*, which is every document
+#    before 25. Outside `config_hash`: something a person did at the
+#    promotion, as `excluded_at_promotion` is.
 SCHEMA_VERSION = 25
 
 
@@ -1877,6 +1884,50 @@ class Exclusion:
 
 
 @dataclass(frozen=True, slots=True)
+class AcceptedContradiction:
+    """A contradiction a person accepted by name at a promotion, on a verdict
+    the judge could not hold steady. (ADR 0067 §6)
+
+    `case_id` and `check` name the verdict, as the gate's sentence names it;
+    `direction` is which way the judge went against the person; `against` of
+    `judgements` is how many judgements of that check on that answer went
+    against her, in every run read at the acceptance; `by` is the person's
+    own mark, typed with `--by`; `at` is the promotion's `promoted_at`.
+    It holds for the run it was accepted on, and no later run.
+    """
+
+    case_id: str
+    check: str
+    direction: Against
+    against: int
+    judgements: int
+    by: str
+    at: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.case_id or not self.check:
+            raise ValueError(
+                "AcceptedContradiction names a case and a check, and this one "
+                "leaves one empty"
+            )
+        if not self.by:
+            raise ValueError(
+                "AcceptedContradiction.by must not be empty: a contradiction is "
+                "accepted only by a person who said so"
+            )
+        if self.direction not in ("passed_no", "failed_yes"):
+            raise ValueError(
+                f"AcceptedContradiction.direction is {self.direction!r}: it is "
+                "passed_no or failed_yes"
+            )
+        if not 0 <= self.against <= self.judgements:
+            raise ValueError(
+                f"AcceptedContradiction counts {self.against} judgements against "
+                f"the person of {self.judgements}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class Run:
     """One execution of the suite, with its anchors.
 
@@ -2019,6 +2070,14 @@ class Run:
     #: `promoted_at`, so it survives `redact()`; a projection tokenises the case
     #: and the person. Outside `config_hash`. (ADR 0065 §1)
     excluded_at_promotion: tuple[Exclusion, ...] = ()
+    #: The contradictions a person accepted by name at this reference's
+    #: promotion, each on a verdict the judge could not hold steady. `()` on a
+    #: run, and on every reference that accepted none, which is what a
+    #: document before schema 25 says by omitting it. A fact about our own
+    #: process, as `excluded_at_promotion` is, so it survives `redact()`; a
+    #: projection tokenises the case, the check and the person. Outside
+    #: `config_hash`. (ADR 0067 §6)
+    accepted_contradictions: tuple[AcceptedContradiction, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.tenant:
@@ -2291,6 +2350,14 @@ def _check_projected(run: Run) -> None:
         token("case_id", "an excluded case", item.case_id)
         token("person", "the person who excluded a case", item.by)
         formed("an exclusion time", item.at, "a time", _is_time(item.at))
+    # An accepted contradiction names a case, a check and a person: tokens;
+    # its direction is digline's vocabulary, and the time digline's.
+    # (ADR 0067 §6)
+    for accepted in run.accepted_contradictions:
+        token("case_id", "an accepted contradiction's case", accepted.case_id)
+        token("verdict_name", "an accepted contradiction's check", accepted.check)
+        token("person", "the person who accepted a contradiction", accepted.by)
+        formed("an acceptance time", accepted.at, "a time", _is_time(accepted.at))
 
     def verdict(v: Verdict, where: str, *, grouped: bool) -> None:
         family, group = (
@@ -2900,6 +2967,9 @@ def redact(run: Run, disclosure: Disclosure = NOTHING_EXTRA) -> Run:
         # crosses a redaction as every case id does, and the person is the
         # committing party's own mark; a projection tokenises both. (ADR 0065)
         excluded_at_promotion=run.excluded_at_promotion,
+        # Carried for the same reason: a person's acceptance at the promotion
+        # is a fact about our own process. (ADR 0067 §6)
+        accepted_contradictions=run.accepted_contradictions,
     )
 
 
@@ -3209,7 +3279,89 @@ def run_to_dict(run: Run) -> dict[str, object]:
             if run.excluded_at_promotion
             else {}
         ),
+        # Absent on a run and on a reference that accepted none, which is what
+        # a document before schema 25 says: absent is *nothing accepted*.
+        # (ADR 0067 §6)
+        **(
+            {
+                "accepted_contradictions": [
+                    _accepted_to_dict(item) for item in run.accepted_contradictions
+                ]
+            }
+            if run.accepted_contradictions
+            else {}
+        ),
     }
+
+
+def _accepted_to_dict(item: AcceptedContradiction) -> dict[str, object]:
+    return {
+        "case_id": item.case_id,
+        "check": item.check,
+        "direction": item.direction,
+        "agreement": {"against": item.against, "judgements": item.judgements},
+        "by": item.by,
+        "at": item.at,
+    }
+
+
+def _accepted_from(raw: object) -> tuple[AcceptedContradiction, ...]:
+    """`accepted_contradictions` back. Called only where the key is present,
+    so a null is refused. Each entry holds its six keys and nothing else.
+    (ADR 0067 §6)"""
+    if not isinstance(raw, list):
+        raise ValueError(
+            f"run: accepted_contradictions is {raw!r}, which is not a list"
+        )
+    found: list[AcceptedContradiction] = []
+    for entry in cast(list[object], raw):
+        if not isinstance(entry, Mapping):
+            raise ValueError(
+                f"run: an entry of accepted_contradictions is {entry!r}, which "
+                "is not an accepted contradiction"
+            )
+        fields = cast(Mapping[str, object], entry)
+        keys = {"case_id", "check", "direction", "agreement", "by", "at"}
+        agreement = fields.get("agreement")
+        counts: Mapping[str, object] = (
+            cast(Mapping[str, object], agreement)
+            if isinstance(agreement, Mapping)
+            else {}
+        )
+        if (
+            set(fields) != keys
+            or not all(
+                isinstance(fields[k], str)
+                for k in ("case_id", "check", "direction", "by", "at")
+            )
+            or set(counts) != {"against", "judgements"}
+            or not all(
+                isinstance(v, int) and not isinstance(v, bool) for v in counts.values()
+            )
+        ):
+            raise ValueError(
+                "run: an entry of accepted_contradictions holds "
+                f"{sorted(fields)!r}; it holds case_id, check, direction, by and "
+                "at, strings, and agreement, two counts"
+            )
+        direction = str(fields["direction"])
+        if direction not in ("passed_no", "failed_yes"):
+            raise ValueError(
+                f"run: an accepted contradiction's direction is {direction!r}: "
+                "it is passed_no or failed_yes"
+            )
+        found.append(
+            AcceptedContradiction(
+                case_id=str(fields["case_id"]),
+                check=str(fields["check"]),
+                direction=direction,
+                against=cast(int, counts["against"]),
+                judgements=cast(int, counts["judgements"]),
+                by=str(fields["by"]),
+                at=str(fields["at"]),
+            )
+        )
+    return tuple(found)
 
 
 def config_to_dict(config: SystemConfig) -> dict[str, object]:
@@ -4438,6 +4590,11 @@ def _run_from_mapping(raw: Mapping[str, Any]) -> Run:
             ()
             if "excluded_at_promotion" not in raw
             else _exclusions_from(raw["excluded_at_promotion"])
+        ),
+        accepted_contradictions=(
+            ()
+            if "accepted_contradictions" not in raw
+            else _accepted_from(raw["accepted_contradictions"])
         ),
     )
 

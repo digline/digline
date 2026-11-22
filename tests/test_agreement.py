@@ -245,9 +245,12 @@ def test_a_run_whose_reviewed_answers_all_await_a_verdict_has_no_reading() -> No
 
 
 def test_stability_is_said_not_measured_rather_than_given_a_state() -> None:
-    """ADR 0067 §3 waits for its pull request (4): until then no answer is
-    set apart as unstable, and the reading says why, as a fact. (P-1713)"""
-    assert read().stability_measured is False
+    """One run read is no stability measured across runs (ADR 0067 §3), and
+    the reading says it, as a fact; the fixture's samples do not split, so
+    nothing is set apart. (P-1713, as ruled again by P-1717)"""
+    reading = read()
+    assert reading.stability_measured is False
+    assert (reading.runs_read, reading.unstable) == (1, ())
 
 
 # -- the renderings: explain, the report, --json ----------------------------- #
@@ -280,8 +283,9 @@ def test_explain_says_each_row_the_readiness_and_the_stability() -> None:
         "answers served the tuning and are not counted here."
     ) in said
     assert (
-        "No answer is set apart as unstable: this run's stability was not "
-        "measured, so every answer is counted."
+        "Stability across runs was not measured: no other run of this suite "
+        "holds these answers under these checks, so only a verdict whose "
+        "samples split is set apart."
     ) in said
     assert (
         "What a yes means, in this suite's words: a yes means the reply is right"
@@ -369,6 +373,7 @@ def test_explain_json_carries_the_figures_and_no_held_out_case() -> None:
         "after": {"agree": 4, "passed_no": 1, "failed_yes": 1},
         "revised": 2,
         "unjudged": 1,
+        "unstable": 0,
     }
     assert agreement["composites"] == [
         {
@@ -376,6 +381,7 @@ def test_explain_json_carries_the_figures_and_no_held_out_case() -> None:
             "composite": "overall",
             "composite_passed": True,
             "failed": ["polite"],
+            "held_out": False,
         }
     ]
     assert agreement["composites_held_out"] == 1

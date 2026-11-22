@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 
 from digline.core import (
+    AcceptedContradiction,
     AssertionDelta,
     Comparison,
     ConfigDelta,
@@ -20,6 +21,20 @@ from digline.core import (
 from digline.report import Headline, Shape, ShapeSide, shape
 from digline.wire.contract import OUTPUT_VERSION, exit_code
 from digline.wire.text import neutralised
+
+
+def accepted_json(item: AcceptedContradiction) -> dict[str, object]:
+    """One contradiction a person accepted at a promotion, for a program: the
+    run document's shape. (ADR 0067 §6)"""
+    return {
+        "case_id": item.case_id,
+        "check": item.check,
+        "direction": item.direction,
+        "agreement": {"against": item.against, "judgements": item.judgements},
+        "by": item.by,
+        "at": item.at,
+    }
+
 
 __all__ = [
     "before_interval_json",
@@ -264,5 +279,8 @@ def compare_json(
         payload["excluded_at_promotion"] = [
             {"case_id": item.case_id, "by": item.by, "at": item.at}
             for item in comparison.excluded_at_promotion
+        ]
+        payload["accepted_contradictions"] = [
+            accepted_json(item) for item in comparison.accepted_contradictions
         ]
     return neutralised(payload)

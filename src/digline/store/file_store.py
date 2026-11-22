@@ -70,6 +70,7 @@ from digline.core.register import (
 from digline.core.run import (
     NO_CALLS,
     SCHEMA_VERSION,
+    AcceptedContradiction,
     CaseProgress,
     CaseResult,
     DocumentRefusedError,
@@ -90,11 +91,14 @@ from digline.core.run import (
     totals_to_dict,
     without_responses,
 )
+from digline.core.stability import reviewed_stability
 from digline.core.types import Cause
 from digline.store.deletion import refusal_for_a_promoted_run
 from digline.store.promotion import (
+    accepted_at_promotion,
     kept_at_promotion,
     refusal_for_a_moved_baseline,
+    refusal_for_acceptances,
     refusal_for_exclusions,
     refusal_for_unaccepted_pins,
     refusals_for,
@@ -875,6 +879,7 @@ class FileResultStore:
         accepting_pins: Collection[str] = frozenset(),
         excluding: Collection[str] = frozenset(),
         excluded_by: str = "",
+        accepting_contradictions: Collection[str] = frozenset(),
     ) -> Run:
         # `read_run` already refuses a run addressed through the wrong tenant,
         # and a document that declares another suite — conditions 1 and 7, made
@@ -891,11 +896,36 @@ class FileResultStore:
             raise excluded
         run = kept_at_promotion(stored, excluding)
 
+        # Condition 14, beside the exclusions and for the same reason: what
+        # condition 12 reads is the run less the contradictions a person
+        # accepted by name. Stability is read across the suite's other stored
+        # runs, and only where something is to be accepted. (ADR 0067 §6)
+        accepted: tuple[AcceptedContradiction, ...] = ()
+        if accepting_contradictions:
+            stability = reviewed_stability(run, self._runs_beside(run))
+            refused = refusal_for_acceptances(
+                run, accepting_contradictions, excluded_by, stability=stability
+            )
+            if refused is not None:
+                raise refused
+            accepted = accepted_at_promotion(
+                run,
+                frozenset(accepting_contradictions),
+                excluded_by,
+                promoted_at,
+                stability=stability,
+            )
+
         # The conditions that answer from the document alone, in the order
         # they are owed. The first is raised and the rest are not looked at, which is
         # what the body this replaced did; the tuple leaves that choice here
         # rather than making it for every backend.
-        refusals = refusals_for(run, expected_config_hash, declared=declared)
+        refusals = refusals_for(
+            run,
+            expected_config_hash,
+            declared=declared,
+            accepted=_accepted_pairs(run, accepted),
+        )
         if refusals:
             raise refusals[0]
 
@@ -937,9 +967,22 @@ class FileResultStore:
                 Exclusion(case_id=case_id, by=excluded_by, at=promoted_at)
                 for case_id in sorted(set(excluding))
             ),
+            # Who accepted which contradiction, and on how many judgements:
+            # said by every comparison against this reference, and carried to
+            # no later run. (ADR 0067 §6)
+            accepted_contradictions=accepted,
         )
         write_atomic(self.baseline_path(run.tenant, run.suite), run_to_json(reference))
         return reference
+
+    def _runs_beside(self, run: Run) -> tuple[Run, ...]:
+        """The suite's other stored runs this version can read, for the
+        stability of `run`'s reviewed answers. A scan, so a file of a foreign
+        schema is passed over rather than refused, as `--run latest` passes
+        it over. (ADR 0067 §3, as noted 2026-11-22)"""
+        listing = self.scan_runs(run.tenant, run.suite)
+        own = key_of(run.created_at, run.config_hash)
+        return tuple(self.read_run(ref) for ref in listing.runs if ref.key != own)
 
     def _refuse_a_moved_baseline(self, run: Run, expected: str | None) -> Run | None:
         """Read the baseline present and raise condition 8's refusal if it is
@@ -2155,3 +2198,17 @@ class RecordingWriter:
         finally:
             Path(tmp).unlink(missing_ok=True)
         return path
+
+
+def _accepted_pairs(
+    run: Run, accepted: Sequence[AcceptedContradiction]
+) -> frozenset[tuple[str, str]]:
+    """Each accepted contradiction as condition 12 reads it, `(case_id,
+    assertion_id)`: the verdict on that case whose check carries that name."""
+    taken = {(item.case_id, item.check) for item in accepted}
+    return frozenset(
+        (case.case_id, verdict.assertion_id)
+        for case in run.results
+        for verdict in case.verdicts
+        if (case.case_id, verdict.score.name) in taken
+    )

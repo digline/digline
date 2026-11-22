@@ -2013,6 +2013,7 @@ def _with_word(value: _Type, word: str) -> _Type:
 _REVIEWED_AT_6 = "ADR 0067 §1, §2, §4; OUTPUT_VERSION 6"
 _AGREEMENT_AT_6 = "ADR 0067 §1 (c), (e), §5; the agreement reading"
 _RUBRICS_AT_6 = "ADR 0067 §1 (d); a re-judge against the run it was made from"
+_STABILITY_AT_6 = "ADR 0067 §3, §6, §1 (e); stability and the accepted contradiction"
 _AT_6: tuple[_AddedKey, ...] = (
     *_shape_added(
         "reviewed",
@@ -2131,6 +2132,69 @@ _AT_6: tuple[_AddedKey, ...] = (
         },
         _RUBRICS_AT_6,
     ),
+    # Stability on the agreement reading, the held-out cases named on
+    # request, and the contradictions accepted at a promotion (ADR 0067 §3,
+    # §6, §1 (e)): added keys, in 6's base for the agreement's reason.
+    *_shape_added(
+        "fact.tally.agreement",
+        {
+            "runs_read": _INT,
+            "unstable": _k(_arr(_Obj("fact.tally.agreement.unstable"))),
+            "unstable_held_out": _INT,
+            "held_out_disagreed": _INT,
+            "held_out_disagreements": _k(
+                _arr(_Obj("fact.tally.agreement.disagreement"))
+            ),
+        },
+        _STABILITY_AT_6,
+    ),
+    _AddedKey("fact.tally.agreement.check", "unstable", _INT, _STABILITY_AT_6),
+    _AddedKey("fact.tally.agreement.composite", "held_out", _BOOL, _STABILITY_AT_6),
+    *_shape_added(
+        "fact.tally.agreement.unstable",
+        {
+            "case_id": _STR,
+            "check": _STR,
+            "assertion_id": _STR,
+            "held_out": _BOOL,
+            "why": _STR,
+        },
+        _STABILITY_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.agreement.disagreement",
+        {"case_id": _STR, "check": _STR, "direction": _STR},
+        _STABILITY_AT_6,
+    ),
+    _AddedKey(
+        "compare.full",
+        "accepted_contradictions",
+        _k(_arr(_Obj("accepted_contradiction"))),
+        _STABILITY_AT_6,
+    ),
+    _AddedKey(
+        "run_document",
+        "accepted_contradictions",
+        _k(_arr(_Obj("accepted_contradiction"))),
+        _STABILITY_AT_6,
+    ),
+    *_shape_added(
+        "accepted_contradiction",
+        {
+            "case_id": _STR,
+            "check": _STR,
+            "direction": _STR,
+            "agreement": _k(_Obj("accepted_contradiction.agreement")),
+            "by": _STR,
+            "at": _STR,
+        },
+        _STABILITY_AT_6,
+    ),
+    *_shape_added(
+        "accepted_contradiction.agreement",
+        {"against": _INT, "judgements": _INT},
+        _STABILITY_AT_6,
+    ),
 )
 
 #: The shape of every document under `OUTPUT_VERSION = 6`: 5's base, what 5
@@ -2192,5 +2256,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     6,
-    "f08041d83e2592d9fe0bc8e82587560f88078142b87a3e0d75bca71c845936dc",
+    "210360965561f20f9bd5764b2ad4378d8dedc11d8bb1f208f9b397bef5be9ff3",
 )

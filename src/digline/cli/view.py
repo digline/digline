@@ -123,7 +123,7 @@ from digline.report import (
     pages,
 )
 from digline.report.pages import VIEW_PORT
-from digline.report.render import excluded_fact
+from digline.report.render import accepted_fact, excluded_fact
 from digline.report.views import GROUP, NAME, address
 from digline.run import Suite
 from digline.run.suite import judged_names
@@ -949,7 +949,10 @@ class ViewHandler(BaseHTTPRequestHandler):
         # comparison against it says: shown where the baseline is shown.
         # (ADR 0065 §1)
         excluded = excluded_fact(baseline.excluded_at_promotion, locale)
-        return f"{said} {excluded}" if excluded else said
+        # And the contradictions a person accepted at its promotion, in the
+        # sentence a comparison says. (ADR 0067 §6)
+        accepted = accepted_fact(baseline.accepted_contradictions, locale)
+        return " ".join(part for part in (said, excluded, accepted) if part)
 
     def _screen_compare(
         self, locale: Locale, query: Mapping[str, Sequence[str]]

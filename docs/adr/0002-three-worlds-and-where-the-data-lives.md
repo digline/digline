@@ -540,6 +540,18 @@ list. What the test cannot see is stated in its own docstring.*
    `ExclusionRefusedError`.
    *Added 2026-11-13 by [ADR 0065](0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)
    §2, and brought here by the change that implements it.*
+14. **`AcceptanceRefusedError`** — the promotion names, with `--accept-contradiction
+   CASE --by NAME`, a contradiction it may not accept: nobody's name on it, a case the
+   run does not carry, a case on which no judge contradicted the person, or a
+   contradiction the judge held on every judgement of every run read, which only a
+   corrected rubric or a revised verdict answers. Accepted only where the judge could
+   not hold its verdict steady: its samples split, or the suite's stored runs gave the
+   answer different verdicts. Asked before any condition, beside the exclusions, and an
+   accepted contradiction is passed over by 12, recorded on the reference with the
+   judgements that went against the person, who and when, and carried to no later run.
+   *Added 2026-11-22 by [ADR 0067](0067-calibrating-the-judge-against-a-person.md) §6,
+   with Alessandro Prandini's rulings of that day (P-1717), and brought here by the
+   change that implements it.*
 
 *Proposed 2026-10-13: a tenth condition, `NothingJudgedError`, for a run that judged
 nothing as ADR 0049 §3 defines it, whether or not the suite declares an
