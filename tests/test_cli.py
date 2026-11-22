@@ -532,6 +532,9 @@ def test_json_full_adds_the_deltas_and_nothing_else(repo: Path) -> None:
         # other lists.
         "cases_changed",
         "excluded_at_promotion",
+        # ADR 0067 §6: the contradictions accepted at the reference's
+        # promotion, beside the exclusions.
+        "accepted_contradictions",
     }
 
 
