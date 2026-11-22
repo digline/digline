@@ -2121,6 +2121,22 @@ nobody's name beside it are refused as `ExclusionRefusedError`. Both refusals
 are in `REFUSALS`. On the command line that is `--exclude CASE --by NAME`
 ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)).
 
+*Arrives with digline 1.4.* `promote` also takes `accepting_contradictions`,
+the reviewed answers whose contradiction of the person this promotion
+accepts, with `excluded_by` as the person who accepts, mandatory here too.
+Empty by default. A case is accepted only where its verdict is unstable, read
+by `reviewed_stability(run, others)` across the suite's other stored runs:
+its samples split or one errored, its judgements under `--judge-samples` fall
+on the two sides of the threshold, or the runs disagree. A stable
+contradiction, a case the run does not carry, one no judge contradicted the
+person on, and an acceptance with nobody's name on it are refused as
+`AcceptanceRefusedError`, condition 14, before any other. The reference
+records each in `Run.accepted_contradictions`, a tuple of
+`AcceptedContradiction`: `case_id`, `check`, `direction`, `against` of
+`judgements`, `by` and `at`. It holds for this run alone. On the command line
+that is `--accept-contradiction CASE --by NAME`
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §6).
+
 ### Reading: `read_run` and `read_baseline`
 
 - **`FileResultStore.read_run(ref)`** returns the `Run` stored under a
