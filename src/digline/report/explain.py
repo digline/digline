@@ -34,6 +34,7 @@ from digline.core import (
     Direction,
     Expansion,
     Noise,
+    RubricComparison,
     Run,
     ScaleLost,
     Scope,
@@ -72,6 +73,7 @@ from digline.report.render import (
     fmt_score,
     fmt_value,
     on_the_line_count,
+    rubric_lines,
     run_tally,
     uncertain_said,
     unjudged_sentence,
@@ -237,6 +239,15 @@ type TallyKind = Literal[
     # that left it out would describe a judge as calibrated, or not, with no
     # figure behind either. Read off the run alone. It gates nothing.
     "agreement",
+    # The fourteenth amendment, from ADR 0067 §1 (d), and the ruling of
+    # 2026-11-22 (P-1715): a re-judge read against the run it was made from,
+    # the reviewed answers that changed verdict and for which check, paired by
+    # name, and the checks not paired and why. The report says it, in a
+    # section of its own, and a reading that left it out would describe a
+    # corrected rubric's round with nothing to say what it moved. Read off the
+    # run and the run its `rejudged_from` names, which the front end reads and
+    # hands in, and only on a re-judge. It gates nothing.
+    "rubrics",
 ]
 
 
@@ -377,6 +388,9 @@ class TallyFact:
     #: the reviewed answers with a person's verdict, held in and held out.
     #: (ADR 0067 §1 (c), (e))
     agreement: AgreementReading | None = None
+    #: Only on `rubrics`: the re-judge against the run it was made from. The
+    #: count is the reviewed answers read in both. (ADR 0067 §1 (d))
+    rubrics: RubricComparison | None = None
 
 
 type Fact = CheckFact | SettingFact | TallyFact
@@ -395,6 +409,7 @@ def facts(
     comparison: Comparison | None = None,
     *,
     composites: Sequence[Composite] = (),
+    rubrics: RubricComparison | None = None,
 ) -> tuple[Fact, ...]:
     """The reading, as values.
 
@@ -411,6 +426,11 @@ def facts(
     a run does not record it, so the front end that loaded the suite hands it
     in, as it hands in the cases the suite declares. `()` reads no composite.
     (ADR 0067 §5)
+
+    `rubrics` is a re-judge read against the run it was made from,
+    `rubric_comparison(source, run)`: the front end reads the source by
+    `rejudged_from` and compares, as it hands in `composites`. `None` states
+    no such fact. (ADR 0067 §1 (d))
     """
     out: list[Fact] = [*_tallies(run, comparison)]
     # Last of the counts, and from the run alone: it reads the verdicts above
@@ -422,6 +442,10 @@ def facts(
                 "agreement", count=reading.held_in + reading.held_out, agreement=reading
             )
         )
+    # After the agreement, which it does not qualify: what this round moved,
+    # against the round before it. (ADR 0067 §1 (d))
+    if rubrics is not None:
+        out.append(TallyFact("rubrics", count=rubrics.answers, rubrics=rubrics))
     out.extend(_settings(run, comparison))
     out.extend(_checks(run, comparison))
     return tuple(out)
@@ -1075,6 +1099,12 @@ def explain_text(
         lines.extend(agreement_lines(fact.agreement, locale))
         lines.extend(rule)
 
+    for fact in tallies:
+        if fact.kind == "rubrics" and fact.rubrics is not None:
+            lines.append("")
+            lines.append(phrase(locale, "section.rubric"))
+            lines.extend(rubric_lines(fact.rubrics, locale))
+
     lines.append("")
     lines.append(phrase(locale, f"explain.heading.settings.{where}"))
     if settings:
@@ -1212,9 +1242,9 @@ def _tally_line(fact: TallyFact, locale: Locale, counts: dict[str, int]) -> str:
         case "shape":
             assert fact.shape is not None
             return _shape_line(fact.shape, locale)
-        case "agreement":
+        case "agreement" | "rubrics":
             # Not a line among the counts: a block of its own, under them,
-            # which `explain_text` prints. (ADR 0067 §1 (c))
+            # which `explain_text` prints. (ADR 0067 §1 (c), (d))
             return ""
     assert_never(fact.kind)
 

@@ -51,6 +51,7 @@ from digline.core.assertions import (
     levenshtein_distance,
 )
 from digline.core.calibration import CalibrationBand, ScaleLost, scale_lost
+from digline.core.checktype import TYPE_OF_CLASS, check_type
 from digline.core.compare import (
     AGREEMENT_FIELD,
     IDENTITY_FIELD,
@@ -164,6 +165,14 @@ from digline.core.register import (
     RecordedOutcome,
     RegisterEntry,
 )
+from digline.core.rejudged import (
+    PairedCheck,
+    RubricComparison,
+    Unpaired,
+    UnpairedCheck,
+    VerdictChange,
+    rubric_comparison,
+)
 from digline.core.resolution import (
     DuplicateNameError,
     IncoherentRowsError,
@@ -251,6 +260,7 @@ from digline.core.tokens import (
 )
 from digline.core.types import (
     ALL_KINDS,
+    CHECK_TYPES,
     CONVERSATION_ONLY,
     DRIVER_METADATA_KEYS,
     NO_USAGE,
@@ -263,6 +273,7 @@ from digline.core.types import (
     TEXT_OR_STRUCTURED,
     Cause,
     CheckKind,
+    CheckType,
     ClaimReply,
     ConfigValue,
     Disclosure,
@@ -349,6 +360,16 @@ __all__ = [
     "Composite",
     "CompositeMismatch",
     "reviewed_agreement",
+    "PairedCheck",
+    "RubricComparison",
+    "Unpaired",
+    "UnpairedCheck",
+    "VerdictChange",
+    "rubric_comparison",
+    "CHECK_TYPES",
+    "CheckType",
+    "TYPE_OF_CLASS",
+    "check_type",
     "Contradiction",
     "Cause",
     "CheckKind",

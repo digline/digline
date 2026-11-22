@@ -21,7 +21,15 @@ from digline.run.driver import (
     price_digest_of,
     target_config,
 )
-from digline.run.replay import Replay, ReplayError, rejudge, replayable_cases
+from digline.run.replay import (
+    Replay,
+    ReplayError,
+    rejudge,
+    rejudge_reviewed,
+    replayable_cases,
+    reviewed_left_out,
+    reviewed_round,
+)
 from digline.run.suite import (
     BlindTolerance,
     Calibration,
@@ -67,6 +75,9 @@ __all__ = [
     "undeclared_kinds",
     "price_digest_of",
     "rejudge",
+    "rejudge_reviewed",
+    "reviewed_left_out",
+    "reviewed_round",
     "replayable_cases",
     "target_config",
 ]

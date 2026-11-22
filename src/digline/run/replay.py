@@ -40,7 +40,14 @@ from digline.run.driver import (
 )
 from digline.run.suite import TRAJECTORY_CHECKS, Case, Suite
 
-__all__ = ["Replay", "ReplayError", "rejudge"]
+__all__ = [
+    "Replay",
+    "ReplayError",
+    "rejudge",
+    "rejudge_reviewed",
+    "reviewed_left_out",
+    "reviewed_round",
+]
 
 
 class ReplayError(Exception):
@@ -353,6 +360,111 @@ def rejudge(
         judge_samples=judge_samples,
         # The answers are the source's, so is what is known of the modules that
         # produced them. (ADR 0052, decision 2)
+        modules_unchecked=source.modules_unchecked,
+    )
+
+
+def reviewed_round(suite: Suite, source: Run) -> Suite:
+    """`suite`, narrowed to the reviewed answers `source` holds, and nothing
+    else: what `rejudge --reviewed` judges again. (ADR 0067 §1 (d))
+
+    A reviewed answer's answer is the person's, in the declaration, so no
+    recorded response is needed and none is read. What is refused is the
+    run's reviewed answer the suite no longer declares as one: its answer is
+    read from the declaration, and judging the rest would be a narrower round
+    than the run's, carrying its name, for ADR 0015 §6's reason. A reviewed
+    answer the suite declares and the run does not hold is not the run's, and
+    is left out; `reviewed_left_out` counts them for the front end.
+    """
+    if source.tenant != suite.tenant:
+        raise ReplayError(
+            f"the stored run belongs to tenant {source.tenant!r} and this "
+            f"suite is {suite.tenant!r}: a replay does not cross a perimeter, "
+            "for the reason a comparison does not"
+        )
+    held = [case.case_id for case in source.results if case.reviewed is not None]
+    if not held:
+        raise ReplayError(
+            "the stored run holds no reviewed answer, so `--reviewed` has "
+            "nothing to judge again: a round on the reviewed answers is read "
+            "from a run that judged some"
+        )
+    declared = {
+        case.id: case for case in suite.cases if case.reviewed_answer is not None
+    }
+    for case_id in held:
+        if case_id not in declared:
+            raise ReplayError(
+                f"case {case_id!r} is a reviewed answer in the stored run, and "
+                "this suite no longer declares it as one. Its answer is read "
+                "from the declaration, so it cannot be judged again, and "
+                "judging the rest would be a narrower round carrying the run's "
+                "name. Declare it again, or produce a new run"
+            )
+    wanted = set(held)
+    return replace(suite, cases=[case for case in suite.cases if case.id in wanted])
+
+
+def reviewed_left_out(suite: Suite, source: Run) -> int:
+    """How many reviewed answers `suite` declares that `source` does not hold,
+    which a round on the run's reviewed answers does not judge."""
+    held = {case.case_id for case in source.results if case.reviewed is not None}
+    return sum(
+        1
+        for case in suite.cases
+        if case.reviewed_answer is not None and case.id not in held
+    )
+
+
+def _never_asked(case: Case) -> Response:
+    """The target of a round on reviewed answers, which the driver never
+    calls: every case carries its answer. Refusing rather than answering, so
+    a path that did call it would say so instead of judging an invented
+    reply. (ADR 0067 §1 (d))"""
+    raise ReplayError(
+        f"case {case.id!r} asked the target for an answer in a round on reviewed "
+        "answers, which carry their own: no target is called here"
+    )
+
+
+def rejudge_reviewed(
+    suite: Suite,
+    source: Run,
+    *,
+    key: str,
+    created_at: str,
+    mapper: Mapper = default_mapper,
+    git_commit: str | None = None,
+    run_metadata: Mapping[str, object] | None = None,
+    pricing: str = "",
+    judge_samples: int = 0,
+    on_unpriced: Callable[[str], None] | None = None,
+) -> Run:
+    """Judge `source`'s reviewed answers again with `suite` as declared now,
+    and nothing else, without calling any target. (ADR 0067 §1 (d))
+
+    What is carried and what is fresh is `rejudge`'s, for its reasons, and so
+    is the declaration: the run says `rejudged_from`, and the store refuses to
+    promote it, which is ADR 0015 §7 and holds here as it is written. The
+    answers were not measured by this run, so neither was the target.
+    """
+    produced = execute(
+        reviewed_round(suite, source),
+        _never_asked,
+        created_at=created_at,
+        mapper=mapper,
+        git_commit=git_commit,
+        run_metadata=run_metadata,
+        pricing=pricing,
+        judge_samples=judge_samples,
+        on_unpriced=on_unpriced,
+    )
+    return replace(
+        produced,
+        target_config=source.target_config,
+        artifacts=dict(source.artifacts),
+        rejudged_from=key,
+        judge_samples=judge_samples,
         modules_unchecked=source.modules_unchecked,
     )
 

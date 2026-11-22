@@ -25,6 +25,7 @@ from typing import assert_never
 from digline.core import (
     AgreementReading,
     AgreementTally,
+    RubricComparison,
     Run,
     index_verdicts,
     key_of,
@@ -183,6 +184,10 @@ def fact_json(
             # count beside the held-in ones. (ADR 0067 §1 (c), (e), §5)
             if fact.agreement is not None:
                 payload["agreement"] = agreement_json(fact.agreement)
+            # And a re-judge against the run it was made from. Only on the
+            # `rubrics` tally. (ADR 0067 §1 (d))
+            if fact.rubrics is not None:
+                payload["rubrics"] = rubrics_json(fact.rubrics)
             return payload
     assert_never(fact)
 
@@ -218,6 +223,48 @@ def agreement_json(reading: AgreementReading) -> dict[str, object]:
             if not item.held_out
         ],
         "composites_held_out": sum(1 for item in reading.mismatches if item.held_out),
+    }
+
+
+def rubrics_json(comparison: RubricComparison) -> dict[str, object]:
+    """A re-judge against the run it was made from, for a program: the source
+    key, the checks paired and not, by name, identity and type, and the
+    held-in answers that changed verdict by case. No reason crosses, and a
+    held-out answer is counted, never named. (ADR 0067 §1 (d), (e))"""
+    return {
+        "source": comparison.source,
+        "read": comparison.read,
+        "answers": comparison.answers,
+        "paired": [
+            {
+                "check": check.check,
+                "check_type": check.check_type,
+                "before_id": check.before_id,
+                "after_id": check.after_id,
+                "changed": check.changed,
+            }
+            for check in comparison.paired
+        ],
+        "unpaired": [
+            {
+                "check": item.check,
+                "why": item.why,
+                "before": item.before,
+                "after": item.after,
+            }
+            for item in comparison.unpaired
+        ],
+        "changes": [
+            {
+                "case_id": change.case_id,
+                "check": change.check,
+                "before": change.before,
+                "after": change.after,
+                "toward": change.toward,
+            }
+            for change in comparison.changes
+        ],
+        "held_out_changes": comparison.held_out_changes,
     }
 
 

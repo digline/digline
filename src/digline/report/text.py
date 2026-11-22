@@ -819,6 +819,57 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         ),
         "agreement.rule": "What a yes means, in this suite's words: {rule}",
         "agreement.no_rule": "This suite does not say what a yes means.",
+        "section.rubric": "What the re-judge changed, against the run it was made from",
+        "rubric.source.one": (
+            "Read against {source}, the run this was re-judged from, on 1 "
+            "reviewed answer in both."
+        ),
+        "rubric.source.many": (
+            "Read against {source}, the run this was re-judged from, on {count} "
+            "reviewed answers in both."
+        ),
+        "rubric.changed": (
+            "{check} changed since that run, its rubric or another of its "
+            "settings; verdicts paired by name."
+        ),
+        "rubric.unchanged": "{check} is unchanged; verdicts paired by name.",
+        "rubric.type_changed": (
+            "{check} is not paired: its type changed, {before} → {after}."
+        ),
+        "rubric.type_unnamed": "a type digline has no word for",
+        "rubric.type_not_recorded": (
+            "{check} is not paired: the type of the run it was re-judged from is "
+            "not recorded."
+        ),
+        "rubric.name_shared": (
+            "{check} is not paired: two checks carry that name on one answer."
+        ),
+        "rubric.change.toward": (
+            "{case} · {check}: {before} → {after}, toward the person."
+        ),
+        "rubric.change.away": (
+            "{case} · {check}: {before} → {after}, away from the person."
+        ),
+        "rubric.change.neither": (
+            "{case} · {check}: {before} → {after}, toward neither: one side could "
+            "not be judged."
+        ),
+        "rubric.status.pass": "passed",
+        "rubric.status.fail": "failed",
+        "rubric.status.error": "could not be judged",
+        "rubric.none": "No reviewed answer changed verdict on a paired check.",
+        "rubric.held_out.one": (
+            "1 held-out answer changed verdict on a paired check, counted and "
+            "not named."
+        ),
+        "rubric.held_out.many": (
+            "{count} held-out answers changed verdict on a paired check, counted "
+            "and not named."
+        ),
+        "rubric.unread": (
+            "{source}, the run this was re-judged from, could not be read: its "
+            "verdicts are not compared."
+        ),
         "column.detail": "What happened",
         "column.reason": "Why",
         "detail.dropped": "Score fell from {before} to {now}.",
@@ -2795,6 +2846,62 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Che cosa vuol dire un sì, con le parole di questa suite: {rule}"
         ),
         "agreement.no_rule": "Questa suite non dice che cosa vuol dire un sì.",
+        "section.rubric": (
+            "Che cosa ha cambiato il nuovo giudizio, rispetto al run da cui è "
+            "stato fatto"
+        ),
+        "rubric.source.one": (
+            "Letto rispetto a {source}, il run da cui è stato rigiudicato, su 1 "
+            "risposta rivista presente in entrambi."
+        ),
+        "rubric.source.many": (
+            "Letto rispetto a {source}, il run da cui è stato rigiudicato, su "
+            "{count} risposte riviste presenti in entrambi."
+        ),
+        "rubric.changed": (
+            "{check} è cambiato da quel run, nella rubrica o in un'altra delle "
+            "sue impostazioni; verdetti accoppiati per nome."
+        ),
+        "rubric.unchanged": "{check} non è cambiato; verdetti accoppiati per nome.",
+        "rubric.type_changed": (
+            "{check} non è accoppiato: il suo tipo è cambiato, {before} → {after}."
+        ),
+        "rubric.type_unnamed": "un tipo per cui digline non ha una parola",
+        "rubric.type_not_recorded": (
+            "{check} non è accoppiato: il tipo del run di partenza non è registrato."
+        ),
+        "rubric.name_shared": (
+            "{check} non è accoppiato: due controlli portano quel nome sulla "
+            "stessa risposta."
+        ),
+        "rubric.change.toward": (
+            "{case} · {check}: {before} → {after}, verso la persona."
+        ),
+        "rubric.change.away": (
+            "{case} · {check}: {before} → {after}, lontano dalla persona."
+        ),
+        "rubric.change.neither": (
+            "{case} · {check}: {before} → {after}, verso nessuna delle due: un "
+            "lato non ha potuto essere giudicato."
+        ),
+        "rubric.status.pass": "passato",
+        "rubric.status.fail": "fallito",
+        "rubric.status.error": "non giudicato",
+        "rubric.none": (
+            "Nessuna risposta rivista ha cambiato verdetto su un controllo accoppiato."
+        ),
+        "rubric.held_out.one": (
+            "1 risposta tenuta da parte ha cambiato verdetto su un controllo "
+            "accoppiato, contata e non nominata."
+        ),
+        "rubric.held_out.many": (
+            "{count} risposte tenute da parte hanno cambiato verdetto su un "
+            "controllo accoppiato, contate e non nominate."
+        ),
+        "rubric.unread": (
+            "{source}, il run da cui è stato rigiudicato, non si è potuto "
+            "leggere: i suoi verdetti non sono confrontati."
+        ),
         "column.detail": "Che cosa è successo",
         "column.reason": "Perché",
         "detail.dropped": "Il punteggio è sceso da {before} a {now}.",

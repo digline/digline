@@ -50,6 +50,7 @@ from digline.core import (
     diff,
     key_of,
     nothing_judged,
+    rubric_comparison,
 )
 from digline.host import (
     LATEST,
@@ -123,6 +124,7 @@ from digline.report import (
     log_text,
     module_lines,
     phrase,
+    rubric_lines,
     rule_lines,
     rule_words,
     summary_lines,
@@ -136,6 +138,9 @@ from digline.run import (
     Suite,
     planned_calls,
     rejudge,
+    rejudge_reviewed,
+    reviewed_left_out,
+    reviewed_round,
     suite_notes,
 )
 from digline.store import (
@@ -754,7 +759,16 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
             "--judge-samples 1 asks the judge once, which is what rejudge already "
             "does: a range needs at least 2"
         )
-    plan = planned_calls(suite, judge_samples=judge_samples)
+    # A round on the reviewed answers alone judges the run's reviewed answers
+    # and nothing else, so what it plans is that round's. Its refusals come
+    # before the first judge is paid, as `Replay`'s do. (ADR 0067 §1 (d))
+    planned = suite
+    if args.reviewed:
+        try:
+            planned = reviewed_round(suite, source)
+        except ReplayError as exc:
+            raise UsageError(Written.of(exc, "", named=False)) from exc
+    plan = planned_calls(planned, judge_samples=judge_samples)
     say(f"digline: {plan.sentence(replayed=True)}", err=True)
     # What `run` says before the first call, said here too: a re-judge loads the
     # suite and judges with it, and under `--judge-samples` a judge whose class
@@ -763,9 +777,18 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     for note in notes:
         say(f"digline: {note}", err=True)
 
+    if args.reviewed and (left := reviewed_left_out(suite, source)):
+        say(
+            f"digline: {left} reviewed answer(s) the suite declares are not in "
+            f"run {key} and are not judged: a round on the reviewed answers "
+            "judges the run's",
+            err=True,
+        )
+
     unpriced: list[str] = []
+    judge_again = rejudge_reviewed if args.reviewed else rejudge
     try:
-        run = rejudge(
+        run = judge_again(
             suite,
             source,
             key=key,
@@ -800,6 +823,14 @@ def cmd_rejudge(args: argparse.Namespace) -> int:
     reading = judge_reading(run, locale="en") if judge_samples else None
     if reading is not None:
         say(f"digline: {reading}", err=True)
+    # What the round changed, at the end, read against the run it was made
+    # from: which reviewed answers changed verdict, for which check, paired by
+    # name. (ADR 0067 §1 (d))
+    if args.reviewed:
+        compared = rubric_comparison(source, run)
+        if compared is not None:
+            for line in rubric_lines(compared, locale="en"):
+                say(f"digline: {line}", err=True)
     if args.json:
         emit(
             json.dumps(
@@ -2484,6 +2515,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         metavar="KEY=VALUE",
         help="repeatable; recorded in Run.metadata, payload unless disclosed",
+    )
+    rej_p.add_argument(
+        "--reviewed",
+        action="store_true",
+        help=(
+            "judge again the run's reviewed answers alone, under the suite as "
+            "declared now: no target is called, and the verdicts are compared "
+            "with the run's, paired by check name"
+        ),
     )
     rej_p.add_argument("--json", action="store_true")
     accepting_baseline_schema(rej_p)

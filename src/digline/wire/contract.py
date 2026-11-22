@@ -2012,6 +2012,7 @@ def _with_word(value: _Type, word: str) -> _Type:
 #: part of its base, not of `_ADDED`.
 _REVIEWED_AT_6 = "ADR 0067 §1, §2, §4; OUTPUT_VERSION 6"
 _AGREEMENT_AT_6 = "ADR 0067 §1 (c), (e), §5; the agreement reading"
+_RUBRICS_AT_6 = "ADR 0067 §1 (d); a re-judge against the run it was made from"
 _AT_6: tuple[_AddedKey, ...] = (
     *_shape_added(
         "reviewed",
@@ -2076,6 +2077,60 @@ _AT_6: tuple[_AddedKey, ...] = (
         },
         _AGREEMENT_AT_6,
     ),
+    # A re-judge against the run it was made from, on `explain`'s `rubrics`
+    # tally (ADR 0067 §1 (d), ADR 0012 §3's fourteenth amendment): added keys,
+    # in 6's base for the agreement's reason.
+    _AddedKey(
+        "fact.tally",
+        "rubrics",
+        _k(_Obj("fact.tally.rubrics"), optional=True),
+        _RUBRICS_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.rubrics",
+        {
+            "source": _STR,
+            "read": _BOOL,
+            "answers": _INT,
+            "paired": _k(_arr(_Obj("fact.tally.rubrics.paired"))),
+            "unpaired": _k(_arr(_Obj("fact.tally.rubrics.unpaired"))),
+            "changes": _k(_arr(_Obj("fact.tally.rubrics.change"))),
+            "held_out_changes": _INT,
+        },
+        _RUBRICS_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.rubrics.paired",
+        {
+            "check": _STR,
+            "check_type": _STR,
+            "before_id": _STR,
+            "after_id": _STR,
+            "changed": _BOOL,
+        },
+        _RUBRICS_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.rubrics.unpaired",
+        {
+            "check": _STR,
+            "why": _STR,
+            "before": _STR_OR_NULL,
+            "after": _STR_OR_NULL,
+        },
+        _RUBRICS_AT_6,
+    ),
+    *_shape_added(
+        "fact.tally.rubrics.change",
+        {
+            "case_id": _STR,
+            "check": _STR,
+            "before": _STR,
+            "after": _STR,
+            "toward": _k("boolean", "null"),
+        },
+        _RUBRICS_AT_6,
+    ),
 )
 
 #: The shape of every document under `OUTPUT_VERSION = 6`: 5's base, what 5
@@ -2137,5 +2192,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     6,
-    "a8a88f5cd790325da8de4fae0b3cf3ff9664e06c3c008bc3f2b31051ea1625ad",
+    "c22e30285747c640cc836748915914e33eae8de9617f3b498db3324e2de1f14b",
 )

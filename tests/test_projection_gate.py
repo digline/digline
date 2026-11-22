@@ -59,6 +59,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import replace
 
 from digline.core import (
+    CHECK_TYPES,
     DRIVER_METADATA_KEYS,
     NAMED_CONFIG_KEYS,
     Exclusion,
@@ -129,6 +130,10 @@ STRINGS: dict[str, tuple[str, Check]] = {
     "$.results[].error_kind": ("a", _ERROR_KINDS.__contains__),
     "$.results[].verdicts[].origin": ("a", _ORIGINS.__contains__),
     "$.aggregate[].origin": ("a", _ORIGINS.__contains__),
+    # A check's type, in digline's closed vocabulary of them, which crosses in
+    # clear as `origin` does. (ADR 0067 §1 (d))
+    "$.results[].verdicts[].check_type": ("a", CHECK_TYPES.__contains__),
+    "$.aggregate[].check_type": ("a", CHECK_TYPES.__contains__),
     "$.target_config.named[]": ("a", NAMED_CONFIG_KEYS.__contains__),
     "$.judge_config.named[]": ("a", NAMED_CONFIG_KEYS.__contains__),
     "$.aggregate[].assertion_id": ("a", _form(_DIGEST)),
@@ -238,6 +243,7 @@ FIELDS: dict[str, str] = {
     "Verdict.assertion_id": "$.results[].verdicts[].assertion_id",
     "Verdict.status": "$.results[].verdicts[].status",
     "Verdict.origin": "$.results[].verdicts[].origin",
+    "Verdict.check_type": "$.results[].verdicts[].check_type",
 }
 
 
@@ -251,13 +257,14 @@ def _projected() -> dict[str, object]:
     foreign = replace(
         first.verdicts[0],
         origin="foreign",
+        check_type="llm_rubric",
         score=replace(
             first.verdicts[0].score,
             metadata={**first.verdicts[0].score.metadata, "rossi_hits": 3},
         ),
     )
     aggregate = (
-        replace(base.aggregate[0], origin="builtin"),
+        replace(base.aggregate[0], origin="builtin", check_type="precision"),
         *base.aggregate[1:],
     )
     run = replace(

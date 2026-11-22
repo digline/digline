@@ -23,11 +23,13 @@ from digline.core.reviewed import Reviewed
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
+    CHECK_TYPES,
     DRIVER_METADATA_KEYS,
     NO_USAGE,
     NOTHING_EXTRA,
     REDACTED,
     Cause,
+    CheckType,
     ConfigValue,
     Disclosure,
     ErrorKind,
@@ -317,6 +319,12 @@ __all__ = [
 #    carries `check` and `good` and neither flag, which reads as what it was:
 #    a blind verdict, held in, about its check. Outside `config_hash`: what a
 #    person said, not what the suite declared (ADR 0014 §1).
+#    A second, of 2026-11-22, additive, and the step writes nothing for it:
+#    `check_type` on a verdict, the word its check's type is declared with,
+#    stamped by the driver beside `judged` (ADR 0067 §1 (d), as noted that
+#    day). Absent is *not recorded*: every verdict before 25, and every check
+#    digline has no word for. Outside `identity` and `config_hash`: a copy of
+#    a declaration, read by the comparison of a re-judge with its source.
 SCHEMA_VERSION = 25
 
 
@@ -2652,6 +2660,8 @@ def _redact_verdict(verdict: Verdict, disclosure: Disclosure) -> Verdict:
         # Who wrote the metadata, which the projection after this reads. (ADR
         # 0034 §17.3)
         origin=verdict.origin,
+        # A fact about the check, as `judged` is. (ADR 0067 §1 (d))
+        check_type=verdict.check_type,
     )
 
 
@@ -2956,6 +2966,11 @@ def _verdict_to_dict(verdict: Verdict, *, redacted: bool) -> dict[str, object]:
     # reads as, and a projection never takes for digline's. (ADR 0034 §17.5)
     if verdict.origin is not None:
         payload["origin"] = verdict.origin
+    # Absent is *not recorded*, which is every verdict before schema 25 and
+    # every check digline has no word for; nothing is guessed from a name.
+    # (ADR 0067 §1 (d), as noted 2026-11-22)
+    if verdict.check_type is not None:
+        payload["check_type"] = verdict.check_type
     return payload
 
 
@@ -3038,6 +3053,21 @@ def _verdict_from_dict(raw: Mapping[str, Any], *, redacted: bool) -> Verdict:
         judged=_optional_flag(raw, "judged", where),
         floor_standard_errors=_declared_width(raw, where),
         origin=_origin_from(raw, where),
+        check_type=_check_type_from(raw, where),
+    )
+
+
+def _check_type_from(raw: Mapping[str, Any], where: str) -> CheckType | None:
+    """One of `CheckType`'s words, or absent for *not recorded*. Anything else
+    is refused by the field's name, never by what the file holds, as `origin`
+    is: a projection crosses the word in clear. (ADR 0067 §1 (d))"""
+    value = raw.get("check_type")
+    if value is None:
+        return None
+    if isinstance(value, str) and value in CHECK_TYPES:
+        return cast(CheckType, value)
+    raise ValueError(
+        f"{where}: `check_type` is not one of digline's words for a check's type"
     )
 
 
