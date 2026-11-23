@@ -229,7 +229,11 @@ order that keeps the judge's verdict apart from the person's
   The gate holds the newest, and the run records both, so the blind
   agreement and the agreement after review can be read apart.
 - **Held in or held out.** `--held-out` marks the answers kept to test the
-  rubric rather than tune it; held in is the default.
+  rubric rather than tune it; held in is the default. A held-out answer read
+  before the rubric is frozen no longer tests it:
+  `digline record revise --held-in ID --by NAME` moves it among the held-in
+  ones, with the name and the time, and its verdicts count there from the
+  next run ([record](record.md#choosing-first-judging-blind-revising-after)).
 - **The agreement, criterion by criterion.** `explain` and the run's report
   read it per judged check, blind and after review, held in and held out,
   and close on the held-out figure alone: the one nobody tuned toward. A
@@ -261,7 +265,10 @@ order that keeps the judge's verdict apart from the person's
   stored run of the suite that holds one of its reviewed answers judged by a
   check of the same identity, and the reading says how many. Stability
   across runs is measured from two
-  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3).
+  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3). A
+  stored run of a schema this version does not read is passed over and
+  counted, *1 run not read: schema unknown to this version*, in the reading
+  and as `runs_unread` in `explain --json`.
 - **A contradiction accepted by name.** A contradiction keeps a run from
   becoming the reference. Where the verdict is unstable, and only there,
   `digline promote --accept-contradiction CASE --by NAME` accepts it. A stable
@@ -276,6 +283,11 @@ order that keeps the judge's verdict apart from the person's
   each to pass, and a no names the checks that failed. Per answer it is
   cheaper for the person and dearer for the judge: judged checks × samples
   judgements, where a verdict about one check costs samples.
+- **At least k of n.** A judged check may pass on a count of its
+  judgements rather than on their mean: `at_least = "2/3"` passes where two
+  of its three judgements reached the threshold. The verdict is then the
+  count, and the reading of the reviewed answers reads it as it reads any
+  other ([declarative](declarative.md#at-least-k-of-n-at_least)).
 
 ## Does the judge use the scale? Calibration cases
 

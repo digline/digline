@@ -168,6 +168,33 @@ rest of this opening.
     `AcceptanceRefusedError`, `refusal_for_acceptances` and
     `accepted_at_promotion` in `digline.store`; `accepting_contradictions`
     on `promote` and `promote_baseline`.
+- **At least k of n, a held-out answer moved among the held-in ones, and the
+  runs a stability reading did not read** (ADR 0067 §7, §1 (e), §3, its
+  fifth pull request, by the ruling of 2026-11-23). *Arrives with digline
+  1.4.*
+  - `at_least = "k/n"` on a judged check, `llm_rubric`, `faithfulness` or a
+    `repeated`, and `at_least="k/n"` on `LlmRubric`, `Faithfulness` and
+    `Repeated`: the check passes where at least k of its n judgements each
+    reached its threshold. The verdict's score is the share in favour and its
+    threshold k/n, so `compare`'s tolerance and the *uncertain* fact read the
+    count. The mean is kept in metadata as `mean_score`, with `at_least`,
+    `at_least_of` and `judgement_threshold`, and the run report shows it
+    beside the count, *3 judgements, 2 in favour · mean 0.633333*. n must be
+    the suite's `samples` times the repeats; any other n is refused at load,
+    naming both. Written `"k/n"` only, k at least 1 and n at least 2. No
+    default. `config_hash` moves only for a suite that declares it, and no
+    check's identity moves.
+  - `digline record revise --held-in ID --by NAME` moves a held-out answer
+    among the held-in ones, recorded as a revision is: `held_in` with the
+    name and the time, and `held_out` leaves the case. From the next run its
+    verdicts count in the held-in figures. An answer already held in is
+    refused, and nothing is written. New public names: `HeldIn` in
+    `digline.run`, `held_in` on `ReviewedAnswer`, and `hold_in` in
+    `digline.host`.
+  - The stability reading says the suite's stored runs it passed over for a
+    schema this version does not read, *1 run not read: schema unknown to
+    this version*, and `explain --json` carries `runs_unread` on the
+    `agreement` object, an added key under `OUTPUT_VERSION` 6.
 - **A missing provider says which environment was searched.** *"no provider
   named … is installed"* now ends on *"digline is running from the
   environment at <sys.prefix>, and a plugin installed in another one is not

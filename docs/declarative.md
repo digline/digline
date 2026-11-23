@@ -343,7 +343,7 @@ vote. Three judgements of 1, 0 and 0 against a `threshold` of 0.3 pass at
 again: `samples` asks the target for another answer, and `repeated` asks the
 judge about the same one.
 
-**At least k of n.** With a judge that answers 0 or 1, the mean is the share
+**At least k of n, before 1.4.** With a judge that answers 0 or 1, the mean is the share
 that passed, so the threshold is k/n written at the six decimals a score is
 kept at. *At least 2 of 3* is `threshold = 0.666667`, with `min_agreement =
 "2/3"` so that a split of two to one is a verdict and not an `error`: two of
@@ -351,6 +351,74 @@ three pass at 0.666667, and one of three fails at 0.333333. `0.67` fails two
 of three. A judge whose scores fall between 0 and 1 gives a mean that is not
 a count, and no threshold reads it as one. Measured on 2026-11-14 on both,
 `samples = 3` and a `repeated` of 3, with a judge that voted in turn.
+From digline 1.4 the count is said as one, below.
+
+### At least k of n: `at_least`
+
+*Arrives with digline 1.4.* A judged check, or a `repeated`, may pass on a
+count of its judgements instead of on their mean:
+
+```toml
+[[assertions]]
+type = "repeated"
+samples = 3
+min_agreement = "1/3"
+at_least = "2/3"
+
+  [assertions.inner]
+  type = "llm_rubric"
+  rubric = "Does the reply answer the question in at most three sentences?"
+  judge = "anthropic/claude-haiku-4-5"
+  threshold = 0.7
+  tolerance = 0.05
+```
+
+The check passes where **at least 2 of its 3 judgements each reached the
+`threshold`**, 0.7 here. In Python it is `at_least="2/3"`, on `LlmRubric`,
+`Faithfulness` or `Repeated`.
+
+**How it differs from `threshold` on the mean.** Three judgements of 0.9,
+0.8 and 0.2 have a mean of 0.633333: held against 0.7 the check fails,
+though two of the three passed. At `"2/3"` it passes. And 1, 0 and 0
+against a `threshold` of 0.3 pass on the mean at 0.333333, though two of
+the three said no: at `"2/3"` they fail. A threshold reads how high the
+judgements were, `at_least` how many of them cleared the bar, whatever
+scale the judge answers on.
+
+**What the verdict says.** Its score is the share of the n judgements that
+reached the threshold, `2/3` as 0.666667, and its threshold is k/n: the
+status is the comparison it is on every other check. The mean is kept
+beside the count, as `mean_score` in the verdict's metadata, with `at_least`
+and `at_least_of`, k and n, and `judgement_threshold`, the bar each
+judgement was held to; the run report shows it, *3 judgements, 2 in favour
+· mean 0.633333*. Since the score is the count, `compare`'s `tolerance` and
+the *uncertain* fact read the count, not the mean: at n = 3 one judgement
+moves the score by 0.333333. A judgement that could not be judged is not in
+favour.
+
+**n is the judgements the suite produces**, its `samples` times the
+`repeated`'s: `samples = 2` above a `repeated` of 3 is `"k/6"`. Any other n is
+refused when the suite loads, naming both numbers:
+
+```
+suite.toml: suite 'support': check 'llm_rubric' declares at_least "2/3",
+n = 3, and the suite gives it 6 judgements a case (samples 2 × repeats 3):
+n is that number
+```
+
+It is written `"k/n"` and nothing else, because n is checked: a decimal or
+a reduced fraction would lose it. k is at least 1, since *at least none*
+passes every answer, and n at least 2. On a `repeated` it is declared on the
+`repeated`, never on what it wraps. `min_agreement` still applies as it
+does without it: below it the verdict is `error`, so a floor of `"1/3"`
+lets a two-to-one split be counted.
+
+**What it moves.** `config_hash`, so a reference is not promoted across it,
+and only for a suite that declares it: no other suite's hash moves. No
+check's identity moves, so a run before and after it still pairs, and the
+first comparison shows the score moving from a mean to a count. There is no
+default: a check without it folds by the mean, as before
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §7).
 
 ## The judge, by coordinates
 

@@ -462,7 +462,9 @@ each one word for word, and not from a suite run end to end.
   two: *Stability was read across 3 runs of this suite with these checks:
   every verdict held.* With one, it says it was not measured, and only a
   verdict whose samples split is set apart
-  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3).
+  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3). A
+  stored run of a schema this version does not read is passed over and
+  said, *1 run not read: schema unknown to this version.*
 - **The composite against its criteria.** Where the suite declares
   `criteria` on a composite check, the reading names each held-in answer about
   the whole answer on which the composite is not the conjunction of its
@@ -496,7 +498,9 @@ In `--json` it is a fact with `"kind": "agreement"`, whose `count` is the
 reviewed answers with a verdict. Its `agreement` object carries:
 
 - `held_in` and `held_out`;
-- `stability_measured`, true from two runs read, and `runs_read`;
+- `stability_measured`, true from two runs read, `runs_read`, and
+  `runs_unread`, the suite's stored runs of a schema this version does not
+  read, passed over;
 - `checks`, one entry per check and role, each with `check`, `assertion_id`,
   `held_out`, `blind` and `after` (each of `agree`, `passed_no`,
   `failed_yes`), `revised`, `unjudged` and `unstable`;
