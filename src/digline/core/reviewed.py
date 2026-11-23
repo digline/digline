@@ -407,6 +407,9 @@ class AgreementReading:
     runs_read: int = 1
     unstable: tuple[Instability, ...] = ()
     disagreements: tuple[Disagreement, ...] = ()
+    #: The suite's runs the scan passed over for their schema, said beside
+    #: `runs_read`. (ADR 0067 §3, P-1719)
+    runs_unread: int = 0
 
     def total(self, *, held_out: bool) -> AgreementTally:
         """The verdicts after review in one role, every check summed: what the
@@ -513,6 +516,7 @@ def reviewed_agreement(
         mismatches=_mismatches(run, composites),
         stability_measured=stability.measured,
         runs_read=stability.runs_read,
+        runs_unread=stability.runs_unread,
         unstable=stability.unstable,
         disagreements=tuple(disagreements),
     )

@@ -215,6 +215,7 @@ def agreement_json(
         "held_out": reading.held_out,
         "stability_measured": reading.stability_measured,
         "runs_read": reading.runs_read,
+        "runs_unread": reading.runs_unread,
         "unstable": [
             {
                 "case_id": item.case_id,

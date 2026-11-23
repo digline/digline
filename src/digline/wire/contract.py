@@ -2139,6 +2139,7 @@ _AT_6: tuple[_AddedKey, ...] = (
         "fact.tally.agreement",
         {
             "runs_read": _INT,
+            "runs_unread": _INT,
             "unstable": _k(_arr(_Obj("fact.tally.agreement.unstable"))),
             "unstable_held_out": _INT,
             "held_out_disagreed": _INT,
@@ -2256,5 +2257,5 @@ def _digest(shapes: Mapping[str, Mapping[str, _Key]]) -> str:  # pyright: ignore
 #: a type change that did not bump.
 _BASE_DIGEST: tuple[int, str] = (
     6,
-    "210360965561f20f9bd5764b2ad4378d8dedc11d8bb1f208f9b397bef5be9ff3",
+    "2c63178c43fa9866d1ed8c38b98302cfc5dd2475563fbff65f076bdbeb6bd4f8",
 )

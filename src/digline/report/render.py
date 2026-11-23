@@ -75,7 +75,7 @@ from digline.core import (
 )
 from digline.core.compare import WIDTH_FIELD
 from digline.core.reviewed import Against
-from digline.core.sampling import IN_FAVOUR_KEY, JUDGEMENTS_KEY
+from digline.core.sampling import IN_FAVOUR_KEY, JUDGEMENTS_KEY, MEAN_SCORE_KEY
 from digline.report.sheet import SHEET
 from digline.report.text import Locale, phrase, strings
 
@@ -1918,6 +1918,14 @@ def _stability_lines(
         lines = [phrase(locale, "agreement.stability.measured", runs=reading.runs_read)]
     else:
         lines = [phrase(locale, "agreement.stability.held", runs=reading.runs_read)]
+    if reading.runs_unread:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.stability.unread.{_many(reading.runs_unread)}",
+                count=reading.runs_unread,
+            )
+        )
     if inside:
         lines.append(
             phrase(
@@ -3753,7 +3761,13 @@ def judgements_said(verdict: Verdict, locale: Locale) -> str:
         or count <= 1
     ):
         return ""
-    return phrase(locale, "detail.judgements", count=count, favour=favour)
+    said = phrase(locale, "detail.judgements", count=count, favour=favour)
+    mean = verdict.score.metadata.get(MEAN_SCORE_KEY)
+    if isinstance(mean, int | float) and not isinstance(mean, bool):
+        # On a check that declares `at_least` the score is the count, and the
+        # mean it replaced is said beside it. (ADR 0067 §7, P-1719)
+        said += " · " + phrase(locale, "detail.mean", mean=fmt_score(float(mean)))
+    return said
 
 
 def _run_section(

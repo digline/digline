@@ -25,6 +25,7 @@ from digline.core.protocols import (
     JudgeAbstained,
     JudgePriceRaised,
 )
+from digline.core.ratio import as_count
 from digline.core.refused import RefusedError, Written
 from digline.core.types import (
     ALL_KINDS,
@@ -252,8 +253,11 @@ class AssertionBase:
     #: judged, not *what* is checked, and they already travel in every `Verdict`.
     #: `floor_standard_errors` is the third: a width moved must pair the two
     #: verdicts, not turn them into a `new` and a `missing`. (ADR 0050)
+    #: `at_least` is the fourth, for the same reason: it is how the judgements
+    #: of a check are folded into a verdict, so a run before and after it still
+    #: pairs, and `config_hash` keeps it. (ADR 0067 §7)
     IDENTITY_EXCLUDED: ClassVar[frozenset[str]] = frozenset(
-        {"threshold", "tolerance", "floor_standard_errors"}
+        {"threshold", "tolerance", "floor_standard_errors", "at_least"}
     )
 
     #: Whether a sampled verdict keeps what each sample said beside the mean
@@ -967,12 +971,18 @@ class LlmRubric(AssertionBase):
     threshold: float
     tolerance: float
     floor_standard_errors: float | None = field(default=None, kw_only=True)
+    #: `"k/n"`: the check passes where at least k of its n judgements reached
+    #: `threshold`, and n is what the suite produces for it. Read by the
+    #: driver, which alone folds a suite's samples. (ADR 0067 §7)
+    at_least: str | None = field(default=None, kw_only=True)
     name: str = "llm_rubric"
     KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_OR_CONVERSATION
 
     def __post_init__(self) -> None:
         _refuse_uncallable_judge(self.judge, "LlmRubric")
+        if self.at_least is not None:
+            as_count(self.at_least, field="LlmRubric.at_least")
         if not self.rubric:
             raise RefusedError("LlmRubric.rubric must not be empty")
         if not (0.0 <= self.threshold <= 1.0):
@@ -1142,12 +1152,18 @@ class Faithfulness(AssertionBase):
     threshold: float
     tolerance: float
     floor_standard_errors: float | None = field(default=None, kw_only=True)
+    #: `"k/n"`: the check passes where at least k of its n judgements reached
+    #: `threshold`, and n is what the suite produces for it. Read by the
+    #: driver, which alone folds a suite's samples. (ADR 0067 §7)
+    at_least: str | None = field(default=None, kw_only=True)
     name: str = "faithfulness"
     KIND: ClassVar[CheckKind] = "judged"
     accepts: frozenset[OutputKind] = TEXT_ONLY
 
     def __post_init__(self) -> None:
         _refuse_uncallable_judge(self.judge, "Faithfulness")
+        if self.at_least is not None:
+            as_count(self.at_least, field="Faithfulness.at_least")
         if not (0.0 <= self.threshold <= 1.0):
             raise RefusedError(
                 f"Faithfulness.threshold must be within [0, 1], got {self.threshold}"

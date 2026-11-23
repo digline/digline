@@ -818,6 +818,14 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "Stability was read across {runs} runs of this suite with these "
             "checks: every verdict held."
         ),
+        # The runs a scan passed over for their schema, said beside the count
+        # read. (ADR 0067 §3, P-1719)
+        "agreement.stability.unread.one": (
+            "1 run not read: schema unknown to this version."
+        ),
+        "agreement.stability.unread.many": (
+            "{count} runs not read: schema unknown to this version."
+        ),
         "agreement.unstable.one": (
             "1 verdict is unstable and counted in neither figure: {cases}."
         ),
@@ -1038,6 +1046,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         # Beside a folded score, the single judgements it rests on: a mean of
         # 0.67 over 6 is 4 in favour, and the mean alone does not say it.
         "detail.judgements": "{count} judgements, {favour} in favour",
+        "detail.mean": "mean {mean}",
         "detail.three_way": (
             " The samples went three ways: {passed} passed, {failed} failed, "
             "{errored} could not be judged."
@@ -2917,6 +2926,12 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
             "La stabilità è stata letta su {runs} run di questa suite con questi "
             "controlli: ogni verdetto ha tenuto."
         ),
+        "agreement.stability.unread.one": (
+            "1 run non letto: schema sconosciuto a questa versione."
+        ),
+        "agreement.stability.unread.many": (
+            "{count} run non letti: schema sconosciuto a questa versione."
+        ),
         "agreement.unstable.one": (
             "1 verdetto è instabile e non è contato in nessuna delle due cifre: "
             "{cases}."
@@ -3138,6 +3153,7 @@ TEXT: Mapping[Locale, Mapping[str, str]] = {
         "detail.missing": "Presente nel riferimento, non controllato qui.",
         "detail.errored": "Il controllo non ha potuto essere eseguito.",
         "detail.judgements": "{count} giudizi, {favour} a favore",
+        "detail.mean": "media {mean}",
         "detail.three_way": (
             " I campioni sono andati in tre direzioni: {passed} superati, "
             "{failed} falliti, {errored} non giudicabili."

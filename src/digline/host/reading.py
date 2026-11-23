@@ -103,7 +103,7 @@ def explained(
     baseline = store.read_baseline(suite.tenant, suite.name)
     declared = suite.declared()
     source = _source(store, suite, run)
-    others = _others(store, suite, run)
+    others, unread = _others(store, suite, run)
     if mint is not None:
         table = one_table(mint, where="reading")
         run = project_served(run, table)
@@ -114,7 +114,7 @@ def explained(
             source = project_served(source, table)
         others = tuple(project_served(other, table) for other in others)
     rubrics = _rubrics(source, run)
-    stability = _stability(run, others)
+    stability = _stability(run, others, unread)
     if baseline is None:
         # A lost scale needs no reference either: it compares a score with a
         # declared band, not with a past. (ADR 0024 §4.5)
@@ -162,30 +162,33 @@ def _source(store: ResultStore, suite: Suite, run: Run) -> Run | str | None:
         return run.rejudged_from
 
 
-def _others(store: ResultStore, suite: Suite, run: Run) -> tuple[Run, ...]:
+def _others(store: ResultStore, suite: Suite, run: Run) -> tuple[tuple[Run, ...], int]:
     """The suite's other stored runs this version can read, where `run` holds
     a reviewed answer with a person's verdict, for the stability of its
-    verdicts: `()` otherwise, so a suite with none reads nothing more.
-    A scan, so a file of a foreign schema is passed over, as `--run latest`
-    passes it over. (ADR 0067 §3, as noted 2026-11-22)"""
+    verdicts, and how many the scan passed over for their schema: `((), 0)`
+    otherwise, so a suite with none reads nothing more. A scan, so a file of
+    a foreign schema is passed over, as `--run latest` passes it over, and
+    counted, so the reading says it. (ADR 0067 §3, as noted 2026-11-22 and
+    by the ruling of 2026-11-23, P-1719)"""
     if not any(
         case.reviewed is not None and case.reviewed.good is not None
         for case in run.results
     ):
-        return ()
+        return (), 0
     own = key_of(run.created_at, run.config_hash)
     listing = store.scan_runs(suite.tenant, suite.name)
     return tuple(
         read_run(store, suite, ref.key) for ref in listing.runs if ref.key != own
-    )
+    ), sum(listing.skipped.values())
 
 
-def _stability(run: Run, others: tuple[Run, ...]) -> Stability | None:
+def _stability(run: Run, others: tuple[Run, ...], unread: int = 0) -> Stability | None:
     """`run`'s stability across `others`, or `None` where it holds no
-    reviewed answer, which reads its samples alone and finds nothing."""
+    reviewed answer, which reads its samples alone and finds nothing.
+    `unread` is the count of runs the scan passed over."""
     if not any(case.reviewed is not None for case in run.results):
         return None
-    return reviewed_stability(run, others)
+    return reviewed_stability(run, others, unread=unread)
 
 
 def _rubrics(source: Run | str | None, run: Run) -> RubricComparison | None:
@@ -231,7 +234,7 @@ def reported(
     rubrics = _rubrics(_source(store, suite, read), read)
     # And the stability of its reviewed answers, read across the suite's other
     # runs: names, identities and statuses, no reason. (ADR 0067 §3)
-    stability = _stability(read, _others(store, suite, read))
+    stability = _stability(read, *_others(store, suite, read))
 
     if baseline is None:
         # Not a refusal, and this is the whole point of the command existing.

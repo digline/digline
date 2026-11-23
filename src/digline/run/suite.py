@@ -47,6 +47,7 @@ from digline.core.assertions import ASSERTION_MEMBERS, check_shape
 from digline.core.ratio import Ratio, as_agreement
 from digline.core.refused import NameRef, RefusedError, Written
 from digline.core.run import RecordedStep
+from digline.core.sampling import declared_at_least, judgements_per_answer
 from digline.core.tokens import TokenKind
 from digline.core.types import floor_width_refusal
 
@@ -56,6 +57,7 @@ __all__ = [
     "CaptureSource",
     "CallPlan",
     "Case",
+    "HeldIn",
     "Revised",
     "ReviewedAnswer",
     "judged_names",
@@ -310,6 +312,33 @@ class Revised:
 
 
 @dataclass(frozen=True, slots=True)
+class HeldIn:
+    """A held-out answer moved among the held-in ones, by a person, at a time.
+    (ADR 0067 §1 (e), by the ruling of 2026-11-23, P-1719)
+
+    Recorded as a revision is: `by` is her name, given with the move and never
+    read from a machine, and `at` is when, as the host read the clock. The
+    answer is held in from then on, and its verdicts join the held-in
+    figures: once read before the rubric is frozen, it no longer tests it.
+    """
+
+    by: str
+    at: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.by, str) or not self.by.strip():  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "a move to the held-in answers names nobody: `by` is the name "
+                "of the person who moved it, never read from git or the "
+                "environment"
+            )
+        if not isinstance(self.at, str) or not self.at:  # pyright: ignore[reportUnnecessaryIsInstance]
+            raise RefusedError(
+                "a move to the held-in answers says no `at`, when it was made"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewedAnswer:
     """An answer the application gave, and a person's yes or no about it.
     (ADR 0059 §1)
@@ -367,6 +396,10 @@ class ReviewedAnswer:
     #: one who forgets reports no test, which is said out loud, rather than a
     #: tuning reported as a test. (ADR 0067 §1 (e))
     held_out: bool = False
+    #: Where the answer was held out and was moved among the held-in ones:
+    #: who moved it and when. Refused beside `held_out`, which it ended.
+    #: (ADR 0067 §1 (e), P-1719)
+    held_in: HeldIn | None = None
 
     def __post_init__(self) -> None:
         if self.check is not None and (
@@ -383,6 +416,17 @@ class ReviewedAnswer:
                 f"the reviewed answer for {about} gives held_out="
                 f"{self.held_out!r}: it is true or false"
             )
+        if self.held_in is not None:
+            if not isinstance(self.held_in, HeldIn):  # pyright: ignore[reportUnnecessaryIsInstance]
+                raise RefusedError(
+                    f"the reviewed answer for {about} gives held_in="
+                    f"{self.held_in!r}: it is an object with by and at"
+                )
+            if self.held_out:
+                raise RefusedError(
+                    f"the reviewed answer for {about} is held out and says it "
+                    "was moved among the held-in answers: it is one or the other"
+                )
         if self.good is None:
             if self.failing is not None or self.revised is not None:
                 raise RefusedError(
@@ -920,6 +964,8 @@ class Suite:
                     field=f"suite {self.name!r} min_agreement",
                 ),
             )
+        for assertion in self.assertions:
+            self._refuse_a_count_that_does_not_match(assertion)
 
         # Two cases sharing an id collide in the key `compare()` pairs on, and
         # the second would silently replace the first. It is the family of
@@ -1457,6 +1503,41 @@ class Suite:
         return Declared(
             subject=frozenset(c.id for c in self.cases if not _watching(c)),
             watching=frozenset(c.id for c in self.cases if _watching(c)),
+        )
+
+    def _refuse_a_count_that_does_not_match(self, assertion: Assertion) -> None:
+        """Refuse, at load and naming both numbers, an `at_least` whose n is
+        not the judgements this suite produces for the check, its `samples`
+        times the repeats, and one on a check nothing judges. (ADR 0067 §7)"""
+        at_least = declared_at_least(assertion)
+        if at_least is None:
+            return
+        k, n = at_least
+        if not judged(assertion):
+            raise RefusedError(
+                Written.said(
+                    f"suite {self.name!r}: check ",
+                    NameRef("verdict_name", assertion.name),
+                    f' declares at_least "{k}/{n}", and nothing judges it: '
+                    "at_least counts a judge's judgements",
+                )
+            )
+        each = judgements_per_answer(assertion)
+        produced = self.samples * each
+        if n == produced:
+            return
+        how = (
+            f"samples {self.samples}"
+            if each == 1
+            else f"samples {self.samples} × repeats {each}"
+        )
+        raise RefusedError(
+            Written.said(
+                f"suite {self.name!r}: check ",
+                NameRef("verdict_name", assertion.name),
+                f' declares at_least "{k}/{n}", n = {n}, and the suite gives '
+                f"it {produced} judgements a case ({how}): n is that number",
+            )
         )
 
     def config_hash(self, *, pricing: str = "") -> str:

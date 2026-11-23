@@ -66,6 +66,7 @@ from digline.host import (
     explained,
     git_commit,
     history,
+    hold_in,
     import_elect,
     import_listing,
     imported_since,
@@ -1548,6 +1549,7 @@ def cmd_record(args: argparse.Namespace) -> int:
         "good": ("import", "revise"),
         "bad": ("import", "revise"),
         "by": ("import", "revise"),
+        "held_in": ("revise",),
         "choose": ("import",),
         "held_out": ("import",),
         "whole": ("import",),
@@ -1814,7 +1816,13 @@ def cmd_record_revise(args: argparse.Namespace) -> int:
     """A person's verdict after she read the disagreements, written beside the
     one she gave blind, in the suite's capture file. It writes and stops: no
     commit, no run, no promotion. `at` is the host's clock, `utc_now_iso`.
-    (ADR 0067 §2; `--failing` by the ruling of 2026-11-19, P-1710)"""
+    (ADR 0067 §2; `--failing` by the ruling of 2026-11-19, P-1710)
+
+    With `--held-in ID`, a held-out answer is moved among the held-in ones,
+    with the name and the time, and nothing else is said: no verdict, no
+    `--case`. (ADR 0067 §1 (e), by the ruling of 2026-11-23, P-1719)"""
+    if args.held_in is not None:
+        return _record_hold_in(args)
     if args.tenant is None or args.suite is None or args.case is None:
         raise UsageError(
             "`digline record revise` needs --tenant, --suite and --case, and "
@@ -1842,6 +1850,29 @@ def cmd_record_revise(args: argparse.Namespace) -> int:
         f"{'--good' if args.good else '--bad'}, by {args.by}: the verdict given "
         "blind stays beside it; nothing was committed, run or promoted "
         "(ADR 0067 §2)"
+    )
+    return EXIT_OK
+
+
+def _record_hold_in(args: argparse.Namespace) -> int:
+    if args.tenant is None or args.suite is None:
+        raise UsageError(
+            "`digline record revise --held-in ID` needs --tenant and --suite, with --by"
+        )
+    if args.case is not None or args.good or args.bad or args.failing:
+        raise UsageError(
+            "--held-in ID moves an answer among the held-in ones and says no "
+            "verdict: it takes no --case, --good, --bad or --failing; revise "
+            "the verdict in a command of its own"
+        )
+    suite, loaded = _record_suite(args)
+    path = revise_file(Path(args.root), suite, loaded.module, args.tenant)
+    hold_in(path, args.held_in, by=args.by, at=utc_now_iso(), suite=suite)
+    say(
+        f"moved {args.held_in} among the held-in answers in {path}, by "
+        f"{args.by}: its verdicts now count in the held-in figures and no "
+        "longer test the rubric; nothing was committed, run or promoted "
+        "(ADR 0067 §1 (e))"
     )
     return EXIT_OK
 
@@ -2912,6 +2943,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "import only: the answers this invocation writes are held out, to "
             "test the rubric rather than tune it; held in by default"
+        ),
+    )
+    rec_p.add_argument(
+        "--held-in",
+        metavar="ID",
+        help=(
+            "revise only: move this held-out case among the held-in answers, "
+            "with --by; its verdicts then count in the held-in figures"
         ),
     )
     rec_p.add_argument(
