@@ -37,6 +37,13 @@
   figures, `promote --accept-contradiction` and its record on the reference,
   `compare`'s sentence, and `explain --show-held-out`. `at_least` (5) is in
   no file
+  *The fifth built 2026-11-23*, with Alessandro Prandini's ruling of that day
+  (P-1719), each noted where it applies: `at_least`, whose verdict carries
+  the count and keeps the mean beside it (§7), the write that moves a
+  held-out answer among the held-in ones (§1 (e)), and the runs a stability
+  reading passed over for their schema, counted and said (§3). ADR 0068's
+  judge was built apart, in #1033. With it the five pull requests of §10 are
+  built, and the record's construction is closed
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: *Noted 2026-11-19, by Alessandro Prandini's ruling of that day
@@ -298,6 +305,21 @@ P-1717), the two notes above kept as written.* **Decided with the fourth.**
   does that: `--held-out` is the import's, and `digline record revise` writes
   a verdict, not a role. The sentence is reported, not built here.
 
+*Noted 2026-11-23, by Alessandro Prandini's ruling of that day (P-1719), the
+note above kept as written.* **The write is built with the fifth.**
+`digline record revise --held-in ID --by NAME` moves a held-out answer among
+the held-in ones, recorded as a revision is: the cases file holds `held_in`,
+with the person's name and the time, and `held_out` leaves the case, so from
+the next run its verdicts count in the held-in figures and no longer in the
+held-out count. It takes no verdict, and an answer already held in is
+refused, with nothing written. The ruling asked the review page to show it
+as a command where the page shows the held-out answers. It does not show
+them: neither `src/digline/cli/recorder_pages.py` nor
+`src/digline/cli/view.py` reads `held_out`, read at `98dfe6d7`, so the page
+shows no command. The run document is unchanged: it carries `held_out` as
+before, false on a moved answer, and the move's name and time stay in the
+cases file, as a revision's do.
+
 ### 2. Two verdicts per reviewed answer, and the review rule
 
 *Dictated: both verdicts are kept. The blind agreement is the measure of the
@@ -392,6 +414,14 @@ P-1717), the text above kept as written.* **How the fourth reads it.**
   counted, as §1 (e) has every held-out answer counted.
 - **No exit code moves**, as decided above: an unstable contradiction is
   exit `1` and refused at promotion unless accepted by name (§6).
+
+*Noted 2026-11-23, by Alessandro Prandini's ruling of that day (P-1719), the
+note above kept as written.* **The runs not read are said.** The runs read
+come from a scan, which passes over a stored run of a schema this version
+does not read. Those are counted beside `runs_read` and said in the reading,
+*1 run not read: schema unknown to this version*, and in `explain --json` as
+`runs_unread`, so a reading across three runs is not taken for one across
+all the suite's.
 
 **A split below `min_agreement` is not a contradiction**, today or here: the
 fold makes it `error`, unjudged, exit `2`. So the unstable contradiction of
@@ -561,6 +591,47 @@ today.
 it is exact only for a judge that answers 0 or 1, and reads as a mean to
 anyone who did not write it.
 
+*Noted 2026-11-23, by Alessandro Prandini's ruling of that day (P-1719), the
+text above kept as written.* **The verdict carries the count, not the mean.**
+The text above has *the mean still written and still read by `compare`'s
+tolerance*. The mean cannot be the verdict's score, because `Verdict` holds
+its status to the comparison of its score with its threshold: on `main` at
+`98dfe6d7` a verdict that passes at a mean of 0.666667 against a threshold
+of 0.7 is refused, *status='pass' contradicts score 0.666667 against
+threshold 0.7 (implies 'fail')*, and that verdict is exactly two of three
+judgements above 0.7. So:
+- **the score is the share of the n judgements in favour**, `favour/n`, and
+  **the threshold is k/n**. The status is the comparison, as it is on every
+  other check;
+- **the mean is kept in metadata, as `mean_score`**, with `at_least` and
+  `at_least_of`, k and n as two numbers, and `judgement_threshold`, the bar
+  each judgement was held to, which `threshold` no longer says. Numbers, so
+  they cross a boundary as every count does. The run report shows the mean
+  beside the count;
+- **`compare`'s tolerance and the `uncertain` fact read the count**, and the
+  [declarative](../declarative.md#at-least-k-of-n-at_least) page says so.
+
+Decided in the building, each said here so it is not found later:
+- **Written `"k/n"` only.** A fraction reduces `4/6` to `2/3` and a float
+  carries no n, and n is checked. k is at least 1, since *at least none*
+  passes every answer (fixed decision 3), and n at least 2, since at least k
+  of one is the threshold itself.
+- **Declared on the check the suite lists**: on a `Repeated`, never on what
+  it wraps, which is refused by name.
+- **The `Score`'s interval is left empty** on a counted verdict. Its samples
+  are means on another scale, and `compare` reads the interval as a noise
+  floor; they stay in `scores`. `directions` reads the counts the fold wrote,
+  so stability reads a counted verdict's samples as the judgements they are,
+  and `judge_min` and `judge_max` are held to `judgement_threshold`.
+- **`min_agreement` applies as it does without `at_least`**: below it the
+  verdict is `error`. A floor of `"1/3"` lets a two-to-one split be counted.
+- **Counted after the driver's fold**, the one place every judgement of a
+  sampled suite is in one verdict, and by a `Repeated` itself where its own
+  fold is every judgement, so the check called alone says what a run says
+  (fixed decision 1).
+- A judgement that could not judge is not in favour, and the share is over
+  n all the same.
+
 ### 8. The judge declared in a `suite.toml`
 
 Decided in [ADR 0068](0068-a-judge-set-up-in-the-suite-toml.md), apart,
@@ -615,6 +686,13 @@ from the judge's, and no held-out answer is chosen by digline.
   step invents nothing for it either: absent is *not recorded*.
 - `config_hash` moves only for a suite that declares `at_least`. No
   assertion identity moves.
+  *Noted 2026-11-23 (P-1719), the item kept as written:* and on a check that
+  declares it, the verdict's score is the count of its judgements in favour
+  and its threshold k/n, with the mean in metadata as `mean_score`. The mean
+  cannot be the score, because `Verdict` holds its status to the comparison
+  of its score with its threshold, and refused, on `main` at `98dfe6d7`, a
+  pass at 0.666667 against 0.7 (§7). A suite that declares no `at_least`
+  records what it recorded.
 - New options: `record import --choose`, `--held-out`, `--whole`,
   `--failing`; `record revise`; `rejudge --reviewed`; `promote
   --accept-contradiction`; `explain --show-held-out`. A new key in `[suite]`,
@@ -662,6 +740,10 @@ the friction it closes:
    and one of three failing at `"2/3"`, `n` refused when it does not match,
    and the hash unmoved for a suite without it. *It closes* the threshold
    that reads as a mean and is exact only for a judge that answers 0 or 1.
+   *Noted 2026-11-23 (P-1719):* ADR 0068's judge was built before it, in
+   #1033, so the fifth builds `at_least` alone, with two things the ruling
+   added: the write of §1 (e), and the runs §3's scan passed over, counted
+   and said.
 
 ## Consequences
 
