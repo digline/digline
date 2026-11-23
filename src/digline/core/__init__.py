@@ -190,6 +190,7 @@ from digline.core.reviewed import (
     Composite,
     CompositeMismatch,
     Contradiction,
+    Disagreement,
     Reviewed,
     contradicted,
     reviewed_agreement,
@@ -204,6 +205,7 @@ from digline.core.run import (
     OBSERVED_FIELDS,
     PERIMETER_FIELDS,
     SYSTEM_NAME_FIELDS,
+    AcceptedContradiction,
     Artifact,
     CallTotals,
     CaseProgress,
@@ -248,6 +250,13 @@ from digline.core.sampling import (
     judged,
     on_the_line,
     origin,
+)
+from digline.core.stability import (
+    Instability,
+    Judgements,
+    Stability,
+    Unsteady,
+    reviewed_stability,
 )
 from digline.core.text import NEVER_LANGUAGE, json_visible
 from digline.core.tokens import (
@@ -360,6 +369,12 @@ __all__ = [
     "Composite",
     "CompositeMismatch",
     "reviewed_agreement",
+    "Disagreement",
+    "Instability",
+    "Judgements",
+    "Stability",
+    "Unsteady",
+    "reviewed_stability",
     "PairedCheck",
     "RubricComparison",
     "Unpaired",
@@ -376,6 +391,7 @@ __all__ = [
     "Comparison",
     "ErrorKind",
     "Exclusion",
+    "AcceptedContradiction",
     "Origin",
     "DRIVER_METADATA_KEYS",
     "AGREEMENT_FIELD",

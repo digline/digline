@@ -19,6 +19,7 @@ from digline.core import (
     IDENTITY_FIELD,
     NEVER_LANGUAGE,
     OBSERVED_FIELDS,
+    AcceptedContradiction,
     AgreementReading,
     AgreementTally,
     ArtifactDelta,
@@ -37,12 +38,14 @@ from digline.core import (
     Denominator,
     ErrorKind,
     Exclusion,
+    Instability,
     Noise,
     Outcome,
     RubricComparison,
     Run,
     ScaleLost,
     Scope,
+    Stability,
     Status,
     SuiteDelta,
     SystemConfig,
@@ -114,6 +117,7 @@ __all__ = [
     "unjudged_sentence",
     "cases_changed_fact",
     "excluded_fact",
+    "accepted_fact",
     "misnamed_fact",
     "reference_unreconciled_fact",
     "unreconciled_fact",
@@ -1159,6 +1163,7 @@ def headline(
     misnamed_text = misnamed_fact(refused, locale)
     cases_text = cases_changed_fact(comparison.cases, locale)
     excluded_text = excluded_fact(comparison.excluded_at_promotion, locale)
+    accepted_text = accepted_fact(comparison.accepted_contradictions, locale)
     # Before the configuration clause, because it qualifies what the numbers
     # *are* rather than how the system was set up: a replay did not ask the
     # target anything. The configuration clause still prints below it — it
@@ -1267,6 +1272,10 @@ def headline(
                 # the reference's other fact: every count below was measured
                 # against a reference without these cases. (ADR 0065 §1)
                 excluded_text,
+                # And the contradictions a person accepted by name at that
+                # promotion, beside it and for its reason: said while the
+                # reference stands, and moving no exit code. (ADR 0067 §6)
+                accepted_text,
                 # First of all, before the counts and not only before the
                 # canary: every number after it was graded by a judge that put
                 # a known answer where it cannot be. (ADR 0024 §4.6)
@@ -1491,6 +1500,35 @@ def excluded_fact(excluded: Sequence[Exclusion], locale: Locale) -> str:
     )
 
 
+def accepted_fact(accepted: Sequence[AcceptedContradiction], locale: Locale) -> str:
+    """The contradictions a person accepted by name at the reference's
+    promotion, each with its check, which way the judge went, how many
+    judgements went against the person, who and when; or nothing where the
+    reference accepted none. (ADR 0067 §6)"""
+    if not accepted:
+        return ""
+    named = [
+        phrase(
+            locale,
+            "fact.accepted.case",
+            case=item.case_id,
+            check=item.check,
+            went=phrase(locale, f"fact.accepted.{item.direction}"),
+            against=item.against,
+            judgements=item.judgements,
+            by=item.by,
+        )
+        + (f", {item.at[:10]}" if item.at else "")
+        for item in accepted
+    ]
+    return phrase(
+        locale,
+        f"fact.accepted.{'one' if len(accepted) == 1 else 'many'}",
+        count=len(accepted),
+        cases=_named(named, locale),
+    )
+
+
 def uncertain_said(item: Uncertain, locale: Locale) -> str:
     """One uncertain check on a case, as the reading and the report say it:
     the case, the check, and each reason that holds, the margin said with
@@ -1690,12 +1728,27 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
     """
     rows: list[str] = []
     against = 0
+    held_out = 0
     for case in run.results:
         reviewed = case.reviewed
         # An answer awaiting a person's verdict has none to set the judge's
         # beside, and is in no gate: counted in the headline, never a row
         # here. (ADR 0067 §1 (a))
         if reviewed is None or reviewed.good is None:
+            continue
+        if reviewed.held_out:
+            # Counted and never named: the report has no options, and
+            # `explain --show-held-out` is where a person asks to read one.
+            # A contradiction on it still opens the section, as the gate's
+            # sentence still names it. (ADR 0067 §1 (e), as noted 2026-11-22)
+            held_out += 1
+            against += any(
+                verdict.status != "error"
+                and (expected := reviewed.expects_pass(verdict.assertion_id))
+                is not None
+                and (verdict.status == "pass") != expected
+                for verdict in case.verdicts
+            )
             continue
         for verdict in case.verdicts:
             # Per check, as the person expected each: one check for an answer
@@ -1725,7 +1778,7 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
                 f"<td>{escape(why)}</td>"
                 "</tr>"
             )
-    if not rows:
+    if not rows and not held_out:
         return ""
     title = escape(phrase(locale, "section.reviewed"))
     table = _table(
@@ -1740,12 +1793,17 @@ def reviewed_section(run: Run, locale: Locale, *, reasons: bool) -> str:
         locale,
     )
     open_attr = " open" if against else ""
+    counted = phrase(locale, f"reviewed.held_out.{_many(held_out)}", count=held_out)
+    hidden = f'<p class="note">{escape(counted)}</p>' if held_out else ""
     return (
-        f"<details{open_attr}><summary>{title} ({len(rows)})</summary>{table}</details>"
+        f"<details{open_attr}><summary>{title} ({len(rows)})</summary>"
+        f"{table if rows else ''}{hidden}</details>"
     )
 
 
-def agreement_lines(reading: AgreementReading, locale: Locale) -> tuple[str, ...]:
+def agreement_lines(
+    reading: AgreementReading, locale: Locale, *, show_held_out: bool = False
+) -> tuple[str, ...]:
     """The agreement reading, one sentence per line: a row per judged check
     and role, the line that says whether the suite can gate, the stability
     line, and the composite's disagreements with its criteria. `explain`
@@ -1753,8 +1811,14 @@ def agreement_lines(reading: AgreementReading, locale: Locale) -> tuple[str, ...
     cannot word one figure two ways. (ADR 0067 §1 (c), (e), §2, §5)
 
     **A held-out answer is counted and never named** (§1 (e)): its rows are
-    counts, and its composite disagreements are a count beside the named
-    held-in ones.
+    counts, and its composite disagreements and unstable verdicts are a count
+    beside the named held-in ones. `show_held_out`, `explain
+    --show-held-out`, names them, each disagreement with the judge's reason,
+    under the line that says reading them ends their being held out.
+
+    **An unstable verdict is in no figure** (§3): named with why, or counted
+    where it is held out, under the line that says across how many runs
+    stability was read.
     """
     lines = [_agreement_row(row, locale) for row in reading.rows]
     if reading.held_out:
@@ -1775,8 +1839,7 @@ def agreement_lines(reading: AgreementReading, locale: Locale) -> tuple[str, ...
         )
     else:
         lines.append(phrase(locale, "agreement.no_held_out"))
-    if not reading.stability_measured:
-        lines.append(phrase(locale, "agreement.stability"))
+    lines.extend(_stability_lines(reading, locale, show_held_out=show_held_out))
     named = [m for m in reading.mismatches if not m.held_out]
     if named:
         lines.append(
@@ -1788,13 +1851,101 @@ def agreement_lines(reading: AgreementReading, locale: Locale) -> tuple[str, ...
             )
         )
     hidden = len(reading.mismatches) - len(named)
-    if hidden:
+    if hidden and not show_held_out:
         lines.append(
             phrase(
                 locale, f"agreement.composite.held_out.{_many(hidden)}", count=hidden
             )
         )
+    disagreed = [d for d in reading.disagreements if d.held_out]
+    if not show_held_out:
+        if disagreed:
+            lines.append(
+                phrase(
+                    locale,
+                    f"agreement.held_out.hidden.{_many(len(disagreed))}",
+                    count=len(disagreed),
+                )
+            )
+        return tuple(lines)
+    shown = [m for m in reading.mismatches if m.held_out]
+    unsteady = [u for u in reading.unstable if u.held_out]
+    if not (disagreed or shown or unsteady):
+        return tuple(lines)
+    lines.append(phrase(locale, "agreement.held_out.shown"))
+    for item in disagreed:
+        lines.append(
+            phrase(
+                locale,
+                "agreement.held_out.disagreement",
+                case=item.case_id,
+                check=item.check,
+                went=phrase(locale, f"fact.accepted.{item.direction}"),
+                reason=item.reason or phrase(locale, "reason.unavailable"),
+            )
+        )
+    if unsteady:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.unstable.held_out.named.{_many(len(unsteady))}",
+                count=len(unsteady),
+                cases="; ".join(_unstable_said(u, locale) for u in unsteady),
+            )
+        )
+    if shown:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.composite.held_out.named.{_many(len(shown))}",
+                count=len(shown),
+                cases="; ".join(_mismatch_said(m, locale) for m in shown),
+            )
+        )
     return tuple(lines)
+
+
+def _stability_lines(
+    reading: AgreementReading, locale: Locale, *, show_held_out: bool
+) -> list[str]:
+    """Across how many runs stability was read, then the held-in unstable
+    verdicts named and the held-out ones counted. (ADR 0067 §3)"""
+    inside = [u for u in reading.unstable if not u.held_out]
+    outside = [u for u in reading.unstable if u.held_out]
+    if not reading.stability_measured:
+        lines = [phrase(locale, "agreement.stability.alone")]
+    elif reading.unstable:
+        lines = [phrase(locale, "agreement.stability.measured", runs=reading.runs_read)]
+    else:
+        lines = [phrase(locale, "agreement.stability.held", runs=reading.runs_read)]
+    if inside:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.unstable.{_many(len(inside))}",
+                count=len(inside),
+                cases="; ".join(_unstable_said(u, locale) for u in inside),
+            )
+        )
+    if outside and not show_held_out:
+        lines.append(
+            phrase(
+                locale,
+                f"agreement.unstable.held_out.{_many(len(outside))}",
+                count=len(outside),
+            )
+        )
+    return lines
+
+
+def _unstable_said(item: Instability, locale: Locale) -> str:
+    return phrase(
+        locale,
+        "agreement.unstable.case",
+        case=item.case_id,
+        check=item.check,
+        why=phrase(locale, f"agreement.unstable.why.{item.why}"),
+    )
 
 
 def _agreement_row(row: CheckAgreement, locale: Locale) -> str:
@@ -1847,14 +1998,18 @@ def _mismatch_said(item: CompositeMismatch, locale: Locale) -> str:
 
 
 def agreement_section(
-    run: Run, locale: Locale, *, composites: Sequence[Composite] = ()
+    run: Run,
+    locale: Locale,
+    *,
+    composites: Sequence[Composite] = (),
+    stability: Stability | None = None,
 ) -> str:
     """`agreement_lines` as a section of the report, or nothing at all where
     no reviewed answer carries a person's verdict, so every report of a suite
     that declares none stays byte for byte what it was. Open where the judge
     disagreed with the person after review, closed where it agreed with every
     verdict: the calibration section's rule. (ADR 0067 §1 (c))"""
-    reading = reviewed_agreement(run, composites)
+    reading = reviewed_agreement(run, composites, stability)
     if reading is None:
         return ""
     title = escape(phrase(locale, "section.agreement"))
@@ -2026,6 +2181,7 @@ def _calibration_block(
     reasons: bool,
     composites: Sequence[Composite] = (),
     rubrics: RubricComparison | None = None,
+    stability: Stability | None = None,
 ) -> str:
     """`calibration_section` with its own line break, or nothing — so a report
     of a suite with no calibration case gains not even an empty line. The
@@ -2034,7 +2190,7 @@ def _calibration_block(
     from. (ADR 0067 §1 (c), (d))"""
     section = calibration_section(run, locale, reasons=reasons)
     reviewed = reviewed_section(run, locale, reasons=reasons)
-    agreed = agreement_section(run, locale, composites=composites)
+    agreed = agreement_section(run, locale, composites=composites, stability=stability)
     changed = rubric_section(rubrics, locale)
     return "".join(f"{part}\n" for part in (section, reviewed, agreed, changed) if part)
 
@@ -3271,6 +3427,7 @@ def render_html(
     declared: Declared | None,
     composites: Sequence[Composite] = (),
     rubrics: RubricComparison | None = None,
+    stability: Stability | None = None,
 ) -> str:
     """A self-contained HTML document, deterministic byte for byte.
 
@@ -3291,6 +3448,10 @@ def render_html(
     `rubrics` is a re-judge read against the run it was made from, which the
     front end reads by `rejudged_from` and compares: `None` renders no such
     section. (ADR 0067 §1 (d))
+
+    `stability` is the reviewed answers' stability read across the suite's
+    other runs, which the front end reads from the store: `None` reads this
+    run's samples alone. (ADR 0067 §3)
     """
     head = headline(comparison, run, baseline, locale=locale, declared=declared)
     answer = phrase(locale, "answer.yes" if head.worse else "answer.no")
@@ -3350,6 +3511,7 @@ def render_html(
                 reasons=head.reasons_available,
                 composites=composites,
                 rubrics=rubrics,
+                stability=stability,
             )
         }"
         f"{_uncertain_block(run, locale)}"
@@ -3696,6 +3858,7 @@ def render_run_html(
     locale: Locale,
     composites: Sequence[Composite] = (),
     rubrics: RubricComparison | None = None,
+    stability: Stability | None = None,
 ) -> str:
     """One run, rendered on its own, because there is no reference yet.
 
@@ -3748,7 +3911,12 @@ def render_run_html(
         f"{sections}\n"
         f"{
             _calibration_block(
-                run, locale, reasons=reasons, composites=composites, rubrics=rubrics
+                run,
+                locale,
+                reasons=reasons,
+                composites=composites,
+                rubrics=rubrics,
+                stability=stability,
             )
         }"
         f"{_uncertain_block(run, locale)}"

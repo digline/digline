@@ -26,11 +26,13 @@ from digline.core import (
     Minter,
     RubricComparison,
     Run,
+    Stability,
     compare,
     key_of,
     project_declared,
     project_served,
     redact,
+    reviewed_stability,
     rubric_comparison,
     withhold_artifacts,
 )
@@ -101,6 +103,7 @@ def explained(
     baseline = store.read_baseline(suite.tenant, suite.name)
     declared = suite.declared()
     source = _source(store, suite, run)
+    others = _others(store, suite, run)
     if mint is not None:
         table = one_table(mint, where="reading")
         run = project_served(run, table)
@@ -109,14 +112,21 @@ def explained(
         # Through the same table, so a check's name is one token in both.
         if isinstance(source, Run):
             source = project_served(source, table)
+        others = tuple(project_served(other, table) for other in others)
     rubrics = _rubrics(source, run)
+    stability = _stability(run, others)
     if baseline is None:
         # A lost scale needs no reference either: it compares a score with a
         # declared band, not with a past. (ADR 0024 §4.5)
         return Explained(
             run,
             None,
-            facts(run, composites=suite.composites(), rubrics=rubrics),
+            facts(
+                run,
+                composites=suite.composites(),
+                rubrics=rubrics,
+                stability=stability,
+            ),
             "run",
             run_exit_code(run, declared=declared),
         )
@@ -125,7 +135,13 @@ def explained(
     return Explained(
         run,
         baseline,
-        facts(run, comparison, composites=suite.composites(), rubrics=rubrics),
+        facts(
+            run,
+            comparison,
+            composites=suite.composites(),
+            rubrics=rubrics,
+            stability=stability,
+        ),
         "comparison",
         exit_code(head),
     )
@@ -144,6 +160,32 @@ def _source(store: ResultStore, suite: Suite, run: Run) -> Run | str | None:
         return read_run(store, suite, run.rejudged_from)
     except RunNotFoundError:
         return run.rejudged_from
+
+
+def _others(store: ResultStore, suite: Suite, run: Run) -> tuple[Run, ...]:
+    """The suite's other stored runs this version can read, where `run` holds
+    a reviewed answer with a person's verdict, for the stability of its
+    verdicts: `()` otherwise, so a suite with none reads nothing more.
+    A scan, so a file of a foreign schema is passed over, as `--run latest`
+    passes it over. (ADR 0067 §3, as noted 2026-11-22)"""
+    if not any(
+        case.reviewed is not None and case.reviewed.good is not None
+        for case in run.results
+    ):
+        return ()
+    own = key_of(run.created_at, run.config_hash)
+    listing = store.scan_runs(suite.tenant, suite.name)
+    return tuple(
+        read_run(store, suite, ref.key) for ref in listing.runs if ref.key != own
+    )
+
+
+def _stability(run: Run, others: tuple[Run, ...]) -> Stability | None:
+    """`run`'s stability across `others`, or `None` where it holds no
+    reviewed answer, which reads its samples alone and finds nothing."""
+    if not any(case.reviewed is not None for case in run.results):
+        return None
+    return reviewed_stability(run, others)
 
 
 def _rubrics(source: Run | str | None, run: Run) -> RubricComparison | None:
@@ -187,6 +229,9 @@ def reported(
     # Read off the run as read, before any redaction: what it carries is
     # names, identities, types and statuses, no reason. (ADR 0067 §1 (d))
     rubrics = _rubrics(_source(store, suite, read), read)
+    # And the stability of its reviewed answers, read across the suite's other
+    # runs: names, identities and statuses, no reason. (ADR 0067 §3)
+    stability = _stability(read, _others(store, suite, read))
 
     if baseline is None:
         # Not a refusal, and this is the whole point of the command existing.
@@ -202,7 +247,12 @@ def reported(
         # present, and would leave the dead end intact for whoever has not yet
         # learned the flag.
         return _reported_single(
-            read, suite, locale=locale, redacted=redacted, rubrics=rubrics
+            read,
+            suite,
+            locale=locale,
+            redacted=redacted,
+            rubrics=rubrics,
+            stability=stability,
         )
 
     run = read
@@ -238,6 +288,7 @@ def reported(
         declared=declared,
         composites=suite.composites(),
         rubrics=rubrics,
+        stability=stability,
     )
     # From the comparison the document was rendered from, never a fresh one:
     # over a redacted run a fresh `compare` has lost the digests, reads a moved
@@ -255,6 +306,7 @@ def _reported_single(
     locale: Locale,
     redacted: bool,
     rubrics: RubricComparison | None = None,
+    stability: Stability | None = None,
 ) -> Reported:
     """The run on its own, and an exit code that claims no more than it can.
 
@@ -272,7 +324,11 @@ def _reported_single(
         run = redact(run, suite.disclosure)
 
     document = render_run_html(
-        run, locale=locale, composites=suite.composites(), rubrics=rubrics
+        run,
+        locale=locale,
+        composites=suite.composites(),
+        rubrics=rubrics,
+        stability=stability,
     )
     # And so does a lost scale: a band is declared, not referenced. (ADR 0024
     # §4.5)

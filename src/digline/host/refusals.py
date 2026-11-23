@@ -47,6 +47,7 @@ from digline.run.driver import CostCeilingReached, TargetShapeError
 from digline.run.replay import ReplayError
 from digline.store.migrate import NonAdditiveError
 from digline.store.protocol import (
+    AcceptanceRefusedError,
     BaselineMovedError,
     CasesChangedError,
     ConfigMismatchError,
@@ -107,6 +108,7 @@ REFUSALS: tuple[type[Exception], ...] = (
     ContradictedRunError,
     CasesChangedError,
     ExclusionRefusedError,
+    AcceptanceRefusedError,
     NothingJudgedError,
     TenantMismatchError,
     SuiteMismatchError,

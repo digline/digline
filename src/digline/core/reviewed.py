@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     # Only for the annotation: `run.py` imports `Reviewed` from here, so a
     # runtime import the other way would be a cycle.
     from digline.core.run import Run
+    from digline.core.stability import Instability, Stability
 
 __all__ = [
     "Against",
@@ -51,6 +52,7 @@ __all__ = [
     "Composite",
     "CompositeMismatch",
     "Contradiction",
+    "Disagreement",
     "Reviewed",
     "contradicted",
     "reviewed_agreement",
@@ -337,6 +339,23 @@ class CheckAgreement:
     after: AgreementTally
     revised: int = 0
     unjudged: int = 0
+    #: The answers whose verdict on this check is unstable (§3): in neither
+    #: figure, as an unjudged one is, and named apart by the reading.
+    unstable: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class Disagreement:
+    """One reviewed answer whose stable verdict on one check is not the
+    person's after review: what a reader names for a held-in answer, and
+    counts for a held-out one unless asked to show it (§1 (e)). `reason` is
+    the judge's, payload, `None` where the run kept none."""
+
+    case_id: str
+    check: str
+    held_out: bool
+    direction: Against
+    reason: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -371,9 +390,13 @@ class AgreementReading:
     disagreements with its criteria in both roles: a reader names the
     held-in ones and counts the held-out ones (§1 (e)).
 
-    `stability_measured` is false, and is a fact rather than a state of any
-    answer: no reading of stability exists in this release (§3), so no
-    answer is set apart as unstable, and every answer is counted in a figure.
+    `unstable` holds every answer and check whose verdict is unstable (§3),
+    counted in no figure. `runs_read` is how many runs the stability was read
+    across, this one included, and `stability_measured` is true from two:
+    with one, only an answer whose samples split is set apart.
+    `disagreements` holds every stable verdict that is not the person's after
+    review, held in and held out: a reader names the first and counts the
+    second unless asked to show it. (ADR 0067 §3, §1 (e), as noted 2026-11-22)
     """
 
     rows: tuple[CheckAgreement, ...]
@@ -381,6 +404,9 @@ class AgreementReading:
     held_out: int
     mismatches: tuple[CompositeMismatch, ...] = ()
     stability_measured: bool = False
+    runs_read: int = 1
+    unstable: tuple[Instability, ...] = ()
+    disagreements: tuple[Disagreement, ...] = ()
 
     def total(self, *, held_out: bool) -> AgreementTally:
         """The verdicts after review in one role, every check summed: what the
@@ -394,7 +420,9 @@ class AgreementReading:
 
 
 def reviewed_agreement(
-    run: Run, composites: Sequence[Composite] = ()
+    run: Run,
+    composites: Sequence[Composite] = (),
+    stability: Stability | None = None,
 ) -> AgreementReading | None:
     """The agreement reading of `run`, or `None` where no reviewed answer in
     it carries a person's verdict.
@@ -404,11 +432,23 @@ def reviewed_agreement(
     counted for it, and nor is a check on an episode's steps, which the person
     gave no verdict about check by check. Pure, and from the run alone, like
     `contradicted`: the same verdicts, read against both of the person's.
+
+    `stability` is `reviewed_stability(run, others)`, read across the suite's
+    other runs by the front end; `None` reads it on this run alone, its
+    samples. An unstable verdict is in no figure, and counted apart. (§3)
     """
+    if stability is None:
+        # Imported here and not at the top: `stability` imports `run`, which
+        # imports this module, so a top-level import would be a cycle.
+        from digline.core.stability import reviewed_stability
+
+        stability = reviewed_stability(run)
     blind: dict[tuple[str, bool], list[int]] = {}
     after: dict[tuple[str, bool], list[int]] = {}
     moved: dict[tuple[str, bool], int] = {}
     errored: dict[tuple[str, bool], int] = {}
+    unsteady: dict[tuple[str, bool], int] = {}
+    disagreements: list[Disagreement] = []
     names: dict[str, str] = {}
     answers = {False: 0, True: 0}
     for case in run.results:
@@ -428,13 +468,27 @@ def reviewed_agreement(
             names.setdefault(verdict.assertion_id, verdict.score.name)
             blind.setdefault(key, [0, 0, 0])
             after.setdefault(key, [0, 0, 0])
-            moved[key] = moved.get(key, 0) + (first != expected)
             if verdict.status == "error":
+                moved[key] = moved.get(key, 0) + (first != expected)
                 errored[key] = errored.get(key, 0) + 1
                 continue
+            if stability.is_unstable(case.case_id, verdict.assertion_id):
+                unsteady[key] = unsteady.get(key, 0) + 1
+                continue
+            moved[key] = moved.get(key, 0) + (first != expected)
             passed = verdict.status == "pass"
             for table, said in ((blind, first), (after, expected)):
                 table[key][_slot(passed, said)] += 1
+            if passed != expected:
+                disagreements.append(
+                    Disagreement(
+                        case_id=case.case_id,
+                        check=verdict.score.name,
+                        held_out=reviewed.held_out,
+                        direction="passed_no" if passed else "failed_yes",
+                        reason=verdict.reason,
+                    )
+                )
     if not answers[False] and not answers[True]:
         return None
     rows = tuple(
@@ -444,8 +498,9 @@ def reviewed_agreement(
             held_out=role,
             blind=AgreementTally(*blind[(identity, role)]),
             after=AgreementTally(*after[(identity, role)]),
-            revised=moved[(identity, role)],
+            revised=moved.get((identity, role), 0),
             unjudged=errored.get((identity, role), 0),
+            unstable=unsteady.get((identity, role), 0),
         )
         for role in (False, True)
         for identity in names
@@ -456,6 +511,10 @@ def reviewed_agreement(
         held_in=answers[False],
         held_out=answers[True],
         mismatches=_mismatches(run, composites),
+        stability_measured=stability.measured,
+        runs_read=stability.runs_read,
+        unstable=stability.unstable,
+        disagreements=tuple(disagreements),
     )
 
 

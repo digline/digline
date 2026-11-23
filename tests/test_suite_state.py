@@ -39,7 +39,7 @@ from tests.test_view_recorder import (
 
 from digline.cli import recorder_pages
 from digline.cli.view import HOST
-from digline.core.run import Exclusion
+from digline.core.run import AcceptedContradiction, Exclusion
 from digline.host import import_elect, import_listing, load_suite, suite_state
 from digline.host.assistant import material
 from digline.host.state import CaseChecks, SuiteState
@@ -260,6 +260,34 @@ def test_a_reference_and_the_newest_run_are_said_with_their_keys() -> None:
     assert "run-b, exit code 1." in said
     assert f"run-a, promoted {AT}." in said
     assert "excluded at promotion from the reference: said-no, by Ada" in said
+
+
+def test_a_contradiction_accepted_at_the_promotion_is_said_beside_it() -> None:
+    """The state page says the acceptance in the sentence `compare` says.
+    (ADR 0067 §6)"""
+    said = text_of(
+        page_of(
+            state(
+                baseline_key="run-a",
+                promoted_at=AT,
+                accepted=(
+                    AcceptedContradiction(
+                        case_id="split-no",
+                        check="tone",
+                        direction="passed_no",
+                        against=2,
+                        judgements=3,
+                        by="Ada",
+                        at=AT,
+                    ),
+                ),
+            )
+        )
+    )
+    assert (
+        "1 contradiction accepted at promotion: split-no, `tone`, passed where "
+        "the person said no, 2 of 3 judgements, by Ada" in said
+    )
 
 
 def test_a_name_from_the_suite_is_text() -> None:

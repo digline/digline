@@ -31,6 +31,12 @@
   comparison of two rubrics paired by name, and the type each verdict records
   so a change of type is not paired. Stability and the accepted contradiction
   (4) and `at_least` (5) are in no file
+  *The fourth built 2026-11-22*, with Alessandro Prandini's rulings of that
+  day (P-1716, P-1717), each noted where it applies: stability read across
+  the suite's stored runs, the unstable verdicts out of the agreement's
+  figures, `promote --accept-contradiction` and its record on the reference,
+  `compare`'s sentence, and `explain --show-held-out`. `at_least` (5) is in
+  no file
 - Shipped: unreleased
 - Date: 2026-11-14
 - Opens: *Noted 2026-11-19, by Alessandro Prandini's ruling of that day
@@ -273,6 +279,25 @@ decides with `--show-held-out` what names a held-out answer and where. Until
 then the count of the reading of (c) is not the only thing that reaches a
 person about a held-out disagreement.
 
+*Noted 2026-11-22, by Alessandro Prandini's rulings of that day (P-1716,
+P-1717), the two notes above kept as written.* **Decided with the fourth.**
+- **The gate's sentence stays as it is** and names every contradiction, held
+  out or not, because the gate is the gate (§3).
+- **The reading of (c) counts** the held-out disagreements, unstable verdicts
+  and composite disagreements, and says that `explain --show-held-out` names
+  them. With the option it names each, a disagreement with the judge's
+  reason, under the sentence the paragraph above dictates: *read before the
+  rubric is frozen, these answers are no longer held out*. `--json` names
+  the cases under the option too, never a reason, and the counts are the same
+  either way.
+- **The report's section** *What the judge said of the reviewed answers*
+  names the held-in answers and counts the held-out ones. The report has no
+  options, so it says that `explain --show-held-out` shows them.
+- **Not built, and found while building it:** the paragraph above says that a
+  person who reads them *moves them to held-in, by the write of §2*. No write
+  does that: `--held-out` is the import's, and `digline record revise` writes
+  a verdict, not a role. The sentence is reported, not built here.
+
 ### 2. Two verdicts per reviewed answer, and the review rule
 
 *Dictated: both verdicts are kept. The blind agreement is the measure of the
@@ -343,6 +368,30 @@ place this record reads the dictation rather than transcribing it:
 exit code. It would turn red runs green for every existing suite whose judge
 splits, with no person deciding it: a gate loosened by a release. §6 is the
 door through which a person decides it instead.
+
+*Noted 2026-11-22, by Alessandro Prandini's rulings of that day (P-1716,
+P-1717), the text above kept as written.* **How the fourth reads it.**
+- **Across runs, the suite's stored runs.** The runs read are this run and
+  every other run of the suite, in its perimeter, that holds at least one of
+  this run's reviewed answers judged by a check of the same identity, paired
+  by case and identity. A run judged under another rubric pairs nothing and
+  is not read. So `explain`, the report and `promote` read the store, as
+  `explain` already reads a re-judge's source, and the reading says how many
+  runs it read: in the text and in `--json` as `runs_read`.
+- **Within a run, the samples split** where they are not all on one side of
+  the threshold or one could not judge, read with `directions` on the
+  reviewed answer itself. That sets a verdict apart even when one run is all
+  that was read.
+- **Under `--judge-samples`**, the widest answer's `judge_min` and
+  `judge_max` on the two sides of the threshold make the verdict unstable.
+- **`stability_measured` is true from two runs read**, and the reading's line
+  says so either way: *Stability was read across 3 runs of this suite with
+  these checks*, or that it was not measured.
+- **Unstable is named with why**: *the runs read disagree*, *its samples
+  split*, *its judgements under --judge-samples split*. Held-out ones are
+  counted, as §1 (e) has every held-out answer counted.
+- **No exit code moves**, as decided above: an unstable contradiction is
+  exit `1` and refused at promotion unless accepted by name (§6).
 
 **A split below `min_agreement` is not a contradiction**, today or here: the
 fold makes it `error`, unjudged, exit `2`. So the unstable contradiction of
@@ -457,6 +506,29 @@ reference, and said by `compare`.*
   run**: a later run whose verdict on that case contradicts the person is
   refused at its own promotion until accepted again. An acceptance is about
   one run's judgements, and the next run's are new ones.
+
+*Noted 2026-11-22, by Alessandro Prandini's rulings of that day (P-1716,
+P-1717), the text above kept as written.* **How the fourth builds it.**
+- **"Where the samples disagreed" is not the `uncertain` fact.** That fact,
+  built in 1.3.0, leaves every reviewed answer out by design, and its *near
+  the threshold* half is not a disagreement of the samples. So the
+  acceptance reads the split on the reviewed answer itself, as §3 is read
+  above. It is accepted where the verdict is unstable by any of §3's three
+  ways, its samples or the runs read, and refused where it is stable.
+- **Condition 14 of ADR 0002 §8**, `AcceptanceRefusedError`, asked before
+  any other condition beside the exclusions. It refuses an acceptance with
+  nobody's name on it, a case the run does not carry, a case no judge
+  contradicted the person on, and a stable contradiction, in the sentence
+  above with the check and the number of runs read. Condition 12 then passes
+  over each contradiction accepted. A contradiction by a check on the steps
+  is not the judge's, and is not accepted.
+- **The record.** `agreement` is two counts, `{"against": k, "judgements":
+  n}`: the judgements of that check on that answer that went against the
+  person, of all those in every run read. `check` is the verdict's name. A
+  third passenger of schema 25, and the step from 24 writes nothing for it.
+- **Said in every front end**: `compare` in the terminal, the report and
+  `--json`, `explain`'s reading against the reference, and `digline view`'s
+  run list and state page, beside the exclusions.
 
 *The alternative, and why not:* an acceptance that holds for later runs
 until the rubric changes. It would let one acceptance stand for judgements

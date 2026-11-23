@@ -431,7 +431,7 @@ whether the suite can gate
 ```text
 accurate, held in: blind, 2 of 6 agree (3 passed a no, 1 failed a yes); after review, 4 of 6 agree (1 passed a no, 1 failed a yes). 2 answers were revised between the two. 1 answer could not be judged on it.
 Held out: 4 of 6 verdicts agree after review, check by check; 7 held-in answers served the tuning and are not counted here.
-No answer is set apart as unstable: this run's stability was not measured, so every answer is counted.
+Stability across runs was not measured: no other run of this suite holds these answers under these checks, so only a verdict whose samples split is set apart.
 ```
 
 These lines come from the fixture in `tests/test_agreement.py`, which asserts
@@ -446,13 +446,23 @@ each one word for word, and not from a suite run end to end.
 - **Held in and held out**, never summed. The `Held out:` line reads the
   held-out verdicts after review alone. Where no answer is held out, the line
   says so instead: *the agreement above was measured on the answers the
-  rubric was tuned on*. Held-out answers are **counted, never named**, here
-  and in `--json`.
+  rubric was tuned on*. Held-out answers are **counted, not named**, here
+  and in `--json`, unless `--show-held-out` asks (below).
 - **What is not counted.** An answer awaiting a verdict, a check the answer
   was not reviewed for, and a check on an episode's steps. A verdict that
   errored is counted apart, as *could not be judged*, in neither figure.
-- **Stability.** No answer is set apart as unstable, because this release
-  does not measure stability. The line says so rather than leaving it out.
+- **Stability.** *Arrives with digline 1.4.* A verdict the judge could not
+  hold is **unstable**, counted in neither figure and named apart with why:
+  its samples split, or one could not judge; its judgements under
+  `--judge-samples` fall on the two sides of the threshold; or the runs read
+  disagree. The runs read are this run and every other stored run of the
+  suite that holds one of its reviewed answers judged by a check of the same
+  identity, so `explain` reads the store here, as it reads a re-judge's
+  source. The line says how many, and stability across runs is measured from
+  two: *Stability was read across 3 runs of this suite with these checks:
+  every verdict held.* With one, it says it was not measured, and only a
+  verdict whose samples split is set apart
+  ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §3).
 - **The composite against its criteria.** Where the suite declares
   `criteria` on a composite check, the reading names each held-in answer about
   the whole answer on which the composite is not the conjunction of its
@@ -466,17 +476,43 @@ each one word for word, and not from a suite run end to end.
 Only the gate's own sentence, among the counts above, names a contradicted
 answer whatever its role: a contradiction fails the run, held out or not.
 
+**`--show-held-out`** *(arrives with digline 1.4)* names what the reading
+otherwise counts of the held-out answers: each disagreement with the judge's
+reason, each unstable verdict, each composite disagreement. It says first what
+reading them costs
+([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §1 (e)):
+
+```text
+The held-out answers, shown on request: read before the rubric is frozen, these answers are no longer held out.
+aside-no, tone, held out: passed where the person said no. The judge said: mean of 3 samples (1.000000, 1.000000, 1.000000)
+```
+
+These lines come from `tests/test_stability.py`, which runs a suite end to
+end and asserts them. The run's report has no options: its section
+*What the judge said of the reviewed answers* counts the held-out answers
+and says that `explain --show-held-out` shows them.
+
 In `--json` it is a fact with `"kind": "agreement"`, whose `count` is the
 reviewed answers with a verdict. Its `agreement` object carries:
 
 - `held_in` and `held_out`;
-- `stability_measured`, `false`;
+- `stability_measured`, true from two runs read, and `runs_read`;
 - `checks`, one entry per check and role, each with `check`, `assertion_id`,
   `held_out`, `blind` and `after` (each of `agree`, `passed_no`,
-  `failed_yes`), `revised` and `unjudged`;
+  `failed_yes`), `revised`, `unjudged` and `unstable`;
+- `unstable`, the held-in unstable verdicts (`case_id`, `check`,
+  `assertion_id`, `held_out`, `why`: `runs`, `samples` or
+  `judge_samples`), and `unstable_held_out`, the count of the held-out ones;
 - `composites`, the held-in disagreements (`case_id`, `composite`,
-  `composite_passed`, `failed`);
-- `composites_held_out`, the count of the held-out ones.
+  `composite_passed`, `failed`, `held_out`);
+- `composites_held_out`, the count of the held-out ones;
+- `held_out_disagreed`, the count of the held-out verdicts that disagree
+  with the person, and `held_out_disagreements`, empty.
+
+Under `--show-held-out` the held-out entries join `unstable` and
+`composites`, and `held_out_disagreements` names each (`case_id`, `check`,
+`direction`). The counts are the same either way, and no reason is in
+`--json`. The MCP `explain` reads as `explain` does without the option.
 
 The run's report shows the same lines in a section of its own.
 

@@ -1093,10 +1093,11 @@ def cmd_list(args: argparse.Namespace) -> int:
 def cmd_promote(args: argparse.Namespace) -> int:
     # A name with nothing to put it beside would be dropped in silence, and a
     # person who typed it meant something by it. (ADR 0065 §1)
-    if args.by is not None and not args.excluding:
+    if args.by is not None and not args.excluding and not args.accepting:
         raise UsageError(
-            "--by names who leaves a case out of the reference, and no case "
-            "was named: add --exclude CASE, or drop --by"
+            "--by names who leaves a case out of the reference or accepts a "
+            "contradiction, and no case was named: add --exclude CASE or "
+            "--accept-contradiction CASE, or drop --by"
         )
     suite, loaded, store = _load(args)
     key = _resolve(store, suite, args.run)
@@ -1116,6 +1117,7 @@ def cmd_promote(args: argparse.Namespace) -> int:
         accepting_pins=frozenset(args.accepting_pins),
         excluding=frozenset(args.excluding),
         excluded_by=args.by or "",
+        accepting_contradictions=frozenset(args.accepting),
     )
     # The resolved key, never the literal "latest": what was promoted must be
     # nameable afterwards. And the tenant first, read off the stored run and
@@ -1140,6 +1142,14 @@ def cmd_promote(args: argparse.Namespace) -> int:
     # (ADR 0065 §1)
     for item in promoted.excluded_at_promotion:
         say(f"excluded at promotion: {item.case_id}, by {item.by}")
+    # Recorded in the reference too, and said by every comparison against it
+    # while it stands; it holds for this run alone. (ADR 0067 §6)
+    for accepted in promoted.accepted_contradictions:
+        say(
+            f"contradiction accepted at promotion: {accepted.case_id}, "
+            f"{accepted.check}, {accepted.against} of {accepted.judgements} "
+            f"judgements against the person, by {accepted.by}"
+        )
     return EXIT_OK
 
 
@@ -1429,6 +1439,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
                     note=resolved.note,
                     run=read.run,
                     baseline=read.baseline,
+                    show_held_out=args.show_held_out,
                 ),
                 sort_keys=True,
                 indent=2,
@@ -1444,7 +1455,13 @@ def cmd_explain(args: argparse.Namespace) -> int:
     # The suite's review rule, under the agreement reading and in the
     # terminal alone, as the judge's words are. (ADR 0067 §2, ADR 0012 §4)
     rule = rule_words(suite.review_rule, locale=args.locale)
-    for line in explain_text(read.facts, locale=args.locale, cases=cases, rule=rule):
+    for line in explain_text(
+        read.facts,
+        locale=args.locale,
+        cases=cases,
+        rule=rule,
+        show_held_out=args.show_held_out,
+    ):
         say(line)
     # The judge's words, after the facts and in the terminal alone: read off
     # the run, never a fact, never in --json. (ADR 0012 §4, as amended
@@ -2616,11 +2633,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     prom_p.add_argument(
+        "--accept-contradiction",
+        action="append",
+        default=[],
+        metavar="CASE",
+        dest="accepting",
+        help=(
+            "accept the judge's contradiction of the person on this reviewed "
+            "answer, once per case: only where the judge could not hold its "
+            "verdict steady, its samples split or the suite's runs disagreed; "
+            "recorded in the reference with --by and the time, for this run "
+            "alone"
+        ),
+    )
+    prom_p.add_argument(
         "--by",
         metavar="NAME",
         help=(
-            "with --exclude, mandatory: your own name, recorded beside each "
-            "excluded case; never read from git or the environment"
+            "with --exclude or --accept-contradiction, mandatory: your own "
+            "name, recorded beside each case; never read from git or the "
+            "environment"
         ),
     )
     prom_p.set_defaults(func=cmd_promote)
@@ -2708,6 +2740,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="emit the fact list the prose is rendered from, instead of the prose",
+    )
+    exp_p.add_argument(
+        "--show-held-out",
+        action="store_true",
+        help=(
+            "name the held-out answers in the agreement reading, each "
+            "disagreement with the judge's reason: read before the rubric is "
+            "frozen, they are no longer held out"
+        ),
     )
     exp_p.set_defaults(func=cmd_explain)
 

@@ -28,6 +28,7 @@ from digline.store.promotion import (
 from digline.store.protocol import (
     JOURNAL_VERSION,
     REGISTER_VERSION,
+    AcceptanceRefusedError,
     BaselineMovedError,
     CasesChangedError,
     ConfigMismatchError,
@@ -104,6 +105,7 @@ __all__ = [
     "CasesChangedError",
     "ContradictedRunError",
     "ExclusionRefusedError",
+    "AcceptanceRefusedError",
     "ResultStore",
     "RunRef",
     "SupportsJournal",

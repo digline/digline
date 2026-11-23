@@ -58,8 +58,16 @@ from digline.core.declared import (
 from digline.core.gate import causes_of_two, pins_implicated
 from digline.core.reconcile import unreconciled
 from digline.core.reviewed import Contradiction, contradicted
-from digline.core.run import CrossingRefusedError, Run, crossing_refusal, key_of
+from digline.core.run import (
+    AcceptedContradiction,
+    CrossingRefusedError,
+    Run,
+    crossing_refusal,
+    key_of,
+)
+from digline.core.stability import Stability
 from digline.store.protocol import (
+    AcceptanceRefusedError,
     BaselineMovedError,
     CasesChangedError,
     ConfigMismatchError,
@@ -74,9 +82,11 @@ from digline.store.protocol import (
 
 __all__ = [
     "PromotionRefusal",
+    "accepted_at_promotion",
     "contradicted_said_en",
     "kept_at_promotion",
     "refusal_for_a_moved_baseline",
+    "refusal_for_acceptances",
     "refusal_for_exclusions",
     "refusal_for_unaccepted_pins",
     "refusals_for",
@@ -98,7 +108,11 @@ type PromotionRefusal = (
 
 
 def refusals_for(
-    run: Run, expected_config_hash: str, *, declared: Declared | None
+    run: Run,
+    expected_config_hash: str,
+    *,
+    declared: Declared | None,
+    accepted: Collection[tuple[str, str]] = (),
 ) -> tuple[PromotionRefusal, ...]:
     """Every refusal the document itself carries, in the order they are owed.
 
@@ -314,7 +328,15 @@ def refusals_for(
     # gave the other is not one. Said as `run`, `explain` and `compare` say
     # it, then each answer once, with its direction. (ADR 0059 §1, amended
     # 2026-11-05)
-    against = contradicted(run)
+    # Less the contradictions a person accepted by name at this promotion,
+    # each `(case_id, assertion_id)`, which `refusal_for_acceptances` let
+    # through: unstable, and accepted for this run alone. (ADR 0067 §6)
+    taken = set(accepted)
+    against = tuple(
+        item
+        for item in contradicted(run)
+        if item.on_the_steps or (item.case_id, item.assertion_id) not in taken
+    )
     if against:
         went = {item.case_id: item.direction for item in against}
         named = ", ".join(f"{case} ({_WENT[way]})" for case, way in went.items())
@@ -395,6 +417,116 @@ def refusal_for_exclusions(
             "suite again"
         )
     return None
+
+
+def refusal_for_acceptances(
+    run: Run,
+    accepting: Collection[str],
+    accepted_by: str,
+    *,
+    stability: Stability,
+) -> AcceptanceRefusedError | None:
+    """The refusal for accepting the contradictions on `accepting`'s cases,
+    or `None` where each may be accepted, which it always may be where
+    `accepting` is empty. (ADR 0067 §6, condition 14)
+
+    `stability` is `reviewed_stability(run, others)`, read across the suite's
+    other stored runs. Refused, in this order, each by name:
+
+    - nobody's name on it: a contradiction is accepted only by a person who
+      said so, and `accepted_by` is that person's own mark;
+    - a case the run does not carry, as a typo would be;
+    - a case on which no judge contradicted the person: there is nothing to
+      accept, and a check on the steps is no judge;
+    - a contradiction the judge held on every judgement, in every run read:
+      only a corrected rubric or a revised verdict answers that.
+    """
+    if not accepting:
+        return None
+    key = key_of(run.created_at, run.config_hash)
+    if not accepted_by.strip():
+        return AcceptanceRefusedError(
+            f"run {key}: an accepted contradiction names the person who accepts "
+            "it, and this one names nobody. Say who with --by NAME, your own "
+            "name; it is never read from git or the environment"
+        )
+    carried = {case.case_id for case in run.results}
+    unknown = sorted(set(accepting) - carried)
+    if unknown:
+        return AcceptanceRefusedError(
+            f"run {key} carries no case {', '.join(unknown)}: nothing was "
+            "accepted. The cases it carries are the ones its results name"
+        )
+    by_case: dict[str, list[Contradiction]] = {}
+    for item in contradicted(run):
+        if not item.on_the_steps:
+            by_case.setdefault(item.case_id, []).append(item)
+    agreed = sorted(set(accepting) - set(by_case))
+    if agreed:
+        return AcceptanceRefusedError(
+            f"run {key}: no judge contradicted the person on "
+            f"{', '.join(agreed)}, so there is no contradiction to accept. "
+            "Promote without --accept-contradiction for it"
+        )
+    stable = [
+        item
+        for case_id in sorted(set(accepting))
+        for item in by_case[case_id]
+        if not stability.is_unstable(item.case_id, item.assertion_id)
+    ]
+    if stable:
+        said = "; ".join(
+            f"`{item.case_id}`'s judge contradicted the person on every "
+            f"judgement of {item.check}"
+            for item in stable
+        )
+        return AcceptanceRefusedError(
+            f"run {key}: {said}, across {_runs(stability.runs_read)}: correct "
+            "the rubric or revise the verdict. A contradiction is accepted only "
+            "where the judge could not hold its verdict steady"
+        )
+    return None
+
+
+def accepted_at_promotion(
+    run: Run,
+    accepting: Collection[str],
+    accepted_by: str,
+    at: str,
+    *,
+    stability: Stability,
+) -> tuple[AcceptedContradiction, ...]:
+    """What the reference records for `accepting`, once
+    `refusal_for_acceptances` let it through: each judge's contradiction on
+    those cases, with its check, its direction, and the judgements that went
+    against the person in every run read. (ADR 0067 §6)"""
+    found: list[AcceptedContradiction] = []
+    names = {
+        (case.case_id, verdict.assertion_id): verdict.score.name
+        for case in run.results
+        for verdict in case.verdicts
+    }
+    for item in contradicted(run):
+        if item.on_the_steps or item.case_id not in accepting:
+            continue
+        judged = stability.judged(item.case_id, item.assertion_id)
+        assert judged is not None  # every judged reviewed verdict is read
+        found.append(
+            AcceptedContradiction(
+                case_id=item.case_id,
+                check=names[(item.case_id, item.assertion_id)],
+                direction=item.direction,
+                against=judged.against,
+                judgements=judged.of,
+                by=accepted_by,
+                at=at,
+            )
+        )
+    return tuple(found)
+
+
+def _runs(count: int) -> str:
+    return "the one run read" if count == 1 else f"the {count} runs read"
 
 
 def kept_at_promotion(run: Run, excluding: Collection[str]) -> Run:

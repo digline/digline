@@ -38,6 +38,7 @@ from digline.core import (
     Run,
     ScaleLost,
     Scope,
+    Stability,
     SuiteDelta,
     SystemConfig,
     Uncertain,
@@ -59,6 +60,7 @@ from digline.core import (
 from digline.report.render import (
     ABSENT,
     SECTIONS,
+    accepted_fact,
     agreement_lines,
     cases_changed_fact,
     contradicted_answers,
@@ -410,6 +412,7 @@ def facts(
     *,
     composites: Sequence[Composite] = (),
     rubrics: RubricComparison | None = None,
+    stability: Stability | None = None,
 ) -> tuple[Fact, ...]:
     """The reading, as values.
 
@@ -431,11 +434,15 @@ def facts(
     `rubric_comparison(source, run)`: the front end reads the source by
     `rejudged_from` and compares, as it hands in `composites`. `None` states
     no such fact. (ADR 0067 §1 (d))
+
+    `stability` is `reviewed_stability(run, others)`, read across the suite's
+    other stored runs by the front end, as it reads a re-judge's source;
+    `None` reads this run's samples alone. (ADR 0067 §3)
     """
     out: list[Fact] = [*_tallies(run, comparison)]
     # Last of the counts, and from the run alone: it reads the verdicts above
     # against the person's, and qualifies none of them. (ADR 0067 §1 (c))
-    reading = reviewed_agreement(run, composites)
+    reading = reviewed_agreement(run, composites, stability)
     if reading is not None:
         out.append(
             TallyFact(
@@ -1038,6 +1045,7 @@ def case_words(run: Run, baseline: Run | None, *, locale: Locale) -> tuple[str, 
     lines = (
         cases_changed_fact(moved, locale),
         excluded_fact(baseline.excluded_at_promotion, locale),
+        accepted_fact(baseline.accepted_contradictions, locale),
     )
     return tuple(line for line in lines if line)
 
@@ -1048,6 +1056,7 @@ def explain_text(
     locale: Locale,
     cases: Sequence[str] = (),
     rule: Sequence[str] = (),
+    show_held_out: bool = False,
 ) -> tuple[str, ...]:
     """The reading, in sentences. One line per fact, in the list's order, but
     for the unjudged tally of a run that judged no case, which says nothing
@@ -1069,6 +1078,11 @@ def explain_text(
     `rule` is `rule_words()`'s line, the suite's review rule, printed under
     the agreement reading where there is one, and text for the reason `cases`
     is: no fact carries a suite's words. (ADR 0067 §2, ADR 0012 §4)
+
+    `show_held_out` is `explain --show-held-out`: the agreement reading names
+    its held-out answers, each disagreement with the judge's reason, under
+    the line that says they are no longer held out once read. Without it they
+    are counted and never named. (ADR 0067 §1 (e))
     """
     strings(locale)  # fail here, not halfway through a reading
 
@@ -1096,7 +1110,9 @@ def explain_text(
         assert fact.agreement is not None
         lines.append("")
         lines.append(phrase(locale, "section.agreement"))
-        lines.extend(agreement_lines(fact.agreement, locale))
+        lines.extend(
+            agreement_lines(fact.agreement, locale, show_held_out=show_held_out)
+        )
         lines.extend(rule)
 
     for fact in tallies:

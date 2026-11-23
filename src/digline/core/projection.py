@@ -234,6 +234,18 @@ def rename(run: Run, name: Rename, *, projected: bool) -> Run:
             )
             for item in run.excluded_at_promotion
         ),
+        # The case, the check and the person who accepted a contradiction are
+        # tokens, as an exclusion's are; the direction, the counts and the
+        # time are digline's. (ADR 0067 §6)
+        accepted_contradictions=tuple(
+            replace(
+                item,
+                case_id=name("case_id", item.case_id),
+                check=name("verdict_name", item.check),
+                by=name("person", item.by),
+            )
+            for item in run.accepted_contradictions
+        ),
         target_config=_config(
             run.target_config,
             name,

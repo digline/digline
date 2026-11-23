@@ -144,6 +144,7 @@ def promote(
     accepting_pins: Collection[str] = frozenset(),
     excluding: Collection[str] = frozenset(),
     excluded_by: str = "",
+    accepting_contradictions: Collection[str] = frozenset(),
 ) -> Run:
     """Promote the run `key` to be the baseline of the loaded suite.
 
@@ -166,6 +167,12 @@ def promote(
       `excluded_by` the person who says so, as they typed it. The reference
       records both, with `promoted_at`, and the run is not touched. Empty
       excludes nothing (ADR 0065 §1).
+    - `accepting_contradictions` names the cases whose contradiction this
+      promotion accepts, each where the judge could not hold its verdict
+      steady across the suite's stored runs, with `excluded_by` as the person
+      who accepts. The reference records each, with the judgements that went
+      against the person; it holds for this run alone. Empty accepts nothing
+      (ADR 0067 §6).
 
     Returns the reference written, which is what `promote_baseline` returns and
     what a projection starts from (ADR 0034 §2). Every refusal is in `REFUSALS`.
@@ -182,6 +189,7 @@ def promote(
         accepting_pins=accepting_pins,
         excluding=excluding,
         excluded_by=excluded_by,
+        accepting_contradictions=accepting_contradictions,
     )
 
 
@@ -196,6 +204,7 @@ def promote_priced(
     accepting_pins: Collection[str] = frozenset(),
     excluding: Collection[str] = frozenset(),
     excluded_by: str = "",
+    accepting_contradictions: Collection[str] = frozenset(),
 ) -> Run:
     """`promote`, for a caller that computed `pricing_for` once already.
 
@@ -221,4 +230,5 @@ def promote_priced(
         accepting_pins=accepting_pins,
         excluding=excluding,
         excluded_by=excluded_by,
+        accepting_contradictions=accepting_contradictions,
     )

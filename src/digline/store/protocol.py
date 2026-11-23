@@ -179,6 +179,19 @@ class ExclusionRefusedError(Exception):
     """
 
 
+class AcceptanceRefusedError(Exception):
+    """Raised when a promotion asks to accept a contradiction it may not.
+    (ADR 0067 §6)
+
+    Each refused by name: an acceptance with nobody's name on it; a case the
+    run does not carry; a case on which no judge contradicted the person; and
+    a contradiction the judge held on every judgement, in every run read,
+    which only a corrected rubric or a revised verdict answers. Accepted
+    only where the judge could not hold its verdict steady: its samples split,
+    or the runs read gave it different verdicts (§3).
+    """
+
+
 class NothingJudgedError(Exception):
     """Raised when promoting a run that judged nothing.
 
@@ -701,8 +714,19 @@ class ResultStore(Protocol):
         accepting_pins: Collection[str] = frozenset(),
         excluding: Collection[str] = frozenset(),
         excluded_by: str = "",
+        accepting_contradictions: Collection[str] = frozenset(),
     ) -> Run:
         """Promote a run to be the baseline of its suite, within its tenant.
+
+        `accepting_contradictions` names the cases whose contradiction the
+        person accepts, `excluded_by` being her name for these too: each is
+        accepted only where the judge could not hold its verdict steady,
+        read across the suite's other stored runs, and recorded in
+        `Run.accepted_contradictions` with the judgements that went against
+        her, the person and `promoted_at`. What may be accepted is
+        `refusal_for_acceptances`'s, raised as `AcceptanceRefusedError`
+        before any condition is asked (condition 14). Condition 12 then
+        passes over each accepted contradiction. (ADR 0067 §6)
 
         `excluding` names the cases this promotion leaves out of the reference,
         and `excluded_by` the person who says so, mandatory whenever a case is
@@ -808,6 +832,13 @@ class ResultStore(Protocol):
             `config_hash` and never inside it, which covers the checks and not
             the cases (ADR 0014 §1). `None` is a document with no suite behind
             it, and asks nothing (ADR 0065 §2).
+        14. `AcceptanceRefusedError`, before any other with the exclusions,
+            if `accepting_contradictions` names a case it may not accept: no
+            name on it, a case the run does not carry, one no judge
+            contradicted the person on, or one whose contradiction is stable,
+            the judge having gone against her on every judgement of every run
+            read. Accepted, a contradiction is passed over by 12 and recorded
+            on the reference; it holds for this run alone (ADR 0067 §6).
 
         **Where each is met, and what this protocol obliges you to write
         yourself.** They are three questions, not one list:

@@ -27,6 +27,7 @@ from digline.report import contradicted_said
 from digline.run import CallPlan
 from digline.store import Listing, RunRef
 from digline.store.protocol import skipped_advice
+from digline.wire.compare import accepted_json
 from digline.wire.contract import OUTPUT_VERSION
 from digline.wire.text import neutralised
 
@@ -593,6 +594,13 @@ def run_document(
             "excluded_at_promotion": [
                 {"case_id": item.case_id, "by": item.by, "at": item.at}
                 for item in run.excluded_at_promotion
+            ],
+            # On a baseline, the contradictions a person accepted by name at its
+            # promotion, each with its check, direction, the judgements that went
+            # against the person, who and when; empty elsewhere. An added key.
+            # (ADR 0067 §6)
+            "accepted_contradictions": [
+                accepted_json(item) for item in run.accepted_contradictions
             ],
             # The run whose recorded answers this one was judged from, or empty.
             # The sharpest of the six: a consumer that reads a replay as a fresh

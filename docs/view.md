@@ -106,6 +106,7 @@ that command calls, so the page and the command cannot say two things:
 | the answers a person reviewed, good and bad | the counts `digline suggest --assist` sends |
 | the newest run, its key and exit code | `digline where --json`, `run_key` and `run_exit_code` |
 | the reference in force, when it was promoted, and the cases excluded at its promotion, each with who | the run list's sentence, and `digline compare` ([ADR 0065](adr/0065-a-case-excluded-at-promotion-and-the-cases-a-run-was-made-with.md)) |
+| the contradictions accepted at its promotion, each with its check, the judgements against the person, and who (*arrives with digline 1.4*) | the run list's sentence, and `digline compare` ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.md) §6) |
 | the recordings since the last import, and those under an earlier setup | `digline record status --suite` |
 | the next step, its command shown and never run | `digline where` |
 

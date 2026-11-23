@@ -72,8 +72,8 @@ rest of this opening.
     The held-in and held-out figures are never summed.
   - The line that says whether the suite can gate reads the held-out
     verdicts alone. Where none is held out, it says so. A held-out answer is
-    counted and never named. No answer is set apart as unstable, because
-    stability is not measured in this release, and the reading says so.
+    counted and never named, unless `explain --show-held-out` asks (below).
+    An unstable verdict is in neither figure (below).
   - `criteria` on a composite judged check, `criteria = ["a", "b"]` in a
     `suite.toml` or `Suite(criteria={"composite": ["a", "b"]})`, names its
     criteria. The reading then names each reviewed answer about the whole
@@ -119,6 +119,55 @@ rest of this opening.
     `CHECK_TYPES` and `Verdict.check_type` in `digline.core`;
     `rejudge_reviewed`, `reviewed_round` and `reviewed_left_out` in
     `digline.run`; `rubric_lines` in `digline.report`.
+- **Stability, and a contradiction accepted by name** (ADR 0067 §3, §6,
+  §1 (e), its fourth pull request). *Arrives with digline 1.4.*
+  - A reviewed answer's verdict is **unstable** where the judge could not
+    hold it: its samples were not all on one side of the threshold, or one
+    could not judge; its judgements under `--judge-samples` fall on the two
+    sides; or the suite's other stored runs that hold the answer, judged by a
+    check of the same identity, gave it another verdict. The agreement
+    reading counts an unstable verdict in neither figure and names it apart,
+    with why, and says across how many runs it read. Stability across runs
+    is measured from two. `explain` and the report read the suite's runs
+    from the store, as they read a re-judge's source. The gate is unchanged,
+    and no exit code moves.
+  - `digline promote --accept-contradiction CASE --by NAME` accepts the
+    judge's contradiction of the person on that reviewed answer, only where
+    the verdict is unstable. A stable contradiction is refused by name:
+    *correct the rubric or revise the verdict*. So are a case the run does
+    not carry, one no judge contradicted the person on, and an acceptance
+    with nobody's name on it. That is condition 14 of ADR 0002 §8,
+    `AcceptanceRefusedError`.
+  - The reference records each acceptance, `accepted_contradictions`, a
+    third passenger of schema 25: the case, the check, the direction, how
+    many judgements of every run read went against the person, who and when.
+    The step from 24 writes nothing for it. `compare` says it while the
+    reference stands, in the terminal, the report, `--json` and `digline
+    view`: *1 contradiction accepted at promotion: refund-tone, `tone`, passed
+    where the person said no, 2 of 3 judgements, by NAME, 2026-11-14*. It
+    does not carry over: a later run's contradiction is refused at its own
+    promotion until accepted again.
+  - `digline explain --show-held-out` names the held-out answers the
+    agreement reading otherwise counts: each disagreement with the judge's
+    reason, each unstable verdict and each composite disagreement, under a
+    line that says that, read before the rubric is frozen, they are no longer
+    held out. Without it they are counted, and the reading says where they
+    are shown. The report's section *What the judge said of the reviewed
+    answers* counts the held-out answers and sends the reader to `explain`.
+    The gate's own sentence still names every contradiction, held out or
+    not.
+  - Under `OUTPUT_VERSION` 6, `explain --json` gains, on the `agreement`
+    object, `runs_read`, `unstable`, `unstable_held_out`,
+    `held_out_disagreed` and `held_out_disagreements` (named only under
+    `--show-held-out`), and `unstable` on each check and `held_out` on each
+    composite entry; `compare --json` and the run document carry
+    `accepted_contradictions`. Added keys only. New public names:
+    `reviewed_stability`, `Stability`, `Instability`, `Judgements`,
+    `Unsteady`, `Disagreement`, `AcceptedContradiction` and
+    `Run.accepted_contradictions` in `digline.core`;
+    `AcceptanceRefusedError`, `refusal_for_acceptances` and
+    `accepted_at_promotion` in `digline.store`; `accepting_contradictions`
+    on `promote` and `promote_baseline`.
 - **A missing provider says which environment was searched.** *"no provider
   named … is installed"* now ends on *"digline is running from the
   environment at <sys.prefix>, and a plugin installed in another one is not
