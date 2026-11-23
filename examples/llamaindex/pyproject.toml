@@ -30,7 +30,7 @@ dependencies = [
     # Only reached with DIGLINE_LIVE=1, and installed anyway so that switching
     # paths is one environment variable rather than one variable and an
     # install. It adds the `anthropic` SDK and nothing else.
-    "llama-index-llms-anthropic>=0.12,<0.13",
+    "llama-index-llms-anthropic>=0.12,<0.14",
 ]
 
 [dependency-groups]
