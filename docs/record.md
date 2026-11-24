@@ -776,6 +776,18 @@ before yours exists ([ADR 0067](adr/0067-calibrating-the-judge-against-a-person.
    The revision is written beside the blind verdict, as `revised` with your
    name and the time, never in its place, and the gate then holds it. A
    revision that says what the verdict already says is refused.
+5. **Move a held-out answer among the held-in ones**, once you have read it
+   before the rubric is frozen:
+
+   ```sh
+   digline record revise --tenant acme --suite eval/suite.py --held-in cap-… --by 'Ada Lovelace'
+   ```
+
+   It is recorded as a revision is, as `held_in` with your name and the
+   time, and `held_out` leaves the case: from the next run its verdicts
+   count in the held-in figures and no longer in the held-out count. It
+   takes no verdict and no `--case`, and an answer already held in is
+   refused, with nothing written. *Arrives with digline 1.4.*
 
 **About the whole answer.** *Arrives with digline 1.4.* `--whole` writes the
 verdict about the whole answer rather than about the source's check: every

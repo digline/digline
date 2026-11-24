@@ -90,7 +90,7 @@ from digline.core.run import (
 from digline.core.types import OutputKind
 from digline.host.toml_suite import read_cases, within_perimeter
 from digline.recorder import UNASSIGNED
-from digline.run.suite import CaptureSource, Case, Revised, Suite
+from digline.run.suite import CaptureSource, Case, HeldIn, Revised, Suite
 from digline.store.file_store import FileResultStore
 from digline.wire.recorder import SuiteRecordings
 from digline.wire.recordings import Listed, ListedGroup, Shape
@@ -1247,6 +1247,52 @@ def revise(
     if failing:
         written["failing"] = list(failing)
     reviewed["revised"] = written
+    entry["reviewed_answer"] = reviewed
+    _replace_entry(path, case_id, entry)
+
+
+def hold_in(path: Path, case_id: str, *, by: str | None, at: str, suite: Suite) -> None:
+    """A held-out answer moved among the held-in ones, recorded as a revision
+    is, with the person's name and the time. (ADR 0067 §1 (e), by the ruling
+    of 2026-11-23, P-1719)
+
+    Refused before anything is written: no mark, a case the file does not
+    hold, one that is not a reviewed answer, and one that is not held out.
+    `held_out` leaves the entry, so the answer reads held in as one never
+    held out does, and `held_in` says who moved it and when."""
+    if by is None or not by.strip():
+        raise RefusedError(
+            "--by NAME is missing: the person who moves an answer among the "
+            "held-in ones puts her name to it, never read from git or from "
+            "the environment (ADR 0067 §1 (e))"
+        )
+    held = _draft(path).get(case_id)
+    if held is None:
+        raise RefusedError(
+            f"{case_id} is not a case in {path.name}: nothing was written"
+        )
+    answer = held.reviewed_answer
+    if answer is None:
+        raise RefusedError(
+            f"{case_id} is not a reviewed answer: only a reviewed answer is "
+            "held in or held out"
+        )
+    if not answer.held_out:
+        raise RefusedError(
+            f"{case_id} is already held in: --held-in moves a held-out answer "
+            "among the held-in ones, and nothing was written"
+        )
+    moved = HeldIn(by=by, at=at)
+    # The suite's own rules, on the case as it would be written, as `revise`
+    # asks them.
+    updated = replace(
+        held, reviewed_answer=replace(answer, held_out=False, held_in=moved)
+    )
+    replace(suite, cases=[*(c for c in suite.cases if c.id != case_id), updated])
+    entry = _raw_entry(path, case_id)
+    reviewed = dict(cast("dict[str, object]", entry["reviewed_answer"]))
+    reviewed.pop("held_out", None)
+    reviewed["held_in"] = {"by": by, "at": at}
     entry["reviewed_answer"] = reviewed
     _replace_entry(path, case_id, entry)
 

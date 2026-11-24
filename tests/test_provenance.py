@@ -61,6 +61,7 @@ from digline.core import (
 from digline.core.naming import DRIVER_MARKERS, MISNAMED
 from digline.core.reconcile import UNRECONCILED
 from digline.core.run import SCHEMA_VERSION
+from digline.core.sampling import counted
 from digline.report import shape
 from digline.report.pages import _votes  # pyright: ignore[reportPrivateUsage]
 from digline.report.shape import CLAIMS_KEY
@@ -340,7 +341,13 @@ def test_the_driver_metadata_keys_are_the_ones_the_driver_writes() -> None:
     ]
     folded = combine_samples(samples, min_agreement=0.5)
     judged = fold_judgements([samples], min_agreement=0.5)
-    written = set(folded.score.metadata) | set(judged.score.metadata)
+    # And the count of a check that declares `at_least`. (ADR 0067 §7)
+    count = counted(folded, (1, 2))
+    written = (
+        set(folded.score.metadata)
+        | set(judged.score.metadata)
+        | set(count.score.metadata)
+    )
     assert (written - {"cost_usd"}) | DRIVER_MARKERS == DRIVER_METADATA_KEYS
 
 

@@ -83,6 +83,7 @@ from digline.run import (
     Calibration,
     CaptureSource,
     Case,
+    HeldIn,
     ReviewedAnswer,
     Revised,
     Suite,
@@ -966,6 +967,8 @@ def _reviewed_answer(raw: object, spot: str) -> ReviewedAnswer:
             given = {**given, "steps": recorded_steps_from_list(given["steps"])}
         if "revised" in given:
             given = {**given, "revised": _revised(given["revised"], where)}
+        if "held_in" in given:
+            given = {**given, "held_in": _held_in(given["held_in"], where)}
         return ReviewedAnswer(**cast("Any", given))
     except (TypeError, ValueError) as exc:
         raise UsageError(Written.of(exc, f"{where}: ", named=False)) from exc
@@ -984,6 +987,20 @@ def _revised(raw: object, where: str) -> Revised:
     _refuse_unknown(given, set(_init_fields(Revised)), spot, "field")
     try:
         return Revised(**cast("Any", given))
+    except (TypeError, ValueError) as exc:
+        raise UsageError(Written.of(exc, f"{spot}: ", named=False)) from exc
+
+
+def _held_in(raw: object, where: str) -> HeldIn:
+    """`"held_in": {"by": …, "at": …}`, a held-out answer moved among the
+    held-in ones, each unknown key refused by name. (ADR 0067 §1 (e), P-1719)"""
+    spot = f"{where}, held_in"
+    if not isinstance(raw, Mapping):
+        raise UsageError(f"{spot}: this is an object — by and at")
+    given = cast("Mapping[str, object]", raw)
+    _refuse_unknown(given, set(_init_fields(HeldIn)), spot, "field")
+    try:
+        return HeldIn(**cast("Any", given))
     except (TypeError, ValueError) as exc:
         raise UsageError(Written.of(exc, f"{spot}: ", named=False)) from exc
 

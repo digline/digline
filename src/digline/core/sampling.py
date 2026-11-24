@@ -20,7 +20,7 @@ from typing import ClassVar, cast
 
 from digline.core.assertions import AssertionBase, dataclass_identity
 from digline.core.protocols import Assertion
-from digline.core.ratio import Ratio, as_agreement
+from digline.core.ratio import Ratio, as_agreement, as_count
 from digline.core.refused import RefusedError
 from digline.core.types import (
     STORAGE_STEP,
@@ -38,16 +38,23 @@ from digline.core.types import (
 )
 
 __all__ = [
+    "AT_LEAST_KEY",
+    "AT_LEAST_OF_KEY",
     "COST_KEY",
     "IN_FAVOUR_KEY",
     "JUDGEMENTS_KEY",
+    "JUDGEMENT_THRESHOLD_KEY",
+    "MEAN_SCORE_KEY",
     "TOTAL_COST_KEY",
     "Repeated",
     "budget_exceedances",
     "combine_samples",
+    "counted",
+    "declared_at_least",
     "directions",
     "fold_judgements",
     "judged",
+    "judgements_per_answer",
     "on_the_line",
     "origin",
 ]
@@ -67,6 +74,16 @@ TOTAL_COST_KEY = "total_cost_usd"
 #: inner one counted; its `scores` are the inner means and could not say it.
 JUDGEMENTS_KEY = "judgements"
 IN_FAVOUR_KEY = "in_favour"
+
+#: What a check that declares `at_least = "k/n"` records beside its count
+#: (ADR 0067 §7, by the ruling of 2026-11-23, P-1719): k and n, as two numbers
+#: so they cross a boundary as every other count does (`travels`); the mean of
+#: the judgements, which the score was before the count replaced it; and the
+#: threshold each judgement was held to, which `threshold` no longer says.
+AT_LEAST_KEY = "at_least"
+AT_LEAST_OF_KEY = "at_least_of"
+MEAN_SCORE_KEY = "mean_score"
+JUDGEMENT_THRESHOLD_KEY = "judgement_threshold"
 
 
 def _agreement(statuses: Sequence[Status]) -> float:
@@ -496,6 +513,13 @@ def directions(verdict: Verdict) -> tuple[int, int, int]:
     explains the refusal, and the refusal is the one verdict a reader cannot
     read off a score. (ADR 0018 §8)
     """
+    if AT_LEAST_KEY in verdict.score.metadata:
+        # A counted verdict's threshold is k/n, and its scores are what each
+        # judgement scored against the bar the judgement was held to: the
+        # counts the fold wrote are the directions. (ADR 0067 §7)
+        judgements = _count(verdict, JUDGEMENTS_KEY)
+        favour = _count(verdict, IN_FAVOUR_KEY)
+        return favour, judgements - favour, _count(verdict, "errored_samples")
     scores = _sample_scores(verdict)
     passed = sum(1 for score in scores if meets(score, verdict.threshold))
     return passed, len(scores) - passed, _count(verdict, "errored_samples")
@@ -573,6 +597,9 @@ class Repeated(AssertionBase):
     #: A float that no `k/samples` can produce is refused (see `as_agreement`).
     min_agreement: Ratio
     name: str = ""
+    #: `"k/n"`, as on a judged check: declared here, on the check the suite
+    #: lists, and never on what it wraps. (ADR 0067 §7)
+    at_least: str | None = field(default=None, kw_only=True)
     KIND: ClassVar[CheckKind] = "wrapper"
     # Copied from `inner` rather than declared: two copies of a threshold drift
     # apart, and the wrapper has no opinion of its own about where the bar sits.
@@ -603,6 +630,21 @@ class Repeated(AssertionBase):
         )
         if not self.name:
             object.__setattr__(self, "name", self.inner.name)
+        if getattr(self.inner, "at_least", None) is not None:
+            raise RefusedError(
+                f"Repeated {self.name!r} wraps a check that declares at_least: "
+                "declare it on the repeated, the check the suite lists, where "
+                "every judgement it counts is folded"
+            )
+        if self.at_least is not None:
+            _, n = as_count(self.at_least, field="Repeated.at_least")
+            each = judgements_per_answer(self)
+            if n % each:
+                raise RefusedError(
+                    f"Repeated {self.name!r} declares at_least "
+                    f"{self.at_least!r}, and it judges each answer {each} "
+                    f"times: n is the suite's samples times {each}"
+                )
 
     def __call__(self, inputs: EvaluatorInputs) -> Verdict:
         combined = combine_samples(
@@ -612,7 +654,7 @@ class Repeated(AssertionBase):
         # Stamped with *this* assertion's name and identity: the fold above
         # carries the inner's, and the record has to name what the suite
         # declared.
-        return Verdict(
+        verdict = Verdict(
             score=Score(
                 name=self.name,
                 score=combined.score.score,
@@ -635,6 +677,14 @@ class Repeated(AssertionBase):
             assertion_id=self.identity,
             floor_standard_errors=self.floor_standard_errors,
         )
+        # Counted here where this fold is every judgement the check gets, so
+        # the check called on its own says what it says in a run. Where the
+        # suite samples too, n is larger and the driver counts after its own
+        # fold. (ADR 0067 §7; fixed decision 1)
+        at_least = declared_at_least(self)
+        if at_least is None or at_least[1] != judgements_per_answer(self):
+            return verdict
+        return counted(verdict, at_least)
 
     @property
     def identity(self) -> str:
@@ -646,7 +696,12 @@ class Repeated(AssertionBase):
         still reach it, as they did before the width existed. (ADR 0050)
         """
         return dataclass_identity(
-            self, self.IDENTITY_EXCLUDED, nested=frozenset({"floor_standard_errors"})
+            self,
+            self.IDENTITY_EXCLUDED,
+            # `at_least` beside the width: a field every judged check gained,
+            # which would otherwise reach this identity as a `null` and move
+            # every `Repeated` stored. (ADR 0067 §7)
+            nested=frozenset({"floor_standard_errors", "at_least"}),
         )
 
 
@@ -774,3 +829,120 @@ def fold_judgements(
     if widest is not None:
         metadata["judge_min"], metadata["judge_max"], metadata["judge_answer"] = widest
     return replace(folded, score=replace(folded.score, metadata=metadata))
+
+
+def declared_at_least(check: object) -> tuple[int, int] | None:
+    """`(k, n)` where `check` declares `at_least = "k/n"`, `None` where it
+    declares none.
+
+    Read with a default rather than through the `Assertion` protocol, as
+    `declared_floor` reads a width: the protocol gains no member, so a check of
+    somebody else's written before the field existed declares nothing. A
+    malformed value is refused, never read as none. (ADR 0067 §7)
+    """
+    value: object = getattr(check, "at_least", None)
+    if value is None:
+        return None
+    return as_count(value, field=f"{getattr(check, 'name', 'the check')}.at_least")
+
+
+def judgements_per_answer(check: object) -> int:
+    """How many times `check` judges one answer: the product of every
+    `Repeated` it is, followed down, and 1 for any other check. The suite's
+    `samples` multiplies it into the n `at_least` declares. (ADR 0067 §7)"""
+    each = 1
+    current: object = check
+    while isinstance(current, Repeated):
+        each *= current.samples
+        current = current.inner
+    return each
+
+
+def counted(verdict: Verdict, at_least: tuple[int, int]) -> Verdict:
+    """The folded verdict of a check that declares `at_least = "k/n"`, as a
+    count. (ADR 0067 §7, by the ruling of 2026-11-23, P-1719)
+
+    **The score is the share of the n judgements in favour, and the threshold
+    is k/n**, so the status is the comparison it is everywhere else and
+    `Verdict`'s one rule holds: a status never contradicts its score against
+    its threshold. The §7 of the record had the mean stay the score, and the
+    ruling moved it here, because a pass on two of three at a mean below the
+    judgement's threshold is a verdict `Verdict` refuses to build. So
+    `compare`'s tolerance and the `uncertain` fact read the count.
+
+    Beside it, in metadata: the mean the score was (`mean_score`), the bar
+    each judgement was held to (`judgement_threshold`), and k and n. The
+    `Score`'s interval is left empty: its samples are means on another scale,
+    and `compare` would read them as the count's noise floor. They stay in
+    `scores`. A judgement that could not judge is not in favour, and the
+    share is over n all the same.
+
+    A verdict in error stays in error, with k/n as its threshold and the
+    same keys, so a reader of the document sees what it would have been held
+    to. A verdict already counted is returned as it is: a `Repeated` counts
+    its own fold where that fold is every judgement, and the driver's single
+    sample after it is that verdict.
+    """
+    k, n = at_least
+    metadata = verdict.score.metadata
+    if (
+        metadata.get(AT_LEAST_KEY) == k
+        and metadata.get(AT_LEAST_OF_KEY) == n
+        and verdict.threshold == at_precision(k / n)
+    ):
+        return verdict
+    declared = {
+        AT_LEAST_KEY: k,
+        AT_LEAST_OF_KEY: n,
+        JUDGEMENT_THRESHOLD_KEY: verdict.threshold,
+    }
+    threshold = at_precision(k / n)
+    if verdict.status == "error" or verdict.score.score is None:
+        return replace(
+            verdict,
+            score=replace(verdict.score, metadata={**metadata, **declared}),
+            threshold=threshold,
+        )
+    if JUDGEMENTS_KEY in metadata:
+        judgements = _count(verdict, JUDGEMENTS_KEY)
+        favour = _count(verdict, IN_FAVOUR_KEY)
+    else:
+        judgements, favour = 1, int(verdict.status == "pass")
+    if judgements > n:
+        return replace(
+            verdict,
+            score=Score(
+                name=verdict.score.name,
+                score=None,
+                metadata={**metadata, **declared},
+            ),
+            threshold=threshold,
+            status="error",
+            reason=(
+                f"at_least counts {n} judgements, and this check was judged "
+                f"{judgements} times: n is the suite's samples times the "
+                "repeats"
+            ),
+        )
+    share = at_precision(favour / n)
+    unjudged = n - judgements
+    return replace(
+        verdict,
+        score=Score(
+            name=verdict.score.name,
+            score=share,
+            metadata={
+                **metadata,
+                **declared,
+                MEAN_SCORE_KEY: verdict.score.score,
+            },
+        ),
+        threshold=threshold,
+        status="pass" if meets(share, threshold) else "fail",
+        reason=(
+            f"{favour} of {n} judgements reached {verdict.threshold:g}, at "
+            f"least {k} needed"
+            + (f", {unjudged} could not be judged" if unjudged else "")
+            + f"; {verdict.reason}"
+        ),
+    )

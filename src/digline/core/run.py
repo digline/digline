@@ -20,6 +20,7 @@ from digline.core.calibration import CalibrationBand
 from digline.core.protocols import Assertion
 from digline.core.refused import NameRef, RefusedError, Said, Withheld, Written
 from digline.core.reviewed import Against, Reviewed
+from digline.core.sampling import declared_at_least
 from digline.core.text import recordable
 from digline.core.tokens import TokenKind, is_token
 from digline.core.types import (
@@ -2655,6 +2656,17 @@ def config_hash(
     )
     if widths:
         body.append({"floor_standard_errors": widths})
+    # `at_least`, on the width's rule and for the threshold's reason: it is how
+    # a check's judgements become its verdict, so a reference is not promoted
+    # across it, and only where declared, so no existing hash moves. Keyed
+    # under its own name, as the width is. (ADR 0067 §7)
+    counts = sorted(
+        (a.identity, f"{declared[0]}/{declared[1]}")
+        for a in assertions
+        if (declared := declared_at_least(a)) is not None
+    )
+    if counts:
+        body.append({"at_least": counts})
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 

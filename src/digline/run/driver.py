@@ -70,6 +70,7 @@ from digline.core.run import (
     record_tools,
     step_calls,
 )
+from digline.core.sampling import counted, declared_at_least
 from digline.run.suite import (
     Calibration,
     Case,
@@ -872,12 +873,15 @@ def _graded(
             return _stamped(assertion, misnamed_verdict(assertion, name, wrong))
         return _stamped(
             assertion,
-            combine_samples(
-                raw,
-                min_agreement=floor,
-                # A check of the user's own declares nothing, and keeps the
-                # mean alone, as before. (ADR 0018 §1)
-                each=getattr(assertion, "SAYS_EACH_SAMPLE", False) is True,
+            _counted(
+                assertion,
+                combine_samples(
+                    raw,
+                    min_agreement=floor,
+                    # A check of the user's own declares nothing, and keeps the
+                    # mean alone, as before. (ADR 0018 §1)
+                    each=getattr(assertion, "SAYS_EACH_SAMPLE", False) is True,
+                ),
             ),
         )
     rows = [
@@ -885,7 +889,18 @@ def _graded(
     ]
     if wrong := misnamings(name, (verdict for row in rows for verdict in row)):
         return _stamped(assertion, misnamed_verdict(assertion, name, wrong))
-    return _stamped(assertion, fold_judgements(rows, min_agreement=floor))
+    return _stamped(
+        assertion, _counted(assertion, fold_judgements(rows, min_agreement=floor))
+    )
+
+
+def _counted(assertion: Assertion, verdict: Verdict) -> Verdict:
+    """The fold, as a count where the check declares `at_least`, after the
+    driver's own fold: only here is every judgement of a sampled suite in one
+    verdict. `fold_judgements` records one judgement per answer, so a
+    `--judge-samples` replay counts what a plain replay counts. (ADR 0067 §7)"""
+    at_least = declared_at_least(assertion)
+    return verdict if at_least is None else counted(verdict, at_least)
 
 
 def _replaying(target: Target) -> bool:

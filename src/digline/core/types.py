@@ -231,6 +231,12 @@ DRIVER_METADATA_KEYS: frozenset[str] = frozenset(
         # fold rests on and how many passed, counts summed through each fold.
         "judgements",
         "in_favour",
+        # `sampling.counted`, on a check that declares `at_least` (ADR 0067
+        # §7): k and n, the mean the count replaced, and each judgement's bar.
+        "at_least",
+        "at_least_of",
+        "mean_score",
+        "judgement_threshold",
         # `fold_judgements`.
         "judge_samples",
         "judge_errored",

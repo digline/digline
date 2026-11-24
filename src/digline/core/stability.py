@@ -34,7 +34,7 @@ from typing import Literal
 
 from digline.core.compare import DifferentTenantsError
 from digline.core.run import Run, key_of
-from digline.core.sampling import directions
+from digline.core.sampling import JUDGEMENT_THRESHOLD_KEY, directions
 from digline.core.types import Verdict, meets
 
 __all__ = [
@@ -84,11 +84,17 @@ class Stability:
     `measured` is true from two runs read: with one, stability across runs
     was not measured, and only what one run shows, its samples, sets an
     answer apart.
+
+    `runs_unread` is how many of the suite's stored runs the scan passed over
+    because their schema is not this version's: said beside `runs_read`, so a
+    reading across three runs is not taken for one across all the suite's.
+    (ADR 0067 §3, by the ruling of 2026-11-23, P-1719)
     """
 
     runs_read: int
     unstable: tuple[Instability, ...]
     judgements: tuple[tuple[str, str, Judgements], ...] = ()
+    runs_unread: int = 0
 
     @property
     def measured(self) -> bool:
@@ -113,7 +119,9 @@ class Stability:
         )
 
 
-def reviewed_stability(run: Run, others: Sequence[Run] = ()) -> Stability:
+def reviewed_stability(
+    run: Run, others: Sequence[Run] = (), *, unread: int = 0
+) -> Stability:
     """The stability of `run`'s reviewed answers, read across `run` and
     `others`, the suite's other stored runs.
 
@@ -121,7 +129,8 @@ def reviewed_stability(run: Run, others: Sequence[Run] = ()) -> Stability:
     case, judged by a check of the same identity; one that holds none is not
     counted in `runs_read`. `run` itself among `others`, by key, is passed
     over. Refused across tenants, as every operation that pairs two runs is
-    (fixed decision 8).
+    (fixed decision 8). `unread` is the count of the suite's runs a scan
+    passed over for their schema, carried to `runs_unread`.
     """
     own = key_of(run.created_at, run.config_hash)
     wanted: dict[tuple[str, str], tuple[Verdict, bool, bool, str]] = {}
@@ -179,7 +188,10 @@ def reviewed_stability(run: Run, others: Sequence[Run] = ()) -> Stability:
         if why is not None:
             unstable.append(Instability(case_id, name, identity, held_out, why))
     return Stability(
-        runs_read=read, unstable=tuple(unstable), judgements=tuple(judgements)
+        runs_read=read,
+        unstable=tuple(unstable),
+        judgements=tuple(judgements),
+        runs_unread=unread,
     )
 
 
@@ -206,11 +218,15 @@ def _why(verdicts: Sequence[Verdict]) -> Unsteady | None:
     for verdict in verdicts:
         low = verdict.score.metadata.get("judge_min")
         high = verdict.score.metadata.get("judge_max")
+        # A judgement's score is held to the bar each judgement meets: on a
+        # check that declares `at_least` that is not the threshold, k/n, but
+        # the one the count recorded. (ADR 0067 §7)
+        bar = verdict.score.metadata.get(JUDGEMENT_THRESHOLD_KEY, verdict.threshold)
         if (
             isinstance(low, int | float)
             and isinstance(high, int | float)
-            and meets(float(low), verdict.threshold)
-            != meets(float(high), verdict.threshold)
+            and isinstance(bar, int | float)
+            and meets(float(low), float(bar)) != meets(float(high), float(bar))
         ):
             return "judge_samples"
     return None

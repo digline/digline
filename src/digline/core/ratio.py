@@ -23,7 +23,7 @@ from fractions import Fraction
 from digline.core.refused import RefusedError
 from digline.core.types import at_precision
 
-__all__ = ["Ratio", "as_agreement", "as_ratio", "reachable_agreements"]
+__all__ = ["Ratio", "as_agreement", "as_count", "as_ratio", "reachable_agreements"]
 
 #: What a "k out of n" quantity may be written as. A plain float still works;
 #: the other two forms exist so the intent survives being read six months later.
@@ -40,6 +40,50 @@ def as_ratio(value: Ratio, *, field: str) -> float:
                 f'{field} is {value!r}, which is not a number or a fraction like "2/3"'
             ) from exc
     return float(value)
+
+
+def as_count(value: object, *, field: str) -> tuple[int, int]:
+    """`"k/n"` as `(k, n)`: at least k of n judgements. (ADR 0067 §7)
+
+    **Written as a string and nothing else**, because the two numbers are the
+    declaration and no other form keeps both: `Fraction(4, 6)` is `2/3`, and a
+    float is neither. `n` is checked against what the suite produces, so it
+    must survive as written.
+
+    `n` is at least 2, as `Repeated.samples` is: at least k of one judgement
+    is the threshold itself. `k` is at least 1, because *at least none* passes
+    every answer, the vacuous green of fixed decision 3, and at most `n`.
+    """
+    if not isinstance(value, str):
+        raise RefusedError(
+            f'{field} is {value!r}: write it as a count, "k/n", e.g. "2/3". '
+            "A fraction or a decimal loses n, which is checked against the "
+            "judgements the suite produces"
+        )
+    head, slash, tail = (part.strip() for part in value.partition("/"))
+    if not (slash and _digits(head) and _digits(tail)):
+        raise RefusedError(
+            f'{field} is {value!r}, which is not a count like "2/3": at least '
+            "k of n judgements, two whole numbers"
+        )
+    k, n = int(head), int(tail)
+    if n < 2:
+        raise RefusedError(
+            f"{field} is {value!r}: at least k of {n} judgement(s) is the "
+            "threshold itself; at_least counts two judgements or more"
+        )
+    if not 1 <= k <= n:
+        raise RefusedError(
+            f"{field} is {value!r}: k is between 1 and {n}. At least none "
+            "passes every answer, and more than n passes none"
+        )
+    return k, n
+
+
+def _digits(text: str) -> bool:
+    # `isdigit` alone accepts superscripts and other scripts' digits, which
+    # `int` then refuses or reads otherwise; ASCII is the form a file writes.
+    return text.isascii() and text.isdigit()
 
 
 def reachable_agreements(samples: int) -> list[Fraction]:
